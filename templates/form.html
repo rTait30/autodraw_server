@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Config Creator</title>
+    <style>
+        .tab { display: none; }
+        .tab.active { display: block; }
+        .tab-buttons button { margin-right: 10px; }
+        pre.output { background: #f0f0f0; padding: 10px; margin-top: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Submit a New Config</h1>
+
+    <!-- Tabs -->
+    <div class="tab-buttons">
+        <button onclick="showTab('shadeSails')">Shade Sails</button>
+        <button onclick="showTab('surgicalCovers')">Surgical Covers</button>
+    </div>
+
+    <!-- Shade Sails Form -->
+    <div id="shadeSails" class="tab active">
+        <h2>Shade Sails Config</h2>
+        <form id="formShadeSails">
+            <input type="text" id="shadeName" placeholder="Name"><br>
+            <input type="number" id="shadeWidth" placeholder="Width"><br>
+            <input type="number" id="shadeHeight" placeholder="Height"><br><br>
+            <button type="button" onclick="submitForm('shadesails')">Save Shade Sails Config</button>
+        </form>
+    </div>
+
+    <!-- Surgical Covers Form -->
+    <div id="surgicalCovers" class="tab">
+        <h2>Surgical Covers Config</h2>
+        <form id="formSurgicalCovers">
+            <input type="text" id="surgicalName" placeholder="Name"><br>
+            <input type="number" id="surgicalLength" placeholder="Length"><br>
+            <input type="number" id="surgicalWidth" placeholder="Width"><br>
+            <input type="number" id="surgicalHeight" placeholder="Height"><br>
+            <input type="number" id="surgicalQuantity" placeholder="Quantity"><br><br>
+            <button type="button" onclick="submitForm('surgical')">Save Surgical Covers Config</button>
+        </form>
+    </div>
+
+    <hr>
+
+    <!-- Uploaded configs list -->
+    <h2>Uploaded Configs</h2>
+    <div id="configsList"></div>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function submitForm(category) {
+            let data = { category };
+
+            if (category === 'shadesails') {
+                data.name = document.getElementById('shadeName').value;
+                data.width = parseFloat(document.getElementById('shadeWidth').value);
+                data.height = parseFloat(document.getElementById('shadeHeight').value);
+            } else if (category === 'surgical') {
+                data.name = document.getElementById('surgicalName').value;
+                data.length = parseFloat(document.getElementById('surgicalLength').value);
+                data.width = parseFloat(document.getElementById('surgicalWidth').value);
+                data.height = parseFloat(document.getElementById('surgicalHeight').value);
+                data.quantity = parseFloat(document.getElementById('surgicalQuantity').value);
+            }
+
+            fetch('/save_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(response => {
+                alert("Saved successfully!");
+                loadConfigs();  // Reload the configs list after saving
+            });
+        }
+
+        function loadConfigs() {
+            const categories = ['shadesails', 'surgical'];
+            let allConfigsHTML = '';
+
+            categories.forEach(category => {
+                fetch('/list_configs/' + category)
+                    .then(res => res.json())
+                    .then(files => {
+                        if (files.length > 0) {
+                            allConfigsHTML += `<h3>${category}</h3><ul>`;
+                            files.forEach(file => {
+                                allConfigsHTML += `<li><a href="/get_config/${category}/${file}" target="_blank">${file}</a></li>`;
+                            });
+                            allConfigsHTML += `</ul>`;
+                        }
+                        document.getElementById('configsList').innerHTML = allConfigsHTML;
+                    });
+            });
+        }
+
+        window.onload = loadConfigs;
+    </script>
+</body>
+</html>

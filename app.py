@@ -1,0 +1,43 @@
+from flask import Flask, render_template, request, send_from_directory, jsonify
+import os
+import json
+
+app = Flask(__name__)
+
+BASE_CONFIG_DIR = 'configs'
+
+@app.route('/')
+def index():
+    return render_template('form.html')
+
+@app.route('/save_config', methods=['POST'])
+def save_config():
+    data = request.json
+    category = data.get('category', 'misc')
+    name = data.get('name', 'config')
+
+    save_path = os.path.join(BASE_CONFIG_DIR, category)
+    os.makedirs(save_path, exist_ok=True)
+
+    filepath = os.path.join(save_path, f"{name}.json")
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=2)
+
+    return jsonify({'status': 'success', 'saved_to': filepath})
+
+@app.route('/list_configs/<category>', methods=['GET'])
+def list_configs(category):
+    folder = os.path.join(BASE_CONFIG_DIR, category)
+    if not os.path.exists(folder):
+        return jsonify([])
+
+    files = [f for f in os.listdir(folder) if f.endswith('.json')]
+    return jsonify(files)
+
+@app.route('/get_config/<category>/<filename>', methods=['GET'])
+def get_config(category, filename):
+    folder = os.path.join(BASE_CONFIG_DIR, category)
+    return send_from_directory(folder, filename)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80, debug=True)

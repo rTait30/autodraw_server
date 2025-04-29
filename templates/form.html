@@ -70,7 +70,7 @@
                 data.quantity = parseFloat(document.getElementById('surgicalQuantity').value);
             }
 
-            fetch('/save_config', {
+            fetch('/copelands/save_config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -87,13 +87,13 @@
             let allConfigsHTML = '';
 
             categories.forEach(category => {
-                fetch('/list_configs/' + category)
+                fetch('/copelands/list_configs/' + category)
                     .then(res => res.json())
                     .then(files => {
                         if (files.length > 0) {
                             allConfigsHTML += `<h3>${category}</h3><ul>`;
                             files.forEach(file => {
-                                allConfigsHTML += `<li><a href="/get_config/${category}/${file}" target="_blank">${file}</a></li>`;
+                                allConfigsHTML += `<li><a href="/copelands/get_config/${category}/${file}" target="_blank">${file}</a></li>`;
                             });
                             allConfigsHTML += `</ul>`;
                         }

@@ -15,18 +15,18 @@
 
     <!-- Tabs -->
     <div class="tab-buttons">
-        <button onclick="showTab('shadeSails')">Shade Sails</button>
+        <button onclick="showTab('shadeSail')">Shade Sails</button>
         <button onclick="showTab('surgicalCovers')">Surgical Covers</button>
     </div>
 
     <!-- Shade Sails Form -->
-    <div id="shadeSails" class="tab active">
+    <div id="shadeSail" class="tab active">
         <h2>Shade Sails Config</h2>
-        <form id="formShadeSails">
+        <form id="formShadeSail">
             <input type="text" id="shadeName" placeholder="Name"><br>
             <input type="number" id="shadeWidth" placeholder="Width"><br>
             <input type="number" id="shadeHeight" placeholder="Height"><br><br>
-            <button type="button" onclick="submitForm('shadesails')">Save Shade Sails Config</button>
+            <button type="button" onclick="submitForm('shadesail')">Save Shade Sails Config</button>
         </form>
     </div>
 
@@ -58,7 +58,7 @@
         function submitForm(category) {
             let data = { category };
 
-            if (category === 'shadesails') {
+            if (category === 'shadesail') {
                 data.name = document.getElementById('shadeName').value;
                 data.width = parseFloat(document.getElementById('shadeWidth').value);
                 data.height = parseFloat(document.getElementById('shadeHeight').value);
@@ -83,7 +83,7 @@
         }
 
         function loadConfigs() {
-            const categories = ['shadesails', 'surgical'];
+            const categories = ['shadesail', 'surgical'];
             let allConfigsHTML = '';
 
             categories.forEach(category => {

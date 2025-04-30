@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, send_from_directory, jsonify
 import os
 import json
 
+a = "test"
+
 app = Flask(__name__)
 
 BASE_CONFIG_DIR = 'configs'

@@ -14,18 +14,23 @@ def index():
 
 @app.route('/save_config', methods=['POST'])
 def save_config():
-    data = request.json
-    category = data.get('category', 'misc')
-    name = data.get('name', 'config')
+    data = request.get_json()
+    category = data.get('category')
+    job_name = data.get('job', 'unnamed_job').replace(' ', '_')
 
-    save_path = os.path.join(BASE_CONFIG_DIR, category)
-    os.makedirs(save_path, exist_ok=True)
+    if not category or not job_name:
+        return jsonify({"error": "Missing category or job name"}), 400
 
-    filepath = os.path.join(save_path, f"{name}.json")
+    save_dir = os.path.join('configs', category)
+    os.makedirs(save_dir, exist_ok=True)
+
+    filename = f"{job_name}.json"
+    filepath = os.path.join(save_dir, filename)
+
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=2)
 
-    return jsonify({'status': 'success', 'saved_to': filepath})
+    return jsonify({"success": True, "filename": filename})
 
 @app.route('/list_configs/<category>', methods=['GET'])
 def list_configs(category):

@@ -173,7 +173,7 @@
             }
 
             // Submit
-            fetch('/save_config', {
+            fetch('/copelands/save_config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -190,7 +190,7 @@
             let allConfigsHTML = '';
 
             categories.forEach(category => {
-                fetch('/list_configs/' + category)
+                fetch('/copelands/list_configs/' + category)
                     .then(res => res.json())
                     .then(files => {
                         if (files.length > 0) {

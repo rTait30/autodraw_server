@@ -4,7 +4,8 @@ import json
 
 a = "test"
 
-app = Flask(__name__)
+
+app = Flask(__name__, static_url_path='/static')
 
 BASE_CONFIG_DIR = 'configs'
 

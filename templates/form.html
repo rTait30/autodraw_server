@@ -168,8 +168,11 @@
     <h2>Uploaded Configs</h2>
     <div id="configsList"></div>
 
-    <script src="/copelands/static/js/main.js" type="module"></script>
-    <link rel="stylesheet" href="/copelands/static/css/main.css">
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
 
 </body>
 </html>

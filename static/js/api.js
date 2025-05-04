@@ -1,4 +1,4 @@
-export const local = true;
+export const local = false;
 export const base = local ? '' : '/copelands';
 
 export function loadConfigs() {

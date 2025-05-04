@@ -9,9 +9,10 @@ app = Flask(__name__, static_url_path='/copelands/static')
 
 BASE_CONFIG_DIR = 'configs'
 
-@app.route('/')
-def index():
-    return render_template('form.html')
+@app.route('/copelands/')
+@app.route('/copelands')
+def copelands_index():
+    return render_template('index.html')
 
 @app.route('/save_config', methods=['POST'])
 def save_config():

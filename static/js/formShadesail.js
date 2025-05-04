@@ -7,7 +7,7 @@ const FIXING_TYPES = ['Long Dee Shackle', 'Dee Shackle', 'Long Shackle', 'M8 Tur
 function collectShadeSailData() {
     const data = {
         category: 'shadesail',
-        company: document.getElementById('companyName')?.value || '',
+        company: document.getElementById('company')?.value || '',
         contact: document.getElementById('contact')?.value || '',
         name: document.getElementById('reference')?.value || '',
         date: document.getElementById('date')?.value || '',
@@ -125,7 +125,7 @@ function generateEdgeInputs() {
         // Log everything for debug
         console.log("=== Shade Sail Data ===");
         console.log("Company:", data.company);
-        console.log("Job:", data.job);
+        console.log("Job:", data.reference);
         console.log("Points:", data.points);
         console.log("Edges:", data.edges);
         console.log("Diagonals:", data.diagonals);
@@ -134,7 +134,7 @@ function generateEdgeInputs() {
         const edgeKeys = Object.keys(data.edges);
         const expectedEdges = parseInt(document.getElementById('cornerCount')?.value) || 0;
 
-        validateEdges(data.edges, expectedEdges);
+        validate3DEdges(data.edges, expectedEdges);
 
         if (edgeKeys.length === expectedEdges) {
             drawShadeSail(data.points, data.edges, data.diagonals);
@@ -153,10 +153,6 @@ function generateEdgeInputs() {
         input.addEventListener('input', triggerDraw);
     });
 }
-
-
-
-
 
 function getShadeSailCoords(Points, Edges, Diagonals) {
     const coords = {};
@@ -436,6 +432,135 @@ function solveTriangle(A, B, dAC, dBC, preferClockwise = true) {
     };
 }
 
+
+
+
+
+
+
+
+
+
+
+function validateEdges(edges, cornerCount) {
+    const edgeKeys = [];
+    for (let i = 0; i < cornerCount; i++) {
+        const from = String.fromCharCode(65 + i);
+        const to = String.fromCharCode(65 + ((i + 1) % cornerCount));
+        edgeKeys.push(`edge-${from}-${to}`);
+    }
+
+    let invalid = false;
+    let lengths = edgeKeys.map(name => {
+        const input = document.querySelector(`input[name="${name}"]`);
+        const val = parseFloat(input?.value);
+        return isNaN(val) ? 0 : val;
+    });
+
+    // Simple validation: sum of any edge must be < sum of others
+    for (let i = 0; i < lengths.length; i++) {
+        const thisEdge = lengths[i];
+        const others = lengths.reduce((sum, l, j) => i === j ? sum : sum + l, 0);
+        if (thisEdge >= others) {
+            invalid = true;
+            const name = edgeKeys[i];
+            const input = document.querySelector(`input[name="${name}"]`);
+            if (input) input.classList.add('input-error');
+        } else {
+            const input = document.querySelector(`input[name="${edgeKeys[i]}"]`);
+            if (input) input.classList.remove('input-error');
+        }
+    }
+
+    const warning = document.getElementById('edgeWarning');
+    if (warning) {
+        warning.style.display = invalid ? 'block' : 'none';
+    }
+}
+
+function validate3DEdges(points, edgeKeys, maxSlope = 3.0) {
+    let invalid = false;
+
+    // Extract edge lengths and heights
+    const lengths = edgeKeys.map(key => {
+        const input = document.querySelector(`input[name="${key}"]`);
+        const val = parseFloat(input?.value);
+        return isNaN(val) ? 0 : val;
+    });
+
+    // 1. Triangle inequality check
+    for (let i = 0; i < lengths.length; i++) {
+        const thisEdge = lengths[i];
+        const others = lengths.reduce((sum, l, j) => i === j ? sum : sum + l, 0);
+        if (thisEdge >= others) {
+            invalid = true;
+            const input = document.querySelector(`input[name="${edgeKeys[i]}"]`);
+            if (input) input.classList.add('input-error');
+        } else {
+            const input = document.querySelector(`input[name="${edgeKeys[i]}"]`);
+            if (input) input.classList.remove('input-error');
+        }
+    }
+
+    // 2. Vertical slope check (height difference / edge length)
+    for (let i = 0; i < edgeKeys.length; i++) {
+        const key = edgeKeys[i];
+        const match = key.match(/^edge-([A-Z])-([A-Z])$/);
+        if (!match) continue;
+
+        const [, from, to] = match;
+        const dz = Math.abs(points[from].height - points[to].height);
+        const len = lengths[i];
+
+        const slope = dz / (len || 1);  // Avoid division by 0
+        if (slope > maxSlope) {
+            invalid = true;
+            const input = document.querySelector(`input[name="${key}"]`);
+            if (input) input.classList.add('input-error');
+        }
+    }
+
+    const warning = document.getElementById('edgeWarning');
+    if (warning) {
+        warning.style.display = invalid ? 'block' : 'none';
+    }
+}
+
+export function setupShadesailForm() {
+    console.log("🔧 setupShadesailForm called");
+
+    const cornerCountInput = document.getElementById('cornerCount');
+    if (cornerCountInput) {
+        console.log("✅ Found cornerCountInput");
+        cornerCountInput.addEventListener('input', generateEdgeInputs);
+        if (parseInt(cornerCountInput.value) >= 3) {
+            generateEdgeInputs();
+        }
+    } else {
+        console.warn("❌ Did not find cornerCountInput");
+    }
+
+    const saveButton = document.getElementById("saveShadesailBtn");
+    if (saveButton) {
+        console.log("✅ Found saveShadesailBtn");
+
+        saveButton.addEventListener("click", () => {
+            console.log("🟢 Pressed Save Shade Sail Config Button");
+            const data = collectShadeSailData();
+            console.log("🟡 Collected Data:", data);
+            //drawShadeSail(data.points, data.edges, data.diagonals);
+            saveConfig(data, "shadesail").then(() => {
+                
+                window.loadConfigs?.();
+            });
+        });
+    } else {
+        console.warn("❌ Save button with ID 'saveShadesailBtn' not found");
+    }
+}
+
+
+
 function drawShadeSailOld(points, edges, diagonals) {
     const warningEl = document.getElementById('warning');
     if (warningEl) warningEl.textContent = '';
@@ -604,81 +729,4 @@ function drawShadeSailOld(points, edges, diagonals) {
     });
 
     console.log("✅ Final Coordinates:", coords);
-}
-
-
-
-
-
-
-
-
-
-function validateEdges(edges, cornerCount) {
-    const edgeKeys = [];
-    for (let i = 0; i < cornerCount; i++) {
-        const from = String.fromCharCode(65 + i);
-        const to = String.fromCharCode(65 + ((i + 1) % cornerCount));
-        edgeKeys.push(`edge-${from}-${to}`);
-    }
-
-    let invalid = false;
-    let lengths = edgeKeys.map(name => {
-        const input = document.querySelector(`input[name="${name}"]`);
-        const val = parseFloat(input?.value);
-        return isNaN(val) ? 0 : val;
-    });
-
-    // Simple validation: sum of any edge must be < sum of others
-    for (let i = 0; i < lengths.length; i++) {
-        const thisEdge = lengths[i];
-        const others = lengths.reduce((sum, l, j) => i === j ? sum : sum + l, 0);
-        if (thisEdge >= others) {
-            invalid = true;
-            const name = edgeKeys[i];
-            const input = document.querySelector(`input[name="${name}"]`);
-            if (input) input.classList.add('input-error');
-        } else {
-            const input = document.querySelector(`input[name="${edgeKeys[i]}"]`);
-            if (input) input.classList.remove('input-error');
-        }
-    }
-
-    const warning = document.getElementById('edgeWarning');
-    if (warning) {
-        warning.style.display = invalid ? 'block' : 'none';
-    }
-}
-
-export function setupShadesailForm() {
-    console.log("🔧 setupShadesailForm called");
-
-    const cornerCountInput = document.getElementById('cornerCount');
-    if (cornerCountInput) {
-        console.log("✅ Found cornerCountInput");
-        cornerCountInput.addEventListener('input', generateEdgeInputs);
-        if (parseInt(cornerCountInput.value) >= 3) {
-            generateEdgeInputs();
-        }
-    } else {
-        console.warn("❌ Did not find cornerCountInput");
-    }
-
-    const saveButton = document.getElementById("saveShadesailBtn");
-    if (saveButton) {
-        console.log("✅ Found saveShadesailBtn");
-
-        saveButton.addEventListener("click", () => {
-            console.log("🟢 Pressed Save Shade Sail Config Button");
-            const data = collectShadeSailData();
-            console.log("🟡 Collected Data:", data);
-            //drawShadeSail(data.points, data.edges, data.diagonals);
-            saveConfig(data, "shadesail").then(() => {
-                
-                window.loadConfigs?.();
-            });
-        });
-    } else {
-        console.warn("❌ Save button with ID 'saveShadesailBtn' not found");
-    }
 }

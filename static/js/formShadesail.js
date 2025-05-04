@@ -667,7 +667,7 @@ export function setupShadesailForm() {
             console.log("🟡 Collected Data:", data);
             //drawShadeSail(data.points, data.edges, data.diagonals);
             saveConfig(data, "shadesail").then(() => {
-                alert("Saved successfully!");
+                
                 window.loadConfigs?.();
             });
         });

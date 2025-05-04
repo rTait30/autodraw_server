@@ -1,4 +1,4 @@
-export const local = false;
+export const local = true;
 export const base = local ? '' : '/copelands';
 
 export function loadConfigs() {
@@ -24,10 +24,16 @@ export function loadConfigs() {
     });
 }
 
+
 export function saveConfig(data, category) {
     return fetch(`${base}/save_config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    }).then(res => res.json());
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(response => {
+        alert("Saved successfully!");
+        loadConfigs();  // ⬅️ Refresh just the config list
+    });
 }

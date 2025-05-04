@@ -1,5 +1,5 @@
 export const local = false;
-export const base = local ? '' : '';
+export const base = local ? '' : '/copelands';
 
 export function loadConfigs() {
     const categories = ['shadesail', 'surgical'];

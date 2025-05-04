@@ -14,7 +14,7 @@ BASE_CONFIG_DIR = 'configs'
 def copelands_index():
     return render_template('index.html')
 
-@app.route('/save_config', methods=['POST'])
+@app.route('/copelands/save_config', methods=['POST'])
 def save_config():
     data = request.get_json()
     category = data.get('category')
@@ -34,7 +34,7 @@ def save_config():
 
     return jsonify({"success": True, "filename": filename})
 
-@app.route('/list_configs/<category>', methods=['GET'])
+@app.route('/copelands/list_configs/<category>', methods=['GET'])
 def list_configs(category):
     folder = os.path.join(BASE_CONFIG_DIR, category)
     if not os.path.exists(folder):
@@ -43,7 +43,7 @@ def list_configs(category):
     files = [f for f in os.listdir(folder) if f.endswith('.json')]
     return jsonify(files)
 
-@app.route('/get_config/<category>/<filename>', methods=['GET'])
+@app.route('/copelands/get_config/<category>/<filename>', methods=['GET'])
 def get_config(category, filename):
     folder = os.path.join(BASE_CONFIG_DIR, category)
     return send_from_directory(folder, filename)

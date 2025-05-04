@@ -22,7 +22,7 @@ export function setupSurgicalForm() {
             console.log("🟡 Collected Data:", data);
 
             saveConfig(data, "surgical").then(() => {
-                alert('Saved successfully!');
+                
                 window.loadConfigs?.();
             });
         });

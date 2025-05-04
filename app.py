@@ -7,8 +7,9 @@ a = "test"
 
 app = Flask(
     __name__,
-    static_url_path="/copelands/static",
-    static_folder="static"
+    static_folder='static',
+    static_url_path='/copelands/static'
+    
 )
 
 BASE_CONFIG_DIR = 'configs'

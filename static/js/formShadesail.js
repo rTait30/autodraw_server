@@ -71,7 +71,12 @@ function collectShadeSailData() {
 
 function generateEdgeInputs() {
     const count = parseInt(document.getElementById('cornerCount').value);
-    if (isNaN(count) || count < 3) return;
+    const cornerWarning = document.getElementById('cornerWarning');
+    if (isNaN(count) || count < 3) {
+        
+        if (cornerWarning) cornerWarning.innerText = "Need at least 3 corners";
+        return;
+    }
 
     const edgeContainer = document.getElementById('edgesContainer');
     const diagContainer = document.getElementById('diagonalsContainer');

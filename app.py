@@ -16,7 +16,7 @@ def index():
 def save_config():
     data = request.get_json()
     category = data.get('category')
-    job_name = data.get('job', 'unnamed_job').replace(' ', '_')
+    job_name = data.get('name', 'unnamed_job').replace(' ', '_')
 
     if not category or not job_name:
         return jsonify({"error": "Missing category or job name"}), 400

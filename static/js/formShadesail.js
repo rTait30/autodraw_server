@@ -78,6 +78,8 @@ function generateEdgeInputs() {
         return;
     }
 
+    if (cornerWarning) cornerWarning.innerText = "";
+
     const edgeContainer = document.getElementById('edgesContainer');
     const diagContainer = document.getElementById('diagonalsContainer');
     const pointContainer = document.getElementById('pointsContainer');

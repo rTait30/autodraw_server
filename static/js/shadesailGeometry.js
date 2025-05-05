@@ -1,41 +1,35 @@
-export function validate3DEdges(points, edges, maxSlope = 3.0) {
+export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
     let invalid = false;
 
-    // Extract edge lengths and heights
-    const lengths = edges.map(key => {
-        const input = document.querySelector(`input[name="${key}"]`);
-        const val = parseFloat(input?.value);
-        return isNaN(val) ? 0 : val;
-    });
+    const edgeEntries = Object.entries(edgeLengthsObj); // [ ["A-B", 2], ["B-C", 2] ]
 
     // 1. Triangle inequality check
-    for (let i = 0; i < lengths.length; i++) {
-        const thisEdge = lengths[i];
-        const others = lengths.reduce((sum, l, j) => i === j ? sum : sum + l, 0);
-        if (thisEdge >= others) {
+    for (let i = 0; i < edgeEntries.length; i++) {
+        const [thisKey, thisLen] = edgeEntries[i];
+        const othersSum = edgeEntries.reduce((sum, [key, len], j) => i === j ? sum : sum + len, 0);
+
+        if (thisLen >= othersSum) {
             invalid = true;
-            const input = document.querySelector(`input[name="${edges[i]}"]`);
+            const input = document.querySelector(`input[name="edge-${thisKey}"]`);
             if (input) input.classList.add('input-error');
         } else {
-            const input = document.querySelector(`input[name="${edges[i]}"]`);
+            const input = document.querySelector(`input[name="edge-${thisKey}"]`);
             if (input) input.classList.remove('input-error');
         }
     }
 
-    // 2. Vertical slope check (height difference / edge length)
-    for (let i = 0; i < edges.length; i++) {
-        const key = edges[i];
-        const match = key.match(/^edge-([A-Z])-([A-Z])$/);
+    // 2. Vertical slope check
+    for (const [key, len] of edgeEntries) {
+        const match = key.match(/^([A-Z])-([A-Z])$/);
         if (!match) continue;
 
         const [, from, to] = match;
         const dz = Math.abs(points[from].height - points[to].height);
-        const len = lengths[i];
+        const slope = dz / (len || 1);
 
-        const slope = dz / (len || 1);  // Avoid division by 0
         if (slope > maxSlope) {
             invalid = true;
-            const input = document.querySelector(`input[name="${key}"]`);
+            const input = document.querySelector(`input[name="edge-${key}"]`);
             if (input) input.classList.add('input-error');
         }
     }

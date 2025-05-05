@@ -1,4 +1,4 @@
-function validate3DEdges(points, edges, maxSlope = 3.0) {
+export function validate3DEdges(points, edges, maxSlope = 3.0) {
     let invalid = false;
 
     // Extract edge lengths and heights
@@ -46,7 +46,7 @@ function validate3DEdges(points, edges, maxSlope = 3.0) {
     }
 }
 
-function getShadeSailCoords(Points, Edges, Diagonals) {
+export function getShadeSailCoords(Points, Edges, Diagonals) {
     const coords = {};
     const placed = new Set();
     const allPoints = Object.keys(Points);

@@ -21,6 +21,8 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         }
     }
 
+    const warning = document.getElementById('edgeWarning');
+
     // 2. Optional slope warning only (3D lengths already account for height)
     for (const [key, len] of edgeEntries) {
         const match = key.match(/^([A-Z])-([A-Z])$/);
@@ -29,7 +31,7 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         const [, from, to] = match;
         const dz = Math.abs(points[from].height - points[to].height);
 
-        const warning = document.getElementById('edgeWarning');
+        
 
         if (dz > len) {
             console.warn(`Invalid: vertical difference (${dz}) exceeds edge length (${len})`);

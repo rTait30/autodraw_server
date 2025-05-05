@@ -80,14 +80,20 @@ export function getShadeSailCoords(Points, Edges, Diagonals) {
         return base > min && base < max;
     }
 
-    if (allPoints.length < 2) return null;
+    if (allPoints.length < 2) {
+        document.getElementById("warning").textContent = "At least two points are required.";
+        return null;
+    }
 
     const A = allPoints[0];
     coords[A] = { x: 0, y: 0, z: Points[A]?.height ?? 0 };
     placed.add(A);
 
     const B = allPoints.find(p => p !== A && getDistance(A, p));
-    if (!B) return null;
+    if (!B) {
+        document.getElementById("warning").textContent = "No valid second point found connected to first point.";
+        return null;
+    }
 
     const AB = getDistance(A, B);
     coords[B] = { x: AB, y: 0, z: Points[B]?.height ?? 0 };
@@ -141,7 +147,10 @@ export function getShadeSailCoords(Points, Edges, Diagonals) {
 
             const r1Squared = bestD1 ** 2 - dz1 ** 2;
             const r2Squared = bestD2 ** 2 - dz2 ** 2;
-            if (r1Squared < 0 || r2Squared < 0) continue;
+            if (r1Squared < 0 || r2Squared < 0) {
+                document.getElementById("warning").textContent = `Invalid triangle distances for point ${P}.`;
+                continue;
+            }
 
             const r1 = Math.sqrt(r1Squared);
             const r2 = Math.sqrt(r2Squared);
@@ -151,11 +160,17 @@ export function getShadeSailCoords(Points, Edges, Diagonals) {
             const dz = p2Coord.z - p1Coord.z;
             const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-            if (!triangleCheck(r1, r2, d3)) continue;
+            if (!triangleCheck(r1, r2, d3)) {
+                document.getElementById("warning").textContent = `Triangle check failed for point ${P}.`;
+                continue;
+            }
 
             const a = (r1 ** 2 - r2 ** 2 + d3 ** 2) / (2 * d3);
             const hSquared = r1 ** 2 - a ** 2;
-            if (hSquared < 0) continue;
+            if (hSquared < 0) {
+                document.getElementById("warning").textContent = `Height calculation failed for point ${P}.`;
+                continue;
+            }
 
             const h = Math.sqrt(hSquared);
             const px = p1Coord.x + (a * dx) / d3;
@@ -167,7 +182,6 @@ export function getShadeSailCoords(Points, Edges, Diagonals) {
             const candidate1 = { x: px + ox, y: py - oy, z: zP };
             const candidate2 = { x: px - ox, y: py + oy, z: zP };
 
-            // Always choose the candidate with lower average Y
             const avgY1 = (candidate1.y + p1Coord.y + p2Coord.y) / 3;
             const avgY2 = (candidate2.y + p1Coord.y + p2Coord.y) / 3;
 
@@ -179,9 +193,15 @@ export function getShadeSailCoords(Points, Edges, Diagonals) {
         }
     }
 
-    if (placed.size < allPoints.length) return null;
+    if (placed.size < allPoints.length) {
+        document.getElementById("warning").textContent = "Could not place all points. Some data may be missing or inconsistent.";
+        return null;
+    }
+
+    document.getElementById("warning").textContent = ""; // Clear warning
     return coords;
 }
+
 
 function validateEdges(edges, cornerCount) {
     const edgeKeys = [];

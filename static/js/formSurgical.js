@@ -13,6 +13,7 @@ export function setupSurgicalForm() {
             const data = {
                 category: 'surgical',
                 name: document.getElementById('surgicalName')?.value || '',
+                project: document.getElementById('surgicalProject')?.value || '',
                 length: parseFloat(document.getElementById('surgicalLength')?.value) || 0,
                 width: parseFloat(document.getElementById('surgicalWidth')?.value) || 0,
                 height: parseFloat(document.getElementById('surgicalHeight')?.value) || 0,

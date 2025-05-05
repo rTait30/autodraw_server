@@ -29,9 +29,11 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         const [, from, to] = match;
         const dz = Math.abs(points[from].height - points[to].height);
 
+        const warning = document.getElementById('edgeWarning');
+
         if (dz > len) {
             console.warn(`Invalid: vertical difference (${dz}) exceeds edge length (${len})`);
-            const warning = document.getElementById('warning');
+            
             if (warning) warning.innerText = warning;
             invalid = true;
             const input = document.querySelector(`input[name="edge-${key}"]`);
@@ -46,7 +48,7 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         }
     }
 
-    const warning = document.getElementById('edgeWarning');
+    
     if (warning) {
         warning.style.display = invalid ? 'block' : 'none';
     }

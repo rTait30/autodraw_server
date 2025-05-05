@@ -32,7 +32,7 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         if (dz > len) {
             console.warn(`Invalid: vertical difference (${dz}) exceeds edge length (${len})`);
             const warning = document.getElementById('warning');
-            if (warning) warning.innerText += " " + warning;
+            if (warning) warning.innerText = warning;
             invalid = true;
             const input = document.querySelector(`input[name="edge-${key}"]`);
             if (input) input.classList.add('input-error');

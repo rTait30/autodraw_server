@@ -1,5 +1,6 @@
 import { saveConfig } from './api.js';
 import { validate3DEdges } from './shadesailGeometry.js';
+import { getShadeSailCoords } from './shadesailGeometry.js';
 
 const FIXING_TYPES = ['Long Dee Shackle', 'Dee Shackle', 'Long Shackle', 'M8 Turnbuckle', 'M10 Turnbuckle', 'M12 Turnbuckle', 'M8 Toggle Bolt', 'M10 Toggle Bolt', 'M12 Toggle Bolt', 'Direct'];
 

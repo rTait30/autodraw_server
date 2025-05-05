@@ -1,12 +1,15 @@
 export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
     let invalid = false;
 
-    const edgeEntries = Object.entries(edgeLengthsObj); // [ ["A-B", 2], ["B-C", 2] ]
+    const edgeEntries = Object.entries(edgeLengthsObj); // e.g. { "A-B": 7 }
 
     // 1. Triangle inequality check
     for (let i = 0; i < edgeEntries.length; i++) {
         const [thisKey, thisLen] = edgeEntries[i];
-        const othersSum = edgeEntries.reduce((sum, [key, len], j) => i === j ? sum : sum + len, 0);
+        const othersSum = edgeEntries.reduce(
+            (sum, [key, len], j) => i === j ? sum : sum + len,
+            0
+        );
 
         if (thisLen >= othersSum) {
             invalid = true;
@@ -18,19 +21,26 @@ export function validate3DEdges(points, edgeLengthsObj, maxSlope = 3.0) {
         }
     }
 
-    // 2. Vertical slope check
+    // 2. Optional slope warning only (3D lengths already account for height)
     for (const [key, len] of edgeEntries) {
         const match = key.match(/^([A-Z])-([A-Z])$/);
         if (!match) continue;
 
         const [, from, to] = match;
         const dz = Math.abs(points[from].height - points[to].height);
-        const slope = dz / (len || 1);
 
-        if (slope > maxSlope) {
+        if (dz > len) {
+            console.warn(`Invalid: vertical difference (${dz}) exceeds edge length (${len})`);
             invalid = true;
             const input = document.querySelector(`input[name="edge-${key}"]`);
             if (input) input.classList.add('input-error');
+        } else {
+            // Optional slope warning
+            const horizontalLength = Math.sqrt(len*len - dz*dz);
+            const slope = dz / (horizontalLength || 1);
+            if (slope > maxSlope) {
+                console.warn(`Warning: steep edge ${key} (slope ≈ ${slope.toFixed(2)})`);
+            }
         }
     }
 

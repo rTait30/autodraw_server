@@ -155,3 +155,33 @@ table td {
     margin-top: 10px;
     font-weight: bold;
 }
+
+.surgical-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 40px;
+}
+
+#formSurgical {
+    flex-shrink: 0;
+    max-width: 600px; /* or whatever you want for the form */
+}
+
+.surgical-canvas-wrapper {
+    flex: 1;
+    max-width: 600px;
+    aspect-ratio: 1 / 7;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #ccc;
+    display: flex;
+
+    margin-left: 40px; /* ⬅️ Add space from the form */
+}
+
+#surgicalCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}

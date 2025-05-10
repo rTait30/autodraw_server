@@ -16,51 +16,59 @@
 
     <div id="surgical" class="tab active">
         <h2>Surgical Covers Config</h2>
-        <form id="formSurgical">
-
-            <div class="form-wrapper">
     
-                <div class="form-header">
-
-                    <label>
-                        Company Name:
-                        <input type="text" id="surgicalCompany" placeholder="Name"><br>
-                    </label>
-                    <label>
-                        Project:
-                        <input type="text" id="surgicalName" placeholder="Project"><br>
-                    </label>
-                    <label>
-                        Length:
-                        <input type="number" id="surgicalLength" placeholder="Length"><br>
-                    </label>
-                    <label>
-                        Width:
-                        <input type="number" id="surgicalWidth" placeholder="Width"><br>
-                    </label>
-                    <label>
-                        Height:
-                        <input type="number" id="surgicalHeight" placeholder="Height"><br>
-                    </label>
-                    <label>
-                        Seam:
-                        <input type="number" id="surgicalSeam" placeholder="Seam"><br>
-                    </label>
-                    <label>
-                        Hem:
-                        <input type="number" id="surgicalHem" placeholder="Hem"><br>
-                    </label>
-                    <label>
-                        Quantity:
-                        <input type="number" id="surgicalQuantity" placeholder="Quantity"><br>
-                    
-                    </label>
+        <div class="surgical-layout">
+            <!-- Form Section -->
+            <form id="formSurgical">
+                <div class="form-wrapper">
+                    <div class="form-header">
+                        <label>
+                            Company Name:
+                            <input type="text" id="surgicalCompany" placeholder="Name">
+                        </label>
+                        <label>
+                            Project:
+                            <input type="text" id="surgicalName" placeholder="Project">
+                        </label>
+                        <label>
+                            Length:
+                            <input type="number" id="surgicalLength" placeholder="Length">
+                        </label>
+                        <label>
+                            Width:
+                            <input type="number" id="surgicalWidth" placeholder="Width">
+                        </label>
+                        <label>
+                            Height:
+                            <input type="number" id="surgicalHeight" placeholder="Height">
+                        </label>
+                        <label>
+                            Seam:
+                            <input type="number" id="surgicalSeam" placeholder="Seam">
+                        </label>
+                        <label>
+                            Hem:
+                            <input type="number" id="surgicalHem" placeholder="Hem">
+                        </label>
+                        <label>
+                            Quantity:
+                            <input type="number" id="surgicalQuantity" placeholder="Quantity">
+                        </label>
+                        <label>
+                            Fabric Width:
+                            <input type="number" id="surgicalFabricWidth" placeholder="Fabric Width">
+                        </label>
+                    </div>
                 </div>
+            </form>
+    
+            <!-- Canvas Section -->
+            <div class="surgical-canvas-wrapper">
+                <canvas id="surgicalCanvas"></canvas>
             </div>
-        </form>
-
+        </div>
+    
         <button id="saveSurgicalBtn" type="button">Save Surgical Covers Config</button>
-
     </div>
 
     <!-- Shade Sails Form -->

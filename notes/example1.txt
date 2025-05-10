@@ -1,0 +1,49 @@
+Edges = {
+  "A-B": 5.0,
+  "B-C": 4.0,
+  "C-A": 6.53  // ≈ 2% too long
+};
+
+Points = {
+  A: { height: 2 },
+  B: { height: 2 },
+  C: { height: 2 }
+};
+
+
+Edges = {
+  "A-B": 5,
+  "B-C": 4,
+  "C-D": 5,
+  "D-A": 4
+};
+
+Diagonals = {
+  "A-C": 6.4  // actual ≈ 6.324, so this is a 1.2% error
+};
+
+
+
+
+
+const Points = {
+  A: { height: 2 },
+  B: { height: 2 },
+  C: { height: 2 },
+  D: { height: 2 },
+  E: { height: 2 }
+};
+
+const Edges = {
+  "A-B": 5,
+  "B-C": 4,
+  "C-D": 5,
+  "D-E": 4,
+  "E-A": 5
+};
+
+const Diagonals = {
+  "A-C": 7.09, // ~1.5% longer than √(5² + 4²) = 6.40
+  "B-D": 7.09,
+  "C-E": 7.09
+};

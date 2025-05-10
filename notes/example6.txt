@@ -1,0 +1,27 @@
+const coords = {
+  A: { x: 0.00,  y: 0.00,  z: 2.50 },
+  B: { x: 5.20,  y: 0.00,  z: 2.90 },
+  C: { x: 5.70,  y: -4.30, z: 3.15 },
+  D: { x: -0.30, y: -4.10, z: 2.70 }
+};
+
+Generated Measurements
+
+const Points = {
+  A: { height: 2.50, fixing: "Turnbuckle", tensioningAllowance: NaN },
+  B: { height: 2.90, fixing: "Turnbuckle", tensioningAllowance: NaN },
+  C: { height: 3.15, fixing: "Turnbuckle", tensioningAllowance: NaN },
+  D: { height: 2.70, fixing: "Turnbuckle", tensioningAllowance: NaN }
+};
+
+const Edges = {
+  "A-B": 5.20,
+  "B-C": 4.38,
+  "C-D": 6.07,
+  "D-A": 4.23
+};
+
+const Diagonals = {
+  "A-C": 6.86,
+  "B-D": 6.91
+};

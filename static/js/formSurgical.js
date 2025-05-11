@@ -106,57 +106,27 @@ export function resizeCanvasToDisplaySize(canvas, data) {
     return { width, height };
 }
 
-function renderSurgicalSteps(ctx, canvasWidth, canvasHeight) {
-    // Step 1: Setup virtual space
-    const virtualWidth = 1000;
-    const virtualHeight = 7000;
 
-    // Step 2: Clear canvas
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    // Step 3: Scale to fit entire virtual space into canvas
-    const scaleX = canvasWidth / virtualWidth;
-    const scaleY = canvasHeight / virtualHeight;
-    const scale = Math.min(scaleX, scaleY);
-
-    // Step 4: Center in canvas
-    const offsetX = (canvasWidth - virtualWidth * scale) / 2;
-    const offsetY = (canvasHeight - virtualHeight * scale) / 2;
-
-    ctx.save();
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
-
-    // Step 5: Draw 7 stacked squares
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-
-    for (let i = 0; i < 7; i++) {
-        const y = i * 1000;
-        ctx.strokeRect(0, y, 1000, 1000);
-        ctx.fillText(`Step ${i + 1}`, 20, y + 40);
-    }
-
-    ctx.restore();
-}
 
 function renderSurgicalCanvas(canvas, data) {
     const vCanvas = new VirtualCanvas(canvas);
     vCanvas.resize();
 
+
     vCanvas.withStep(0, (ctx) => {
 
-        ctx.strokeStyle = '#F00';
+
+
+        ctx.strokeStyle = '#f00';
         ctx.lineWidth = 5;
         ctx.strokeRect(0, 0, 1000, 1000);
         ctx.font = "bold 28px sans-serif";
-        ctx.fillText("Step 1: 3D Box Panels", 20, 60);
+        ctx.fillText("Step 0: Visualise  covers", 20, 60);
         let i = 0;
         for (const [key, value] of Object.entries(data)) {
             ctx.fillText(`${key}: ${value}`, 20, 100 + i * 40);
             i++;
         }
-
     
         const quantity = Math.max(1, data.quantity || 1);
         const width = data.width || 1;
@@ -164,7 +134,7 @@ function renderSurgicalCanvas(canvas, data) {
         const length = data.length || 1;
     
         const padding = 100;
-        const spacing = 10;
+        const spacing = data.width / 5;
     
         // Total visual space required includes forward face + projected depth
         const totalWidthUnits = quantity * width + (quantity - 1) * spacing + length; // rightward projection
@@ -240,16 +210,48 @@ function renderSurgicalCanvas(canvas, data) {
             ctx.fillText(`${data.length} mm`, 0, 0);
             ctx.restore();
         }
+
     
     });
+
+    let flatMainHeight = data.width + 2 * data.seam;
+    let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
+
+    let rightFlatWidth = data.length + data.hem;
+    let rightFlatHeight = data.height + data.hem;
     
     // Step 1: Flat layout
     vCanvas.withStep(1, (ctx) => {
-        ctx.strokeStyle = '#F70';
+        ctx.strokeStyle = '#f70';
         ctx.lineWidth = 5;
         ctx.strokeRect(0, 0, 1000, 1000);
         ctx.font = "bold 28px sans-serif";
-        ctx.fillText("Step 2: FLAT", 20, 60);
+        ctx.fillText("Step 1: Flatten panels", 20, 60);
+        let i = 0;
+        for (const [key, value] of Object.entries(data)) {
+            ctx.fillText(`${key}: ${value}`, 20, 100 + i * 40);
+            i++;
+        }
+
+
+        ctx.fillText(`flatMainHeight: ${flatMainHeight}`, 20, 100 + i++ * 40);
+        ctx.fillText(`flatMainWidth: ${flatMainWidth}`, 20, 100 + i * 40);
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+
+        // Draw front face
+        ctx.strokeRect(50, 500, data.width / 10, data.height / 10);
+    });
+
+    // Step 2: Nesting layout
+    //Show wastage, total length, total rolls
+    vCanvas.withStep(2, (ctx) => {
+        ctx.strokeStyle = '#ff0';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, 1000, 1000);
+        ctx.font = "bold 28px sans-serif";
+        ctx.fillText("Step 2: Nest in roll", 20, 60);
         let i = 0;
         for (const [key, value] of Object.entries(data)) {
             ctx.fillText(`${key}: ${value}`, 20, 100 + i * 40);
@@ -257,55 +259,63 @@ function renderSurgicalCanvas(canvas, data) {
         }
     });
 
-    // Step 2: Nesting layout
-    vCanvas.withStep(2, (ctx) => {
-        ctx.fillStyle = '#e0e0e0';
-        ctx.fillRect(0, 0, 1000, 1000); // fabric background
-        for (let i = 0; i < 4; i++) {
-            ctx.strokeRect(50 + i * 220, 200, 200, 300); // pretend nested panels
-        }
-        ctx.fillText("Step 3: Fabric Nesting", 20, 40);
-    });
-
-    // Step 3: Multiply by quantity
+    // Step 3: Show summary
     vCanvas.withStep(3, (ctx) => {
-        for (let row = 0; row < 2; row++) {
-            for (let col = 0; col < 3; col++) {
-                ctx.strokeRect(50 + col * 300, 150 + row * 350, 200, 200);
-            }
-        }
-        ctx.fillText("Step 4: Repeated Layouts", 20, 40);
-    });
-
-    // Step 4: Show waste
-    vCanvas.withStep(4, (ctx) => {
-        ctx.fillStyle = '#eee';
-        ctx.fillRect(0, 0, 1000, 1000);
-        ctx.fillStyle = '#000';
-        ctx.fillRect(100, 200, 800, 600); // fabric
-        ctx.clearRect(150, 250, 200, 200); // holes = used panels
-        ctx.clearRect(550, 250, 200, 200);
-        ctx.fillText("Step 5: Waste Estimation", 20, 40);
-    });
-
-    // Step 5: Show cost breakdown
-    vCanvas.withStep(5, (ctx) => {
-        ctx.font = "bold 24px sans-serif";
-        ctx.fillText("Step 6: Cost Breakdown", 20, 40);
-        ctx.font = "16px sans-serif";
-        ctx.fillText("Fabric: $120", 50, 120);
-        ctx.fillText("Labour: $60", 50, 160);
-        ctx.fillText("Waste: $10", 50, 200);
-        ctx.fillText("Total: $190", 50, 240);
-    });
-
-    // Step 6: Final summary
-    vCanvas.withStep(6, (ctx) => {
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, 1000, 1000);
         ctx.font = "bold 28px sans-serif";
-        ctx.fillText("Step 7: Summary + Export", 20, 60);
-        ctx.strokeRect(200, 200, 600, 600); // pretend to be final layout
-        ctx.fillText("Preview Area", 400, 520);
+        ctx.fillText("Step 3: Summary", 20, 60);
+        let i = 0;
+        for (const [key, value] of Object.entries(data)) {
+            ctx.fillText(`${key}: ${value}`, 20, 100 + i * 40);
+            i++;
+        }
     });
 
     vCanvas.finish();
+}
+
+
+
+
+
+
+
+
+
+
+
+function renderSurgicalSteps(ctx, canvasWidth, canvasHeight) {
+    // Step 1: Setup virtual space
+    const virtualWidth = 1000;
+    const virtualHeight = 4000;
+
+    // Step 2: Clear canvas
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Step 3: Scale to fit entire virtual space into canvas
+    const scaleX = canvasWidth / virtualWidth;
+    const scaleY = canvasHeight / virtualHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    // Step 4: Center in canvas
+    const offsetX = (canvasWidth - virtualWidth * scale) / 2;
+    const offsetY = (canvasHeight - virtualHeight * scale) / 2;
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    // Step 5: Draw 7 stacked squares
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+
+    for (let i = 0; i < 4; i++) {
+        const y = i * 1000;
+        ctx.strokeRect(0, y, 1000, 1000);
+        ctx.fillText(`Step ${i + 1}`, 20, y + 40);
+    }
+
+    ctx.restore();
 }

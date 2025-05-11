@@ -1,5 +1,5 @@
 export class VirtualCanvas {
-    constructor(canvas, virtualWidth = 1000, virtualHeight = 7000) {
+    constructor(canvas, virtualWidth = 1000, virtualHeight = 4000) {
         this.canvas = canvas;
         this.virtualWidth = virtualWidth;
         this.virtualHeight = virtualHeight;

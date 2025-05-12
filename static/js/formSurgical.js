@@ -21,13 +21,13 @@ export function setupSurgicalForm() {
         return {
             company: document.getElementById('surgicalCompany')?.value || '',
             name: document.getElementById('surgicalName')?.value || '',
-            length: parseFloat(document.getElementById('surgicalLength')?.value) || 0,
-            width: parseFloat(document.getElementById('surgicalWidth')?.value) || 0,
-            height: parseFloat(document.getElementById('surgicalHeight')?.value) || 0,
-            seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 0,
-            hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
-            quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 0,
-            fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 0,
+            length: parseFloat(document.getElementById('surgicalLength')?.value) || 1,
+            width: parseFloat(document.getElementById('surgicalWidth')?.value) || 1,
+            height: parseFloat(document.getElementById('surgicalHeight')?.value) || 1,
+            seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 1,
+            hem: parseFloat(document.getElementById('surgicalHem')?.value) || 1,
+            quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 1,
+            fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 1,
             iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 1
         };
     }
@@ -450,12 +450,12 @@ function renderSurgicalCanvas(canvas, data) {
         }
     
         const rollWidth = data.fabricwidth;
+        
         let bestLayout = null;
         let bestLength = Infinity;
         let iterationCount = 0;
-
+    
         const stepIndex = 2;
-
         const offsetY = stepIndex * 1000 + 500;
     
         const invalid = panels.some(panel => Math.min(panel.w, panel.h) > rollWidth);
@@ -463,14 +463,6 @@ function renderSurgicalCanvas(canvas, data) {
             ctx.fillStyle = 'red';
             ctx.font = "bold 24px sans-serif";
             ctx.fillText("⚠️ At least one panel requires seams. Nesting aborted.", 100, 600);
-            return;
-        }
-
-        if (data.quantity > 20) {
-
-            ctx.fillStyle = 'red';
-            ctx.font = "bold 24px sans-serif";
-            ctx.fillText("⚠️ Too many panels. Nesting aborted.", 100, 600);
             return;
         }
     
@@ -520,39 +512,52 @@ function renderSurgicalCanvas(canvas, data) {
             return { placed, usedLength };
         }
     
-        const permutations = permute(panels);
-        let currentPermutation = permutations.next();
-    
         const totalArea = panels.reduce((sum, p) => sum + (p.w * p.h), 0);
         const theoreticalMinLength = totalArea / rollWidth;
     
-        function processNextPermutation() {
-            if (iterationCount >= maxIterations || currentPermutation.done) {
-                drawResult();
-                return;
-            }
+        const permutationGen = permute(panels);
+
+        
     
-            const permutation = currentPermutation.value;
-            iterationCount++;
-            const result = tryPlacement(permutation);
-            if (result && result.usedLength < bestLength) {
-                bestLayout = result.placed;
-                bestLength = result.usedLength;
+        function drawIterationCount() {
+            ctx.font = "bold 28px sans-serif";
+            ctx.fillStyle = '#000';
+            ctx.clearRect(800, offsetY - 30, 200, 50);
+            ctx.fillText(`Iteration: ${iterationCount}`, 820, offsetY);
+        }
     
-                if (bestLength <= theoreticalMinLength) {
-                    drawResult();
-                    return;
+        function processBatch(deadline) {
+            let continueLoop = true;
+            while (continueLoop && (deadline.timeRemaining() > 0 || deadline.didTimeout) && iterationCount < maxIterations) {
+                const { value: permutation, done } = permutationGen.next();
+                if (done) break;
+                iterationCount++;
+    
+                if (iterationCount % 10 === 0) drawIterationCount();
+    
+                const result = tryPlacement(permutation);
+                if (result && result.usedLength < bestLength) {
+                    bestLayout = result.placed;
+                    bestLength = result.usedLength;
+                    if (bestLength <= theoreticalMinLength) {
+                        drawIterationCount();
+                        drawResult();
+                        return;
+                    }
                 }
             }
     
-            ctx.fillStyle = '#000';
-            ctx.clearRect(820, offsetY-50, 300, 100);
-            
-            ctx.font = "bold 28px sans-serif";
-            ctx.fillText(`Iteration: ${iterationCount}`, 820, offsetY);
+            drawIterationCount();
     
-            currentPermutation = permutations.next();
-            setTimeout(processNextPermutation, 0);
+            if (iterationCount < maxIterations) {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(processBatch);
+                } else {
+                    setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }), 0);
+                }
+            } else {
+                drawResult();
+            }
         }
     
         function drawResult() {
@@ -596,8 +601,15 @@ function renderSurgicalCanvas(canvas, data) {
             });
         }
     
-        processNextPermutation();
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(processBatch);
+        } else {
+            setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }), 0);
+        }
     });
+    
+    
+    
     
     
     

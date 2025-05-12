@@ -464,6 +464,14 @@ function renderSurgicalCanvas(canvas, data) {
             ctx.fillText("⚠️ At least one panel requires seams. Nesting aborted.", 100, 600);
             return;
         }
+
+        if (data.quantity > 20) {
+
+            ctx.fillStyle = 'red';
+            ctx.font = "bold 24px sans-serif";
+            ctx.fillText("⚠️ Too many panels. Nesting aborted.", 100, 600);
+            return;
+        }
     
         function* permute(arr, n = arr.length) {
             if (n <= 1) yield arr.slice();

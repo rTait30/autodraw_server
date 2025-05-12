@@ -424,7 +424,7 @@ function renderSurgicalCanvas(canvas, data) {
     });
     
 
-    const maxIterations = 10;
+    const maxIterations = 100;
 
     // Step 2: Nesting layout
     //Show wastage, total length, total rolls
@@ -449,24 +449,19 @@ function renderSurgicalCanvas(canvas, data) {
         }
     
         const rollWidth = data.fabricwidth;
-        
         let bestLayout = null;
         let bestLength = Infinity;
         let iterationCount = 0;
+
+        const stepIndex = 2;
+
+        const offsetY = stepIndex * 1000 + 500;
     
         const invalid = panels.some(panel => Math.min(panel.w, panel.h) > rollWidth);
         if (invalid) {
             ctx.fillStyle = 'red';
             ctx.font = "bold 24px sans-serif";
             ctx.fillText("⚠️ At least one panel requires seams. Nesting aborted.", 100, 600);
-            return;
-        }
-
-        if (data.quantity > 3) {
-
-            ctx.fillStyle = 'red';
-            ctx.font = "bold 24px sans-serif";
-            ctx.fillText("⚠️ Too many panels. Nesting aborted.", 100, 600);
             return;
         }
     
@@ -517,39 +512,37 @@ function renderSurgicalCanvas(canvas, data) {
         }
     
         const permutations = permute(panels);
-        const permutationsArray = [];
-        for (const p of permutations) {
-            permutationsArray.push(p);
-        }
+        let currentPermutation = permutations.next();
     
-        let currentIndex = 0;
-
-        const stepIndex = 2;
-
-        const offsetY = stepIndex * 1000 + 500;
+        const totalArea = panels.reduce((sum, p) => sum + (p.w * p.h), 0);
+        const theoreticalMinLength = totalArea / rollWidth;
     
-        // In your drawing logic (where permutation happens):
         function processNextPermutation() {
-            if (currentIndex >= permutationsArray.length || iterationCount >= maxIterations) {
+            if (iterationCount >= maxIterations || currentPermutation.done) {
                 drawResult();
                 return;
             }
-
-            const permutation = permutationsArray[currentIndex++];
+    
+            const permutation = currentPermutation.value;
             iterationCount++;
             const result = tryPlacement(permutation);
             if (result && result.usedLength < bestLength) {
                 bestLayout = result.placed;
                 bestLength = result.usedLength;
+    
+                if (bestLength <= theoreticalMinLength) {
+                    drawResult();
+                    return;
+                }
             }
+    
+            ctx.fillStyle = '#000';
+            ctx.clearRect(820, offsetY-50, 300, 100);
             
             ctx.font = "bold 28px sans-serif";
-
-            // Apply yOffset within the permutation block
-            
-            ctx.clearRect(940, offsetY + 15, 200, 30);
-            ctx.fillText(`Iteration: ${iterationCount}`, 950, offsetY + 40);  // Apply yOffset here as well
-
+            ctx.fillText(`Iteration: ${iterationCount}`, 820, offsetY);
+    
+            currentPermutation = permutations.next();
             setTimeout(processNextPermutation, 0);
         }
     
@@ -594,8 +587,9 @@ function renderSurgicalCanvas(canvas, data) {
             });
         }
     
-        setTimeout(processNextPermutation, 0);
+        processNextPermutation();
     });
+    
     
     
     

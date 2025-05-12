@@ -28,7 +28,7 @@ export function setupSurgicalForm() {
             hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
             quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 0,
             fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 0,
-            iterations: parseInt(document.getElementById('surgicalQuantity')?.value) || 1
+            iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 1
         };
     }
 
@@ -51,7 +51,8 @@ export function setupSurgicalForm() {
         'surgicalSeam',
         'surgicalHem',
         'surgicalQuantity',
-        'surgicalFabricWidth'
+        'surgicalFabricWidth',
+        'surgicalIterations'
     ].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
@@ -424,7 +425,7 @@ function renderSurgicalCanvas(canvas, data) {
     });
     
 
-    const maxIterations = 100;
+    const maxIterations = data.iterations;
 
     // Step 2: Nesting layout
     //Show wastage, total length, total rolls

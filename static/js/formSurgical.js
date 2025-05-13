@@ -108,7 +108,10 @@ export function resizeCanvasToDisplaySize(canvas, data) {
     return { width, height };
 }
 
-
+let currentIdleCallback = null;
+let currentTimeout = null;
+let isRunning = false;
+let currentRunId = 0;
 
 function renderSurgicalCanvas(canvas, data) {
     const vCanvas = new VirtualCanvas(canvas);
@@ -426,38 +429,73 @@ function renderSurgicalCanvas(canvas, data) {
     
 
     const maxIterations = data.iterations;
+    const showTestingLayouts = true;
 
     // Step 2: Nesting layout
     //Show wastage, total length, total rolls
+
+    // Global variables to persist across runs
+
+
     vCanvas.withStep(2, (ctx) => {
+        // Clear entire canvas at start
+        //ctx.clearRect(10, 10, 990, 990);
+
+    
+
+    
+
+        // Stop any previous processes
+        function stopPreviousProcesses() {
+            isRunning = false;
+            currentRunId++;
+            if (currentTimeout) {
+                clearTimeout(currentTimeout);
+                currentTimeout = null;
+            }
+            if (currentIdleCallback) {
+                cancelIdleCallback(currentIdleCallback);
+                currentIdleCallback = null;
+            }
+            // Clear canvas to remove old visuals
+            //ctx.clearRect(10, 10, 990, 990);
+        }
+
+        // Call immediately to stop existing runs
+        stopPreviousProcesses();
+
+        // Local variables
+        let iterationCount = 0;
+        let bestLayout = null;
+        let bestLength = Infinity;
+        let lastBestLength = Infinity;
+
+        // Canvas setup
         ctx.strokeStyle = '#ff0';
         ctx.lineWidth = 5;
         ctx.strokeRect(0, 0, 1000, 1000);
         ctx.font = "bold 28px sans-serif";
         ctx.fillText("Step 2: Nest in roll", 20, 60);
-    
+
         let i = 0;
         for (const [key, value] of Object.entries(data)) {
             ctx.fillText(`${key}: ${value}`, 20, 100 + i * 40);
             i++;
         }
-    
+
+        // Create panels array
         const panels = [];
         for (let unit = 0; unit < data.quantity; unit++) {
             panels.push({ id: `main-${unit}`, w: flatMainWidth, h: flatMainHeight });
-            panels.push({ id: `side-${unit}-1`, w: flatSideWidth, h: flatSideHeight });
-            panels.push({ id: `side-${unit}-2`, w: flatSideWidth, h: flatSideHeight });
+            panels.push({ id: `side-${unit}-1`, w: flatSideWidth, h: flatSideHeight, unit });
+            panels.push({ id: `side-${unit}-2`, w: flatSideWidth, h: flatSideHeight, unit });
         }
-    
+
         const rollWidth = data.fabricwidth;
-        
-        let bestLayout = null;
-        let bestLength = Infinity;
-        let iterationCount = 0;
-    
         const stepIndex = 2;
         const offsetY = stepIndex * 1000 + 500;
-    
+
+        // Validate panels
         const invalid = panels.some(panel => Math.min(panel.w, panel.h) > rollWidth);
         if (invalid) {
             ctx.fillStyle = 'red';
@@ -465,101 +503,270 @@ function renderSurgicalCanvas(canvas, data) {
             ctx.fillText("⚠️ At least one panel requires seams. Nesting aborted.", 100, 600);
             return;
         }
-    
-        function* permute(arr, n = arr.length) {
-            if (n <= 1) yield arr.slice();
-            else {
-                for (let i = 0; i < n; i++) {
-                    [arr[n - 1], arr[i]] = [arr[i], arr[n - 1]];
-                    yield* permute(arr, n - 1);
-                    [arr[n - 1], arr[i]] = [arr[i], arr[n - 1]];
-                }
+
+        if (data.quantity > 4) {
+            ctx.fillStyle = 'red';
+            ctx.font = "bold 24px sans-serif";
+            ctx.fillText("⚠️ Too many panels. Nesting aborted.", 100, 600);
+            return;
+        }
+
+        if (data.iterations > 100) {
+            ctx.fillStyle = 'red';
+            ctx.font = "bold 24px sans-serif";
+            ctx.fillText("⚠️ Too many iterations. Nesting aborted.", 100, 600);
+            return;
+        }
+
+        // Calculate theoretical minimum length
+        const totalArea = panels.reduce((sum, p) => sum + (p.w * p.h), 0);
+        const theoreticalMinLength = totalArea / rollWidth;
+
+        // Heuristic: Stack side panels vertically per unit
+        const sortedHeuristic = [];
+        for (let unit = 0; unit < data.quantity; unit++) {
+            sortedHeuristic.push({ id: `main-${unit}`, w: flatMainWidth, h: flatMainHeight });
+            const sideRotated = flatSideHeight <= rollWidth;
+            sortedHeuristic.push({
+                id: `side-${unit}-1`,
+                w: sideRotated ? flatSideHeight : flatSideWidth,
+                h: sideRotated ? flatSideWidth : flatSideHeight,
+                rotated: sideRotated,
+                unit
+            });
+            sortedHeuristic.push({
+                id: `side-${unit}-2`,
+                w: sideRotated ? flatSideHeight : flatSideWidth,
+                h: sideRotated ? flatSideWidth : flatSideHeight,
+                rotated: sideRotated,
+                unit
+            });
+        }
+        const heuristicResult = tryPlacement(sortedHeuristic);
+        if (heuristicResult) {
+            bestLayout = heuristicResult.placed;
+            bestLength = heuristicResult.usedLength;
+            lastBestLength = bestLength;
+            console.log(`New best layout found with length: ${bestLength} mm`);
+        }
+
+        // Reset the simulation
+        function resetSimulation() {
+            iterationCount = 0;
+            bestLayout = null;
+            bestLength = Infinity;
+            lastBestLength = Infinity;
+            stopPreviousProcesses();
+        }
+
+        // Shuffle array function
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
             }
         }
-    
+
+        // Try placing panels with forced vertical stacking
         function tryPlacement(permutation) {
             const placed = [];
-            const occupied = [];
+            const placedIds = new Set();
             let usedLength = 0;
-    
-            for (const panel of permutation) {
+
+            const toPlace = [...permutation];
+
+            while (toPlace.length > 0) {
                 let placedThis = false;
-                for (let rot = 0; rot < 2 && !placedThis; rot++) {
-                    const w = rot ? panel.h : panel.w;
-                    const h = rot ? panel.w : panel.h;
-                    if (w > rollWidth) continue;
-    
-                    for (let y = 0; y <= usedLength; y++) {
-                        for (let x = 0; x <= rollWidth - w; x++) {
-                            const overlaps = occupied.some(p =>
-                                x < p.x + p.w && x + w > p.x &&
-                                y < p.y + p.h && y + h > p.y
+                const panel = toPlace[0];
+
+                const orientations = [
+                    { rotated: false, w: panel.w, h: panel.h },
+                    { rotated: true, w: panel.h, h: panel.w }
+                ].filter(o => o.w <= rollWidth);
+
+                if (panel.id.includes('side-') && orientations.some(o => o.rotated)) {
+                    orientations.sort((a, b) => (a.rotated ? -1 : 1));
+                } else {
+                    shuffleArray(orientations);
+                }
+
+                const isSidePanel = panel.id.includes('side-');
+                let stackPartner = null;
+                if (isSidePanel) {
+                    const partnerId = panel.id.endsWith('-1') ? `side-${panel.unit}-2` : `side-${panel.unit}-1`;
+                    const partnerIndex = toPlace.findIndex(p => p.id === partnerId);
+                    if (partnerIndex !== -1) stackPartner = toPlace[partnerIndex];
+                }
+
+                for (const orient of orientations) {
+                    for (let y = 0; y <= usedLength + orient.h; y++) {
+                        for (let x = 0; x <= rollWidth - orient.w; x++) {
+                            const overlaps = placed.some(p =>
+                                x < p.x + p.w && x + orient.w > p.x &&
+                                y < p.y + p.h && y + orient.h > p.y
                             );
-                            if (!overlaps) {
-                                occupied.push({ x, y, w, h });
-                                placed.push({ ...panel, x, y, w, h, rotated: rot === 1 });
-                                usedLength = Math.max(usedLength, y + h);
+                            if (!overlaps && !placedIds.has(panel.id)) {
+                                placed.push({ ...panel, x, y, w: orient.w, h: orient.h, rotated: orient.rotated });
+                                placedIds.add(panel.id);
+                                usedLength = Math.max(usedLength, y + orient.h);
                                 placedThis = true;
+
+                                if (isSidePanel && stackPartner && !placedIds.has(stackPartner.id)) {
+                                    const partnerOrient = orient;
+                                    if (x + partnerOrient.w <= rollWidth) {
+                                        const stackY = y + orient.h;
+                                        const stackOverlaps = placed.some(p =>
+                                            x < p.x + p.w && x + partnerOrient.w > p.x &&
+                                            stackY < p.y + p.h && stackY + partnerOrient.h > p.y
+                                        );
+                                        if (!stackOverlaps) {
+                                            placed.push({
+                                                ...stackPartner,
+                                                x,
+                                                y: stackY,
+                                                w: partnerOrient.w,
+                                                h: partnerOrient.h,
+                                                rotated: partnerOrient.rotated
+                                            });
+                                            placedIds.add(stackPartner.id);
+                                            toPlace.splice(toPlace.findIndex(p => p.id === stackPartner.id), 1);
+                                            usedLength = Math.max(usedLength, stackY + partnerOrient.h);
+                                        }
+                                    }
+                                }
+
+                                toPlace.splice(0, 1);
                                 break;
                             }
                         }
                         if (placedThis) break;
                     }
+                    if (placedThis) break;
                 }
+
                 if (!placedThis) return null;
             }
-    
+
+            if (placed.length !== panels.length) {
+                console.warn(`Invalid layout: Expected ${panels.length} panels, got ${placed.length}`);
+                return null;
+            }
+
             return { placed, usedLength };
         }
-    
-        const totalArea = panels.reduce((sum, p) => sum + (p.w * p.h), 0);
-        const theoreticalMinLength = totalArea / rollWidth;
-    
-        const permutationGen = permute(panels);
 
-        
-    
-        function drawIterationCount() {
-            ctx.font = "bold 28px sans-serif";
-            ctx.fillStyle = '#000';
-            ctx.clearRect(800, offsetY - 30, 200, 50);
-            ctx.fillText(`Iteration: ${iterationCount}`, 820, offsetY);
-        }
-    
-        function processBatch(deadline) {
-            let continueLoop = true;
-            while (continueLoop && (deadline.timeRemaining() > 0 || deadline.didTimeout) && iterationCount < maxIterations) {
-                const { value: permutation, done } = permutationGen.next();
-                if (done) break;
-                iterationCount++;
-    
-                if (iterationCount % 10 === 0) drawIterationCount();
-    
-                const result = tryPlacement(permutation);
-                if (result && result.usedLength < bestLength) {
-                    bestLayout = result.placed;
-                    bestLength = result.usedLength;
-                    if (bestLength <= theoreticalMinLength) {
-                        drawIterationCount();
-                        drawResult();
-                        return;
+        // Local search to improve layout
+        function localSearch(currentLayout, usedLength) {
+            let bestLocalLayout = currentLayout;
+            let bestLocalLength = usedLength;
+
+            for (let i = 0; i < currentLayout.length - 1; i++) {
+                const newLayout = [...currentLayout];
+                [newLayout[i], newLayout[i + 1]] = [newLayout[i + 1], newLayout[i]];
+                const result = tryPlacement(newLayout.map(p => ({ ...p })));
+                if (result && result.usedLength < bestLocalLength) {
+                    bestLocalLayout = result.placed;
+                    bestLocalLength = result.usedLength;
+                }
+            }
+
+            for (let i = 0; i < currentLayout.length; i++) {
+                const newLayout = [...currentLayout];
+                newLayout[i] = { ...newLayout[i], rotated: !newLayout[i].rotated };
+                const result = tryPlacement(newLayout.map(p => ({ ...p })));
+                if (result && result.usedLength < bestLocalLength) {
+                    bestLocalLayout = result.placed;
+                    bestLocalLength = result.usedLength;
+                }
+            }
+
+            for (let unit = 0; unit < data.quantity; unit++) {
+                const side1 = currentLayout.find(p => p.id === `side-${unit}-1`);
+                const side2 = currentLayout.find(p => p.id === `side-${unit}-2`);
+                if (side1 && side2 && side1.x !== side2.x && side1.y !== side2.y + side1.h) {
+                    const newLayout = [...currentLayout];
+                    const idx1 = newLayout.findIndex(p => p.id === `side-${unit}-1`);
+                    const idx2 = newLayout.findIndex(p => p.id === `side-${unit}-2`);
+                    newLayout[idx1] = { ...side1, rotated: true };
+                    newLayout[idx2] = { ...side2, rotated: true };
+                    const result = tryPlacement(newLayout.map(p => ({ ...p })));
+                    if (result && result.usedLength < bestLocalLength) {
+                        bestLocalLayout = result.placed;
+                        bestLocalLength = result.usedLength;
                     }
                 }
             }
-    
-            drawIterationCount();
-    
-            if (iterationCount < maxIterations) {
-                if ('requestIdleCallback' in window) {
-                    requestIdleCallback(processBatch);
-                } else {
-                    setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }), 0);
-                }
-            } else {
-                drawResult();
+
+            if (bestLocalLayout.length !== panels.length) {
+                console.warn(`Invalid local search layout: Expected ${panels.length} panels, got ${bestLocalLayout.length}`);
+                return { placed: currentLayout, usedLength };
+            }
+
+            return { placed: bestLocalLayout, usedLength: bestLocalLength };
+        }
+
+        // Draw iteration count
+        function drawIterationCount() {
+            ctx.fillStyle = '#000';
+            ctx.clearRect(800, offsetY - 30, 200, 50);
+            ctx.font = "bold 28px sans-serif";
+            ctx.fillText(`Iterations: ${iterationCount}`, 820, offsetY);
+        }
+
+        // Draw preview of current and best layouts
+        function drawResultPreview(layout) {
+            const previewOffsetXCurrent = 200;
+            const previewOffsetXBest = 650;
+            const previewOffsetY = offsetY + 100;
+            const fabricHeight = rollWidth;
+            const fabricLength = bestLength || 1000;
+            const scale = Math.min(400 / fabricLength, 200 / fabricHeight);
+
+            // Clear larger area to prevent overlap
+            ctx.clearRect(0, offsetY - 30, 1000, 300);
+
+            ctx.fillStyle = '#000';
+            ctx.font = "bold 16px sans-serif";
+            ctx.fillText("Current Layout", previewOffsetXCurrent, previewOffsetY - 10);
+
+            layout.forEach(item => {
+                const x = previewOffsetXCurrent + item.y * scale;
+                const y = previewOffsetY + item.x * scale;
+                const w = item.h * scale;
+                const h = item.w * scale;
+
+                ctx.fillStyle = item.id.includes('side-') ? '#afa' : (item.rotated ? '#aaf' : '#bbb');
+                ctx.fillRect(x, y, w, h);
+                ctx.strokeStyle = '#888';
+                ctx.strokeRect(x, y, w, h);
+                ctx.fillStyle = '#000';
+                ctx.font = "10px sans-serif";
+                ctx.fillText(item.rotated ? `${item.id} (R)` : item.id, x + 4, y + 12);
+            });
+
+            if (bestLayout) {
+                ctx.fillStyle = '#000';
+                ctx.font = "bold 16px sans-serif";
+                ctx.fillText(`Best Layout (${bestLength.toFixed(0)} mm)`, previewOffsetXBest, previewOffsetY - 10);
+
+                bestLayout.forEach(item => {
+                    const x = previewOffsetXBest + item.y * scale;
+                    const y = previewOffsetY + item.x * scale;
+                    const w = item.h * scale;
+                    const h = item.w * scale;
+
+                    ctx.fillStyle = item.id.includes('side-') ? '#afa' : (item.rotated ? '#aaf' : '#bbb');
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = '#888';
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.fillStyle = '#000';
+                    ctx.font = "10px sans-serif";
+                    ctx.fillText(item.rotated ? `${item.id} (R)` : item.id, x + 4, y + 12);
+                });
             }
         }
-    
+
+        // Draw final result
         function drawResult() {
             if (!bestLayout) {
                 ctx.fillStyle = 'orange';
@@ -567,47 +774,107 @@ function renderSurgicalCanvas(canvas, data) {
                 ctx.fillText("⚠️ No valid layout found within iteration limit.", 100, 650);
                 return;
             }
-    
+
             const fabricHeight = rollWidth;
             const fabricLength = bestLength;
             const scale = Math.min(900 / fabricLength, 900 / fabricHeight);
             const offsetX = 50;
-    
+            const drawOffsetY = stepIndex * 1000 + 800;
+
+            // Clear final layout area
+            ctx.clearRect(0, drawOffsetY - 50, 1000, 300);
+
             ctx.strokeStyle = '#000';
             ctx.fillStyle = '#eee';
             ctx.lineWidth = 2;
-            ctx.strokeRect(offsetX, offsetY, fabricLength * scale, fabricHeight * scale);
-            ctx.font = "16px sans-serif";
+            ctx.strokeRect(offsetX, drawOffsetY, fabricLength * scale, fabricHeight * scale );
+            ctx.font = "32px sans-serif";
             ctx.fillStyle = '#000';
-            ctx.fillText(`${fabricLength.toFixed(0)} mm`, offsetX + (fabricLength * scale) / 2 - 30, offsetY + fabricHeight * scale + 20);
+            ctx.fillText(`${fabricLength.toFixed(0)} mm`, offsetX + (fabricHeight * scale) / 2, drawOffsetY + fabricHeight * scale + 50);
             ctx.save();
-            ctx.translate(offsetX - 20, offsetY + (fabricHeight * scale) / 2);
+            ctx.translate(offsetX - 20, drawOffsetY + (fabricHeight * scale) / 2);
             ctx.rotate(-Math.PI / 2);
             ctx.fillText(`${fabricHeight.toFixed(0)} mm`, -30, 0);
             ctx.restore();
-    
+
             bestLayout.forEach(item => {
                 const x = offsetX + item.y * scale;
-                const y = offsetY + item.x * scale;
+                const y = drawOffsetY + item.x * scale;
                 const w = item.h * scale;
                 const h = item.w * scale;
-    
-                ctx.fillStyle = '#ddd';
+
+                ctx.fillStyle = item.id.includes('side-') ? '#afa' : (item.rotated ? '#aaf' : '#ddd');
                 ctx.fillRect(x, y, w, h);
                 ctx.strokeRect(x, y, w, h);
                 ctx.fillStyle = '#000';
                 ctx.font = "12px sans-serif";
-                ctx.fillText(item.id, x + 4, y + 16);
+                ctx.fillText(item.rotated ? `${item.id} (R)` : item.id, x + 4, y + 16);
             });
         }
-    
+
+        // Process batch of iterations
+        function processBatch(deadline, runId) {
+            if (runId !== currentRunId || !isRunning) return;
+
+            while (deadline.timeRemaining() > 0 && iterationCount < maxIterations && isRunning) {
+                iterationCount++;
+
+                const permutation = [...panels];
+                shuffleArray(permutation);
+
+                if (iterationCount % 10 === 0) drawIterationCount();
+
+                const result = tryPlacement(permutation);
+
+                if (showTestingLayouts && result) {
+                    drawResultPreview(result.placed);
+                }
+
+                if (result && result.usedLength < bestLength * 1.2) {
+                    const localResult = localSearch(result.placed, result.usedLength);
+                    if (localResult.usedLength < bestLength) {
+                        bestLayout = localResult.placed;
+                        bestLength = localResult.usedLength;
+                        lastBestLength = bestLength;
+                        console.log(`New best layout found with length: ${bestLength} mm`);
+                    }
+                    if (bestLength <= theoreticalMinLength * 1.05) {
+                        drawIterationCount();
+                        drawResult();
+                        stopPreviousProcesses();
+                        return;
+                    }
+                }
+            }
+
+            drawIterationCount();
+
+            if (iterationCount < maxIterations && isRunning) {
+                if ('requestIdleCallback' in window) {
+                    currentIdleCallback = requestIdleCallback(deadline => processBatch(deadline, runId));
+                } else {
+                    currentTimeout = setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }, runId), 0);
+                }
+            } else {
+                drawResult();
+                stopPreviousProcesses();
+            }
+        }
+
+        // Start the process
+        resetSimulation();
+        isRunning = true;
+        currentRunId++;
+        const runId = currentRunId;
         if ('requestIdleCallback' in window) {
-            requestIdleCallback(processBatch);
+            currentIdleCallback = requestIdleCallback(deadline => processBatch(deadline, runId));
         } else {
-            setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }), 0);
+            currentTimeout = setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }, runId), 0);
         }
     });
     
+        
+        
     
     
     
@@ -638,6 +905,44 @@ function renderSurgicalCanvas(canvas, data) {
 
 
 
+function startNewIteration() {
+    // Reset iteration count and best layout
+    iterationCount = 0;
+    bestLayout = null;
+    bestLength = Infinity;
+    
+    // Reinitialize the permutation generator
+    permutationGen = permute(panels);
+    
+    // Redraw the iteration counter
+    drawIterationCount();
+    
+    // Start the new process
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(processBatch);
+    } else {
+        setTimeout(() => processBatch({ timeRemaining: () => 10, didTimeout: true }), 0);
+    }
+}
+
+function stopPreviousProcesses() {
+    // Clear previous iteration or async tasks
+    if (iterationCount > 0) {
+        iterationCount = 0;
+        permutationGen = null; // Stop the permutation generator
+        // Optionally clear timeout or cancel any remaining requests
+        // In most cases, you'd cancel previous async operations here
+    }
+}
+
+// Function to call when the process is restarted
+function restartNesting() {
+    // Stop any ongoing process
+    stopPreviousProcesses();
+
+    // Start a fresh iteration with the current settings
+    startNewIteration();
+}
 
 
 

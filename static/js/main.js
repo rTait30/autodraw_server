@@ -15,5 +15,7 @@ window.onload = () => {
 
 window.addEventListener('resize', () => {
     const canvas = document.getElementById('surgicalCanvas');
+    setupShadesailForm();
+    setupSurgicalForm();
     resizeCanvasToDisplaySize(canvas);
 });

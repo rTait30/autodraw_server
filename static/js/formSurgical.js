@@ -511,7 +511,7 @@ function renderSurgicalCanvas(canvas, data) {
             return;
         }
 
-        if (data.iterations > 100) {
+        if (data.iterations > 1000) {
             ctx.fillStyle = 'red';
             ctx.font = "bold 24px sans-serif";
             ctx.fillText("⚠️ Too many iterations. Nesting aborted.", 100, 600);

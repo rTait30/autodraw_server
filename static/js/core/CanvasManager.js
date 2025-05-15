@@ -9,6 +9,7 @@ class CanvasManager {
      * @param {Object} [options] - Configuration options.
      * @param {number} [options.virtualWidth=1000] - Virtual canvas width per step.
      * @param {number} [options.virtualHeight=1000] - Virtual canvas height per step.
+     * @param {boolean} [options.showData=false] - Whether to display step data as text.
      * @throws {Error} If canvasId is not found.
      */
     constructor(canvasId, options = {}) {
@@ -19,6 +20,7 @@ class CanvasManager {
         this.ctx = this.canvas.getContext('2d');
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
+        this.showData = true;
         this.steps = [];
         this.rainbowColors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
         this.animationFrameId = null;
@@ -31,25 +33,17 @@ class CanvasManager {
 
     /**
      * Adds a new step to the visualization.
-     * @param {Object} config - Step configuration.
-     * @param {string} config.title - Step title.
-     * @param {Function} config.drawFunction - Function to draw the step (ctx, width, height, data, depData).
-     * @param {Object} [config.initialData={}] - Initial data for the step.
-     * @param {Array} [config.dependencies=[]] - Array of dependent steps.
-     * @param {boolean} [config.isLive=false] - Whether the step is live (animated).
+     * @param {Object} config - Step configuration or constructor.
+     * @param {Array} [dependencies=[]] - Array of dependent steps.
      * @returns {Object} The created step object with an update method.
      */
-    addStep({ title, drawFunction, initialData = {}, dependencies = [], isLive = false }) {
+    addStep(config, dependencies = []) {
         const step = {
-            title,
-            drawFunction,
-            data: initialData,
-            dependencies,
-            isLive,
-            /**
-             * Updates the step's data and redraws if not live.
-             * @param {Object} newData - New data to merge with existing data.
-             */
+            title: config.title,
+            drawFunction: config.drawFunction,
+            data: config.initialData || {},
+            dependencies: dependencies || config.dependencies || [],
+            isLive: config.isLive || false,
             update: (newData) => {
                 step.data = { ...step.data, ...newData };
                 if (!step.isLive) {
@@ -73,33 +67,43 @@ class CanvasManager {
     }
 
     /**
+     * Updates all steps with the provided data.
+     * @param {Object} data - Data to update steps (e.g., { step1: { length, width, height }, step2: { ... } }).
+     */
+    updateAll(data) {
+        this.steps.forEach((step, index) => {
+            const stepData = data[`step${index + 1}`] || {};
+            step.update(stepData);
+        });
+    }
+
+    /**
      * Resizes the canvas to fit the wrapper, scaling steps to fill the full width and adjusting height by step count.
      * @private
      */
     resizeAll() {
         const wrapper = this.canvas.parentElement;
-        const maxWidth = Math.min(wrapper.clientWidth, 600); // Respect wrapper's max-width: 600px
+        const dpr = window.devicePixelRatio || 1;
         const stepCount = this.steps.length || 1;
-        const virtualAspectRatio = this.virtualWidth / this.virtualHeight; // 1:1 for 1000x1000
-        
-        // Calculate step dimensions to maximize width
-        let stepWidth = maxWidth;
-        let stepHeight = stepWidth / virtualAspectRatio; // Maintain 1:1 virtual aspect ratio
-        
-        // Set canvas dimensions
-        this.canvas.width = stepWidth * window.devicePixelRatio;
-        this.canvas.height = stepHeight * stepCount * window.devicePixelRatio;
+        const virtualAspectRatio = this.virtualWidth / this.virtualHeight;
+
+        // Use wrapper's full clientWidth, respecting CSS max-width: 600px
+        let stepWidth = wrapper.clientWidth;
+        let stepHeight = stepWidth / virtualAspectRatio;
+
+        // Set canvas pixel dimensions for DPR, CSS dimensions for display
+        this.canvas.width = stepWidth * dpr;
+        this.canvas.height = stepHeight * stepCount * dpr;
         this.canvas.style.width = `${stepWidth}px`;
         this.canvas.style.height = `${stepHeight * stepCount}px`;
-        
-        // Update step scales and offsets
+
+        // Scale steps to fit
         this.steps.forEach((step, index) => {
-            // Scale to fill the canvas width
             step.scale = stepWidth / this.virtualWidth;
             step.offsetX = 0;
-            step.offsetY = index * stepHeight * window.devicePixelRatio;
+            step.offsetY = index * stepHeight * dpr;
         });
-        
+
         // Redraw non-live steps
         this.steps.forEach(step => {
             if (!step.isLive) {
@@ -109,33 +113,43 @@ class CanvasManager {
     }
 
     /**
-     * Draws a single step, including border and title.
+     * Draws a single step, including border, title, and optional data.
      * @param {Object} step - The step to draw.
      * @private
      */
     drawStep(step) {
         const index = this.steps.indexOf(step);
+        const dpr = window.devicePixelRatio || 1;
         this.ctx.save();
-        this.ctx.translate(step.offsetX, step.offsetY / window.devicePixelRatio);
-        this.ctx.scale(step.scale, step.scale);
-        
+        this.ctx.translate(step.offsetX, step.offsetY / dpr);
+        this.ctx.scale(step.scale * dpr, step.scale * dpr);
+
         this.ctx.clearRect(0, 0, this.virtualWidth, this.virtualHeight);
-        
-        // Draw rainbow border
+
+        // Draw rainbow border at canvas edges
         const borderColor = this.rainbowColors[index % this.rainbowColors.length];
         this.ctx.strokeStyle = borderColor;
-        this.ctx.lineWidth = 10;
+        this.ctx.lineWidth = 10 / step.scale; // Adjust for scaling
         this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
-        
+
         // Draw step title
         this.ctx.fillStyle = 'black';
         this.ctx.font = '40px Arial';
         this.ctx.fillText(step.title, 50, 50);
-        
+
+        // Draw step data if showData is true
+        if (this.showData) {
+            let yOffset = 100;
+            Object.entries(step.data).forEach(([key, value]) => {
+                this.ctx.fillText(`${key}: ${value}`, 10, yOffset);
+                yOffset += 50;
+            });
+        }
+
         // Draw step content
         const depData = step.dependencies.map(dep => dep.data);
         step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, step.data, depData);
-        
+
         this.ctx.restore();
     }
 

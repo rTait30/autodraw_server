@@ -6,10 +6,45 @@ app = Flask(__name__, static_url_path='/copelands/static')
 
 BASE_CONFIG_DIR = 'configs'
 
-@app.route('/copelands/')
+
 @app.route('/copelands')
 def copelands_index():
     return render_template('index.html')
+
+def prepare_rectangles(data):
+    quantity = data['quantity']
+    panels = data['panels']
+    
+    rectangles = []
+    
+    for i in range(1, quantity + 1):
+        for name, dims in panels.items():
+            label = f"{i}_{name}"
+            width = dims['width']
+            height = dims['height']
+            rectangles.append((width, height, label))
+    
+    return rectangles
+
+@app.route('/copelands/nest_panels', methods=['POST'])
+def nest_panels():
+
+    try:
+        data = request.get_json()
+        if not data or 'quantity' not in data or 'panels' not in data:
+            return jsonify({"error": "Invalid input"}), 400
+
+        rectangles = prepare_rectangles(data)
+        print (rectangles)
+        return jsonify({
+            "rectangles": rectangles
+        })
+    
+        
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/copelands/save_config', methods=['POST'])
 def save_config():

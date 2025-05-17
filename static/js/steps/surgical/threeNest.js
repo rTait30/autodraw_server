@@ -1,3 +1,28 @@
+async function sendPanelData(panelData) {
+    
+    try {
+      const response = await fetch('/copelands/nest_panels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(panelData)
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+  
+      const result = await response.json();
+      console.log('Received rectangles:', result.rectangles);
+      // Do something with result.rectangles
+    } catch (error) {
+      console.error('Error sending panel data:', error);
+    }
+}
+
+
+
 const threeNest = {
     title: 'Step 3: Nesting',
     initialData: { },
@@ -5,9 +30,6 @@ const threeNest = {
     isLive: false,
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data, depData) => {
-
-
-
         // ----------------------------------- DRAW -------------------------------------------
 
         let yOffset = 500;
@@ -31,6 +53,11 @@ const threeNest = {
         Object.entries(data.finalPanels).forEach(([key, value]) => {
             yOffset = drawKeyValue(ctx, key, value, 500, yOffset, 0);
         });
+
+        if (data.length > 0) {
+
+            sendPanelData(data.finalPanels)
+        }
 
         // ----------------------------------- END DRAW --------------------------------------
 

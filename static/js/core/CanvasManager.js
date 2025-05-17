@@ -20,7 +20,7 @@ class CanvasManager {
         this.ctx = this.canvas.getContext('2d');
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
-        this.showData = true;
+        this.showData = false;
         this.steps = [];
         this.rainbowColors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
         this.animationFrameId = null;
@@ -40,34 +40,21 @@ class CanvasManager {
      * @param {Array} [dependencies=[]] - Array of dependent steps.
      * @returns {Object} The created step object with an update method.
      */
-    async addStep(config, dependencies = []) {
+    addStep(config, dependencies = []) {
         const step = {
-            title: config.title,
-            drawFunction: config.drawFunction,
-            data: config.initialData || {},
-            dependencies: dependencies || config.dependencies || [],
-            isLive: config.isLive || false,
-            update: async (newData) => {
-                step.data = { ...step.data, ...newData };
-                if (!step.isLive) {
-                    await this.drawStep(step);
-                    for (const s of this.steps) {
-                        if (s.dependencies.includes(step) && !s.isLive) {
-                            await this.drawStep(s);
-                        }
-                    }
-                }
-            }
+          title: config.title,
+          drawFunction: config.drawFunction,
+          data: config.initialData || {},
+          dependencies: dependencies || config.dependencies || [],
+          isLive: config.isLive || false,
+          // update still merges new data but doesn't auto-draw
+          update: (newData) => {
+            step.data = { ...step.data, ...newData };
+          }
         };
     
         this.steps.push(step);
         this.resizeAll();
-
-        
-        if (!step.isLive) {
-            await this.drawStep(step);
-        }
-        
     
         return step;
     }
@@ -79,13 +66,15 @@ class CanvasManager {
     async updateAll(initialData) {
         let currentData = initialData;
 
+        // Clear the entire canvas
         if (this.ctx && this.canvas) {
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformation
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
-        
+
+        // Update and redraw each step
         for (const step of this.steps) {
-            const result = await this.drawStep(step, currentData);
-            currentData = result ?? currentData;
+            currentData = await this.drawStep(step, currentData);
         }
     }
 
@@ -129,7 +118,7 @@ class CanvasManager {
         if (newData) {
             this.data = newData;
         }
-
+    
         this.ctx.setLineDash([]);
     
         const index = this.steps.indexOf(step);
@@ -154,40 +143,47 @@ class CanvasManager {
         this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
     
         // Title
+        /*
         this.ctx.fillStyle = 'black';
         this.ctx.font = '60px Arial';
         this.ctx.fillText(step.title, 10, 70);
+        */
     
         // Draw function
-        const updatedData = await step.drawFunction(
-            this.ctx,
-            this.virtualWidth,
-            this.virtualHeight,
-            this.data
-        );
+        let updatedData;
+        if (step.isAsync) {
+            // Draw a placeholder while waiting for async data
+            this.ctx.fillStyle = 'gray';
+            this.ctx.font = '30px Arial';
+            this.ctx.fillText('Loading...', this.virtualWidth / 2 - 50, this.virtualHeight / 2);
     
-        // Optional data overlay
+            // Wait for async operation
+            updatedData = await step.drawFunction(
+                this.ctx,
+                this.virtualWidth,
+                this.virtualHeight,
+                this.data
+            );
+        } else {
+            updatedData = step.drawFunction(
+                this.ctx,
+                this.virtualWidth,
+                this.virtualHeight,
+                this.data
+            );
+        }
+    
+        // Ensure consistent formatting after async operations
+        this.ctx.setTransform(canvasScale, 0, 0, canvasScale, offsetX, offsetY);
+    
+        // Optional: Show data if enabled
         if (this.showData) {
-            let yOffset = 100;
+            this.ctx.fillStyle = 'black';
             this.ctx.font = '20px Arial';
-    
-            function drawKeyValue(ctx, key, value, x, y, indentLevel = 0) {
-                const indent = '    '.repeat(indentLevel);
-                if (value && typeof value === 'object' && !Array.isArray(value)) {
-                    ctx.fillText(`${indent}${key}:`, x, y);
-                    y += 25;
-                    for (const [subKey, subValue] of Object.entries(value)) {
-                        y = drawKeyValue(ctx, subKey, subValue, x, y, indentLevel + 1);
-                    }
-                    return y;
-                } else {
-                    ctx.fillText(`${indent}${key}: ${value}`, x, y);
-                    return y + 25;
-                }
-            }
-    
-            Object.entries(this.data).forEach(([key, value]) => {
-                yOffset = drawKeyValue(this.ctx, key, value, 50, yOffset, 0);
+            const dataText = JSON.stringify(this.data, null, 2);
+            const lines = dataText.split('\n');
+            lines.forEach((line, i) => {
+                this.ctx.fillText(line, 10, 100 + i * 20);
             });
         }
     

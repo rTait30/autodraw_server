@@ -26,12 +26,12 @@ async function sendPanelData(panelData, fabricWidth) {
 
 function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 0;
-  const centerY = 600;
 
   const nestWidth = nestData.total_width;
   const scale = 1000 / nestWidth; // Scale X to fit 1000px
   //const scale = 1; // No scaling on Y, since fabric height is already fixed
 
+  const centerY = 600 + (fabricHeight / 2) * scale;
   ctx.save();
 
   // 🔴 Red test square (unscaled)
@@ -102,6 +102,7 @@ const threeNest = {
   initialData: {},
   dependencies: [],
   isLive: false,
+  isAsync: true,
 
   drawFunction: async (ctx, virtualWidth, virtualHeight, data) => {
     // Only run if data exists and has the expected shape

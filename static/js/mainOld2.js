@@ -1,6 +1,6 @@
 import CanvasManager from './core/CanvasManager.js';
 import SurgicalCoverForm from './forms/SurgicalCoverForm.js';
-import Box3DStep from './steps/surgical/box3d.js';
+import zeroVisualise from './steps/surgical/zeroVisualise.js';
 
 /**
  * Initializes the surgical cover estimation application.
@@ -13,8 +13,8 @@ function init() {
     });
 
     // Add Step 1: 3D Box
-    const step1 = manager.addStep(Box3DStep);
-    const step2 = manager.addStep(Box3DStep);
+    const step1 = manager.addStep(zeroVisualise);
+    const step2 = manager.addStep(zeroVisualise);
 
     // Placeholder for Step 2: Flatten Panels
     // const step2 = manager.addStep({

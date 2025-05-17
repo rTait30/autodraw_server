@@ -29,6 +29,9 @@ class CanvasManager {
         this.animate = this.animate.bind(this);
         this.resizeAll();
         this.animate();
+
+
+        this.data = {length: 100};
     }
 
     /**
@@ -70,11 +73,11 @@ class CanvasManager {
      * Updates all steps with the provided data.
      * @param {Object} data - Data to update steps (e.g., { step1: { length, width, height }, step2: { ... } }).
      */
-    updateAll(data) {
-        this.steps.forEach((step, index) => {
-            const stepData = data[`step${index + 1}`] || {};
-            step.update(stepData);
-        });
+    updateAll(initialData) {
+        let currentData = initialData;
+        for (const step of this.steps) {
+            currentData = this.drawStep(step, currentData);
+        }
     }
 
     /**
@@ -88,28 +91,28 @@ class CanvasManager {
         const virtualAspectRatio = this.virtualWidth / this.virtualHeight;
 
         // Use wrapper's full clientWidth, respecting CSS max-width: 600px
-        let stepWidth = wrapper.clientWidth;
-        let stepHeight = stepWidth / virtualAspectRatio;
+        let stepSize = wrapper.clientWidth;
 
         // Set canvas pixel dimensions for DPR, CSS dimensions for display
-        this.canvas.width = stepWidth * dpr;
-        this.canvas.height = stepHeight * stepCount * dpr;
-        this.canvas.style.width = `${stepWidth}px`;
-        this.canvas.style.height = `${stepHeight * stepCount}px`;
+        this.canvas.width = stepSize * dpr;
+        this.canvas.height = stepSize * stepCount * dpr;
+        this.canvas.style.width = `${stepSize}px`;
+        this.canvas.style.height = `${stepSize * stepCount}px`;
 
         // Scale steps to fit
         this.steps.forEach((step, index) => {
-            step.scale = stepWidth / this.virtualWidth;
+            step.scale = stepSize / this.virtualWidth;
             step.offsetX = 0;
-            step.offsetY = index * stepHeight * dpr;
+            step.offsetY = index * stepSize * dpr * 2; //idk really know why * 2 grok did this
         });
 
         // Redraw non-live steps
+        /*
         this.steps.forEach(step => {
             if (!step.isLive) {
                 this.drawStep(step);
             }
-        });
+        });*/
     }
 
     /**
@@ -117,7 +120,16 @@ class CanvasManager {
      * @param {Object} step - The step to draw.
      * @private
      */
-    drawStep(step) {
+
+
+    drawStep(step, newData) {
+
+        
+        if (newData) {
+
+            this.data = newData;
+        }
+
         const index = this.steps.indexOf(step);
         const dpr = window.devicePixelRatio || 1;
         this.ctx.save();
@@ -126,31 +138,38 @@ class CanvasManager {
 
         this.ctx.clearRect(0, 0, this.virtualWidth, this.virtualHeight);
 
-        // Draw rainbow border at canvas edges
+        // Draw rainbow border
         const borderColor = this.rainbowColors[index % this.rainbowColors.length];
         this.ctx.strokeStyle = borderColor;
-        this.ctx.lineWidth = 10 / step.scale; // Adjust for scaling
+        this.ctx.lineWidth = 10 / step.scale;
         this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
 
         // Draw step title
         this.ctx.fillStyle = 'black';
-        this.ctx.font = '40px Arial';
-        this.ctx.fillText(step.title, 50, 50);
+        this.ctx.font = '60px Arial';
+        this.ctx.fillText(step.title, 10, 70);
+
+
+
+        // Draw step content and get updated data
+        const updatedData = step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
 
         // Draw step data if showData is true
         if (this.showData) {
             let yOffset = 100;
-            Object.entries(step.data).forEach(([key, value]) => {
+            this.ctx.font = '20px Arial';
+
+            console.log(this.data);
+
+            Object.entries(this.data).forEach(([key, value]) => {
                 this.ctx.fillText(`${key}: ${value}`, 10, yOffset);
-                yOffset += 50;
+                yOffset += 25;
             });
         }
 
-        // Draw step content
-        const depData = step.dependencies.map(dep => dep.data);
-        step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, step.data, depData);
-
         this.ctx.restore();
+
+        return updatedData || data; // Return updated data or original if unchanged
     }
 
     /**

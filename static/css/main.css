@@ -175,7 +175,8 @@ table td {
     background: #fff;
     border: 1px solid #ccc;
     display: flex;
-    margin-left: 40px;
+    box-sizing: border-box;
+    margin-left: 0; /* or reduce to 10px */
 }
 #surgicalCanvas {
     width: 100%;

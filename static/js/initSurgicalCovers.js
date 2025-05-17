@@ -1,6 +1,8 @@
 import { saveConfig } from './api.js';
 import CanvasManager from './core/CanvasManager.js';
-import Box3DStep from './steps/surgical/box3d.js';
+import zeroVisualise from './steps/surgical/zeroVisualise.js';
+import oneFlatten from './steps/surgical/oneFlatten.js';
+import twoNest from './steps/surgical/twoNest.js';
 
 /**
  * Initializes the surgical cover estimation application.
@@ -15,10 +17,12 @@ export function initSurgicalCovers() {
     });
 
     // Add placeholder steps
-    const step1 = manager.addStep(Box3DStep);
+    const step0 = manager.addStep(zeroVisualise);
+    const step1 = manager.addStep(oneFlatten);
+    const step2 = manager.addStep(twoNest, [step1]);
     
 
-
+    
     // Debounce helper
     function debounce(func, delay = 500) {
         let timeout;
@@ -33,34 +37,26 @@ export function initSurgicalCovers() {
         return {
             company: document.getElementById('surgicalCompany')?.value || '',
             name: document.getElementById('surgicalName')?.value || '',
-            length: parseFloat(document.getElementById('surgicalLength')?.value) || 100,
-            width: parseFloat(document.getElementById('surgicalWidth')?.value) || 100,
-            height: parseFloat(document.getElementById('surgicalHeight')?.value) || 100,
+            length: parseFloat(document.getElementById('surgicalLength')?.value) || 1,
+            width: parseFloat(document.getElementById('surgicalWidth')?.value) || 1,
+            height: parseFloat(document.getElementById('surgicalHeight')?.value) || 1,
             seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 0,
             hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
             quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 1,
-            fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 1500,
-            iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 100
+            fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 10,
+            iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 10
         };
     }
 
     // Initial update
     const initialData = getLiveSurgicalData();
-    manager.updateAll({
-        step1: { length: initialData.length, width: initialData.width, height: initialData.height },
-        step2: { length: initialData.length, width: initialData.width, height: initialData.height, seam: initialData.seam, hem: initialData.hem },
-        step3: { fabricWidth: initialData.fabricwidth, iterations: initialData.iterations }
-    });
+    manager.updateAll(initialData);
 
     // Debounced live update listener
     const handleLiveUpdate = debounce(() => {
         const liveData = getLiveSurgicalData();
         console.log("📦 Live Surgical Config Updated:", liveData);
-        manager.updateAll({
-            step1: { length: liveData.length, width: liveData.width, height: liveData.height }
-            
-
-        });
+        manager.updateAll(liveData);
     }, 500);
 
     // Attach live update to form inputs
@@ -96,9 +92,7 @@ export function initSurgicalCovers() {
             saveConfig(data, "surgical").then(() => {
                 window.loadConfigs?.();
                 manager.updateAll({
-                    step1: { length: data.length, width: data.width, height: data.height },
-                    step2: { length: data.length, width: data.width, height: data.height, seam: data.seam, hem: data.hem },
-                    step3: { fabricWidth: data.fabricwidth, iterations: data.iterations }
+                    step1: { length: data.length, width: data.width, height: data.height }
                 });
             });
         });

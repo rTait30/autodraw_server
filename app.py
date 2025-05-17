@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, send_from_directory, jsonify
 import os
 import json
 
+from rectpack import newPacker
+
 app = Flask(__name__, static_url_path='/copelands/static')
 
 BASE_CONFIG_DIR = 'configs'
@@ -26,21 +28,51 @@ def prepare_rectangles(data):
     
     return rectangles
 
+def run_rectpack(rectangles, bin_width=1000):
+    packer = newPacker(rotation=True)
+
+    # Add all rectangles
+    for width, height, label in rectangles:
+        packer.add_rect(width, height, label)
+
+    # Add one bin with fixed width and large height
+    packer.add_bin(bin_width, 1000000)
+
+    # Pack
+    packer.pack()
+
+    placements = {}
+    max_y = 0
+
+    for rect in packer.rect_list():
+        bin_index, x, y, w, h, rid = rect
+        orig = next(r for r in rectangles if r[2] == rid)
+        rotated = (w != orig[0] or h != orig[1])
+        placements[rid] = {
+            "x": x,
+            "y": y,
+            "rotated": rotated
+        }
+        max_y = max(max_y, y + h)
+
+    return {
+        "panels": placements,
+        "total_length": max_y
+    }
+
 @app.route('/copelands/nest_panels', methods=['POST'])
 def nest_panels():
-
     try:
         data = request.get_json()
         if not data or 'quantity' not in data or 'panels' not in data:
             return jsonify({"error": "Invalid input"}), 400
 
         rectangles = prepare_rectangles(data)
-        print (rectangles)
-        return jsonify({
-            "rectangles": rectangles
-        })
-    
-        
+
+        # 🧠 Apply the rectpack logic
+        nest_result = run_rectpack(rectangles)
+
+        return jsonify(nest_result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -82,3 +114,13 @@ def get_config(category, filename):
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)
+
+
+
+
+
+
+
+
+
+

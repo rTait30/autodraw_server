@@ -49,7 +49,7 @@ export function initSurgicalCovers() {
 
 
     // Debounce helper
-    function debounce(func, delay = 500) {
+    function debounce(func, delay = 2000) {
         let timeout;
         return (...args) => {
             clearTimeout(timeout);
@@ -62,7 +62,7 @@ export function initSurgicalCovers() {
         const liveData = getLiveSurgicalData();
         console.log("📦 Live Surgical Config Updated:", liveData);
         manager.updateAll(liveData);
-    }, 500);
+    }, 2000);
 
     // Attach live update to form inputs
     [

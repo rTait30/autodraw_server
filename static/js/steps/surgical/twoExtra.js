@@ -100,8 +100,8 @@ const twoExtra = {
 
         ctx.save();  // Save canvas state at start
 
-        let mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricwidth, 50, data.seam);
-        let sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricwidth, 50, data.seam);
+        let mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricwidth, 1, data.seam);
+        let sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricwidth, 1, data.seam);
     
         let result = {};
     

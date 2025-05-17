@@ -40,32 +40,35 @@ class CanvasManager {
      * @param {Array} [dependencies=[]] - Array of dependent steps.
      * @returns {Object} The created step object with an update method.
      */
-    addStep(config, dependencies = []) {
+    async addStep(config, dependencies = []) {
         const step = {
             title: config.title,
             drawFunction: config.drawFunction,
             data: config.initialData || {},
             dependencies: dependencies || config.dependencies || [],
             isLive: config.isLive || false,
-            update: (newData) => {
+            update: async (newData) => {
                 step.data = { ...step.data, ...newData };
                 if (!step.isLive) {
-                    this.drawStep(step);
-                    this.steps.forEach(s => {
+                    await this.drawStep(step);
+                    for (const s of this.steps) {
                         if (s.dependencies.includes(step) && !s.isLive) {
-                            this.drawStep(s);
+                            await this.drawStep(s);
                         }
-                    });
+                    }
                 }
             }
         };
-        
+    
         this.steps.push(step);
         this.resizeAll();
+
+        
         if (!step.isLive) {
-            this.drawStep(step);
+            await this.drawStep(step);
         }
         
+    
         return step;
     }
 
@@ -73,10 +76,11 @@ class CanvasManager {
      * Updates all steps with the provided data.
      * @param {Object} data - Data to update steps (e.g., { step1: { length, width, height }, step2: { ... } }).
      */
-    updateAll(initialData) {
+    async updateAll(initialData) {
         let currentData = initialData;
         for (const step of this.steps) {
-            currentData = this.drawStep(step, currentData);
+            const result = await this.drawStep(step, currentData);
+            currentData = result ?? currentData;
         }
     }
 
@@ -88,31 +92,25 @@ class CanvasManager {
         const wrapper = this.canvas.parentElement;
         const dpr = window.devicePixelRatio || 1;
         const stepCount = this.steps.length || 1;
-        const virtualAspectRatio = this.virtualWidth / this.virtualHeight;
-
-        // Use wrapper's full clientWidth, respecting CSS max-width: 600px
+    
         let stepSize = wrapper.clientWidth;
 
-        // Set canvas pixel dimensions for DPR, CSS dimensions for display
+            
+        const scale = stepSize / this.virtualWidth;
+    
+        const scaledHeight = this.virtualHeight * scale;
+    
         this.canvas.width = stepSize * dpr;
-        this.canvas.height = stepSize * stepCount * dpr;
+        this.canvas.height = scaledHeight * stepCount * dpr;
         this.canvas.style.width = `${stepSize}px`;
-        this.canvas.style.height = `${stepSize * stepCount}px`;
+        this.canvas.style.height = `${scaledHeight * stepCount}px`;
 
-        // Scale steps to fit
+
         this.steps.forEach((step, index) => {
-            step.scale = stepSize / this.virtualWidth;
+            step.scale = scale;
             step.offsetX = 0;
-            step.offsetY = index * stepSize * dpr * 2; //idk really know why * 2 grok did this
+            step.offsetY = index * scaledHeight *1.5; // 🚀 use scaled height
         });
-
-        // Redraw non-live steps
-        /*
-        this.steps.forEach(step => {
-            if (!step.isLive) {
-                this.drawStep(step);
-            }
-        });*/
     }
 
     /**
@@ -122,45 +120,54 @@ class CanvasManager {
      */
 
 
-    drawStep(step, newData) {
-
-        
+    async drawStep(step, newData) {
         if (newData) {
-
             this.data = newData;
         }
 
+        this.ctx.setLineDash([]);
+    
         const index = this.steps.indexOf(step);
         const dpr = window.devicePixelRatio || 1;
-        this.ctx.save();
-        this.ctx.translate(step.offsetX, step.offsetY / dpr);
-        this.ctx.scale(step.scale * dpr, step.scale * dpr);
-
-        this.ctx.clearRect(0, 0, this.virtualWidth, this.virtualHeight);
-
-        // Draw rainbow border
+        const scale = step.scale;
+        const canvasScale = scale * dpr;
+    
+        const offsetX = step.offsetX * canvasScale;
+        const offsetY = step.offsetY * canvasScale;
+    
+        // 🔥 Only clear this step's canvas pixel region
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.clearRect(offsetX, offsetY, this.virtualWidth * canvasScale, this.virtualHeight * canvasScale);
+    
+        // ✅ Set transform: scale and position in canvas pixel space
+        this.ctx.setTransform(canvasScale, 0, 0, canvasScale, offsetX, offsetY);
+    
+        // Border
         const borderColor = this.rainbowColors[index % this.rainbowColors.length];
         this.ctx.strokeStyle = borderColor;
-        this.ctx.lineWidth = 10 / step.scale;
+        this.ctx.lineWidth = 10 / scale;
         this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
-
-        // Draw step title
+    
+        // Title
         this.ctx.fillStyle = 'black';
         this.ctx.font = '60px Arial';
         this.ctx.fillText(step.title, 10, 70);
-
-
-
-        // Draw step content and get updated data
-        const updatedData = step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
-
-        // Draw step data if showData is true
+    
+        // Draw function
+        const updatedData = await step.drawFunction(
+            this.ctx,
+            this.virtualWidth,
+            this.virtualHeight,
+            this.data
+        );
+    
+        // Optional data overlay
         if (this.showData) {
             let yOffset = 100;
             this.ctx.font = '20px Arial';
-        
+    
             function drawKeyValue(ctx, key, value, x, y, indentLevel = 0) {
-                const indent = '    '.repeat(indentLevel); // 4 spaces per indent
+                const indent = '    '.repeat(indentLevel);
                 if (value && typeof value === 'object' && !Array.isArray(value)) {
                     ctx.fillText(`${indent}${key}:`, x, y);
                     y += 25;
@@ -173,15 +180,13 @@ class CanvasManager {
                     return y + 25;
                 }
             }
-        
+    
             Object.entries(this.data).forEach(([key, value]) => {
                 yOffset = drawKeyValue(this.ctx, key, value, 10, yOffset, 0);
             });
         }
-
-        this.ctx.restore();
-
-        return updatedData || data; // Return updated data or original if unchanged
+    
+        return updatedData || this.data;
     }
 
     /**

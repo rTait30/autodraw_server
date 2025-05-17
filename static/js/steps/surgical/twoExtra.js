@@ -1,11 +1,15 @@
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
     // Always treat the shorter side as height
-    const rotated = width < height;
-    let panelWidth = rotated ? height : width;
-    let panelHeight = rotated ? width : height;
+    if (width < height) {
+        let temp = width;  // store original width
+        width = height;    // assign height to width
+        height = temp;     // assign original width to height
+    }
+    
+
 
     // Case: No seam needed
-    if (panelHeight <= fabricWidth) {
+    if (height <= fabricWidth) {
         return [{
             width,
             height,
@@ -15,29 +19,29 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
 
     let panels = [];
 
-    if (panelHeight > fabricWidth - seam + minAllowance) {
+    if (height > fabricWidth - seam + minAllowance) {
         // Case: One full-width panel and a remainder
         const firstHeight = fabricWidth;
-        const secondHeight = panelHeight - fabricWidth + seam * 2;
+        const secondHeight = height - fabricWidth + seam * 2;
 
         console.log(firstHeight);
         console.log(secondHeight);
 
         panels.push({
-            width: panelWidth,
+            width: width,
             height: firstHeight,
             hasSeam: "top"
         });
 
         panels.push({
-            width: panelWidth,
+            width: width,
             height: secondHeight,
             hasSeam: "bottom"
         });
 
     } else {
         // Case: central seam, two equal parts with seam
-        const half = panelHeight / 2;
+        const half = height / 2;
 
         console.log("central")
 
@@ -48,13 +52,13 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
         const pieceHeight = half + seam;
 
         panels.push({
-            width: panelWidth,
+            width: width,
             height: pieceHeight,
             hasSeam: "top"
         });
 
         panels.push({
-            width: panelWidth,
+            width: width,
             height: pieceHeight,
             hasSeam: "bottom"
         });
@@ -100,8 +104,8 @@ const twoExtra = {
 
         ctx.save();  // Save canvas state at start
 
-        let mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricwidth, 1, data.seam);
-        let sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricwidth, 1, data.seam);
+        let mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
+        let sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
     
         let result = {};
     

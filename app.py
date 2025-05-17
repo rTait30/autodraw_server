@@ -28,23 +28,46 @@ def prepare_rectangles(data):
     
     return rectangles
 
-def run_rectpack(rectangles, bin_width=1000):
+def can_fit(rectangles, bin_width, bin_height):
+    from rectpack import newPacker
+
     packer = newPacker(rotation=True)
 
-    # Add all rectangles
     for width, height, label in rectangles:
         packer.add_rect(width, height, label)
+    packer.add_bin(bin_width, bin_height)
 
-    # Add one bin with fixed width and large height
-    packer.add_bin(bin_width, 1000000)
-
-    # Pack
     packer.pack()
+    return len(packer.rect_list()) == len(rectangles), packer
+
+
+def run_rectpack_with_fixed_height(rectangles, fabric_height):
+    # Binary search bounds
+    min_width = max(r[0] for r in rectangles)  # At least the widest panel
+    max_width = sum(r[0] for r in rectangles)  # Worst case, all side by side
+    best_result = None
+
+    while min_width < max_width:
+        mid_width = (min_width + max_width) // 2
+        fits, packer = can_fit(rectangles, mid_width, fabric_height)
+
+        if fits:
+            max_width = mid_width
+            best_result = packer
+        else:
+            min_width = mid_width + 1
+
+    # Final successful pack at min_width
+    if not best_result:
+        # One last try in case min_width just became valid
+        fits, best_result = can_fit(rectangles, min_width, fabric_height)
+        if not fits:
+            raise Exception("Cannot fit panels in given height.")
 
     placements = {}
-    max_y = 0
+    max_x = 0
 
-    for rect in packer.rect_list():
+    for rect in best_result.rect_list():
         bin_index, x, y, w, h, rid = rect
         orig = next(r for r in rectangles if r[2] == rid)
         rotated = (w != orig[0] or h != orig[1])
@@ -53,11 +76,12 @@ def run_rectpack(rectangles, bin_width=1000):
             "y": y,
             "rotated": rotated
         }
-        max_y = max(max_y, y + h)
+        max_x = max(max_x, x + w)
 
     return {
         "panels": placements,
-        "total_length": max_y
+        "total_width": max_x,
+        "used_bin_width": min_width
     }
 
 @app.route('/copelands/nest_panels', methods=['POST'])
@@ -69,8 +93,11 @@ def nest_panels():
 
         rectangles = prepare_rectangles(data)
 
-        # 🧠 Apply the rectpack logic
-        nest_result = run_rectpack(rectangles)
+        # Use fabricWidth from the request as the fixed height
+        fabric_height = data.get('fabricWidth')
+
+        # Run rectpack with fixed height
+        nest_result = run_rectpack_with_fixed_height(rectangles, fabric_height)
 
         return jsonify(nest_result)
 

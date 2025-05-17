@@ -78,6 +78,11 @@ class CanvasManager {
      */
     async updateAll(initialData) {
         let currentData = initialData;
+
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        
         for (const step of this.steps) {
             const result = await this.drawStep(step, currentData);
             currentData = result ?? currentData;
@@ -109,7 +114,7 @@ class CanvasManager {
         this.steps.forEach((step, index) => {
             step.scale = scale;
             step.offsetX = 0;
-            step.offsetY = index * scaledHeight *1.5; // 🚀 use scaled height
+            step.offsetY = index * scaledHeight * 1.67; // 🚀 use scaled height
         });
     }
 
@@ -136,7 +141,7 @@ class CanvasManager {
         const offsetY = step.offsetY * canvasScale;
     
         // 🔥 Only clear this step's canvas pixel region
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.setTransform(canvasScale, 0, 0, canvasScale, offsetX, offsetY);
         this.ctx.clearRect(offsetX, offsetY, this.virtualWidth * canvasScale, this.virtualHeight * canvasScale);
     
         // ✅ Set transform: scale and position in canvas pixel space
@@ -182,7 +187,7 @@ class CanvasManager {
             }
     
             Object.entries(this.data).forEach(([key, value]) => {
-                yOffset = drawKeyValue(this.ctx, key, value, 10, yOffset, 0);
+                yOffset = drawKeyValue(this.ctx, key, value, 50, yOffset, 0);
             });
         }
     

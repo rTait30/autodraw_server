@@ -38,7 +38,7 @@ export function initSurgicalCovers() {
             seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 0,
             hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
             quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 1,
-            fabricwidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 10,
+            fabricWidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 10,
             iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 10
         };
     }

@@ -8,7 +8,7 @@ app = Flask(__name__, static_url_path='/copelands/static')
 
 BASE_CONFIG_DIR = 'configs'
 
-
+@app.route('/copelands/')
 @app.route('/copelands')
 def copelands_index():
     return render_template('index.html')

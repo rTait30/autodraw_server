@@ -3,6 +3,7 @@ const oneFlatten = {
     initialData: { length: 1, width: 1, height: 1 },
     dependencies: [],
     isLive: false,
+    isAsync: false,
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
 

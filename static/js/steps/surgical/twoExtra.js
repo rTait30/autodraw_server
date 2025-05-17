@@ -91,6 +91,7 @@ const twoExtra = {
     initialData: { },
     dependencies: [],
     isLive: false,
+    isAsync: false,
 
 
 

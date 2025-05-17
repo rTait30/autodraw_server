@@ -7,3 +7,6 @@
 /configs/surgical/*
 !/configs/surgical/.gitkeep
 !/configs/surgical/.gitignore
+
+# Virtual environment
+venv/

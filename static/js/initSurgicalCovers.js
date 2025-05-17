@@ -2,7 +2,8 @@ import { saveConfig } from './api.js';
 import CanvasManager from './core/CanvasManager.js';
 import zeroVisualise from './steps/surgical/zeroVisualise.js';
 import oneFlatten from './steps/surgical/oneFlatten.js';
-import twoNest from './steps/surgical/twoNest.js';
+import twoExtra from './steps/surgical/twoExtra.js';
+import threeNest from './steps/surgical/threeNest.js';
 
 /**
  * Initializes the surgical cover estimation application.
@@ -19,18 +20,12 @@ export function initSurgicalCovers() {
     // Add placeholder steps
     const step0 = manager.addStep(zeroVisualise);
     const step1 = manager.addStep(oneFlatten);
-    const step2 = manager.addStep(twoNest, [step1]);
+    const step2 = manager.addStep(twoExtra);
+    const step3 = manager.addStep(threeNest);
     
 
     
-    // Debounce helper
-    function debounce(func, delay = 500) {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func(...args), delay);
-        };
-    }
+
 
     // Shared function to get current form values
     function getLiveSurgicalData() {
@@ -51,6 +46,16 @@ export function initSurgicalCovers() {
     // Initial update
     const initialData = getLiveSurgicalData();
     manager.updateAll(initialData);
+
+
+    // Debounce helper
+    function debounce(func, delay = 500) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), delay);
+        };
+    }
 
     // Debounced live update listener
     const handleLiveUpdate = debounce(() => {

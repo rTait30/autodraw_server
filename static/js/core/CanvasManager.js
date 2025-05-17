@@ -31,7 +31,7 @@ class CanvasManager {
         this.animate();
 
 
-        this.data = {length: 100};
+        this.data = {};
     }
 
     /**
@@ -158,12 +158,24 @@ class CanvasManager {
         if (this.showData) {
             let yOffset = 100;
             this.ctx.font = '20px Arial';
-
-            console.log(this.data);
-
+        
+            function drawKeyValue(ctx, key, value, x, y, indentLevel = 0) {
+                const indent = '    '.repeat(indentLevel); // 4 spaces per indent
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    ctx.fillText(`${indent}${key}:`, x, y);
+                    y += 25;
+                    for (const [subKey, subValue] of Object.entries(value)) {
+                        y = drawKeyValue(ctx, subKey, subValue, x, y, indentLevel + 1);
+                    }
+                    return y;
+                } else {
+                    ctx.fillText(`${indent}${key}: ${value}`, x, y);
+                    return y + 25;
+                }
+            }
+        
             Object.entries(this.data).forEach(([key, value]) => {
-                this.ctx.fillText(`${key}: ${value}`, 10, yOffset);
-                yOffset += 25;
+                yOffset = drawKeyValue(this.ctx, key, value, 10, yOffset, 0);
             });
         }
 

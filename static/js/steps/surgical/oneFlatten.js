@@ -26,9 +26,13 @@ const oneFlatten = {
 
         let i = 0;
 
+        data.totalSeamLength = totalSeamLength;
+
         data.flatMainHeight = flatMainHeight;
         data.flatMainWidth = flatMainWidth;
-        data.totalSeamLength = totalSeamLength;
+
+        data.flatSideHeight = flatSideHeight;
+        data.flatSideWidth = flatSideWidth;
 
         // Scaling
         const padding = 100;

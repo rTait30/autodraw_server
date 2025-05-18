@@ -12,10 +12,7 @@ export function initSurgicalCovers() {
     console.log("🔧 initSurgicalCovers called");
 
     // Initialize CanvasManager
-    const manager = new CanvasManager('surgicalCanvas', {
-        virtualWidth: 1000,
-        virtualHeight: 1000
-    });
+    const manager = new CanvasManager('surgicalCanvas', {});
 
     // Add placeholder steps
     const step0 = manager.addStep(zeroVisualise);
@@ -23,9 +20,6 @@ export function initSurgicalCovers() {
     const step2 = manager.addStep(twoExtra);
     const step3 = manager.addStep(threeNest);
     
-
-    
-
 
     // Shared function to get current form values
     function getLiveSurgicalData() {

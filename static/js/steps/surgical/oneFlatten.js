@@ -12,7 +12,6 @@ const oneFlatten = {
         // ----------------------------------- DRAW -------------------------------------------
 
 
-
         let flatMainHeight = data.width + 2 * data.seam;
         let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
 

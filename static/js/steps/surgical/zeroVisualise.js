@@ -15,7 +15,6 @@ const zeroVisualise = {
         // ----------------------------------- DRAW -------------------------------------------
 
 
-
         const quantity = Math.max(1, data.quantity || 1);
         const width = data.width || 1;
         const height = data.height || 1;

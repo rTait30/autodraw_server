@@ -28,7 +28,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 0;
 
   const nestWidth = nestData.total_width;
-  const scale = 1200 / nestWidth; // Scale X to fit 1000px
+  const scale = 2000 / nestWidth; // Scale X to fit 1000px
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
@@ -74,6 +74,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const fabricBoxWidth = nestWidth * scale;
   const fabricBoxHeight = fabricHeight * scale;
 
+  ctx.setLineDash([]);
   ctx.strokeStyle = 'red';
   ctx.lineWidth = 2;
   ctx.strokeRect(fabricBoxX, fabricBoxY, fabricBoxWidth, fabricBoxHeight);

@@ -95,9 +95,9 @@ class CanvasManager {
         tempCtx.drawImage(this.canvas, 0, 0);
     
         // Calculate new dimensions
-        const stepSize = wrapper.clientWidth;
-        const scale = stepSize / this.virtualWidth;
-        const scaledHeight = this.virtualHeight * scale;
+        const stepSize = 600;
+        const scale = 500 / this.virtualWidth;
+        const scaledHeight = this.virtualHeight * scale * 1.2;
     
         this.canvas.width = stepSize * dpr;
         this.canvas.height = scaledHeight * stepCount * dpr;
@@ -108,7 +108,7 @@ class CanvasManager {
         this.steps.forEach((step, index) => {
             step.scale = scale;
             step.offsetX = 0;
-            step.offsetY = index * scaledHeight * 2; // 🚀 use scaled height
+            step.offsetY = index * scaledHeight * 1.4; // 🚀 use scaled height
         });
     
         // Restore saved content
@@ -146,10 +146,10 @@ class CanvasManager {
         this.ctx.setTransform(canvasScale, 0, 0, canvasScale, offsetX, offsetY);
     
         // Border
-        const borderColor = this.rainbowColors[index % this.rainbowColors.length];
-        this.ctx.strokeStyle = borderColor;
-        this.ctx.lineWidth = 10 / scale;
-        this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
+        //const borderColor = this.rainbowColors[index % this.rainbowColors.length];
+        //this.ctx.strokeStyle = borderColor;
+        //this.ctx.lineWidth = 10 / scale;
+        //this.ctx.strokeRect(0, 0, this.virtualWidth, this.virtualHeight);
     
         // Title
         /*

@@ -170,9 +170,9 @@ table td {
 
 .surgical-canvas-wrapper {
     flex: 1;
-    max-width: 500px;
+    max-width: 2000px;
+    max-height: 1000px;
     background: #fff;
-    border: 1px solid #ccc;
     display: flex;
     box-sizing: border-box;
     margin-left: 0; /* or reduce to 10px */

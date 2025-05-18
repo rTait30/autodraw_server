@@ -28,8 +28,8 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 0;
 
   const nestWidth = nestData.total_width;
-  const scale = 1000 / nestWidth; // Scale X to fit 1000px
-  const centerY = 600 + (fabricHeight / 2) * scale;
+  const scale = 1200 / nestWidth; // Scale X to fit 1000px
+  const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
 
@@ -75,7 +75,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const fabricBoxHeight = fabricHeight * scale;
 
   ctx.strokeStyle = 'red';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 2;
   ctx.strokeRect(fabricBoxX, fabricBoxY, fabricBoxWidth, fabricBoxHeight);
 
   // 📏 Draw dimension line under the whole thing

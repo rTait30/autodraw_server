@@ -27,7 +27,7 @@ class CanvasManager {
         // Internal state
         this.steps = [];
         this.scaleFactor = 0.5; // Hardcoded scaling factor for easy adjustment
-        this.stepOffsetY = 300; // Vertical offset between steps
+        this.stepOffsetY = 400; // Vertical offset between steps
         this.data = {};
 
         // Initialize canvas dimensions
@@ -61,18 +61,11 @@ class CanvasManager {
         };
 
         this.steps.push(step);
-        this.updateCanvasHeight();
+        this.canvas.height = this.stepOffsetY * this.steps.length;
 
         return step;
     }
-
-    /**
-     * Updates the canvas height based on the number of steps.
-     */
-    updateCanvasHeight() {
-        this.canvas.height = this.stepOffsetY * this.steps.length;
-    }
-
+    
     /**
      * Updates all steps with the provided data.
      * @param {Object} initialData - Data to update steps.

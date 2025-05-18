@@ -16,8 +16,8 @@ const oneFlatten = {
         let flatMainHeight = data.width + 2 * data.seam;
         let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
 
-        let flatSideWidth = data.length + data.hem;
-        let flatSideHeight = data.height + data.hem;
+        let flatSideWidth = data.width + data.seam * 2;
+        let flatSideHeight = data.height + data.hem + data.seam;
 
         // Calculate total seam length
         let totalSeamLength =

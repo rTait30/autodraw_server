@@ -87,24 +87,33 @@ class CanvasManager {
         const dpr = window.devicePixelRatio || 1;
         const stepCount = this.steps.length || 1;
     
-        let stepSize = wrapper.clientWidth;
-
-            
-        const scale = stepSize / this.virtualWidth;
+        // Save current canvas content
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+        tempCtx.drawImage(this.canvas, 0, 0);
     
+        // Calculate new dimensions
+        const stepSize = wrapper.clientWidth;
+        const scale = stepSize / this.virtualWidth;
         const scaledHeight = this.virtualHeight * scale;
     
         this.canvas.width = stepSize * dpr;
         this.canvas.height = scaledHeight * stepCount * dpr;
         this.canvas.style.width = `${stepSize}px`;
         this.canvas.style.height = `${scaledHeight * stepCount}px`;
-
-
+    
+        // Update step offsets and scaling
         this.steps.forEach((step, index) => {
             step.scale = scale;
             step.offsetX = 0;
             step.offsetY = index * scaledHeight * 1.67; // 🚀 use scaled height
         });
+    
+        // Restore saved content
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformation
+        this.ctx.drawImage(tempCanvas, 0, 0);
     }
 
     /**

@@ -73,8 +73,11 @@ class CanvasManager {
         }
 
         // Update and redraw each step
-        for (const step of this.steps) {
-            currentData = await this.drawStep(step, currentData);
+
+        if (initialData.length > 1) {
+            for (const step of this.steps) {
+                currentData = await this.drawStep(step, currentData);
+            }
         }
     }
 

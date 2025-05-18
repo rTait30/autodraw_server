@@ -108,7 +108,7 @@ class CanvasManager {
         this.steps.forEach((step, index) => {
             step.scale = scale;
             step.offsetX = 0;
-            step.offsetY = index * scaledHeight * 1.67; // 🚀 use scaled height
+            step.offsetY = index * scaledHeight * 2; // 🚀 use scaled height
         });
     
         // Restore saved content

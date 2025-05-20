@@ -28,7 +28,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 0;
 
   const nestWidth = nestData.total_width;
-  const scale = Math.min(2000 / nestWidth, 0.4); // Scale X to fit 1000px
+  const scale = Math.min(2000 / nestWidth, 0.1); // Scale X to fit 1000px
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();

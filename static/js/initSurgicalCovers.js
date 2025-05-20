@@ -32,8 +32,7 @@ export function initSurgicalCovers() {
             seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 0,
             hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
             quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 1,
-            fabricWidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 10,
-            iterations: parseInt(document.getElementById('surgicalIterations')?.value) || 10
+            fabricWidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 1
         };
     }
 
@@ -88,7 +87,11 @@ export function initSurgicalCovers() {
                 ...getLiveSurgicalData()
             };
             console.log("🟡 Collected Data:", data);
-            saveConfig(data, "surgical").then(() => {
+            saveConfig(data, "surgical").then(response => {
+                if (response.id) {
+                    console.log(`✅ Config saved with ID: ${response.id}`);
+                    alert(`Config saved with ID: ${response.id}`);
+                }
                 window.loadConfigs?.();
                 manager.updateAll({
                     step1: { length: data.length, width: data.width, height: data.height }

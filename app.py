@@ -146,23 +146,28 @@ def nest_panels():
 
 @app.route('/copelands/save_config', methods=['POST'])
 def save_config():
-    data = request.get_json()
-    category = data.get('category')
-    job_name = data.get('name', 'unnamed_job').replace(' ', '_')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid input"}), 400
 
-    if not category or not job_name:
-        return jsonify({"error": "Missing category or job name"}), 400
+        # Get the next ID and increment it
+        next_id = get_next_id()
+        data['id'] = next_id
 
-    save_dir = os.path.join('configs', category)
-    os.makedirs(save_dir, exist_ok=True)
+        # Save the configuration to a file
+        category = data.get('category', 'default')
+        config_dir = os.path.join(BASE_CONFIG_DIR, category)
+        os.makedirs(config_dir, exist_ok=True)
+        config_file = os.path.join(config_dir, f"{data['name']}.json")
 
-    filename = f"{job_name}.json"
-    filepath = os.path.join(save_dir, filename)
+        with open(config_file, 'w') as f:
+            json.dump(data, f, indent=4)
 
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=2)
+        return jsonify({"message": "Config saved", "id": next_id}), 200
 
-    return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/copelands/list_configs/<category>', methods=['GET'])
 def list_configs(category):
@@ -177,6 +182,38 @@ def list_configs(category):
 def get_config(category, filename):
     folder = os.path.join(BASE_CONFIG_DIR, category)
     return send_from_directory(folder, filename)
+
+
+
+
+
+
+
+SETTINGS_FILE = 'settings.json'
+
+def load_settings():
+    """Loads settings from the settings file or initializes defaults."""
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r') as f:
+            return json.load(f)
+    # Default settings
+    return {"nextID": 1}
+
+def save_settings(settings):
+    """Saves settings to the settings file."""
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f, indent=4)
+
+def get_next_id():
+    """Gets the next ID from settings and increments it."""
+    settings = load_settings()
+    next_id = settings.get("nextID", 1)
+    settings["nextID"] = next_id + 1
+    save_settings(settings)
+    return next_id
+
+
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)

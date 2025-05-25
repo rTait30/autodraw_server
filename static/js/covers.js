@@ -1,29 +1,31 @@
 import { saveConfig } from './api.js';
 import CanvasManager from './core/CanvasManager.js';
-import zeroVisualise from './steps/surgical/zeroVisualise.js';
-import oneFlatten from './steps/surgical/oneFlatten.js';
-import twoExtra from './steps/surgical/twoExtra.js';
-import threeNest from './steps/surgical/threeNest.js';
+import zeroVisualise from './steps/covers/zeroVisualise.js';
+import oneFlatten from './steps/covers/oneFlatten.js';
+import twoExtra from './steps/covers/twoExtra.js';
+import threeNest from './steps/covers/threeNest.js';
 
 /**
  * Initializes the surgical cover estimation application.
  */
-export function initSurgicalCovers() {
-    console.log("🔧 initSurgicalCovers called");
+export function initSurgicalCovers(mode = "client") {
+    console.log(`🔧 initSurgicalCovers called (mode: ${mode})`);
 
-    // Initialize CanvasManager
     const manager = new CanvasManager('surgicalCanvas', {});
 
-    // Add placeholder steps
-    const step0 = manager.addStep(zeroVisualise);
-    const step1 = manager.addStep(oneFlatten);
-    const step2 = manager.addStep(twoExtra);
-    const step3 = manager.addStep(threeNest);
+    // Always include step 0
+    manager.addStep(zeroVisualise);
+
+    if (mode === 'estimator') {
+        manager.addStep(oneFlatten);
+        manager.addStep(twoExtra);
+        manager.addStep(threeNest);
+    }
     
 
     // Shared function to get current form values
     function getLiveSurgicalData() {
-        return {
+        const base = {
             company: document.getElementById('surgicalCompany')?.value || '',
             name: document.getElementById('surgicalName')?.value || '',
             length: parseFloat(document.getElementById('surgicalLength')?.value) || 1,
@@ -32,17 +34,30 @@ export function initSurgicalCovers() {
             seam: parseFloat(document.getElementById('surgicalSeam')?.value) || 0,
             hem: parseFloat(document.getElementById('surgicalHem')?.value) || 0,
             quantity: parseInt(document.getElementById('surgicalQuantity')?.value) || 1,
-            fabricWidth: parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 1
+            zips: document.getElementById('surgicalZips')?.checked || false,
+            stayputs: document.getElementById('surgicalStayPuts')?.checked || false,
+            notes: document.getElementById('surgicalNotes')?.value || ''
         };
+
+        if (mode === 'estimator') {
+            base.fabricWidth = parseFloat(document.getElementById('surgicalFabricWidth')?.value) || 1;
+            base.iterations = parseInt(document.getElementById('surgicalIterations')?.value) || 1;
+        }
+
+        if (mode === 'client') {
+
+        }
+
+        return base;
     }
 
     // Initial update
-    const initialData = getLiveSurgicalData();
-    manager.updateAll(initialData);
+    //const initialData = getLiveSurgicalData();
+    manager.updateAll(getLiveSurgicalData());
 
 
     // Debounce helper
-    function debounce(func, delay = 2000) {
+    function debounce(func, delay) {
         let timeout;
         return (...args) => {
             clearTimeout(timeout);
@@ -50,15 +65,14 @@ export function initSurgicalCovers() {
         };
     }
 
-    // Debounced live update listener
     const handleLiveUpdate = debounce(() => {
         const liveData = getLiveSurgicalData();
         console.log("📦 Live Surgical Config Updated:", liveData);
         manager.updateAll(liveData);
-    }, 2000);
+    }, 100);
 
-    // Attach live update to form inputs
-    [
+    // Attach live update to inputs
+    const fieldIds = [
         'surgicalCompany',
         'surgicalName',
         'surgicalLength',
@@ -67,9 +81,17 @@ export function initSurgicalCovers() {
         'surgicalSeam',
         'surgicalHem',
         'surgicalQuantity',
-        'surgicalFabricWidth',
-        'surgicalIterations'
-    ].forEach(id => {
+    ];
+
+    if (mode === 'estimator') {
+        fieldIds.push('surgicalFabricWidth', 'surgicalIterations');
+    }
+    
+    if (mode === 'client') {
+        fieldIds.push('surgicalZips', 'surgicalStayPuts', 'surgicalNotes');
+    }
+
+    fieldIds.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('input', handleLiveUpdate);
@@ -93,9 +115,7 @@ export function initSurgicalCovers() {
                     alert(`Config saved with ID: ${response.id}`);
                 }
                 window.loadConfigs?.();
-                manager.updateAll({
-                    step1: { length: data.length, width: data.width, height: data.height }
-                });
+                manager.updateAll(getLiveSurgicalData());
             });
         });
     } else {

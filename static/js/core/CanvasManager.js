@@ -31,8 +31,8 @@ class CanvasManager {
         this.data = {};
 
         // Initialize canvas dimensions
-        this.canvas.width = this.virtualWidth;
-        this.canvas.height = this.virtualHeight;
+        //this.canvas.width = this.virtualWidth;
+        //this.canvas.height = this.virtualHeight;
 
         // Bind methods
         this.animate = this.animate.bind(this);
@@ -61,7 +61,7 @@ class CanvasManager {
         };
 
         this.steps.push(step);
-        this.canvas.height = this.stepOffsetY * this.steps.length;
+        //this.canvas.height = this.stepOffsetY * this.steps.length;
 
         return step;
     }

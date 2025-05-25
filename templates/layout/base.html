@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}MyApp{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f9f9f9;
+        }
+
+        header {
+            background-color: #1b1c3a;
+            padding: 0 20px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+
+        .nav-left,
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-left img {
+            height: 36px;
+            margin-right: 20px;
+        }
+
+        .nav-left a,
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .nav-left a:hover,
+        .nav-right a:hover {
+            text-decoration: underline;
+        }
+
+        .role-label {
+            font-weight: 500;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        main {
+            padding: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="nav-left">
+        <img src="{{ url_for('static', filename='img/DRlogo.png') }}" alt="Logo">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% block nav %}{% endblock %}
+    </div>
+    <div class="nav-right">
+        <span class="role-label">{{ session['role']|capitalize }}</span>
+        <a href="#" onclick="logout()">Logout</a>
+    </div>
+</header>
+
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<script>
+function logout() {
+    fetch("/copelands/api/logout", { method: "POST" }).then(() => {
+        window.location.href = "/copelands/landing";
+    });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+{% extends "layout/projectsbar.html" %}
+{% block title %}New Cover Project{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('new_project') }}">New Project</a>
+{% endblock %}
+
+{% block project_content %}
+<h2>Surgical Covers Config</h2>
+
+<div class="surgical-layout">
+    <!-- Form Section -->
+    <form id="formSurgical">
+        <div class="form-wrapper">
+            <div class="form-header">
+                <label>
+                    Company Name:
+                    <input type="text" id="surgicalCompany" placeholder="Name">
+                </label>
+                <label>
+                    Project:
+                    <input type="text" id="surgicalName" placeholder="Project">
+                </label>
+                <label>
+                    Length:
+                    <input type="number" id="surgicalLength" placeholder="Length">
+                </label>
+                <label>
+                    Width:
+                    <input type="number" id="surgicalWidth" placeholder="Width">
+                </label>
+                <label>
+                    Height:
+                    <input type="number" id="surgicalHeight" placeholder="Height">
+                </label>
+                <label>
+                    Seam:
+                    <input type="number" id="surgicalSeam" placeholder="Seam">
+                </label>
+                <label>
+                    Hem:
+                    <input type="number" id="surgicalHem" placeholder="Hem">
+                </label>
+                <label>
+                    Quantity:
+                    <input type="number" id="surgicalQuantity" placeholder="Quantity">
+                </label>
+                <label>
+                  Include Zips:
+                    <input type="checkbox" id="surgicalZips" name="surgicalZips">
+                </label>
+                <label>
+                    Include Stay puts:
+                    <input type="checkbox" id="surgicalStayPuts" name="surgicalStayPuts">
+                </label>
+                <label>
+                    Notes:
+                    <textarea id="surgicalNotes" name="surgicalNotes" rows="4" cols="50" placeholder="Any extra instructions or context..."></textarea>
+                </label>
+            </div>
+        </div>
+    </form>
+
+    <!-- Canvas Section -->
+    <canvas id="surgicalCanvas" width="500" height="500" style="border:1px solid #ccc; margin-top: 20px;"></canvas>
+</div>
+
+<!-- Save Button -->
+<button id="saveSurgicalBtn" type="button" style="margin-top: 20px;">Save Surgical Covers Config</button>
+
+<!-- Optional: JS logic -->
+<script type="module" src="{{ url_for('static', filename='js/covers.js') }}"></script>
+
+{% endblock %}

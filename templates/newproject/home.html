@@ -1,0 +1,11 @@
+{% extends "layout/projectsbar.html" %}
+{% block title %}New Cover Project{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('new_project') }}">New Project</a>
+{% endblock %}
+
+{% block project_content %}
+<h2>Start a new project</h2>
+<p>Use sidebar to select project</p>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "layout/base.html" %}
+{% block title %}Client Dashboard{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('new_project') }}">New Project</a>
+<a href="#">Projects</a>
+{% endblock %}
+
+{% block content %}
+<h2>Client Dashboard</h2>
+<p>Welcome to the client interface.</p>
+{% endblock %}

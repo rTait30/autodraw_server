@@ -1,0 +1,24 @@
+{% extends "layout/base.html" %}
+{% block title %}New Project{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('new_project') }}">New Project</a>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 40px;">
+    <!-- Sidebar -->
+    <aside style="width: 220px;">
+        <h3>List of Products</h3>
+        <ul style="list-style: none; padding: 0;">
+            <li><a href="{{ url_for('new_project_covers') }}">Covers</a></li>
+            <li><a href="{{ url_for('new_project_shadesails') }}">Shade Sails</a></li>
+        </ul>
+    </aside>
+
+    <!-- Placeholder for description -->
+    <div>
+        <p>Select a product type from the sidebar to begin.</p>
+    </div>
+</div>
+{% endblock %}

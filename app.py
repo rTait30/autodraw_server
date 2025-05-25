@@ -1,12 +1,81 @@
-from flask import Flask, render_template, request, send_from_directory, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
+from flask import session
 import os
 import json
 
 from rectpack import newPacker
 
 app = Flask(__name__, static_url_path='/copelands/static')
+app.secret_key = "C0p3l4nds_S3cr3t_K3y"
 
 BASE_CONFIG_DIR = 'configs'
+
+@app.route('/copelands/landing/')
+@app.route('/landing')
+def landing():
+    print("Rendering landing.html")
+    return render_template('landing.html')  # includes login form
+
+
+@app.route('/copelands/dashboard')
+def dashboard():
+    role = session.get('role')
+    if not role:
+        return redirect(url_for('landing'))
+
+    valid_roles = {'client', 'designer', 'estimator'}
+    if role not in valid_roles:
+        return "Unauthorized", 403
+
+    return render_template(f'dashboards/{role}.html')
+
+# ---- API ENDPOINTS ----
+
+@app.route('/copelands/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    # 🔒 Fake auth logic — replace with DB check
+    if username == 'client' and password == 'pass':
+        session['role'] = 'client'
+    elif username == 'designer' and password == 'pass':
+        session['role'] = 'designer'
+    elif username == 'estimator' and password == 'pass':
+        session['role'] = 'estimator'
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
+
+    return jsonify({'status': 'ok'})
+
+@app.route('/copelands/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({'status': 'logged out'})
+
+@app.route('/copelands/newproject', methods=['GET', 'POST'])
+def new_project():
+    if session.get('role') != 'client':
+        return "Unauthorized", 403
+
+    if request.method == 'POST':
+        # Handle form data here
+        return redirect(url_for('dashboard'))
+
+    return render_template('newproject.html')
+
+@app.route('/copelands/newproject/cover')
+def new_project_covers():
+    if session.get('role') != 'client':
+        return "Unauthorized", 403
+    return render_template('/newproject/cover.html')
+
+@app.route('/copelands/newproject/shadesail')
+def new_project_shadesails():
+    if session.get('role') != 'client':
+        return "Unauthorized", 403
+    return render_template('/newproject/shadesail.html')
 
 @app.route('/copelands/')
 @app.route('/copelands')

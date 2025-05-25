@@ -11,4 +11,7 @@
 # Virtual environment
 venv/
 
+settings.json
 /settings.json
+
+/*.json

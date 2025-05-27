@@ -16,6 +16,9 @@ def landing():
     print("Rendering landing.html")
     return render_template('landing.html')  # includes login form
 
+@app.route('/discrepancy')
+def discrepancy():
+    return render_template('discrepancy.html')
 
 @app.route('/copelands/dashboard')
 def dashboard():

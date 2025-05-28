@@ -200,7 +200,7 @@ const twoExtra = {
         }
 
         // Total area (bottom right)
-        ctx.fillText(`Total Area: ${totalArea.toFixed(3)} m²`, width - 100, height - 20);
+        //ctx.fillText(`Total Area: ${totalArea.toFixed(3)} m²`, width - 100, height - 20);
     
         ctx.restore();  // Restore canvas state at end
 

@@ -57,6 +57,16 @@
                     Notes:
                     <textarea id="surgicalNotes" name="surgicalNotes" rows="4" cols="50" placeholder="Any extra instructions or context..."></textarea>
                 </label>
+
+                {% if user_role == 'estimator' %}
+                
+                <br><h3>Estimator</h3><br>
+                
+                <label>
+                    Fabric Width:
+                    <input type="number" id="surgicalFabricWidth" placeholder="Fabric Width">
+                </label>
+                {% endif %}
             </div>
         </div>
     </form>
@@ -67,7 +77,9 @@
 
 <!-- Save Button -->
 <button id="saveSurgicalBtn" type="button" style="margin-top: 20px;">Save Surgical Covers Config</button>
-
+<script>
+    window.surgicalUserRole = "{{ user_role }}";
+</script>
 <!-- Optional: JS logic -->
 <script type="module" src="{{ url_for('static', filename='js/covers.js') }}"></script>
 

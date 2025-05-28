@@ -1,7 +1,8 @@
 {% extends "layout/base.html" %}
-{% block title %}Client Dashboard{% endblock %}
+{% block title %}Estimator Dashboard{% endblock %}
 
 {% block nav %}
+<a href="{{ url_for('new_project') }}">New Project</a>
 <a href="#">Projects</a>
 {% endblock %}
 

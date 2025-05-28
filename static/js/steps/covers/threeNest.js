@@ -100,7 +100,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
 
   // Dimension text
   ctx.fillStyle = 'black';
-  ctx.font = '14px Arial';
+  ctx.font = '40px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(`${nestWidth.toFixed(2)} mm`, fabricBoxX + fabricBoxWidth / 2, dimensionLineY + 5);

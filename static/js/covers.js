@@ -11,6 +11,17 @@ import threeNest from './steps/covers/threeNest.js';
 export function initSurgicalCovers(mode = "client") {
     console.log(`🔧 initSurgicalCovers called (mode: ${mode})`);
 
+    // Adjust canvas height for estimator
+    const canvas = document.getElementById('surgicalCanvas');
+    if (canvas) {
+        if (mode === 'estimator') {
+            canvas.height = 2000; // or any height you want for estimator
+            canvas.width = 1000
+        } else {
+            canvas.height = 500; // default for client
+        }
+    }
+
     const manager = new CanvasManager('surgicalCanvas', {});
 
     // Always include step 0
@@ -124,4 +135,8 @@ export function initSurgicalCovers(mode = "client") {
 }
 
 // Run initialization when DOM is loaded
-document.addEventListener('DOMContentLoaded', initSurgicalCovers);
+document.addEventListener('DOMContentLoaded', () => {
+    // Default to "client" if not set
+    const mode = window.surgicalUserRole || "client";
+    initSurgicalCovers(mode);
+});

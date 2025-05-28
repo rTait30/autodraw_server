@@ -59,8 +59,6 @@ def api_logout():
 
 @app.route('/copelands/newproject', methods=['GET', 'POST'])
 def new_project():
-    if session.get('role') != 'client':
-        return "Unauthorized", 403
 
     if request.method == 'POST':
         # Handle form data here
@@ -68,17 +66,15 @@ def new_project():
 
     return render_template('newproject.html')
 
-@app.route('/copelands/newproject/cover')
+@app.route('/copelands/new_project/covers')
 def new_project_covers():
-    if session.get('role') != 'client':
-        return "Unauthorized", 403
-    return render_template('/newproject/cover.html')
+    # Example: session['role'] = 'estimator' or 'client'
+    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
 
 @app.route('/copelands/newproject/shadesail')
 def new_project_shadesails():
-    if session.get('role') != 'client':
-        return "Unauthorized", 403
-    return render_template('/newproject/shadesail.html')
+    
+    return render_template('/newproject/shadesail.html', user_role=session.get('role', 'client'))
 
 @app.route('/copelands/')
 @app.route('/copelands')

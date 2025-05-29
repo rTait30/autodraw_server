@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+import os
+from flask import Blueprint, app, request, jsonify, send_from_directory
 # Import your DB models here
 
 configs_api_bp = Blueprint('configs_api', __name__)

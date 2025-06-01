@@ -1,61 +1,65 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 from flask import session
+from flask_sqlalchemy import SQLAlchemy
+from passlib.hash import bcrypt
+from flask_jwt_extended import JWTManager
 import os
 import json
 
 from rectpack import newPacker
 
+
+from endpoints.web.index import index_bp
+from endpoints.web.discrepancy import discrepancy_bp
+from endpoints.web.dashboard import dashboard_bp
+
+from endpoints.api.auth.routes import auth_bp
+
+from models import db, User, Project, Log
+
+
 app = Flask(__name__, static_url_path='/copelands/static')
 app.secret_key = "C0p3l4nds_S3cr3t_K3y"
 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
+app.config['SQLALCHEMY_BINDS'] = {
+    'projects': 'sqlite:///projects.db',
+    'logs': 'sqlite:///logs.db'
+}
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = "super-secret-jwt-key"
+
+# --- Initialize extensions here ---
+db.init_app(app)
+jwt = JWTManager(app)
+
+
+# --- Create all databases/tables before first request ---
+@app.before_request
+def create_all_databases():
+    db.create_all()  # This will create tables for all binds
+
 BASE_CONFIG_DIR = 'configs'
 
-@app.route('/copelands/landing/')
-@app.route('/landing')
-def landing():
-    print("Rendering landing.html")
-    return render_template('landing.html')  # includes login form
+app.register_blueprint(index_bp)
+app.register_blueprint(discrepancy_bp)
 
-@app.route('/copelands/discrepancy')
-def discrepancy():
-    return render_template('discrepancy.html')
+app.register_blueprint(auth_bp)
 
-@app.route('/copelands/dashboard')
-def dashboard():
-    role = session.get('role')
-    if not role:
-        return redirect(url_for('landing'))
+app.register_blueprint(dashboard_bp)
 
-    valid_roles = {'client', 'designer', 'estimator'}
-    if role not in valid_roles:
-        return "Unauthorized", 403
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
+app.config['SQLALCHEMY_BINDS'] = {
+    'projects': 'sqlite:///projects.db',
+    'logs': 'sqlite:///logs.db'
+}
 
-    return render_template(f'dashboards/{role}.html')
+
 
 # ---- API ENDPOINTS ----
 
-@app.route('/copelands/api/login', methods=['POST'])
-def api_login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
 
-    # 🔒 Fake auth logic — replace with DB check
-    if username == 'client' and password == 'pass':
-        session['role'] = 'client'
-    elif username == 'designer' and password == 'pass':
-        session['role'] = 'designer'
-    elif username == 'estimator' and password == 'pass':
-        session['role'] = 'estimator'
-    else:
-        return jsonify({'error': 'Invalid credentials'}), 401
-
-    return jsonify({'status': 'ok'})
-
-@app.route('/copelands/api/logout', methods=['POST'])
-def api_logout():
-    session.clear()
-    return jsonify({'status': 'logged out'})
 
 @app.route('/copelands/newproject', methods=['GET', 'POST'])
 def new_project():

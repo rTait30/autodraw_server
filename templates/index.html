@@ -2,227 +2,230 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Config Creator</title>
+    <title>Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon/favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon/apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='favicon/site.webmanifest') }}">
+
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .landing-bg {
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column; /* <-- Add this line */
+            justify-content: center;
+            align-items: center;
+            background-color: #000; /* fallback */
+            background-image: none;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.3s ease-in-out;
+        }
+
+        .landing-bg.lazy-loaded {
+            background-image: url("{{ url_for('static', filename='img/shadesails.jpg') }}");
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 320px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .login-box h1 {
+            font-size: 28px;
+            margin-bottom: 4px;
+            font-weight: 800;
+            color: #1b1b2f;
+        }
+
+        .login-box h2 {
+            font-size: 14px;
+            margin-bottom: 24px;
+            color: #444;
+            letter-spacing: 2px;
+        }
+
+        form {
+            width: 100%;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 14px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .remember {
+            display: flex;
+            align-items: right;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .remember input {
+            margin-right: 8px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #2f2f6f;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #222255;
+        }
+
+        .forgot {
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .forgot a {
+            text-decoration: none;
+            color: #333;
+        }
+
+        #errorBox {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .calculator-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 32px 40px;
+            width: 320px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.10);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .calc-btn {
+            display: block;
+            width: 100%;
+            padding: 16px 0;
+            background-color: #2f2f6f;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: background 0.2s;
+            margin: 0;
+        }
+
+        .calc-btn:hover {
+            background-color: #222255;
+        }
+        @media (max-width: 700px) {
+            .landing-bg {
+                flex-direction: column;
+                gap: 24px;
+            }
+            .calculator-box {
+                margin-left: 0;
+                margin-top: 24px;
+                width: 90vw;
+                max-width: 340px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Submit a New Config</h1>
 
-    <!-- Tabs -->
-    <div class="tab-buttons">
-        <button data-tab="surgical">Surgical Covers</button>
-        <button data-tab="shadesail">Shade Sails</button>
-    </div>
+<div class="landing-bg">
+    <div class="login-box">
+        <img src="{{ url_for('static', filename='img/DRlogo.png') }}" alt="Logo">
 
-    <div id="surgical" class="tab active">
-        <h2>Surgical Covers Config</h2>
-    
-        <div class="surgical-layout">
-            <!-- Form Section -->
-            <form id="formSurgical">
-                <div class="form-wrapper">
-                    <div class="form-header">
-                        <label>
-                            Company Name:
-                            <input type="text" id="surgicalCompany" placeholder="Name">
-                        </label>
-                        <label>
-                            Project:
-                            <input type="text" id="surgicalName" placeholder="Project">
-                        </label>
-                        <label>
-                            Length:
-                            <input type="number" id="surgicalLength" placeholder="Length">
-                        </label>
-                        <label>
-                            Width:
-                            <input type="number" id="surgicalWidth" placeholder="Width">
-                        </label>
-                        <label>
-                            Height:
-                            <input type="number" id="surgicalHeight" placeholder="Height">
-                        </label>
-                        <label>
-                            Seam:
-                            <input type="number" id="surgicalSeam" placeholder="Seam">
-                        </label>
-                        <label>
-                            Hem:
-                            <input type="number" id="surgicalHem" placeholder="Hem">
-                        </label>
-                        <label>
-                            Quantity:
-                            <input type="number" id="surgicalQuantity" placeholder="Quantity">
-                        </label>
-                        <label>
-                            Fabric Width:
-                            <input type="number" id="surgicalFabricWidth" placeholder="Fabric Width">
-                        </label>
-                        <label>
-                            Fabric Cost (per m):
-                            <input type="number" id="surgicalFabricCost" placeholder="Fabric Cost">
-                        </label>
-                        <label>
-                            Seam Cost (per m):
-                            <input type="number" id="surgicalSeamCost" placeholder="Seam Cost">
-                        </label>
-                    </div>
-                </div>
-            </form>
-    
-            <!-- Canvas Section -->
-            <canvas id="surgicalCanvas"></canvas>
-        </div>
-    
-        <button id="saveSurgicalBtn" type="button">Save Surgical Covers Config</button>
-    </div>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Email" required>
+            <input type="text" id="password" placeholder="Password" required>
 
-    <!-- Shade Sails Form -->
-    <div id="shadesail" class="tab">
-        <h2>Shade Sails Config</h2>
-
-        <div class="form-and-drawing">
-            <div id="sailDrawingContainer">
-
-                <div id="warning" style="color: red; font-weight: bold; margin-top: 10px;"></div>
-                
-                <h3>Top-Down View</h3>
-                
-                <canvas id="sailCanvas" width="600" height="600" style="border:1px solid #ccc;"></canvas>
+            <div class="remember">
+                <label for="remember">Remember me</label>
+                <input type="checkbox" id="remember">
             </div>
-        
-            <form id="formShadesail">
 
-                <div class="form-wrapper">
-    
-                    <div class="form-header">
-                        <label>
-                            Company Name:
-                            <input type="text" id="company" placeholder="Company Name">
-                        </label>
-                        <label>
-                            Contact:
-                            <input type="text" id="contact" placeholder="Contact">
-                        </label>
-                        <label>
-                            Your Reference:
-                            <input type="text" id="reference" placeholder="Reference">
-                        </label>
-                        <label>
-                            Date:
-                            <input type="date" id="date">
-                        </label>
-                        <label>
-                            Fabric Type:
-                            <input type="text" id="fabricType" placeholder="Fabric Type">
-                        </label>
-                        <label>
-                            Fabric Colour:
-                            <input type="text" id="fabricColour" placeholder="Fabric Colour">
-                        </label>
-                        <label>
-                            <input type="checkbox" id="includeLabel" checked>
-                            Rotate Material (uncheck for Yes)
-                        </label>
-                        <label>
-                            Exit:
-                            <input type="text" id="exit" placeholder="Mark Point">
-                        </label>
-                        <label>
-                            Logo:
-                            <input type="text" id="logo" placeholder="Mark Point">
-                        </label>
-                        <label>
-                            Number of Corners:
-                            <input type="number" id="cornerCount" placeholder="Number of Corners">
-                        </label>
-                    </div>
+            <button type="submit">Login</button>
+            <br><br>
+            <button type="button" id="registerBtn">Register as client</button>
+        </form>
 
-                    <div id="cornerWarning" style="color: red; font-weight: bold; margin-top: 10px;"></div>
-                
-                    <div class="form-grid">
-                        <div class="column-left">
-                            <div class="config-section" id="edgesContainer"></div>
-                            <div id="edgeWarning">⚠️ One or more edge lengths are invalid — shape cannot close.</div>
-                            <div class="config-section" id="diagonalsContainer"></div>
-                        </div>
-    
-                        <div class="column-right">
-    
-                            <div class="config-section" id="pointsContainer"></div>
-    
-                            <div class="config-section" id="requirementsContainer">
-                                <h3>Requirements</h3>
-                                <label>
-                                    Cable (mm):
-                                    <select id="cableLength">
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8">8</option>
-                                    </select>
-                                </label><br>
-                            
-                                <label>
-                                    Webbing Edge (mm):
-                                    <select id="webbingEdge">
-                                        <option value="25">25</option>
-                                        <option value="50">50</option>
-                                    </select>
-                                </label><br>
-                            
-                                <label>
-                                    Fold Side:
-                                    <select id="foldSide">
-                                        <option value="Topside">Topside</option>
-                                        <option value="Underside">Underside</option>
-                                    </select>
-                                </label><br>
-                            
-                                <label>
-                                    Corner Type:
-                                    <select id="cornerType">
-                                        <option value="Swaged">Swaged</option>
-                                        <option value="Continuous">Continuous</option>
-                                    </select>
-                                </label><br>
-                            
-                                <label>
-                                    Other (specify):
-                                    <textarea id="otherRequirements" rows="3" placeholder="Any additional requirements..."></textarea>
-                                </label>
-                            </div>    
-                        </div>
-    
-                        
-                    </div>
-    
-    
-                </div>
-
-                <br>
-                
-            </form>
+        <div class="forgot">
+            <a href="#">Forgot password?</a>
         </div>
 
-
-
-        <button id="saveShadesailBtn" type="button">Save Shade Sails Config</button>
+        <div id="errorBox"></div>
     </div>
 
-    <!-- Surgical Covers Form -->
+    <!-- Discrepancy Calculator box OUTSIDE and BELOW the login box -->
+    <div class="calculator-box" style="margin-left:0; margin-top:24px;">
+        <a href="{{ url_for('discrepancy.discrepancy') }}" target="_blank" class="calc-btn">
+            Discrepancy Calculator
+        </a>
+    </div>
+</div>
 
+<script type="module">
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/copelands/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        })
+    });
 
-    <!-- Uploaded configs list -->
-    <h2>Uploaded Configs</h2>
-    <div id="configsList"></div>
+    if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('access_token', data.access_token);
+        console.log('Token just set:', localStorage.getItem('access_token'));
+        setTimeout(() => {
+            window.location.href = '/copelands/dashboard';
+        }, 100); // 100ms delay to ensure token is saved
+    } else {
+        document.getElementById('errorBox').innerText = 'Login failed.';
+    }
+});
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-
-    <!-- JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
+window.addEventListener('load', () => {
+    const bg = document.querySelector('.landing-bg');
+    if (bg) {
+        bg.classList.add('lazy-loaded');
+    }
+});
+</script>
 
 </body>
 </html>

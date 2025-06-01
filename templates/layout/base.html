@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <title>{% block title %}MyApp{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon/favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon/apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='favicon/site.webmanifest') }}">
+
     <style>
         body {
             margin: 0;
@@ -63,7 +68,7 @@
 <header>
     <div class="nav-left">
         <img src="{{ url_for('static', filename='img/DRlogo.png') }}" alt="Logo">
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
         {% block nav %}{% endblock %}
     </div>
     <div class="nav-right">
@@ -74,12 +79,13 @@
 
 <main>
     {% block content %}{% endblock %}
+    {% block scripts %}{% endblock %}
 </main>
 
 <script>
 function logout() {
     fetch("/copelands/api/logout", { method: "POST" }).then(() => {
-        window.location.href = "/copelands/landing";
+        window.location.href = "/copelands";
     });
 }
 </script>

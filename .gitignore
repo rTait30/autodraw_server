@@ -15,3 +15,7 @@ settings.json
 /settings.json
 
 /*.json
+
+instance/*.db
+instance/*.sqlite3
+instance/*.sqlite

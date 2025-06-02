@@ -8,7 +8,10 @@ import threeNest from './steps/covers/threeNest.js';
 /**
  * Initializes the surgical cover estimation application.
  */
-export function initSurgicalCovers(mode = "client") {
+export function initSurgicalCovers(mode = "estimator") {
+
+    mode = "estimator"
+
     console.log(`🔧 initSurgicalCovers called (mode: ${mode})`);
 
     // Adjust canvas height for estimator

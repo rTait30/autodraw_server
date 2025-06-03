@@ -73,12 +73,12 @@ def new_project():
 @app.route('/copelands/new_project/covers')
 def new_project_covers():
     # Example: session['role'] = 'estimator' or 'client'
-    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
+    return render_template('newproject/cover.html', user_role=session.get('role', 'estimator'))
 
 @app.route('/copelands/newproject/shadesail')
 def new_project_shadesails():
     
-    return render_template('/newproject/shadesail.html', user_role=session.get('role', 'client'))
+    return render_template('/newproject/shadesail.html', user_role=session.get('role', 'estimator'))
 
 @app.route('/copelands/')
 @app.route('/copelands')

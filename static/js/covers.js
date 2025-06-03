@@ -83,7 +83,7 @@ export function initSurgicalCovers(mode = "estimator") {
         const liveData = getLiveSurgicalData();
         console.log("📦 Live Surgical Config Updated:", liveData);
         manager.updateAll(liveData);
-    }, 100);
+    }, 2000);
 
     // Attach live update to inputs
     const fieldIds = [

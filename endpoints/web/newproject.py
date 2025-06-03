@@ -11,8 +11,8 @@ def new_project():
 
 @newproject_bp.route('/copelands/new_project/covers')
 def new_project_covers():
-    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
+    return render_template('newproject/cover.html', user_role=session.get('role', 'estimator'))
 
 @newproject_bp.route('/copelands/newproject/shadesail')
 def new_project_shadesails():
-    return render_template('newproject/shadesail.html', user_role=session.get('role', 'client'))
+    return render_template('newproject/shadesail.html', user_role=session.get('role', 'estimator'))

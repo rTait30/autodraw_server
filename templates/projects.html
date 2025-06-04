@@ -1,13 +1,14 @@
 {% extends "layout/base.html" %}
-{% block title %}Estimator Dashboard{% endblock %}
+{% block title %}Projects{% endblock %}
 
 {% block nav %}
 <a href="{{ url_for('newproject.newproject') }}">New Project</a>
-
 <a href="{{ url_for('projects.projects') }}">Projects</a>
 {% endblock %}
 
 {% block content %}
-<h2>Estimator Dashboard</h2>
-<p>Welcome to the estimator interface.</p>
+
+<h2>Projects Overview</h2>
+<p>Here you can manage your projects.</p>
+
 {% endblock %}

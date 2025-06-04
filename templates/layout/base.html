@@ -62,6 +62,10 @@
             padding: 24px;
         }
     </style>
+
+    <script>
+        window.currentUserRole = "{{ user_role | default('client') }}";
+    </script>
 </head>
 <body>
 

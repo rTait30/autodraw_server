@@ -9,11 +9,14 @@ import json
 from rectpack import newPacker
 
 
-from endpoints.web.index import index_bp
-from endpoints.web.discrepancy import discrepancy_bp
-from endpoints.web.dashboard import dashboard_bp
 
 from endpoints.api.auth.routes import auth_bp
+
+from endpoints.web.index import index_bp
+from endpoints.web.discrepancy import discrepancy_bp
+from endpoints.web.newproject import newproject_bp
+from endpoints.web.projects import projects_bp
+from endpoints.web.dashboard import dashboard_bp
 
 from models import db, User, Project, Log
 
@@ -49,6 +52,10 @@ app.register_blueprint(auth_bp)
 
 app.register_blueprint(dashboard_bp)
 
+app.register_blueprint(newproject_bp)
+app.register_blueprint(projects_bp)
+
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
 app.config['SQLALCHEMY_BINDS'] = {
     'projects': 'sqlite:///projects.db',
@@ -61,29 +68,16 @@ app.config['SQLALCHEMY_BINDS'] = {
 
 
 
-@app.route('/copelands/newproject', methods=['GET', 'POST'])
-def new_project():
-
-    if request.method == 'POST':
-        # Handle form data here
-        return redirect(url_for('dashboard'))
-
-    return render_template('newproject.html')
-
 @app.route('/copelands/new_project/covers')
 def new_project_covers():
     # Example: session['role'] = 'estimator' or 'client'
-    return render_template('newproject/cover.html', user_role=session.get('role', 'estimator'))
+    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
 
 @app.route('/copelands/newproject/shadesail')
 def new_project_shadesails():
     
-    return render_template('/newproject/shadesail.html', user_role=session.get('role', 'estimator'))
+    return render_template('/newproject/shadesail.html', user_role=session.get('role', 'client'))
 
-@app.route('/copelands/')
-@app.route('/copelands')
-def copelands_index():
-    return render_template('index.html')
 
 def prepare_rectangles(data):
     quantity = data['quantity']

@@ -2,7 +2,7 @@
 {% block title %}New Cover Project{% endblock %}
 
 {% block nav %}
-<a href="{{ url_for('new_project') }}">New Project</a>
+<a href="{{ url_for('newproject.newproject') }}">New Project</a>
 {% endblock %}
 
 {% block project_content %}
@@ -57,8 +57,6 @@
                     Notes:
                     <textarea id="surgicalNotes" name="surgicalNotes" rows="4" cols="50" placeholder="Any extra instructions or context..."></textarea>
                 </label>
-
-                {% if user_role == 'estimator' %}
                 
                 <br><h3>Estimator</h3><br>
                 
@@ -66,7 +64,6 @@
                     Fabric Width:
                     <input type="number" id="surgicalFabricWidth" placeholder="Fabric Width">
                 </label>
-                {% endif %}
             </div>
         </div>
     </form>
@@ -77,9 +74,7 @@
 
 <!-- Save Button -->
 <button id="saveSurgicalBtn" type="button" style="margin-top: 20px;">Save Surgical Covers Config</button>
-<script>
-    window.surgicalUserRole = "{{ user_role }}";
-</script>
+
 <!-- Optional: JS logic -->
 <script type="module" src="{{ url_for('static', filename='js/covers.js') }}"></script>
 

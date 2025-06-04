@@ -8,9 +8,7 @@ import threeNest from './steps/covers/threeNest.js';
 /**
  * Initializes the surgical cover estimation application.
  */
-export function initSurgicalCovers(mode = "estimator") {
-
-    mode = "estimator"
+export function initSurgicalCovers(mode) {
 
     console.log(`🔧 initSurgicalCovers called (mode: ${mode})`);
 
@@ -137,9 +135,30 @@ export function initSurgicalCovers(mode = "estimator") {
     }
 }
 
+async function getUserRole() {
+    const token = localStorage.getItem('access_token');
+    if (!token) return "client";
+    try {
+        const res = await fetch('/copelands/api/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const user = await res.json();
+            return user.role || "client";
+        }
+    } catch (e) {
+        console.error("Failed to fetch user role:", e);
+    }
+    return "client";
+}
+
 // Run initialization when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Default to "client" if not set
-    const mode = window.surgicalUserRole || "client";
-    initSurgicalCovers(mode);
+document.addEventListener('DOMContentLoaded', async () => {
+    // Use the global variable set in base.html
+
+    const role = await getUserRole();
+
+    console.log(`🔍 Current User Role: ${role}`);
+
+    initSurgicalCovers(role);
 });

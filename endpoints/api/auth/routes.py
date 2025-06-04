@@ -40,9 +40,15 @@ def register_client():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already exists.'}), 400
 
-    user = User(username=username, password_hash='', role=role, company=company)
+    user = User(
+        username=username,
+        password_hash='',
+        role=role,
+        company=company,
+        email=email,
+        verified=False  # <-- Ensure verified is set to False
+    )
     user.set_password(password)
-    user.email = email
     db.session.add(user)
     db.session.commit()
     return jsonify({'message': 'Client registered'}), 201

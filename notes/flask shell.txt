@@ -1,8 +1,7 @@
 flask shell
 
 from models import db, User
-admin = User(username='admin', role='admin', verified=True, email='admin@example.com', company='YourCompany')
-admin.set_password('your_admin_password')
+admin = User(username='admin', role='admin', verified=True, email='rtait@drgroup.com.au', company='dr')
+admin.set_password('C0pel@nds')
 db.session.add(admin)
 db.session.commit()
-print("Admin user created!")

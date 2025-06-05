@@ -1,4 +1,4 @@
-import { renderCover, estimatorCoverUI, renderEditableTable } from './renderCover.js';
+import { renderCover, estimatorCoverUI } from './renderCover.js';
 import { renderSail } from './renderSail.js';
 import { renderBase } from './renderBase.js';
 

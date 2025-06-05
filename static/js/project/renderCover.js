@@ -60,12 +60,21 @@ export async function estimatorCoverUI(project, mode) {
         await manager.updateAll(inputData);
 
         const allStepData = manager.getData();
+
+
+        const filteredStepData = {};
+        for (const key in allStepData) {
+            if (!(key in project.attributes)) {
+                filteredStepData[key] = allStepData[key];
+            }
+        }
+
         const attributesHTML = `
             <div id="cover-attributes-data" style="min-width:300px;">
                 <h4>Project Attributes</h4>
                 <pre>${JSON.stringify(project.attributes, null, 2)}</pre>
-                <h4>Calculation data (All Steps)</h4>
-                <pre>${JSON.stringify(allStepData, null, 2)}</pre>
+                <h4>Calculation data (All steps)</h4>
+                <pre>${JSON.stringify(filteredStepData, null, 2)}</pre>
             </div>
         `;
 

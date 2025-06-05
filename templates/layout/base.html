@@ -73,6 +73,8 @@
     <div class="nav-left">
         <img src="{{ url_for('static', filename='img/DRlogo.png') }}" alt="Logo">
         <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('newproject.newproject') }}">New Project</a>
+        <a href="{{ url_for('projects.projects') }}">Projects</a>
         {% block nav %}{% endblock %}
     </div>
     <div class="nav-right">

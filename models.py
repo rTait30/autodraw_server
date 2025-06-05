@@ -1,9 +1,14 @@
 from flask_sqlalchemy import SQLAlchemy
 from passlib.hash import bcrypt
 
+from sqlalchemy import Enum as SqlEnum
+import enum
+from datetime import datetime, timezone
+
 db = SQLAlchemy()
 
 class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
@@ -18,13 +23,37 @@ class User(db.Model):
 
     def check_password(self, password):
         return bcrypt.verify(password, self.password_hash)
+    
+class ProjectType(enum.Enum):
+    cover = "cover"
+    sail = "sail"
+    # Add more types as needed
+
+class ProjectStatus(enum.Enum):
+    draft = "draft"
+    estimating = "estimating"
+    approved = "approved"
+    # Add more statuses as needed
 
 class Project(db.Model):
-    __bind_key__ = 'projects'
+    __tablename__ = 'projects'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    type = db.Column(SqlEnum(ProjectType), nullable=False)
+    status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.draft)
+    due_date = db.Column(db.Date, nullable=True)
+    info = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+class ProjectAttribute(db.Model):
+    __tablename__ = 'project_attributes'
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
+    data = db.Column(db.JSON)
 
 class Log(db.Model):
-    __bind_key__ = 'logs'
+    __tablename__ = 'logs'
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(255))

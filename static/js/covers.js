@@ -114,21 +114,46 @@ export function initSurgicalCovers(mode) {
     const saveButton = document.getElementById("saveSurgicalBtn");
     if (saveButton) {
         console.log("✅ Found Save Surgical Covers Config Button");
-        saveButton.addEventListener('click', () => {
+        saveButton.addEventListener('click', async () => {
             console.log("🟢 Pressed Save Surgical Covers Config Button");
             const data = {
                 category: 'surgical',
                 ...getLiveSurgicalData()
             };
             console.log("🟡 Collected Data:", data);
-            saveConfig(data, "surgical").then(response => {
-                if (response.id) {
+
+            data.client_id = 0;
+            data.type = 'cover';
+
+            // Get JWT token from localStorage
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                alert("You must be logged in to save a project.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/copelands/api/projects/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                const response = await res.json();
+                if (res.ok && response.id) {
                     console.log(`✅ Config saved with ID: ${response.id}`);
                     alert(`Config saved with ID: ${response.id}`);
+                } else {
+                    alert(`Failed to save: ${response.error || 'Unknown error'}`);
                 }
                 window.loadConfigs?.();
                 manager.updateAll(getLiveSurgicalData());
-            });
+            } catch (err) {
+                console.error("Error saving config:", err);
+                alert("An error occurred while saving.");
+            }
         });
     } else {
         console.warn("❌ Save button not found");

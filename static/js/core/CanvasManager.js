@@ -65,6 +65,10 @@ class CanvasManager {
 
         return step;
     }
+
+    getData() {
+        return this.data;
+    }
     
     /**
      * Updates all steps with the provided data.

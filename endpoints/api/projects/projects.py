@@ -11,41 +11,41 @@ projects_api_bp = Blueprint('projects_api', __name__)
 def save_project_config():
     data = request.get_json()
     project_id = data.get('id')
-    attributes = data.get('attributes', {})
+
+    # List of Project model columns (excluding id and relationships)
+    project_fields = {'name', 'type', 'status', 'due_date', 'info', 'client_id'}
+    project_data = {k: v for k, v in data.items() if k in project_fields}
+    attribute_data = {k: v for k, v in data.items() if k not in project_fields}
 
     if project_id:
         # Update existing project
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': 'Project not found'}), 404
-        for field in ['name', 'type', 'status', 'due_date', 'info', 'client_id']:
-            if field in data:
-                setattr(project, field, data[field])
+        for field, value in project_data.items():
+            setattr(project, field, value)
         project.updated_at = datetime.now(timezone.utc)
     else:
         # Create new project
         project = Project(
-            name=data.get('name'),
-            type=data.get('type'),
-            status=data.get('status', 'draft'),
-            due_date=data.get('due_date'),
-            info=data.get('info'),
-            client_id=data.get('client_id')
+            **project_data
         )
         db.session.add(project)
         db.session.flush()  # Get project.id for attributes
 
     # Save or update attributes
-    if attributes:
+    if attribute_data:
         attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
         if not attr:
-            attr = ProjectAttribute(project_id=project.id, data=attributes)
+            attr = ProjectAttribute(project_id=project.id, data=attribute_data)
             db.session.add(attr)
         else:
-            attr.data = attributes
+            attr.data = attribute_data
 
     db.session.commit()
     return jsonify({'id': project.id, 'status': project.status.name if hasattr(project.status, 'name') else project.status})
+
+
 
 @projects_api_bp.route('/copelands/api/projects/edit/<int:project_id>', methods=['PUT', 'PATCH'])
 @jwt_required()
@@ -124,7 +124,7 @@ def list_project_configs():
     return jsonify(result)
 
 # Get a single project by ID
-@projects_api_bp.route('/copelands/api/projects/get/<int:project_id>', methods=['GET'])
+@projects_api_bp.route('/copelands/api/project/<int:project_id>', methods=['GET'])
 @jwt_required()
 def get_project_config(project_id):
     project = Project.query.get_or_404(project_id)

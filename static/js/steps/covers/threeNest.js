@@ -134,6 +134,8 @@ const threeNest = {
 
       }
 
+      data.nestWidth = nestData.total_width;
+
         //ctx.fillText(`Total Length: ${nestData.total_width.toFixed(3)} mm`, 800, 800);
     }
   }

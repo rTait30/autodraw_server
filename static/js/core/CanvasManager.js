@@ -24,6 +24,8 @@ class CanvasManager {
         this.virtualHeight = options.virtualHeight || 1000;
         this.showData = options.showData || false;
 
+        this.draw = options.draw || false;
+
         // Internal state
         this.steps = [];
         this.scaleFactor = 0.5; // Hardcoded scaling factor for easy adjustment

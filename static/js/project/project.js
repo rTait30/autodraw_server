@@ -1,4 +1,4 @@
-import { renderCover, estimatorCoverUI } from './renderCover.js';
+import { renderCover, setupEstimateTableListeners } from './renderCover.js';
 import { renderSail } from './renderSail.js';
 import { renderBase } from './renderBase.js';
 
@@ -33,9 +33,9 @@ async function fetchProjectAndRender() {
     const renderer = renderers[project.type] || renderBase;
     document.getElementById('project-detail').innerHTML = renderer(project, role);
 
-        // Call estimatorCoverUI if estimator or admin and project is cover
-    if ((role === "estimator" || role === "admin") && project.type === "cover") {
-        setTimeout(() => estimatorCoverUI(project, role), 0);
+
+    if (role === "estimator" || role === "admin") {
+        setupEstimateTableListeners(project);
     }
 }
 

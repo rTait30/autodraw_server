@@ -64,7 +64,7 @@
     </style>
 
     <script>
-        window.currentUserRole = "{{ user_role | default('client') }}";
+
     </script>
 </head>
 <body>
@@ -78,7 +78,8 @@
         {% block nav %}{% endblock %}
     </div>
     <div class="nav-right">
-        <span class="role-label">{{ session['role']|capitalize }}</span>
+        <span class="role-label" id="nav-username"></span>
+        <span class="role-label" id="nav-role"></span>
         <a href="#" onclick="logout()">Logout</a>
     </div>
 </header>
@@ -89,11 +90,17 @@
 </main>
 
 <script>
-function logout() {
-    fetch("/copelands/api/logout", { method: "POST" }).then(() => {
-        window.location.href = "/copelands";
-    });
-}
+    document.getElementById('nav-username').textContent = localStorage.getItem('username') || '';
+    document.getElementById('nav-role').textContent = localStorage.getItem('role') || '';
+
+    function logout() {
+
+        localStorage.clear();
+
+        fetch("/copelands/api/logout", { method: "POST" }).then(() => {
+            window.location.href = "/copelands";
+        });
+    }
 </script>
 
 </body>

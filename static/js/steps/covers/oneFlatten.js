@@ -5,9 +5,39 @@ const oneFlatten = {
     isLive: false,
     isAsync: false,
 
+    calcFunction: (data) => {
+        // ...all your calculation logic here...
+        let flatMainHeight = data.width + 2 * data.seam;
+        let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
+        let flatSideWidth = data.width + data.seam * 2;
+        let flatSideHeight = data.height + data.hem + data.seam;
+        let totalSeamLength =
+            2 * flatMainWidth +
+            2 * flatSideWidth +
+            4 * flatSideHeight;
+
+        data.totalSeamLength = totalSeamLength;
+        data.flatMainHeight = flatMainHeight;
+        data.flatMainWidth = flatMainWidth;
+        data.flatSideHeight = flatSideHeight;
+        data.flatSideWidth = flatSideWidth;
+
+        const areaMainMM = flatMainWidth * flatMainHeight;
+        const areaSideMM = flatSideWidth * flatSideHeight;
+        const areaMainM2 = areaMainMM / 1e6;
+        const areaSideM2 = areaSideMM / 1e6;
+        const totalFabricArea = areaMainM2 + 2 * areaSideM2;
+
+        data.areaMainM2 = areaMainM2;
+        data.areaSideM2 = areaSideM2;
+        data.totalFabricArea = totalFabricArea;
+
+        return data;
+    },
+
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
 
-
+        data = oneFlatten.calcFunction(data);
 
         // ----------------------------------- DRAW -------------------------------------------
 

@@ -1,137 +1,214 @@
 import { renderBase } from './renderBase.js';
-import CanvasManager from '/copelands/static/js/core/CanvasManager.js';
-import zeroVisualise from '/copelands/static/js/steps/covers/zeroVisualise.js';
-import oneFlatten from '/copelands/static/js/steps/covers/oneFlatten.js';
-import twoExtra from '/copelands/static/js/steps/covers/twoExtra.js';
-import threeNest from '/copelands/static/js/steps/covers/threeNest.js';
+
+let materials = [];
+let labour = [];
 
 export function renderCover(project, role) {
     let html = renderBase(project, role);
 
-    // Only show the estimator UI for estimators/admins
+    // Get default table data from project/calculated
+    const defaults = getDefaultMaterialsAndLabour(project);
+    materials = defaults.materials;
+    labour = defaults.labour;
+
     if (role === "estimator" || role === "admin") {
         html += `
-        <div style="display: flex; align-items: flex-start; margin-top: 24px;">
-            <canvas id="coverCanvas" width="500" height="1000" style="border:1px solid #ccc;"></canvas>
-            <div id="coverTableContainer" style="margin-left: 32px; min-width: 300px;"></div>
+        <div class="cover-flex-row" style="display: flex; gap: 32px; margin-top: 24px;">
+            <div id="cover-attributes-data" style="min-width:300px;">
+                <h4>Project Data</h4>
+                <pre>${JSON.stringify(project.attributes || {}, null, 2)}</pre>
+            </div>
+            <div id="cover-table-editable" style="min-width:400px;">
+                ${renderEstimateTable(materials, labour)}
+            </div>
         </div>
         `;
-        // The table will be rendered by JS after CanvasManager runs
     } else {
         html += `<h4>Cover Attributes</h4>
-            <pre>${JSON.stringify(project.attributes, null, 2)}</pre>`;
+            <pre>${JSON.stringify(project.attributes || {}, null, 2)}</pre>`;
     }
     return html;
 }
 
-export async function estimatorCoverUI(project, mode) {
-    // Prepare input data (from project.attributes or defaults)
-    const inputData = { ...project.attributes };
+function getDefaultMaterialsAndLabour(project) {
+    const calc = project.calculated || project.attributes?.calculated || {};
+    const attrs = project.attributes || {};
 
-    // Show project.attributes and (later) canvas data above the canvas
-    const detailDiv = document.getElementById('coverTableContainer')?.parentElement?.parentElement?.querySelector('#cover-attributes-data');
-    if (!detailDiv) {
-        // Insert a div above the canvas for displaying data
-        const parent = document.getElementById('coverCanvas')?.parentElement?.parentElement;
-        if (parent) {
-            const infoDiv = document.createElement('div');
-            infoDiv.id = 'cover-attributes-data';
-            parent.insertBefore(infoDiv, parent.firstChild);
-        }
-    }
+    // Parse numbers safely
+    const nestWidth = Number(calc.nestWidth)/1000 || 0;
+    const totalSeamLength = Number(calc.totalSeamLength)/1000 || 0;
+    const height = Number(attrs.height)/1000 || 0;
+    const length = Number(attrs.length)/1000 || 0;
+    const width = Number(attrs.width)/1000 || 0;
 
-    // Adjust canvas height for estimator
-    const canvas = document.getElementById('coverCanvas');
-    if (canvas) {
-        canvas.height = mode === 'estimator' ? 1200 : 500;
-        canvas.width = mode === 'estimator' ? 700 : 500;
-    }
+    // Thread quantity formula
+    const threadQty = totalSeamLength + height * 2 + length * 2 + width * 2;
 
-    const manager = new CanvasManager('coverCanvas', {});
-    manager.addStep(zeroVisualise);
-    if (mode === 'estimator') {
-        manager.addStep(oneFlatten);
-        manager.addStep(twoExtra);
-        manager.addStep(threeNest);
-    }
+    const materials = [
+        { description: "Fabric", quantity: nestWidth, unitCost: 12.5 },
+        { description: "Thread", quantity: threadQty, unitCost: 3.0 }
+    ];
+    const labour = [
+        { description: "Cutting", quantity: 1, unitCost: 20 },
+        { description: "Sewing", quantity: 2, unitCost: 15 }
+    ];
+    return { materials, labour };
+}
 
-    // Update canvas and table
-    async function updateUI() {
-        await manager.updateAll(inputData);
-
-        const allStepData = manager.getData();
-
-
-        const filteredStepData = {};
-        for (const key in allStepData) {
-            if (!(key in project.attributes)) {
-                filteredStepData[key] = allStepData[key];
-            }
-        }
-
-        const attributesHTML = `
-            <div id="cover-attributes-data" style="min-width:300px;">
-                <h4>Project Attributes</h4>
-                <pre>${JSON.stringify(project.attributes, null, 2)}</pre>
-                <h4>Calculation data (All steps)</h4>
-                <pre>${JSON.stringify(filteredStepData, null, 2)}</pre>
-            </div>
+function renderEstimateTable() {
+    function renderSection(title, items, section) {
+        let rows = items.map((item, idx) => {
+            const total = (item.quantity * item.unitCost).toFixed(2);
+            return `
+                <tr>
+                    <td>${item.description}</td>
+                    <td>
+                        <input type="number" data-section="${section}" data-idx="${idx}" data-field="quantity" value="${item.quantity}" min="0" style="width:140px">
+                    </td>
+                    <td>
+                        <input type="number" data-section="${section}" data-idx="${idx}" data-field="unitCost" value="${item.unitCost}" min="0" step="0.01" style="width:180px">
+                    </td>
+                    <td>
+                        <input type="number" value="${total}" readonly style="width:200px">
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        return `
+            <tr><th colspan="4" style="text-align:left;background:#f0f0f0">${title}</th></tr>
+            ${rows}
         `;
+    }
 
-        // For table, you can use the last step's data or any step you want
-        const tableHTML = `
-            <div id="cover-table-editable" style="min-width:300px;">
-                ${renderEditableTable(allStepData.nestWidth)}
-            </div>
-        `;
+    // Calculate grand total
+    const totalMaterials = materials.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+    const totalLabour = labour.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+    const grandTotal = (totalMaterials + totalLabour).toFixed(2);
 
-        // Place both in a flex row above the canvas
-        const parent = document.getElementById('coverCanvas')?.parentElement?.parentElement;
-        if (parent) {
-            let flexRow = parent.querySelector('.cover-flex-row');
-            if (!flexRow) {
-                flexRow = document.createElement('div');
-                flexRow.className = 'cover-flex-row';
-                flexRow.style.display = 'flex';
-                flexRow.style.gap = '32px';
-                parent.insertBefore(flexRow, parent.firstChild);
+    return `
+        <table id="estimate-table" border="1" style="margin-top:16px;width:100%;border-collapse:collapse;">
+            <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+            </tr>
+            ${renderSection("Materials", materials, "materials")}
+            ${renderSection("Labour", labour, "labour")}
+            <tr>
+                <td colspan="3" style="text-align:right;font-weight:bold;">Grand Total</td>
+                <td style="font-weight:bold;" id="grand-total">${grandTotal}</td>
+            </tr>
+        </table>
+    `;
+}
+
+// Call this after rendering the table to set up listeners
+export function setupEstimateTableListeners() {
+    const table = document.getElementById('estimate-table');
+    if (!table) return;
+
+    table.querySelectorAll('input[type="number"]').forEach(input => {
+        if (input.hasAttribute('readonly')) return;
+        input.addEventListener('input', (e) => {
+            const section = input.getAttribute('data-section');
+            const idx = parseInt(input.getAttribute('data-idx'));
+            const field = input.getAttribute('data-field');
+            const value = parseFloat(input.value) || 0;
+
+            if (section === "materials") {
+                materials[idx][field] = value;
+            } else if (section === "labour") {
+                labour[idx][field] = value;
             }
-            flexRow.innerHTML = attributesHTML + tableHTML;
-        }
 
-        // Table input listeners
-        const tableContainer = document.getElementById('cover-table-editable');
-        if (tableContainer) {
-            tableContainer.querySelectorAll('input').forEach(input => {
-                input.addEventListener('change', (e) => {
-                    const key = e.target.name;
-                    let value = e.target.value;
-                    if (!isNaN(value)) value = Number(value);
-                    inputData[key] = value;
-                    updateUI();
-                });
-            });
-        }
+            // Re-render the table and re-attach listeners
+            document.getElementById('cover-table-editable').innerHTML = renderEstimateTable();
+            setupEstimateTableListeners();
+        });
+    });
+}
+
+function drawNest(ctx, nestData, panels, fabricHeight) {
+  const startX = 0;
+
+  const nestWidth = nestData.total_width;
+  const scale = Math.min(2000 / nestWidth, 0.1); // Scale X to fit 1000px
+  const centerY = 200 + (fabricHeight / 2) * scale;
+
+  ctx.save();
+
+  // 📦 Draw each panel
+  for (const [label, placement] of Object.entries(nestData.panels)) {
+    const panelKey = label.split('_')[1];
+    const panel = panels[panelKey];
+
+    if (!panel) {
+      console.warn(`Panel not found for label: ${label} (key: ${panelKey})`);
+      continue;
     }
 
-    function renderEditableTable(nestWidth, costPerMm) {
-        const totalCost = (Number(nestWidth) || 0) * (Number(costPerMm) || 0);
-        return `<table border="1" style="margin-top:16px;">
-            <tr><th>Field</th><th>Value</th></tr>
-            <tr>
-                <td>nestWidth</td>
-                <td><input name="nestWidth" value="${nestWidth}" readonly></td>
-            </tr>
-            <tr>
-                <td>costPerMm</td>
-                <td><input name="costPerMm" value="${costPerMm}" type="number" step="any"></td>
-            </tr>
-            <tr>
-                <td>totalCost</td>
-                <td><input name="totalCost" value="${totalCost}" readonly></td>
-            </tr>
-        </table>`;
-    }
+    const { width, height } = panel;
+    const rotated = placement.rotated;
+    const w = rotated ? height : width;
+    const h = rotated ? width : height;
 
-    updateUI();
+    // Apply scale to all spatial values
+    const scaledX = startX + placement.x * scale;
+    const scaledY = centerY - (placement.y + h) * scale;
+    const scaledW = w * scale;
+    const scaledH = h * scale;
+
+    ctx.fillStyle = '#88ccee';
+    ctx.strokeStyle = '#004466';
+    ctx.lineWidth = 2;
+    ctx.fillRect(scaledX, scaledY, scaledW, scaledH);
+    ctx.strokeRect(scaledX, scaledY, scaledW, scaledH);
+
+    // 🏷 Draw label centered in the scaled rectangle
+    ctx.fillStyle = 'black';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, scaledX + scaledW / 2, scaledY + scaledH / 2);
+  }
+
+  // 🖼 Draw fabric height box
+  const fabricBoxX = startX;
+  const fabricBoxY = centerY - fabricHeight * scale;
+  const fabricBoxWidth = nestWidth * scale;
+  const fabricBoxHeight = fabricHeight * scale;
+
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(fabricBoxX, fabricBoxY, fabricBoxWidth, fabricBoxHeight);
+
+  // 📏 Draw dimension line under the whole thing
+  const dimensionLineY = centerY + 20; // Slightly below the fabric box
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 1;
+
+  // Horizontal line
+  ctx.beginPath();
+  ctx.moveTo(fabricBoxX, dimensionLineY);
+  ctx.lineTo(fabricBoxX + fabricBoxWidth, dimensionLineY);
+  ctx.stroke();
+
+  // Vertical ticks
+  ctx.beginPath();
+  ctx.moveTo(fabricBoxX, dimensionLineY - 5);
+  ctx.lineTo(fabricBoxX, dimensionLineY + 5);
+  ctx.moveTo(fabricBoxX + fabricBoxWidth, dimensionLineY - 5);
+  ctx.lineTo(fabricBoxX + fabricBoxWidth, dimensionLineY + 5);
+  ctx.stroke();
+
+  // Dimension text
+  ctx.fillStyle = 'black';
+  ctx.font = '40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${nestWidth.toFixed(2)} mm`, fabricBoxX + fabricBoxWidth / 2, dimensionLineY + 5);
+
+  ctx.restore();
 }

@@ -8,6 +8,12 @@ const zeroVisualise = {
     isLive: false,
     isAsync: false,
 
+    // Calculation step: does nothing for this step
+    calcFunction: (data) => {
+        // No calculation, just return data as-is
+        return data;
+    },
+
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
 
         

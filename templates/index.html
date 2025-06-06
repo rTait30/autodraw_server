@@ -237,7 +237,14 @@
             const data = await res.json();
             localStorage.setItem('access_token', data.access_token);
             console.log('Token just set:', localStorage.getItem('access_token'));
-            console.log('Logged in as role:', data.role); // <-- Log the role returned by the server
+            localStorage.setItem('username', data.username);
+            console.log('Username:', localStorage.getItem('username'));
+            localStorage.setItem('id', data.id);
+            console.log('id:', localStorage.getItem('id'));
+            localStorage.setItem('role', data.role);
+            console.log('Logged in as role:', localStorage.getItem('role')); // <-- Log the role returned by the server
+            
+            
             setTimeout(() => {
                 window.location.href = '/copelands/dashboard';
             }, 1000);

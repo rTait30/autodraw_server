@@ -1,0 +1,32 @@
+
+clients
+
+    when client submits project save their project_id
+
+    when estimator submits project dropdown list of available clients
+    
+
+
+estimator editing projects
+
+
+
+better projects page
+
+    client
+    name
+    type
+    status
+    created
+    due_date
+    last update
+    
+    prettier
+
+
+
+canvasmanager update
+
+    headless
+    use cached data
+

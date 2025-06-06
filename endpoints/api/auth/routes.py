@@ -15,7 +15,7 @@ def api_login():
         return jsonify({'error': 'Invalid credentials'}), 401
 
     access_token = create_access_token(identity=username)
-    return jsonify({'access_token': access_token, 'role': user.role})
+    return jsonify({'access_token': access_token, 'role': user.role, 'id': user.id, 'username': user.username, 'verified': user.verified})
 
 @auth_bp.route('/copelands/api/logout', methods=['POST'])
 def api_logout():

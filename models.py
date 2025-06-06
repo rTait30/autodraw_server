@@ -52,6 +52,7 @@ class ProjectAttribute(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
     data = db.Column(db.JSON)
+    calculated = db.Column(db.JSON)  # <-- store cached calculations here (optional)
 
 class Log(db.Model):
     __tablename__ = 'logs'

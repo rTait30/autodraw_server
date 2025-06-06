@@ -12,13 +12,15 @@ def save_project_config():
     data = request.get_json()
     project_id = data.get('id')
 
-    # List of Project model columns (excluding id and relationships)
+    # Project fields
     project_fields = {'name', 'type', 'status', 'due_date', 'info', 'client_id'}
     project_data = {k: v for k, v in data.items() if k in project_fields}
-    attribute_data = {k: v for k, v in data.items() if k not in project_fields}
+
+    # Attribute and calculated fields (optional)
+    attributes = data.get('attributes', {})
+    calculated = data.get('calculated', {})
 
     if project_id:
-        # Update existing project
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': 'Project not found'}), 404
@@ -26,21 +28,26 @@ def save_project_config():
             setattr(project, field, value)
         project.updated_at = datetime.now(timezone.utc)
     else:
-        # Create new project
-        project = Project(
-            **project_data
-        )
+        project = Project(**project_data)
         db.session.add(project)
-        db.session.flush()  # Get project.id for attributes
+        db.session.flush()
 
-    # Save or update attributes
-    if attribute_data:
-        attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-        if not attr:
-            attr = ProjectAttribute(project_id=project.id, data=attribute_data)
-            db.session.add(attr)
-        else:
-            attr.data = attribute_data
+    # Save or update attributes (with calculated as a subkey)
+    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
+    new_data = {}
+    if attributes:
+        new_data['attributes'] = attributes
+    if calculated:
+        new_data['calculated'] = calculated
+
+    if attr:
+        # Merge with existing data if needed
+        if attr.data is None:
+            attr.data = {}
+        attr.data.update(new_data)
+    else:
+        attr = ProjectAttribute(project_id=project.id, data=new_data)
+        db.session.add(attr)
 
     db.session.commit()
     return jsonify({'id': project.id, 'status': project.status.name if hasattr(project.status, 'name') else project.status})
@@ -101,14 +108,26 @@ def edit_project(project_id):
 @projects_api_bp.route('/copelands/api/projects/list', methods=['GET'])
 @jwt_required()
 def list_project_configs():
-    client_id = request.args.get('client_id')
+    username = get_jwt_identity()
+    user = User.query.filter_by(username=username).first()
+    user_role = user.role if user else None
+
     query = Project.query
-    if client_id:
-        query = query.filter_by(client_id=client_id)
+
+    # If the user is a client, only show their own projects
+    if user_role == 'client':
+        query = query.filter_by(client_id=user.id)
+    else:
+        # For non-clients, allow filtering by client_id if provided
+        client_id = request.args.get('client_id')
+        if client_id:
+            query = query.filter_by(client_id=client_id)
+
     projects = query.all()
     result = []
     for project in projects:
         attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
+        client_user = User.query.get(project.client_id)
         result.append({
             'id': project.id,
             'name': project.name,
@@ -118,7 +137,7 @@ def list_project_configs():
             'info': project.info,
             'created_at': project.created_at.isoformat() if project.created_at else None,
             'updated_at': project.updated_at.isoformat() if project.updated_at else None,
-            'client_id': project.client_id,
+            'client': client_user.username if client_user else None,
             'attributes': attr.data if attr else {}
         })
     return jsonify(result)

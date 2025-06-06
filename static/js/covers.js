@@ -116,14 +116,22 @@ export function initSurgicalCovers(mode) {
         console.log("✅ Found Save Surgical Covers Config Button");
         saveButton.addEventListener('click', async () => {
             console.log("🟢 Pressed Save Surgical Covers Config Button");
-            const data = {
-                category: 'surgical',
-                ...getLiveSurgicalData()
-            };
-            console.log("🟡 Collected Data:", data);
 
-            data.client_id = 0;
-            data.type = 'cover';
+            // Collect attributes and calculated data
+            const attributes = getLiveSurgicalData();
+            const calculated = manager.getData ? manager.getData() : {};
+
+            // Top-level project fields
+            const data = {
+                name: attributes.name || '', // or get from a separate input if needed
+                type: 'cover',
+                client_id: localStorage.getItem('id'), // set as needed
+                category: 'surgical',
+                attributes,   // all form data under 'attributes'
+                calculated    // all calculated data under 'calculated'
+            };
+
+            console.log("🟡 Data to submit:", data);
 
             // Get JWT token from localStorage
             const token = localStorage.getItem('access_token');

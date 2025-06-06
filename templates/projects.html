@@ -8,29 +8,31 @@
 <p>Here you can manage your projects.</p>
 <div id="projects-list"></div>
 <script type="module">
-const token = localStorage.getItem('access_token');
-async function fetchProjects() {
-    const res = await fetch('/copelands/api/projects/list', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) {
-        document.getElementById('projects-list').innerText = "Failed to load projects.";
-        return;
+    const token = localStorage.getItem('access_token');
+    async function fetchProjects() {
+        const res = await fetch('/copelands/api/projects/list', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            document.getElementById('projects-list').innerText = "Failed to load projects.";
+            return;
+        }
+        const projects = await res.json();
+        let html = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Due Date</th><th>Client</th><th>Actions</th></tr>';
+        for (const p of projects) {
+            html += `<tr>
+                <td>${p.name}</td>
+                <td>${p.type}</td>
+                <td>${p.status}</td>
+                <td>${p.due_date || ''}</td>
+                
+                <td>${p.client_id}</td>
+                <td><a href="/copelands/project/${p.id}">View</a></td>
+            </tr>`;
+        }
+        html += '</table>';
+        document.getElementById('projects-list').innerHTML = html;
     }
-    const projects = await res.json();
-    let html = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Due Date</th><th>Actions</th></tr>';
-    for (const p of projects) {
-        html += `<tr>
-            <td>${p.name}</td>
-            <td>${p.type}</td>
-            <td>${p.status}</td>
-            <td>${p.due_date || ''}</td>
-            <td><a href="/copelands/project/${p.id}">View</a></td>
-        </tr>`;
-    }
-    html += '</table>';
-    document.getElementById('projects-list').innerHTML = html;
-}
-fetchProjects();
+    fetchProjects();
 </script>
 {% endblock %}

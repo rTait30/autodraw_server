@@ -27,9 +27,9 @@ app.secret_key = "C0p3l4nds_S3cr3t_K3y"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
 app.config['SQLALCHEMY_BINDS'] = {
     #'users': 'sqlite:///users.db',
-    'projects': 'sqlite:///projects.db',
-    'project_attributes': 'sqlite:///project_attributes.db',
-    'logs': 'sqlite:///logs.db'
+    #'projects': 'sqlite:///projects.db',
+    #'project_attributes': 'sqlite:///project_attributes.db',
+    #'logs': 'sqlite:///logs.db'
 }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

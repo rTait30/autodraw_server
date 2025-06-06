@@ -127,7 +127,8 @@ def list_project_configs():
     result = []
     for project in projects:
         attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-        client_user = User.query.get(project.client_id)
+        client_user = User.query.get(project.client_id)  # <-- This gets the user instance
+
         result.append({
             'id': project.id,
             'name': project.name,
@@ -137,8 +138,7 @@ def list_project_configs():
             'info': project.info,
             'created_at': project.created_at.isoformat() if project.created_at else None,
             'updated_at': project.updated_at.isoformat() if project.updated_at else None,
-            'client': client_user.username if client_user else None,
-            'attributes': attr.data if attr else {}
+            'client': client_user.username if client_user else None,  # <-- This will now work
         })
     return jsonify(result)
 
@@ -148,7 +148,7 @@ def list_project_configs():
 def get_project_config(project_id):
     project = Project.query.get_or_404(project_id)
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    return jsonify({
+    data = {
         'id': project.id,
         'name': project.name,
         'type': project.type.name if hasattr(project.type, 'name') else project.type,
@@ -158,5 +158,7 @@ def get_project_config(project_id):
         'created_at': project.created_at.isoformat() if project.created_at else None,
         'updated_at': project.updated_at.isoformat() if project.updated_at else None,
         'client_id': project.client_id,
-        'attributes': attr.data if attr else {}
-    })
+    }
+    if attr and attr.data:
+        data.update(attr.data)
+    return jsonify(data)

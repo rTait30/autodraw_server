@@ -16,7 +16,7 @@ export function renderCover(project, role) {
         <div class="cover-flex-row" style="display: flex; gap: 32px; margin-top: 24px;">
             <div id="cover-attributes-data" style="min-width:300px;">
                 <h4>Project Data</h4>
-                <pre>${JSON.stringify(project.attributes || {}, null, 2)}</pre>
+                <pre>${JSON.stringify(project || {}, null, 2)}</pre>
             </div>
             <div id="cover-table-editable" style="min-width:400px;">
                 ${renderEstimateTable(materials, labour)}

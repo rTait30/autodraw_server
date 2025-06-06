@@ -1,55 +1,35 @@
-/**
- * Manages a multi-step visualization on a single canvas.
- * @class
- */
+
+
+
 class CanvasManager {
-    /**
-     * Creates a new CanvasManager instance.
-     * @param {string} canvasId - ID of the canvas element.
-     * @param {Object} [options] - Configuration options.
-     * @param {number} [options.virtualWidth=1000] - Virtual canvas width per step.
-     * @param {number} [options.virtualHeight=1000] - Virtual canvas height per step.
-     * @param {boolean} [options.showData=false] - Whether to display step data as text.
-     * @throws {Error} If canvasId is not found.
-     */
+
+
+
     constructor(canvasId, options = {}) {
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) {
+        this.canvas = canvasId ? document.getElementById(canvasId) : null;
+        this.hasCanvas = !!this.canvas;
+
+        if (canvasId && !this.canvas) {
             throw new Error(`Canvas with ID ${canvasId} not found`);
         }
-        this.ctx = this.canvas.getContext('2d');
 
-        // Configuration options
-        this.virtualWidth = options.virtualWidth || 1000;
-        this.virtualHeight = options.virtualHeight || 1000;
+        this.ctx = this.hasCanvas ? this.canvas.getContext('2d') : null;
+
         this.showData = options.showData || false;
 
-        this.draw = options.draw || false;
+        // Draw only if canvas is available and drawing is enabled
+        this.draw = this.hasCanvas && options.draw !== false;
 
         // Internal state
         this.steps = [];
-        this.scaleFactor = 0.5; // Hardcoded scaling factor for easy adjustment
-        this.stepOffsetY = 300; // Vertical offset between steps
+        this.scaleFactor = 0.5;
+        this.stepOffsetY = 300;
         this.data = {};
 
-        // Initialize canvas dimensions
-        //this.canvas.width = this.virtualWidth;
-        //this.canvas.height = this.virtualHeight;
-
-        // Bind methods
-        this.animate = this.animate.bind(this);
-        this.animationFrameId = null;
-
-        // Start animation loop
-        this.animate();
     }
+    
 
-    /**
-     * Adds a new step to the visualization.
-     * @param {Object} config - Step configuration or constructor.
-     * @param {Array} [dependencies=[]] - Array of dependent steps.
-     * @returns {Object} The created step object with an update method.
-     */
+
     addStep(config, dependencies = []) {
         const step = {
             title: config.title,
@@ -68,14 +48,14 @@ class CanvasManager {
         return step;
     }
 
+
+
     getData() {
         return this.data;
     }
-    
-    /**
-     * Updates all steps with the provided data.
-     * @param {Object} initialData - Data to update steps.
-     */
+
+
+
     async updateAll(initialData) {
         let currentData = initialData;
 
@@ -88,13 +68,9 @@ class CanvasManager {
             currentData = await this.drawStep(step, currentData);
         }
     }
+    
 
-    /**
-     * Draws a single step, including optional data display.
-     * @param {Object} step - The step to draw.
-     * @param {Object} newData - Data to pass to the step's draw function.
-     * @returns {Object} Updated data from the step.
-     */
+
     async drawStep(step, newData) {
         if (newData) {
             this.data = newData;
@@ -147,28 +123,9 @@ class CanvasManager {
         return updatedData || this.data;
     }
 
-    /**
-     * Animates live steps using requestAnimationFrame.
-     */
-    animate() {
-        this.steps.forEach(step => {
-            if (step.isLive) {
-                this.drawStep(step);
-            }
-        });
-        this.animationFrameId = requestAnimationFrame(this.animate);
-    }
-
-    /**
-     * Cleans up resources and removes event listeners.
-     */
-    destroy() {
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-        }
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.steps = [];
-    }
+    
 }
+
+
 
 export default CanvasManager;

@@ -4,9 +4,5 @@
 
 <div id="project-detail">Loading...</div>
 
-
-<script>
-    window.projectId = {{ project_id|tojson }};
-</script>
 <script type="module" src="{{ url_for('static', filename='js/project/project.js') }}"></script>
 {% endblock %}

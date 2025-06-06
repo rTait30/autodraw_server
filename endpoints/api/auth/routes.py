@@ -17,10 +17,6 @@ def api_login():
     access_token = create_access_token(identity=username)
     return jsonify({'access_token': access_token, 'role': user.role, 'id': user.id, 'username': user.username, 'verified': user.verified})
 
-@auth_bp.route('/copelands/api/logout', methods=['POST'])
-def api_logout():
-    return jsonify({'status': 'logged out'})
-
 @auth_bp.route('/copelands/api/register', methods=['POST'])
 def register_client():
     data = request.get_json()

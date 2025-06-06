@@ -1,0 +1,4 @@
+main theme:
+
+            background-color: #f9f9f9;
+            background-color: #1b1c3a;

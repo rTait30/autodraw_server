@@ -1,0 +1,15 @@
+Long Dee Shackle	80
+Dee Shackle		50
+Long Shackle		80
+
+Direct Fix (DF)		50
+
+Bow Shackle		50
+
+Pipe			50
+
+M12 Toggle Bolt	(Shade)	150
+
+M8 Turnbuckle		300-320
+M10 Turnbuckle		350-400 Shade solutions: 380, Versatile: 350
+M12 ""			450-500				

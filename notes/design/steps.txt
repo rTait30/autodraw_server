@@ -1,0 +1,172 @@
+Step 1 Skin (mpanel):
+
+	Create wireframe, confirm mesurments are valid (meausre tool)
+	SW Isometric
+	Circles on plane at UCS (use Iso) at tension detail specified by cutomer
+	redesign parimeter edge accounting for tension detail (make sure top of post)
+	Uncheck straighten joined edges
+	cable tension Ratio 2.4
+	Identify planes, mpanel polylines, create mpanel skin (if ridges make bottom line ridge)
+
+	cable relax
+
+	(ridge)
+	right click relax
+	Check straighten joined edges
+	Cable tension Ratio 2.4
+	extended data, get mesh data, set Weft/Warp to 6, Cable tension bottom to 0.2
+	select outside edges and meshes, relax
+
+	(join)
+	draw line between close corners
+	draw line between center point of corner lines
+	draw line from center point of the to perpendicular to sail
+	circle ucs midpoint
+	drag node to circle intersection
+	select mesh and outer edges
+	relax
+
+Step 2 2D Pattern (mpanel):
+
+	create 2d pattern (panel mesh)
+			
+Step 3 (mpanel objects):
+	
+	remake circles trim for arc
+	align corner detail bisecting corners to circle arc
+	delete arcs
+	delete detail lines
+	draw cable lines
+	delete skin
+	create polyline
+	calculate cable distance (model distance + 1m if sail track, + 2m if all cable)
+
+Step 4 (autocad only):
+
+	check Z
+	Draw circle (500 radius)
+	Scale based on project details (0.965 - 0.995)
+	Draw large circle around whole project
+
+Step 5:
+
+	Create offset lines out by pocket size (20,80), sailtrask (40,40)
+
+	Delete outer arcs
+
+	cut edges
+	
+	(sailtrack)
+	create circles at edge (50 default)
+	draw line from intersection of circle and cable line on track edge and fold line 2 perpendicular to fold 2
+	increase circles radius (120 default)
+	drawline from intersection of circle and cable edge (other side) cable side to fold line 2 perpendicular to fold line
+	create 50 offset line inner (other side)
+	extend other side line to 50 line.
+	fillet lines on each side (30 radius default)
+	trim outside lines
+	draw line from top left track corner cut edge to fold 1
+	make array along sailtrack edge increment by scale amount, explode
+	delete work line
+
+
+
+	(exit point)
+	draw circle 50 radius from rear of prorig
+	extend prorig line
+	draw circle with radius 100 at intersection of prorig line and circle
+	draw line from intersection of cable line and 100 circle to work line perpindicular to work line
+	draw line from extended prorig line to point on cable line and 100 circle
+	trim all lines over work line
+	fillet new edge
+
+	(O ring)
+	offset outer 
+	draw circle (default 100) from out
+	draw line from intersection of circle and cable line to work line perpindicular to work line	
+	copy cable line to tangent of 50 circle
+
+
+
+	label corners (20 height) and EX inside fold
+
+	delete cable line
+
+Step 6:
+
+	determine seam direction
+	align horizontally
+	create cut length offsets, 35 mm from those
+	
+
+
+	
+
+Step 7:
+
+	(if seems)
+	seperate panels
+	delete internal line
+	draw new internal offset 10mm from cut line
+	draw points on top panel left side intersection between fold line and inner offest
+	draw point on same x posiiton as point on bottom panel on inner offset
+	array points with gaps of 600mm
+	draw cut points,explode, delete extra points
+	label cuts
+	
+
+Step 8:
+
+	delete fold 1
+	Group
+	
+Step 9:
+	
+	Copy
+	Draw boundaries to fabric
+	Nest panels
+
+	Add any extras
+
+Step 10:
+
+	if topside copy, if underside mirror.
+	put shapes on aprpropriate layers
+
+	clean up arcs
+	
+	
+Step 11:
+
+	
+	Label corners
+	Label details
+	Label dimensions
+	exit, logo
+
+	cable length (round to 10)
+
+	(sailtrack)
+	multileader "kedar"
+	
+	black
+
+Topview:
+
+	pan to drawing detail (top)
+	pan to specific detail (bottom)
+	turn off viewport layer
+	
+Workbook:
+
+	Project Info
+	plotting specs
+	man. specs
+	bill
+	time sheet
+	
+
+publish topview+WB
+save in design/workbook/wb files
+modelsave as plotting/gerber, dxf, tools, options, select objects, accuracy 4
+

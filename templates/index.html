@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon/favicon.ico') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon/apple-touch-icon.png') }}">
@@ -183,7 +182,7 @@
         <!-- Registration fields, hidden by default -->
         <form id="registerForm" style="display:none; margin-top:20px;">
             <input type="text" id="reg_username" placeholder="Username" required>
-            <input type="email" id="reg_email" placeholder="Email" required>
+            <input type="text" id="reg_email" placeholder="Email" required>
             <input type="text" id="reg_address" placeholder="Address" required>
             <input type="password" id="reg_password1" placeholder="Password" required>
             <input type="password" id="reg_password2" placeholder="Confirm Password" required>
@@ -191,19 +190,6 @@
             <button type="button" id="cancelRegister" style="margin-top:10px;">Cancel</button>
             <div id="registerErrorBox" style="color:red; font-size:14px; margin-top:10px;"></div>
         </form>
-
-        <!-- Registration fields, hidden by default -->
-        <form id="registerForm" style="display:none; margin-top:20px;">
-            <input type="text" id="reg_username" placeholder="Username" required>
-            <input type="email" id="reg_email" placeholder="Email" required>
-            <input type="text" id="reg_address" placeholder="Address" required>
-            <input type="password" id="reg_password1" placeholder="Password" required>
-            <input type="password" id="reg_password2" placeholder="Confirm Password" required>
-            <button type="submit">Register</button>
-            <button type="button" id="cancelRegister" style="margin-top:10px;">Cancel</button>
-            <div id="registerErrorBox" style="color:red; font-size:14px; margin-top:10px;"></div>
-        </form>
-        <!-- ...existing code... -->
 
         <div class="forgot">
             <a href="#">Forgot password?</a>

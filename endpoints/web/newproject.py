@@ -9,9 +9,9 @@ def newproject():
         return redirect(url_for('dashboard.dashboard'))
     return render_template('newproject.html', user_role=session.get('role', 'client'))
 
-@newproject_bp.route('/copelands/newproject/covers')
+@newproject_bp.route('/copelands/newproject/cover')
 def newproject_covers():
-    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
+    return render_template('newproject/new_cover.html', user_role=session.get('role', 'client'))
 
 @newproject_bp.route('/copelands/newproject/shadesail')
 def newproject_shadesails():

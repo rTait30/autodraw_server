@@ -9,7 +9,10 @@ const renderers = {
 };
 
 const token = localStorage.getItem('access_token');
-const projectId = window.projectId; // Set this in your template
+
+// Example: /copelands/project/123
+const pathParts = window.location.pathname.split('/');
+const projectId = pathParts[pathParts.length - 1];
 
 async function getUserRole() {
     const res = await fetch('/copelands/api/me', {

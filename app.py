@@ -10,7 +10,7 @@ import json
 
 from endpoints.api.auth.routes import auth_bp
 from endpoints.api.projects.nest import nest_bp
-from endpoints.api.projects.projects import projects_api_bp
+from endpoints.api.projects.projects_api import projects_api_bp
 
 from endpoints.web.index import index_bp
 from endpoints.web.discrepancy import discrepancy_bp
@@ -75,10 +75,10 @@ app.config['SQLALCHEMY_BINDS'] = {
 
 
 
-@app.route('/copelands/new_project/covers')
+@app.route('/copelands/new_project/new_cover')
 def new_project_covers():
     # Example: session['role'] = 'estimator' or 'client'
-    return render_template('newproject/cover.html', user_role=session.get('role', 'client'))
+    return render_template('newproject/new_cover.html', user_role=session.get('role', 'client'))
 
 @app.route('/copelands/newproject/shadesail')
 def new_project_shadesails():

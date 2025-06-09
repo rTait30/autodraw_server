@@ -541,13 +541,7 @@ export const twoExtra = {
         }
         totalWidth -= 50;
 
-        const scale = Math.min(
-            availableWidth / totalWidth,
-            availableHeight / maxHeight
-        );
-
-        let cursorX = (width - totalWidth * scale) / 2;
-        const originY = (height - maxHeight * scale) / 2;
+        
 
         const drawData = [];
         let totalArea = 0;
@@ -611,6 +605,14 @@ export const twoExtra = {
         const padding = 100;
         const availableWidth = width - 2 * padding;
         const availableHeight = height - 2 * padding;
+
+        const scale = Math.min(
+            availableWidth / totalWidth,
+            availableHeight / maxHeight
+        );
+
+        let cursorX = (width - totalWidth * scale) / 2;
+        const originY = (height - maxHeight * scale) / 2;
 
         const { drawData, totalArea } = data.calculated;
 

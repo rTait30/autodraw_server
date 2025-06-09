@@ -198,6 +198,11 @@ export const oneFlatten = {
 
 
     calcFunction: (data) => {
+
+        if (data.flatMainHeight) {
+            // If flatMainHeight already exists calculations are already done, return data as-is
+            return data;
+        }
         // ...all your calculation logic here...
         let flatMainHeight = data.width + 2 * data.seam;
         let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
@@ -208,11 +213,12 @@ export const oneFlatten = {
             2 * flatSideWidth +
             4 * flatSideHeight;
 
-        data.totalSeamLength = totalSeamLength;
+        
         data.flatMainHeight = flatMainHeight;
         data.flatMainWidth = flatMainWidth;
         data.flatSideHeight = flatSideHeight;
         data.flatSideWidth = flatSideWidth;
+        data.totalSeamLength = totalSeamLength;
 
         const areaMainMM = flatMainWidth * flatMainHeight;
         const areaSideMM = flatSideWidth * flatSideHeight;
@@ -234,8 +240,6 @@ export const oneFlatten = {
 
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
-
-        data = oneFlatten.calcFunction(data);
 
 
         let flatMainHeight = data.width + 2 * data.seam;
@@ -508,9 +512,88 @@ export const twoExtra = {
 
 
     calcFunction: (data) => {
+        const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
+        const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
 
-        
+        const result = {};
 
+        mainPanels.forEach((panel, i) => {
+            result[`main${i + 1}`] = panel;
+        });
+
+        sidePanels.forEach((panel, i) => {
+            result[`Rside${i + 1}`] = panel;
+        });
+
+        sidePanels.forEach((panel, i) => {
+            result[`Lside${i + 1}`] = panel;
+        });
+
+
+
+        const entries = Object.entries(result);
+        let totalWidth = 0;
+        let maxHeight = 0;
+
+        for (const [, panel] of entries) {
+            totalWidth += panel.width + 50;
+            maxHeight = Math.max(maxHeight, panel.height);
+        }
+        totalWidth -= 50;
+
+        const scale = Math.min(
+            availableWidth / totalWidth,
+            availableHeight / maxHeight
+        );
+
+        let cursorX = (width - totalWidth * scale) / 2;
+        const originY = (height - maxHeight * scale) / 2;
+
+        const drawData = [];
+        let totalArea = 0;
+
+        for (const [name, panel] of entries) {
+            const w = panel.width * scale;
+            const h = panel.height * scale;
+            const x = cursorX;
+            const y = originY;
+
+            const area = (panel.width * panel.height) / 1e6;
+            totalArea += area;
+
+            drawData.push({
+                name,
+                x,
+                y,
+                w,
+                h,
+                panel,
+                area,
+                seamY: panel.hasSeam === "top"
+                    ? y + data.seam * scale
+                    : panel.hasSeam === "bottom"
+                    ? y + h - data.seam * scale
+                    : null
+            });
+
+            cursorX += w + 50;
+        }
+
+        const finalPanels = {
+            quantity: data.quantity,
+            panels: {}
+        };
+
+        for (const [key, panel] of Object.entries(result)) {
+            const { hasSeam, ...panelWithoutSeam } = panel;
+            finalPanels.panels[key] = panelWithoutSeam;
+        }
+
+        return {
+            drawData,
+            totalArea,
+            finalPanels
+        };
     },
 
 
@@ -520,76 +603,32 @@ export const twoExtra = {
 
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+        ctx.save();
 
-
-
-        ctx.save();  // Save canvas state at start
-
-        let mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
-        let sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
-    
-        let result = {};
-    
-        mainPanels.forEach((panel, i) => {
-            result[`main${i + 1}`] = panel;
-        });
-    
-        sidePanels.forEach((panel, i) => {
-            result[`Rside${i + 1}`] = panel;
-        });
-    
-        sidePanels.forEach((panel, i) => {
-            result[`Lside${i + 1}`] = panel;
-        });
-    
-        const width = 1000;
-        const height = 1000;
-    
+        // Canvas dimensions
+        const width = virtualWidth;
+        const height = virtualHeight;
         const padding = 100;
         const availableWidth = width - 2 * padding;
         const availableHeight = height - 2 * padding;
-    
-        const entries = Object.entries(result);
-        let totalWidth = 0;
-        let maxHeight = 0;
-    
-        for (const [, panel] of entries) {
-            totalWidth += panel.width + 50;
-            maxHeight = Math.max(maxHeight, panel.height);
-        }
-        totalWidth -= 50;
-    
-        const scale = Math.min(
-            availableWidth / totalWidth,
-            availableHeight / maxHeight
-        );
-    
-        let cursorX = (width - totalWidth * scale) / 2;
-        const originY = (height - maxHeight * scale) / 2;
-    
+
+        const { drawData, totalArea } = data.calculated;
+
         ctx.lineWidth = 2;
         ctx.font = "14px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-    
-        let totalArea = 0;
-    
-        for (const [name, panel] of entries) {
-            const w = panel.width * scale;
-            const h = panel.height * scale;
-            const x = cursorX;
-            const y = originY;
-    
-            // Outline
+
+        for (const item of drawData) {
+            const { name, x, y, w, h, panel, area, seamY } = item;
+
+            // Panel border
             ctx.strokeStyle = "#000";
             ctx.setLineDash([]);
             ctx.strokeRect(x, y, w, h);
-    
-            // Seam (if present)
-            if (panel.hasSeam === "top" || panel.hasSeam === "bottom") {
-                const seamOffset = data.seam * scale;
-                const seamY = panel.hasSeam === "top" ? y + seamOffset : y + h - seamOffset;
-    
+
+            // Seam
+            if (seamY !== null) {
                 ctx.strokeStyle = "#00f";
                 ctx.setLineDash([4, 4]);
                 ctx.beginPath();
@@ -597,50 +636,196 @@ export const twoExtra = {
                 ctx.lineTo(x + w, seamY);
                 ctx.stroke();
             }
-    
+
             ctx.setLineDash([]);
             ctx.strokeStyle = "#000";
-    
-            // Area and name
-            const area = (panel.width * panel.height) / 1e6;
-            totalArea += area;
-    
+
+            // Text info
             ctx.fillText(name, x + w / 2, y + h / 2 - 18);
             ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
-    
-            // Dimensions
             ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
+
             ctx.save();
             ctx.translate(x - 12, y + h / 2);
             ctx.rotate(-Math.PI / 2);
             ctx.fillText(`${panel.height} mm`, 0, 0);
             ctx.restore();
-    
-            cursorX += w + 50;
         }
 
-        // Total area (bottom right)
-        //ctx.fillText(`Total Area: ${totalArea.toFixed(3)} m²`, width - 100, height - 20);
-    
-        ctx.restore();  // Restore canvas state at end
-
-        const finalPanels = {
-            quantity: data.quantity,
-            panels: {}
-        };
-        
-        for (const [key, panel] of Object.entries(result)) {
-        // Copy panel properties except hasSeam
-        const { hasSeam, ...panelWithoutSeam } = panel;
-        finalPanels.panels[key] = panelWithoutSeam;
-        }
-
-        data.finalPanels = finalPanels;
-
-        return data;
-        
-    } 
+        ctx.restore();
+    }
 
     // ----------------------------------- END DRAW --------------------------------------
 
+};
+
+
+
+
+
+//-----------------------------------------------------------------------------------------------------------
+
+//                                STEP 3: NEST PANELS
+
+//-----------------------------------------------------------------------------------------------------------
+
+
+async function sendPanelData(panelData, fabricWidth) {
+  try {
+    const response = await fetch('/copelands/nest_panels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...panelData,
+        fabricWidth // 🔁 Include fabricWidth in the payload
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Received nest:', result);
+    return result;
+
+  } catch (error) {
+    console.error('Error sending panel data:', error);
+  }
+}
+
+function drawNest(ctx, nestData, panels, fabricHeight) {
+  const startX = 0;
+
+  const nestWidth = nestData.total_width;
+  const scale = Math.min(2000 / nestWidth, 0.1); // Scale X to fit 1000px
+  const centerY = 200 + (fabricHeight / 2) * scale;
+
+  ctx.save();
+
+  // 📦 Draw each panel
+  for (const [label, placement] of Object.entries(nestData.panels)) {
+    const panelKey = label.split('_')[1];
+    const panel = panels[panelKey];
+
+    if (!panel) {
+      console.warn(`Panel not found for label: ${label} (key: ${panelKey})`);
+      continue;
+    }
+
+    const { width, height } = panel;
+    const rotated = placement.rotated;
+    const w = rotated ? height : width;
+    const h = rotated ? width : height;
+
+    // Apply scale to all spatial values
+    const scaledX = startX + placement.x * scale;
+    const scaledY = centerY - (placement.y + h) * scale;
+    const scaledW = w * scale;
+    const scaledH = h * scale;
+
+    ctx.fillStyle = '#88ccee';
+    ctx.strokeStyle = '#004466';
+    ctx.lineWidth = 2;
+    ctx.fillRect(scaledX, scaledY, scaledW, scaledH);
+    ctx.strokeRect(scaledX, scaledY, scaledW, scaledH);
+
+    // 🏷 Draw label centered in the scaled rectangle
+    ctx.fillStyle = 'black';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, scaledX + scaledW / 2, scaledY + scaledH / 2);
+  }
+
+  // 🖼 Draw fabric height box
+  const fabricBoxX = startX;
+  const fabricBoxY = centerY - fabricHeight * scale;
+  const fabricBoxWidth = nestWidth * scale;
+  const fabricBoxHeight = fabricHeight * scale;
+
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(fabricBoxX, fabricBoxY, fabricBoxWidth, fabricBoxHeight);
+
+  // 📏 Draw dimension line under the whole thing
+  const dimensionLineY = centerY + 20; // Slightly below the fabric box
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 1;
+
+  // Horizontal line
+  ctx.beginPath();
+  ctx.moveTo(fabricBoxX, dimensionLineY);
+  ctx.lineTo(fabricBoxX + fabricBoxWidth, dimensionLineY);
+  ctx.stroke();
+
+  // Vertical ticks
+  ctx.beginPath();
+  ctx.moveTo(fabricBoxX, dimensionLineY - 5);
+  ctx.lineTo(fabricBoxX, dimensionLineY + 5);
+  ctx.moveTo(fabricBoxX + fabricBoxWidth, dimensionLineY - 5);
+  ctx.lineTo(fabricBoxX + fabricBoxWidth, dimensionLineY + 5);
+  ctx.stroke();
+
+  // Dimension text
+  ctx.fillStyle = 'black';
+  ctx.font = '40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${nestWidth.toFixed(2)} mm`, fabricBoxX + fabricBoxWidth / 2, dimensionLineY + 5);
+
+  ctx.restore();
+}
+
+export const threeNest = {
+  title: 'Step 3: Nesting',
+  initialData: {},
+  dependencies: [],
+  isLive: false,
+  isAsync: true,
+
+
+
+  // --------------------------- CALC FUNCTION ---------------------------
+
+
+
+  calcFunction: async (data) => {
+    if (!data || !data.finalPanels || !data.fabricWidth) {
+      console.warn('Missing data for nesting calcFunction');
+      return;
+    }
+
+    const nestData = await sendPanelData(data.finalPanels, data.fabricWidth);
+
+    if (!nestData) {
+      console.error('No nest data returned from server');
+      return;
+    }
+
+    data.nestData = nestData;
+  },
+
+
+
+  // --------------------------- DRAW FUNCTION ---------------------------
+
+
+
+  drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+    if (
+      !data ||
+      !data.finalPanels ||
+      !data.nestData
+    ) {
+      ctx.fillText('Nesting data not available', 800, 800);
+      return;
+    }
+
+    const { nestData } = nestData;
+    drawNest(ctx, nestData, data.finalPanels, data.fabricWidth);
+  }
 };

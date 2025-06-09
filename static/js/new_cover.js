@@ -8,7 +8,7 @@ import { saveConfig } from './api.js';
 
 
 import ProcessStepper from './ProcessStepper/processStepper.js';
-import { zeroVisualise, oneFlatten } from './ProcessStepper/Covers.js';
+import { zeroVisualise, oneFlatten, twoExtra, threeNest } from './ProcessStepper/Covers.js';
 
 /**
  * Initializes the surgical cover estimation application.
@@ -197,6 +197,8 @@ export function initSurgicalCovers(mode) {
 
     if (mode === 'estimator') {
         manager.addStep(oneFlatten);
+        manager.addStep(twoExtra);
+        manager.addStep(threeNest);
     }
     
 

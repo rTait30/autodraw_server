@@ -53,34 +53,41 @@ class StepRunner {
     }
 
     async executeStep(step) {
-        const needsCalc = step.provides.length === 0 || step.provides.some(k => !(k in this.data));
 
-        if (needsCalc && step.calcFunction) {
-            const result = step.calcFunction({ ...this.data });
-            this.data = result instanceof Promise ? await result : result;
-        }
 
-        if (this.hasCanvas && this.draw && step.drawFunction) {
+        if (this.hasCanvas) {
             const index = this.steps.indexOf(step);
             const offsetX = 0;
             const offsetY = index * this.stepOffsetY;
             this.ctx.setTransform(this.scaleFactor, 0, 0, this.scaleFactor, offsetX, offsetY);
             if (step.isAsync) {
-                await step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
-            } else {
+                await step.calcFunction(this.data);
                 step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
+            } else {
+                step.calcFunction(this.data);
+                step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
+            }
+
+            if (this.showData) {
+                this.ctx.fillStyle = 'black';
+                this.ctx.font = '20px Arial';
+                const dataText = JSON.stringify(this.data, null, 2);
+                const lines = dataText.split('\n');
+                lines.forEach((line, i) => {
+                    this.ctx.fillText(line, 10, 100 + i * 20);
+                });
             }
         }
 
-        if (this.showData && this.hasCanvas) {
-            this.ctx.fillStyle = 'black';
-            this.ctx.font = '20px Arial';
-            const dataText = JSON.stringify(this.data, null, 2);
-            const lines = dataText.split('\n');
-            lines.forEach((line, i) => {
-                this.ctx.fillText(line, 10, 100 + i * 20);
-            });
+        else {
+            if (step.isAsync) {
+                await step.calcFunction(this.data);
+            } else {
+                step.calcFunction(this.data);
+            }
         }
+
+
     }
 
     getData() {

@@ -1,13 +1,13 @@
 import { saveConfig } from './api.js';
-//import CanvasManager from './core/CanvasManager.js';
-//import zeroVisualise from './steps/covers/zeroVisualise.js';
-//import oneFlatten from './steps/covers/oneFlatten.js';
-//import twoExtra from './steps/covers/twoExtra.js';
-//import threeNest from './steps/covers/threeNest.js';
+import CanvasManager from './core/CanvasManager.js';
+`import zeroVisualise from './steps/covers/zeroVisualise.js';
+import oneFlatten from './steps/covers/oneFlatten.js';
+import twoExtra from './steps/covers/twoExtra.js';
+import threeNest from './steps/covers/threeNest.js';`
 
 
 
-import ProcessStepper from './ProcessStepper/processStepper.js';
+import ProcessStepper from './ProcessStepper/ProcessStepper.js';
 import { zeroVisualise, oneFlatten, twoExtra, threeNest } from './ProcessStepper/Covers.js';
 
 /**
@@ -190,7 +190,7 @@ export function initSurgicalCovers(mode) {
         }
     }
 
-    const manager = new ProcessStepper('surgicalCanvas', {});
+    const manager = new ProcessStepper(null, {});
 
     // Always include step 0
     manager.addStep(zeroVisualise);

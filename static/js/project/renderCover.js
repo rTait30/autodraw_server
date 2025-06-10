@@ -42,7 +42,7 @@ function getDefaultMaterialsAndLabour(project) {
     const width = Number(attrs.width)/1000 || 0;
 
     // Thread quantity formula
-    const threadQty = totalSeamLength + height * 2 + length * 2 + width * 2;
+    const threadQty = (totalSeamLength + height * 2 + length * 2 + width * 2) * 2.5;
 
     const materials = [
         { description: "Fabric", quantity: nestWidth, unitCost: 12.5 },

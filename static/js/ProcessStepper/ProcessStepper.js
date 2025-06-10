@@ -1,4 +1,4 @@
-class StepRunner {
+class ProcessStepper {
     constructor(canvasOrId = null, options = {}) {
         if (canvasOrId) {
             this.canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
@@ -18,7 +18,7 @@ class StepRunner {
         this.showData = options.showData || false;
         this.steps = [];
         this.scaleFactor = options.scaleFactor || 0.5;
-        this.stepOffsetY = options.stepOffsetY || 300;
+        this.stepOffsetY = options.stepOffsetY || 400;
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
         this.data = {};
@@ -38,9 +38,10 @@ class StepRunner {
     }
 
     async runAll(initialData = {}) {
-        this.data = { ...this.data, ...initialData };
+        this.data = initialData;
 
         if (this.hasCanvas) {
+            this.ctx.setLineDash([]);
             this.ctx.setTransform(1, 0, 0, 1, 0, 0);
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -95,4 +96,4 @@ class StepRunner {
     }
 }
 
-export default StepRunner;
+export default ProcessStepper;

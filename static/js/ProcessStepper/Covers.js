@@ -63,10 +63,10 @@ export const zeroVisualise = {
         const unitSpacing = spacing * scale;
     
         // Include hem height in vertical offset
-        const contentWidth = quantity * boxW + (quantity - 1) * unitSpacing + boxD;
+        const contentWidth = boxW;
         const contentHeight = boxH + boxHem + boxD;
     
-        const startX = (1000 - contentWidth) / 2;
+        const startX = 100;
         const startY = (1000 - contentHeight) / 2 + boxD;
 
         ctx.font = "18px sans-serif";
@@ -74,7 +74,7 @@ export const zeroVisualise = {
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
     
-        for (let i = 0; i < quantity; i++) {
+        for (let i = 0; i < 1; i++) {
             const x = startX + i * (boxW + unitSpacing);
             const y = startY;
     
@@ -160,6 +160,16 @@ export const zeroVisualise = {
             ctx.fillText(`${length} mm`, 0, 0);
             ctx.restore();
         }
+
+        const text = `x ${quantity}`;
+
+        
+        ctx.font = 'bold 48px Arial'; // You can adjust size and font
+        ctx.fillStyle = 'black'; // Or any color you want
+        ctx.textAlign = 'right'; // Right align so the text ends at the x-position
+        ctx.textBaseline = 'middle';
+
+        ctx.fillText(text, 800, 800);
         
         return data;
 
@@ -512,41 +522,71 @@ export const twoExtra = {
 
 
     calcFunction: (data) => {
+
+        if (data.finalPanels)
+            
+        {
+            console.warn('Final panels already calculated, skipping seam calculation.');
+            return;
+        }
+
         const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
         const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
 
         const result = {};
+        mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);
+        sidePanels.forEach((panel, i) => result[`Rside${i + 1}`] = panel);
+        sidePanels.forEach((panel, i) => result[`Lside${i + 1}`] = panel);
 
-        mainPanels.forEach((panel, i) => {
-            result[`main${i + 1}`] = panel;
-        });
-
-        sidePanels.forEach((panel, i) => {
-            result[`Rside${i + 1}`] = panel;
-        });
-
-        sidePanels.forEach((panel, i) => {
-            result[`Lside${i + 1}`] = panel;
-        });
-
-
-
-        const entries = Object.entries(result);
         let totalWidth = 0;
         let maxHeight = 0;
-
-        for (const [, panel] of entries) {
+        for (const [, panel] of Object.entries(result)) {
             totalWidth += panel.width + 50;
             maxHeight = Math.max(maxHeight, panel.height);
         }
         totalWidth -= 50;
 
-        
+        const finalPanels = {
+            quantity: data.quantity,
+            panels: {}
+        };
+        for (const [key, panel] of Object.entries(result)) {
+            const { hasSeam, ...panelWithoutSeam } = panel;
+            finalPanels.panels[key] = panelWithoutSeam;
+        }
+
+        data.finalPanels = finalPanels;
+
+        console.log('Final panels:', finalPanels);
+
+        data.panelLayout = {
+            rawPanels: result,
+            totalWidth,
+            maxHeight
+        };
+    },
+
+
+
+    // ----------------------------------- DRAW -------------------------------------------
+
+
+
+    drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+        const { rawPanels, totalWidth, maxHeight } = data.panelLayout;
+
+        const padding = 100;
+        const availableWidth = virtualWidth - 2 * padding;
+        const availableHeight = virtualHeight - 2 * padding;
+        const scale = Math.min(availableWidth / totalWidth, availableHeight / maxHeight);
+
+        let cursorX = (virtualWidth - totalWidth * scale) / 2;
+        const originY = (virtualHeight - maxHeight * scale) / 2;
 
         const drawData = [];
         let totalArea = 0;
 
-        for (const [name, panel] of entries) {
+        for (const [name, panel] of Object.entries(rawPanels)) {
             const w = panel.width * scale;
             const h = panel.height * scale;
             const x = cursorX;
@@ -573,49 +613,7 @@ export const twoExtra = {
             cursorX += w + 50;
         }
 
-        const finalPanels = {
-            quantity: data.quantity,
-            panels: {}
-        };
-
-        for (const [key, panel] of Object.entries(result)) {
-            const { hasSeam, ...panelWithoutSeam } = panel;
-            finalPanels.panels[key] = panelWithoutSeam;
-        }
-
-        return {
-            drawData,
-            totalArea,
-            finalPanels
-        };
-    },
-
-
-
-    // ----------------------------------- DRAW -------------------------------------------
-
-
-
-    drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
         ctx.save();
-
-        // Canvas dimensions
-        const width = virtualWidth;
-        const height = virtualHeight;
-        const padding = 100;
-        const availableWidth = width - 2 * padding;
-        const availableHeight = height - 2 * padding;
-
-        const scale = Math.min(
-            availableWidth / totalWidth,
-            availableHeight / maxHeight
-        );
-
-        let cursorX = (width - totalWidth * scale) / 2;
-        const originY = (height - maxHeight * scale) / 2;
-
-        const { drawData, totalArea } = data.calculated;
-
         ctx.lineWidth = 2;
         ctx.font = "14px sans-serif";
         ctx.textAlign = "center";
@@ -624,12 +622,10 @@ export const twoExtra = {
         for (const item of drawData) {
             const { name, x, y, w, h, panel, area, seamY } = item;
 
-            // Panel border
             ctx.strokeStyle = "#000";
             ctx.setLineDash([]);
             ctx.strokeRect(x, y, w, h);
 
-            // Seam
             if (seamY !== null) {
                 ctx.strokeStyle = "#00f";
                 ctx.setLineDash([4, 4]);
@@ -642,7 +638,6 @@ export const twoExtra = {
             ctx.setLineDash([]);
             ctx.strokeStyle = "#000";
 
-            // Text info
             ctx.fillText(name, x + w / 2, y + h / 2 - 18);
             ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
             ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
@@ -707,10 +702,14 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
 
   ctx.save();
 
+  ctx.setLineDash([]);
+
   // 📦 Draw each panel
   for (const [label, placement] of Object.entries(nestData.panels)) {
     const panelKey = label.split('_')[1];
     const panel = panels[panelKey];
+
+    //console.log("Panels:", panels);
 
     if (!panel) {
       console.warn(`Panel not found for label: ${label} (key: ${panelKey})`);
@@ -808,6 +807,7 @@ export const threeNest = {
       return;
     }
 
+
     data.nestData = nestData;
   },
 
@@ -827,7 +827,7 @@ export const threeNest = {
       return;
     }
 
-    const { nestData } = nestData;
-    drawNest(ctx, nestData, data.finalPanels, data.fabricWidth);
+    //const { nestData } = nestData;
+    drawNest(ctx, data.nestData, data.finalPanels.panels, data.fabricWidth);
   }
 };

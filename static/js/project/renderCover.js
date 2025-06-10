@@ -1,5 +1,8 @@
 import { renderBase } from './renderBase.js';
 
+import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
+
 let materials = [];
 let labour = [];
 
@@ -8,8 +11,15 @@ export function renderCover(project, role) {
 
     // Get default table data from project/calculated
     const defaults = getDefaultMaterialsAndLabour(project);
+
+
     materials = defaults.materials;
     labour = defaults.labour;
+
+    ReactDOM.render(
+        <EstimateTable defaultMaterials={materials} defaultLabour={labour} />,
+        document.getElementById('cover-table-editable')
+    );
 
     if (role === "estimator" || role === "admin") {
         html += `
@@ -17,9 +27,6 @@ export function renderCover(project, role) {
             <div id="cover-attributes-data" style="min-width:300px;">
                 <h4>Project Data</h4>
                 <pre>${JSON.stringify(project || {}, null, 2)}</pre>
-            </div>
-            <div id="cover-table-editable" style="min-width:400px;">
-                ${renderEstimateTable(materials, labour)}
             </div>
         </div>
         `;
@@ -55,7 +62,7 @@ function getDefaultMaterialsAndLabour(project) {
     return { materials, labour };
 }
 
-function renderEstimateTable() {
+function renderEstimateTable(materials, labour) {
     function renderSection(title, items, section) {
         let rows = items.map((item, idx) => {
             const total = (item.quantity * item.unitCost).toFixed(2);
@@ -128,6 +135,96 @@ export function setupEstimateTableListeners() {
         });
     });
 }
+
+function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
+  const [materials, setMaterials] = useState(defaultMaterials);
+  const [labour, setLabour] = useState(defaultLabour);
+
+  const updateItem = (section, index, field, value) => {
+    const parser = field === 'quantity' ? parseFloat : parseFloat;
+    const parsedValue = parser(value) || 0;
+
+    const update = (items, setItems) => {
+      const updated = [...items];
+      updated[index] = { ...updated[index], [field]: parsedValue };
+      setItems(updated);
+    };
+
+    if (section === 'materials') {
+      update(materials, setMaterials);
+    } else if (section === 'labour') {
+      update(labour, setLabour);
+    }
+  };
+
+  const calculateTotal = (item) => (item.quantity * item.unitCost).toFixed(2);
+
+  const renderSection = (title, items, section, updateFn) => (
+    <>
+      <tr>
+        <th colSpan="4" style={{ textAlign: 'left', background: '#f0f0f0' }}>{title}</th>
+      </tr>
+      {items.map((item, idx) => (
+        <tr key={`${section}-${idx}`}>
+          <td>{item.description}</td>
+          <td>
+            <input
+              type="number"
+              value={item.quantity}
+              min="0"
+              style={{ width: 140 }}
+              onChange={(e) => updateItem(section, idx, 'quantity', e.target.value)}
+            />
+          </td>
+          <td>
+            <input
+              type="number"
+              value={item.unitCost}
+              min="0"
+              step="0.01"
+              style={{ width: 180 }}
+              onChange={(e) => updateItem(section, idx, 'unitCost', e.target.value)}
+            />
+          </td>
+          <td>
+            <input type="number" value={calculateTotal(item)} readOnly style={{ width: 200 }} />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+
+  const totalMaterials = materials.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+  const totalLabour = labour.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+  const grandTotal = (totalMaterials + totalLabour).toFixed(2);
+
+  return (
+    <table border="1" style={{ marginTop: 16, width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Quantity</th>
+          <th>Unit Cost</th>
+          <th>Total Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {renderSection('Materials', materials, 'materials')}
+        {renderSection('Labour', labour, 'labour')}
+        <tr>
+          <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Grand Total</td>
+          <td style={{ fontWeight: 'bold' }}>{grandTotal}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+
+
+
+
+
 
 function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 0;

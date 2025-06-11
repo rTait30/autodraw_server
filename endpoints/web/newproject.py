@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 
 newproject_bp = Blueprint('newproject', __name__)
 
-@newproject_bp.route('/newproject', methods=['GET', 'POST'])
+@newproject_bp.route('/copelands/newproject', methods=['GET', 'POST'])
 def newproject():
     if request.method == 'POST':
         # Handle form data here

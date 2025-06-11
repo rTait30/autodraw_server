@@ -546,24 +546,26 @@ export const twoExtra = {
         }
         totalWidth -= 50;
 
+        let finalArea = 0;
+
         const finalPanels = {
             quantity: data.quantity,
             panels: {}
         };
+
         for (const [key, panel] of Object.entries(result)) {
             const { hasSeam, ...panelWithoutSeam } = panel;
             finalPanels.panels[key] = panelWithoutSeam;
+            finalArea += (panel.width * panel.height);
         }
+
+        data.finalArea = finalArea;
 
         data.finalPanels = finalPanels;
 
         console.log('Final panels:', finalPanels);
 
-        data.panelLayout = {
-            rawPanels: result,
-            totalWidth,
-            maxHeight
-        };
+        data.rawPanels = result;
     },
 
 
@@ -573,20 +575,20 @@ export const twoExtra = {
 
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
-        const { rawPanels, totalWidth, maxHeight } = data.panelLayout;
+        //const { rawPanels, totalWidth, maxHeight } = data.panelLayout;
 
         const padding = 100;
         const availableWidth = virtualWidth - 2 * padding;
         const availableHeight = virtualHeight - 2 * padding;
-        const scale = Math.min(availableWidth / totalWidth, availableHeight / maxHeight);
+        const scale = Math.min(availableWidth / data.totalWidth, availableHeight / data.maxHeight);
 
-        let cursorX = (virtualWidth - totalWidth * scale) / 2;
-        const originY = (virtualHeight - maxHeight * scale) / 2;
+        let cursorX = (virtualWidth - data.totalWidth * scale) / 2;
+        const originY = (virtualHeight - data.totalWidth * scale) / 2;
 
         const drawData = [];
         let totalArea = 0;
 
-        for (const [name, panel] of Object.entries(rawPanels)) {
+        for (const [name, panel] of Object.entries(data.rawPanels)) {
             const w = panel.width * scale;
             const h = panel.height * scale;
             const x = cursorX;

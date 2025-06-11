@@ -190,7 +190,7 @@ export function initSurgicalCovers(mode) {
         }
     }
 
-    const manager = new ProcessStepper(null, {});
+    const manager = new ProcessStepper(canvas, {});
 
     // Always include step 0
     manager.addStep(zeroVisualise);
@@ -324,7 +324,7 @@ export function initSurgicalCovers(mode) {
                     alert(`Failed to save: ${response.error || 'Unknown error'}`);
                 }
                 window.loadConfigs?.();
-                manager.updateAll(getLiveSurgicalData());
+                //manager.updateAll(getLiveSurgicalData());
             } catch (err) {
                 console.error("Error saving config:", err);
                 alert("An error occurred while saving.");

@@ -54,10 +54,11 @@ function ProjectDetails({ projectId }) {
 
   const design = 0.5;
 
-  const finalAreaM2 = calculated.finalArea / 1000000
-  const cutting = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
+  const finalAreaM2 = (calculated.finalArea / 1000000);
+  const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
+  const cutting = cuttingPer * attrs.quantity;
 
-  //const sewing1 = ((G5 * 2 * F5) + (H5 * 2 * F5) + (G6 * 2 * F6) + (H6 * 2 * F6)) / 1000 * 2 / 60;
+  const sewing1 = ((calculated.flatMainWidth * 2 * F5) + (flatMainHeight * 2 * F5) + (G6 * 2 * F6) + (H6 * 2 * F6)) / 1000 * 2 / 60;
   //const sewing2 = Math.ceil(raw / 0.25) * 0.25;
 
   const defaultLabour = [
@@ -77,12 +78,26 @@ function ProjectDetails({ projectId }) {
   ];
 
   return (
-    <div style={{ display: 'flex', gap: '32px', marginTop: '24px' }}>
-      <div style={{ minWidth: '300px' }}>
-        <h4>{role === 'client' ? 'Cover Attributes' : 'Project Data'}</h4>
-        <pre>{JSON.stringify(role === 'client' ? project.attributes : project, null, 2)}</pre>
+    <div style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '32px',
+      marginTop: '24px',
+    }}>
+      {/* Fixed-width left panel */}
+      <div style={{
+        flex: '0 0 320px',  // Do not grow, don't shrink, base width 320px
+        maxWidth: '100%'    // Prevent overflow on very small screens
+      }}>
+        <ProjectDataTable project={project} role={role} />
       </div>
-      <div style={{ flexGrow: 1 }}>
+
+      {/* Flexible right panel */}
+      <div style={{
+        flex: '1 1 0',           // Can grow, can shrink, base width 0
+        minWidth: '300px',       // Ensure minimum usability
+        maxWidth: '100%'         // Prevent overflow
+      }}>
         <EstimateTable
           defaultMaterials={defaultMaterials}
           defaultLabour={defaultLabour}
@@ -171,6 +186,91 @@ function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
           <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Suggested Price</td>
           <td style={{ fontWeight: 'bold' }}>{suggestedPrice.toFixed(2)}</td>
         </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function ProjectDataTable({ project, role, onChange }) {
+  if (!project) return null;
+
+  const isEstimator = role === 'estimator';
+
+  // Separate fields
+  const projectData = {};
+  const attributes = project.attributes || {};
+  const calculated = project.calculated || {};
+
+  for (const [key, value] of Object.entries(project)) {
+    if (key !== 'attributes' && key !== 'calculated') {
+      projectData[key] = value;
+    }
+  }
+
+  // Handle change for editable fields
+  const handleFieldChange = (section, key, value) => {
+    const updated = { ...project };
+
+    if (section === 'project') {
+      updated[key] = value;
+    } else if (section === 'attributes') {
+      updated.attributes = { ...updated.attributes, [key]: value };
+    }
+
+    onChange?.(updated);
+  };
+
+  // Render section rows
+  const renderRows = (data, section, editable = false) =>
+    Object.entries(data).map(([key, value]) => (
+      <tr key={`${section}-${key}`}>
+        <td style={cellStyleBold}>{key}</td>
+        <td style={cellStyle}>
+          {editable ? (
+            <input
+              type="text"
+              defaultValue={value}
+              onBlur={(e) => handleFieldChange(section, key, e.target.value)}
+              style={{ width: '100%' }}
+            />
+          ) : (
+            typeof value === 'object' ? JSON.stringify(value) : String(value)
+          )}
+        </td>
+      </tr>
+    ));
+
+  // Styles
+  const cellStyle = { padding: '4px 8px', borderBottom: '1px solid #ccc' };
+  const cellStyleBold = { ...cellStyle, fontWeight: 'bold', width: '40%' };
+  const headingRowStyle = {
+    background: '#f0f0f0',
+    fontWeight: 'bold',
+    textAlign: 'left',
+    padding: '6px 8px',
+  };
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <tbody>
+        <tr>
+          <td colSpan="2" style={headingRowStyle}>Project Data</td>
+        </tr>
+        {renderRows(projectData, 'project', true)}
+
+        <tr>
+          <td colSpan="2" style={headingRowStyle}>Attributes</td>
+        </tr>
+        {renderRows(attributes, 'attributes', true)}
+
+        {isEstimator && (
+          <>
+            <tr>
+              <td colSpan="2" style={headingRowStyle}>Calculations</td>
+            </tr>
+            {renderRows(calculated, 'calculations', false)}
+          </>
+        )}
       </tbody>
     </table>
   );

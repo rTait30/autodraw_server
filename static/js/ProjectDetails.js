@@ -7,6 +7,12 @@ function ProjectDetails({ projectId }) {
   const processStepperRef = React.useRef(null);
   
 
+  const handleProjectChange = (updated) => {
+    setProject(updated);
+    if (updated && updated.attributes) {
+      setStepperData(updated.attributes);
+    }
+  };
   
 
   // Fetch project data
@@ -41,11 +47,13 @@ function ProjectDetails({ projectId }) {
   // Redraw ProcessStepper when stepperData changes
   React.useEffect(() => {
     if (!canvasRef.current) return;
+
     if (!processStepperRef.current) {
       const stepper = new ProcessStepper(canvasRef.current, {
-      scaleFactor: 0.5, // or any fixed value you want
+
+      scaleFactor: 0.5,
       virtualWidth: 1000,
-      virtualHeight: 1000
+      virtualHeight: 1000,
     });
       stepper.addStep(zeroVisualise);
       stepper.addStep(oneFlatten);
@@ -54,6 +62,13 @@ function ProjectDetails({ projectId }) {
       processStepperRef.current = stepper;
     }
     processStepperRef.current.runAll({ ...stepperData });
+
+    async function runStepper() {
+      const result = await processStepperRef.current.runAll({ ...stepperData });
+      setProject((prev) => (prev ? { ...prev, calculated: result } : prev));
+    }
+
+    runStepper();
   }, [stepperData]);
 
   // --- DYNAMIC MATERIALS & LABOUR CALCULATION ---
@@ -112,7 +127,7 @@ function ProjectDetails({ projectId }) {
         flex: '0 0 320px',
         maxWidth: '100%'
       }}>
-        <ProjectDataTable project={project} role={role} />
+         <ProjectDataTable project={project} role={role} onChange={handleProjectChange} />
       </div>
 
       {/* Flexible right panel */}

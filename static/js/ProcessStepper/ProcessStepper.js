@@ -1,4 +1,4 @@
-class ProcessStepper {
+window.ProcessStepper = class {
     constructor(canvasOrId = null, options = {}) {
         if (canvasOrId) {
             this.canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
@@ -95,5 +95,3 @@ class ProcessStepper {
         return this.data;
     }
 }
-
-export default ProcessStepper;

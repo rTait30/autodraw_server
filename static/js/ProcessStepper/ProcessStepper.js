@@ -1,4 +1,4 @@
-window.ProcessStepper = class {
+window.ProcessStepper =  {
     constructor(canvasOrId = null, options = {}) {
         if (canvasOrId) {
             this.canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
@@ -22,7 +22,7 @@ window.ProcessStepper = class {
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
         this.data = {};
-    }
+    },
 
     addStep(config) {
         const step = {
@@ -35,7 +35,7 @@ window.ProcessStepper = class {
         };
         this.steps.push(step);
         return step;
-    }
+    },
 
     async runAll(initialData = {}) {
         this.data = initialData;
@@ -51,7 +51,7 @@ window.ProcessStepper = class {
         }
 
         return this.data;
-    }
+    },
 
     async executeStep(step) {
 
@@ -89,7 +89,7 @@ window.ProcessStepper = class {
         }
 
 
-    }
+    },
 
     getData() {
         return this.data;

@@ -81,7 +81,9 @@ function ProjectDetails({ projectId }) {
 
     // Defensive: fallback to 0 if missing
     const nestWidth = (calculated.nestData && calculated.nestData.total_width ? calculated.nestData.total_width / 1000 : 0);
+
     const zips = 2 * (attrs.quantity || 0);
+
     const seam = Number(calculated.totalSeamLength) / 1000 || 0;
     const heightM2 = Number(attrs.height) / 1000 || 0;
     const lengthM2 = Number(attrs.length) / 1000 || 0;
@@ -91,10 +93,11 @@ function ProjectDetails({ projectId }) {
     defaultMaterials = [
       { description: 'Fabric', quantity: nestWidth, unitCost: 13.33 },
       { description: 'Zip', quantity: zips, unitCost: 0.65 },
-      { description: 'Thread', quantity: threadQty, unitCost: 3.0 },
+      { description: 'Thread', quantity: threadQty, unitCost: 0.03 },
     ];
 
     const design = 0.5;
+
     const finalAreaM2 = (calculated.finalArea / 1000000) || 0;
     const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
     const cutting = cuttingPer * (attrs.quantity || 0);
@@ -114,7 +117,6 @@ function ProjectDetails({ projectId }) {
 
   console.log('Default Materials:', defaultMaterials);
 
-  // ...existing render logic...
   return (
     <div style={{
       display: 'flex',
@@ -145,7 +147,7 @@ function ProjectDetails({ projectId }) {
           <canvas
             ref={canvasRef}
             width={900}
-            height={3000}
+            height={1800}
             style={{ border: '1px solid #ccc', background: '#fff' }}
           />
         </div>
@@ -154,12 +156,40 @@ function ProjectDetails({ projectId }) {
   );
 }
 
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: "15px",
+};
+
+const thStyle = {
+  background: "#f7f7f7",
+  fontWeight: "bold",
+  padding: "8px",
+  borderBottom: "1px solid #ccc",
+  textAlign: "left",
+};
+
+const tdStyle = {
+  padding: "8px",
+  borderBottom: "1px solid #eee",
+  textAlign: "left",
+};
+
+const headingStyle = {
+  padding: "8px",
+  borderBottom: "1px solid #eee",
+  textAlign: "left",
+  fontWeight: "bold",
+  fontSize: "18px",
+};
+
 // EstimateTable component (copy it in here fully if not already)
 function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
   const [materials, setMaterials] = React.useState(defaultMaterials);
   const [labour, setLabour] = React.useState(defaultLabour);
-  const [contingencyPercent, setContingencyPercent] = React.useState(5);
-  const [marginPercent, setMarginPercent] = React.useState(20);
+  const [contingencyPercent, setContingencyPercent] = React.useState(3);
+  const [marginPercent, setMarginPercent] = React.useState(45);
 
   // Sync state with props when they change
   React.useEffect(() => {
@@ -201,28 +231,35 @@ function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
         </tr>
       ))}
       <tr>
-        <td colSpan="3" style={{ textAlign: 'right' }}><b>Total {title}</b></td>
+        <td style={tdStyle}><b>Total {title}</b></td>
         <td><b>{total.toFixed(2)}</b></td>
       </tr>
     </>
   );
 
   return (
-    <table border="1" style={{ marginTop: '20px', borderCollapse: 'collapse', width: '100%' }}>
+    <table style={tableStyle}>
       <thead>
-        <tr><th>Description</th><th>Quantity</th><th>Unit Cost</th><th>Total</th></tr>
+        <tr>
+          
+          <th style={thStyle}>Description</th>
+          <th style={thStyle}>Quantity</th>
+          <th style={thStyle}>Unit Cost</th>
+          <th style={thStyle}>Total</th>
+
+        </tr>
       </thead>
       <tbody>
         {renderSection('Materials', materials, 'materials', totalMaterials)}
         {renderSection('Labour', labour, 'labour', totalLabour)}
 
         <tr>
-          <td colSpan="3" style={{ textAlign: 'right' }}><b>Total Cost Fabrication</b></td>
+          <td style={tdStyle}><b>Total Cost Fabrication</b></td>
           <td><b>{baseCost.toFixed(2)}</b></td>
         </tr>
 
         <tr>
-          <td style={{ textAlign: 'right' }} colSpan="2">Contingencies %</td>
+          <td style={tdStyle}>Contingencies %</td>
           <td>
             <input type="number" value={contingencyPercent} onChange={(e) => setContingencyPercent(parseFloat(e.target.value) || 0)} />
           </td>
@@ -230,7 +267,7 @@ function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
         </tr>
 
         <tr>
-          <td style={{ textAlign: 'right' }} colSpan="2">Gross Margin %</td>
+          <td style={tdStyle}>Gross Margin %</td>
           <td>
             <input type="number" value={marginPercent} onChange={(e) => setMarginPercent(parseFloat(e.target.value) || 0)} />
           </td>
@@ -238,13 +275,15 @@ function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
         </tr>
 
         <tr>
-          <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Suggested Price</td>
-          <td style={{ fontWeight: 'bold' }}>{suggestedPrice.toFixed(2)}</td>
+          <td style={tdStyle}>Suggested Price</td>
+          <td style={tdStyle}>{suggestedPrice.toFixed(2)}</td>
         </tr>
       </tbody>
     </table>
   );
 }
+
+
 
 function ProjectDataTable({ project, role, onChange }) {
   if (!project) return null;
@@ -279,14 +318,13 @@ function ProjectDataTable({ project, role, onChange }) {
   const renderRows = (data, section, editable = false) =>
     Object.entries(data).map(([key, value]) => (
       <tr key={`${section}-${key}`}>
-        <td style={cellStyleBold}>{key}</td>
-        <td style={cellStyle}>
+        <td style={tdStyle}>{key}</td>
+        <td style={tdStyle}>
           {editable ? (
             <input
               type="text"
               defaultValue={value}
               onBlur={(e) => handleFieldChange(section, key, e.target.value)}
-              style={{ width: '100%' }}
             />
           ) : (
             typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -295,33 +333,25 @@ function ProjectDataTable({ project, role, onChange }) {
       </tr>
     ));
 
-  // Styles
-  const cellStyle = { padding: '4px 8px', borderBottom: '1px solid #ccc' };
-  const cellStyleBold = { ...cellStyle, fontWeight: 'bold', width: '40%' };
-  const headingRowStyle = {
-    background: '#f0f0f0',
-    fontWeight: 'bold',
-    textAlign: 'left',
-    padding: '6px 8px',
-  };
-
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <table style={tableStyle}>
+
       <tbody>
+        
         <tr>
-          <td colSpan="2" style={headingRowStyle}>Project Data</td>
+          <td style={headingStyle}>Project Data</td>
         </tr>
         {renderRows(projectData, 'project', true)}
 
         <tr>
-          <td colSpan="2" style={headingRowStyle}>Attributes</td>
+          <td style={headingStyle}>Project Attributes</td>
         </tr>
         {renderRows(attributes, 'attributes', true)}
 
         {isEstimator && (
           <>
             <tr>
-              <td colSpan="2" style={headingRowStyle}>Calculations</td>
+              <td style={headingStyle}>Calculations</td>
             </tr>
             {renderRows(calculated, 'calculations', false)}
           </>

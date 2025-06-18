@@ -66,10 +66,8 @@ Step 5:
 	fillet lines on each side (30 radius default)
 	trim outside lines
 	draw line from top left track corner cut edge to fold 1
-	make array along sailtrack edge increment by scale amount, explode
+	make array along sailtrack edge increment by scale amount x 1000, explode
 	delete work line
-
-
 
 	(exit point)
 	draw circle 50 radius from rear of prorig
@@ -86,8 +84,6 @@ Step 5:
 	draw line from intersection of circle and cable line to work line perpindicular to work line	
 	copy cable line to tangent of 50 circle
 
-
-
 	label corners (20 height) and EX inside fold
 
 	delete cable line
@@ -103,6 +99,12 @@ Step 6:
 	
 
 Step 7:
+
+	(if ridge seam)
+	offset 35 out, 10 in
+	line to 35
+	array points 600
+	delete 10 line
 
 	(if seems)
 	seperate panels

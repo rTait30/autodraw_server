@@ -574,85 +574,95 @@ export const twoExtra = {
 
 
 
-    drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
-        //const { rawPanels, totalWidth, maxHeight } = data.panelLayout;
+  drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+      const padding = 100;
 
-        const padding = 100;
-        const availableWidth = virtualWidth - 2 * padding;
-        const availableHeight = virtualHeight - 2 * padding;
-        const scale = Math.min(availableWidth / data.totalWidth, availableHeight / data.maxHeight);
+      // Calculate total width and max height of all panels
+      let totalWidth = 0;
+      let maxHeight = 0;
+      for (const [, panel] of Object.entries(data.rawPanels)) {
+          totalWidth += panel.width;
+          maxHeight = Math.max(maxHeight, panel.height);
+      }
 
-        let cursorX = (virtualWidth - data.totalWidth * scale) / 2;
-        const originY = (virtualHeight - data.totalWidth * scale) / 2;
+      const availableWidth = virtualWidth - 2 * padding;
+      const availableHeight = virtualHeight - 2 * padding;
+      const scale = Math.min(
+          availableWidth / totalWidth,
+          availableHeight / maxHeight
+      );
 
-        const drawData = [];
-        let totalArea = 0;
+      let cursorX = (virtualWidth - totalWidth * scale) / 2;
+      const originY = (virtualHeight - maxHeight * scale) / 2;
 
-        for (const [name, panel] of Object.entries(data.rawPanels)) {
-            const w = panel.width * scale;
-            const h = panel.height * scale;
-            const x = cursorX;
-            const y = originY;
+      const drawData = [];
+      let totalArea = 0;
 
-            const area = (panel.width * panel.height) / 1e6;
-            totalArea += area;
+      for (const [name, panel] of Object.entries(data.rawPanels)) {
+          const w = panel.width * scale;
+          const h = panel.height * scale;
+          const x = cursorX;
+          const y = originY;
 
-            drawData.push({
-                name,
-                x,
-                y,
-                w,
-                h,
-                panel,
-                area,
-                seamY: panel.hasSeam === "top"
-                    ? y + data.seam * scale
-                    : panel.hasSeam === "bottom"
-                    ? y + h - data.seam * scale
-                    : null
-            });
+          const area = (panel.width * panel.height) / 1e6;
+          totalArea += area;
 
-            cursorX += w + 50;
-        }
+          drawData.push({
+              name,
+              x,
+              y,
+              w,
+              h,
+              panel,
+              area,
+              seamY: panel.hasSeam === "top"
+                  ? y + (data.seam || 0) * scale
+                  : panel.hasSeam === "bottom"
+                  ? y + h - (data.seam || 0) * scale
+                  : null
+          });
 
-        ctx.save();
-        ctx.lineWidth = 2;
-        ctx.font = "14px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+          cursorX += w + 50; // 50px gap between panels
+      }
 
-        for (const item of drawData) {
-            const { name, x, y, w, h, panel, area, seamY } = item;
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.font = "14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-            ctx.strokeStyle = "#000";
-            ctx.setLineDash([]);
-            ctx.strokeRect(x, y, w, h);
+      for (const item of drawData) {
+          const { name, x, y, w, h, panel, area, seamY } = item;
 
-            if (seamY !== null) {
-                ctx.strokeStyle = "#00f";
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                ctx.moveTo(x, seamY);
-                ctx.lineTo(x + w, seamY);
-                ctx.stroke();
-            }
+          ctx.strokeStyle = "#000";
+          ctx.setLineDash([]);
+          ctx.strokeRect(x, y, w, h);
 
-            ctx.setLineDash([]);
-            ctx.strokeStyle = "#000";
+          if (seamY !== null) {
+              ctx.strokeStyle = "#00f";
+              ctx.setLineDash([4, 4]);
+              ctx.beginPath();
+              ctx.moveTo(x, seamY);
+              ctx.lineTo(x + w, seamY);
+              ctx.stroke();
+          }
 
-            ctx.fillText(name, x + w / 2, y + h / 2 - 18);
-            ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
-            ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
+          ctx.setLineDash([]);
+          ctx.strokeStyle = "#000";
 
-            ctx.save();
-            ctx.translate(x - 12, y + h / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillText(`${panel.height} mm`, 0, 0);
-            ctx.restore();
-        }
+          ctx.fillText(name, x + w / 2, y + h / 2 - 18);
+          ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
+          ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
 
-        ctx.restore();
-    }
+          ctx.save();
+          ctx.translate(x - 12, y + h / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(`${panel.height} mm`, 0, 0);
+          ctx.restore();
+      }
+
+      ctx.restore();
+  }
 
     // ----------------------------------- END DRAW --------------------------------------
 

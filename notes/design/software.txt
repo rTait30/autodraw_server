@@ -1,3 +1,4 @@
-postman
-obs
-dbbrowser
+
+vlc
+aldo obs
+node js

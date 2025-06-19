@@ -4,6 +4,8 @@ labels
 
 points
 
+exit lines
+
 arc
 
 panels

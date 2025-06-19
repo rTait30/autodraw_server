@@ -36,6 +36,10 @@ Step 3 (mpanel objects):
 	align corner detail bisecting corners to circle arc
 	delete arcs
 	delete detail lines
+
+	(if ridge)
+	delete arc half
+
 	draw cable lines
 	delete skin
 	create polyline
@@ -86,17 +90,15 @@ Step 5:
 
 	label corners (20 height) and EX inside fold
 
-	delete cable line
-
 Step 6:
+
+	delete cable line
 
 	determine seam direction
 	align horizontally
 	create cut length offsets, 35 mm from those
 	
 
-
-	
 
 Step 7:
 
@@ -117,10 +119,13 @@ Step 7:
 	label cuts
 	
 
+
 Step 8:
 
 	delete fold 1
 	Group
+
+
 	
 Step 9:
 	
@@ -144,6 +149,7 @@ Step 11:
 	Label corners
 	Label details
 	Label dimensions
+	Link points
 	exit, logo
 
 	cable length (round to 10)

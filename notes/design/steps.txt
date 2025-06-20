@@ -10,12 +10,16 @@ Step 1 Skin (mpanel):
 
 	cable relax
 
+
 	(ridge)
 	right click relax
 	Check straighten joined edges
-	Cable tension Ratio 2.4
 	extended data, get mesh data, set Weft/Warp to 6, Cable tension bottom to 0.2
+	Same cable tension ratios ~2.4
 	select outside edges and meshes, relax
+	4 0's
+	inspect cartineries (>4%)
+
 
 	(join)
 	draw line between close corners

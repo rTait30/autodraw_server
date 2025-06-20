@@ -56,7 +56,7 @@ Step 5:
 
 	Create offset lines out by pocket size (20,80), sailtrask (40,40)
 
-	Delete outer arcs
+	Explode, Delete outer arcs
 
 	cut edges
 	

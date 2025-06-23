@@ -47,7 +47,7 @@ Step 3 (mpanel objects):
 	draw cable lines
 	delete skin
 	create polyline
-	calculate cable distance (model distance + 1m if sail track, + 2m if all cable)
+	calculate cable distance (model distance + 1m if sail track, + 2m if all cable) (calculate twice multiple directions)
 
 Step 4 (autocad only):
 
@@ -142,6 +142,7 @@ Step 9:
 Step 10:
 
 	if topside copy, if underside mirror.
+	Colour: ByLayer
 	put shapes on aprpropriate layers
 
 	clean up arcs

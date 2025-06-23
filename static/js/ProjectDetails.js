@@ -928,75 +928,41 @@ const oneFlatten = {
 
 
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
-    // Always treat the shorter side as height
+    let rotated = false;
+
+    // Normalize orientation: always treat shorter side as height
     if (width < height) {
-        let temp = width;  // store original width
-        width = height;    // assign height to width
-        height = temp;     // assign original width to height
+        [width, height] = [height, width];
+        rotated = true;
     }
-    
 
-
-    // Case: No seam needed
+    // Case 1: Panel fits in fabric without splitting
     if (height <= fabricWidth) {
         return [{
-            width,
-            height,
+            width: rotated ? height : width,
+            height: rotated ? width : height,
             hasSeam: "no"
         }];
     }
 
-    let panels = [];
+    // Small panel gets exactly: minAllowance + seam
+    const smallPanelHeight = minAllowance + seam;
 
-    if (height > fabricWidth - seam + minAllowance) {
-        // Case: One full-width panel and a remainder
-        const firstHeight = fabricWidth;
-        const secondHeight = height - fabricWidth + seam * 2;
+    // Main panel gets the rest of the original height
+    const mainPanelHeight = height - minAllowance;
 
-        console.log(firstHeight);
-        console.log(secondHeight);
-
-        panels.push({
-            width: width,
-            height: firstHeight,
-            hasSeam: "top"
-        });
-
-        panels.push({
-            width: width,
-            height: secondHeight,
-            hasSeam: "bottom"
-        });
-
-    } else {
-        // Case: central seam, two equal parts with seam
-        const half = height / 2;
-
-        console.log("central")
-
-        if (half < minAllowance) {
-            throw new Error("Split halves are too small.");
+    return [
+        {
+            width: rotated ? height : width,
+            height: rotated ? mainPanelHeight : mainPanelHeight,
+            hasSeam: "main"
+        },
+        {
+            width: rotated ? height : width,
+            height: rotated ? smallPanelHeight : smallPanelHeight,
+            hasSeam: "small"
         }
-
-        const pieceHeight = half + seam;
-
-        panels.push({
-            width: width,
-            height: pieceHeight,
-            hasSeam: "top"
-        });
-
-        panels.push({
-            width: width,
-            height: pieceHeight,
-            hasSeam: "bottom"
-        });
-    }
-
-    console.log(panels);
-
-    // Rotate back if original panel was rotated
-    return panels;
+    ];
 }
 
 const twoExtra = {

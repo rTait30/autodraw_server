@@ -106,13 +106,16 @@ def edit_project(project_id):
 
 # List all projects (optionally filter by client)
 @projects_api_bp.route('/copelands/api/projects/list', methods=['GET'])
-@jwt_required()
+# !! PROTECT THIS ENDPOINT IN PRODUCTION !!
+# @jwt_required()
 def list_project_configs():
-    username = get_jwt_identity()
-    user = User.query.filter_by(username=username).first()
-    user_role = user.role if user else None
+    #username = get_jwt_identity()
+    #user = User.query.filter_by(username=username).first()
+    #user_role = user.role if user else None
 
     query = Project.query
+
+    user_role = 'estimator'
 
     # If the user is a client, only show their own projects
     if user_role == 'client':
@@ -144,7 +147,8 @@ def list_project_configs():
 
 # Get a single project by ID
 @projects_api_bp.route('/copelands/api/project/<int:project_id>', methods=['GET'])
-@jwt_required()
+# !! PROTECT THIS ENDPOINT IN PRODUCTION !!
+# @jwt_required()
 def get_project_config(project_id):
     project = Project.query.get_or_404(project_id)
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()

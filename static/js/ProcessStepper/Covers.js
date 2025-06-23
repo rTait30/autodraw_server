@@ -216,8 +216,8 @@ export const oneFlatten = {
         // ...all your calculation logic here...
         let flatMainHeight = data.width + 2 * data.seam;
         let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
-        let flatSideWidth = data.width + data.seam * 2;
-        let flatSideHeight = data.height + data.hem + data.seam;
+        let flatSideWidth = data.height + data.seam * 2;
+        let flatSideHeight = data.length + data.hem + data.seam;
         let totalSeamLength =
             2 * flatMainWidth +
             2 * flatSideWidth +
@@ -251,42 +251,21 @@ export const oneFlatten = {
 
     drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
 
-
-        let flatMainHeight = data.width + 2 * data.seam;
-        let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
-
-        let flatSideWidth = data.width + data.seam * 2;
-        let flatSideHeight = data.height + data.hem + data.seam;
-
-        // Calculate total seam length
-        let totalSeamLength =
-            2 * flatMainWidth +        // Top and bottom of main panel
-            2 * flatSideWidth +       // Top of both side panels
-            4 * flatSideHeight;       // Left and right of both side panels
-
-        let i = 0;
-
-        data.totalSeamLength = totalSeamLength;
-
-        data.flatMainHeight = flatMainHeight;
-        data.flatMainWidth = flatMainWidth;
-
-        data.flatSideHeight = flatSideHeight;
-        data.flatSideWidth = flatSideWidth;
+        console.log('Drawing flat pattern with data:', data);
 
         // Scaling
         const padding = 100;
         const availableWidth = 1000 - 2 * padding;
         const availableHeight = 1000 - 2 * padding;
-        const layoutWidth = Math.max(flatMainWidth, flatSideWidth * 2 + 50);
-        const layoutHeight = flatMainHeight + flatSideHeight + 50;
+        const layoutWidth = Math.max(data.flatMainWidth, data.flatSideWidth * 2 + 50);
+        const layoutHeight = data.flatMainHeight + data.flatSideHeight + 50;
         const scale = Math.min(availableWidth / layoutWidth, availableHeight / layoutHeight);
-    
-        const mainW = flatMainWidth * scale;
-        const mainH = flatMainHeight * scale;
-        const sideW = flatSideWidth * scale;
-        const sideH = flatSideHeight * scale;
-    
+
+        const mainW = data.flatMainWidth * scale;
+        const mainH = data.flatMainHeight * scale;
+        const sideW = data.flatSideWidth * scale;
+        const sideH = data.flatSideHeight * scale;
+
         const originX = (1000 - layoutWidth * scale) / 2;
         const originY = (1000 - layoutHeight * scale) / 2;
     
@@ -379,28 +358,28 @@ export const oneFlatten = {
         ctx.font = "16px sans-serif";
         ctx.fillStyle = '#000';
     
-        ctx.fillText(`${flatMainWidth} mm`, mainX + mainW / 2 - 40, mainY - 10);
+        ctx.fillText(`${data.flatMainWidth} mm`, mainX + mainW / 2 - 40, mainY - 10);
         ctx.save();
         ctx.translate(mainX - 10, mainY + mainH / 2);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${flatMainHeight} mm`, -40, 0);
+        ctx.fillText(`${data.flatMainHeight} mm`, -40, 0);
         ctx.restore();
     
-        ctx.fillText(`${flatSideWidth} mm`, side1X + sideW / 2 - 30, sideY - 10);
+        ctx.fillText(`${data.flatSideWidth} mm`, side1X + sideW / 2 - 30, sideY - 10);
         ctx.save();
         ctx.translate(side1X - 10, sideY + sideH / 2);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${flatSideHeight} mm`, -35, 0);
+        ctx.fillText(`${data.flatSideHeight} mm`, -35, 0);
         ctx.restore();
     
         ctx.save();
         ctx.translate(side2X - 10, sideY + sideH / 2);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${flatSideHeight} mm`, -35, 0);
+        ctx.fillText(`${data.flatSideHeight} mm`, -35, 0);
         ctx.restore();
-    
-        const areaMainMM = flatMainWidth * flatMainHeight;
-        const areaSideMM = flatSideWidth * flatSideHeight;
+
+        const areaMainMM = data.flatMainWidth * data.flatMainHeight;
+        const areaSideMM = data.flatSideWidth * data.flatSideHeight;
         const areaMainM2 = areaMainMM / 1e6;
         const areaSideM2 = areaSideMM / 1e6;
         const totalFabricArea = areaMainM2 + 2 * areaSideM2;
@@ -437,76 +416,69 @@ export const oneFlatten = {
 
 
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
-    // Always treat the shorter side as height
+    let rotated = false;
+
+    // Normalize orientation: shorter side = height
     if (width < height) {
-        let temp = width;  // store original width
-        width = height;    // assign height to width
-        height = temp;     // assign original width to height
+        [width, height] = [height, width];
+        rotated = true;
     }
-    
 
-
-    // Case: No seam needed
+    // Case 1: Fits without split
     if (height <= fabricWidth) {
         return [{
-            width,
-            height,
+            width: rotated ? height : width,
+            height: rotated ? width : height,
             hasSeam: "no"
         }];
     }
 
-    let panels = [];
+    // Preferred: small panel gets minAllowance + seam
+    const smallPanelTotal = minAllowance + seam;
+    const mainPanel = height - minAllowance;
 
-    if (height > fabricWidth - seam + minAllowance) {
-        // Case: One full-width panel and a remainder
-        const firstHeight = fabricWidth;
-        const secondHeight = height - fabricWidth + seam * 2;
-
-        console.log(firstHeight);
-        console.log(secondHeight);
-
-        panels.push({
-            width: width,
-            height: firstHeight,
-            hasSeam: "top"
-        });
-
-        panels.push({
-            width: width,
-            height: secondHeight,
-            hasSeam: "bottom"
-        });
-
-    } else {
-        // Case: central seam, two equal parts with seam
-        const half = height / 2;
-
-        console.log("central")
-
-        if (half < minAllowance) {
-            throw new Error("Split halves are too small.");
-        }
-
-        const pieceHeight = half + seam;
-
-        panels.push({
-            width: width,
-            height: pieceHeight,
-            hasSeam: "top"
-        });
-
-        panels.push({
-            width: width,
-            height: pieceHeight,
-            hasSeam: "bottom"
-        });
+    if (mainPanel <= fabricWidth) {
+        return [
+            {
+                width: rotated ? height : width,
+                height: rotated ? mainPanel : mainPanel,
+                hasSeam: "main"
+            },
+            {
+                width: rotated ? height : width,
+                height: rotated ? smallPanelTotal : smallPanelTotal,
+                hasSeam: "small"
+            }
+        ];
     }
 
-    console.log(panels);
+    // Fallback: main panel = fabricWidth, small gets rest + seam
+    const mainFallback = fabricWidth;
+    const smallPanelBody = height - mainFallback;
+    const smallFallbackTotal = smallPanelBody + seam;
 
-    // Rotate back if original panel was rotated
-    return panels;
+    if (smallPanelBody >= minAllowance) {
+        return [
+            {
+                width: rotated ? height : width,
+                height: rotated ? mainFallback : mainFallback,
+                hasSeam: "main"
+            },
+            {
+                width: rotated ? height : width,
+                height: rotated ? smallFallbackTotal : smallFallbackTotal,
+                hasSeam: "small"
+            }
+        ];
+    }
+
+    // If neither strategy works
+    throw new Error("Cannot split panel with given constraints.");
 }
+
+
+
+
 
 export const twoExtra = {
     title: 'Step 2: Create extra seams if wider than fabric',
@@ -530,8 +502,8 @@ export const twoExtra = {
             return;
         }
 
-        const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
-        const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
+        const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 200, data.seam);
+        const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 200, data.seam);
 
         const result = {};
         mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);

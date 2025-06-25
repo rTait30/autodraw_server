@@ -4,14 +4,18 @@ Step 1 Skin (mpanel):
 	SW Isometric
 	Circles on plane at UCS (use Iso) at tension detail specified by cutomer
 	redesign parimeter edge accounting for tension detail (make sure top of post)
-	Uncheck straighten joined edges
-	cable tension Ratio 2.4
+	mpanel polylines
 	Identify planes, mpanel polylines, create mpanel skin (if ridges make bottom line ridge)
-
+	Uncheck straighten joined edges
+	Same cable tension ratios ~2.4
+	select edges triangles and meshes, relax
+	4 0's
+	inspect cartineries (>4%)
 	cable relax
 
 
 	(ridge)
+	select meshes
 	right click relax
 	Check straighten joined edges
 	extended data, get mesh data, set Weft/Warp to 6, Cable tension bottom to 0.2
@@ -75,7 +79,6 @@ Step 5:
 	trim outside lines
 	draw line from top left track corner cut edge to fold 1
 	make array along sailtrack edge increment by scale amount x 1000, explode
-	delete work line
 
 	(exit point)
 	draw circle 50 radius from rear of prorig
@@ -181,5 +184,6 @@ Workbook:
 
 publish topview+WB
 save in design/workbook/wb files
-modelsave as plotting/gerber, dxf, tools, options, select objects, accuracy 4
+save dwg
+save as dxf (tools, options, select objects, accuracy 4)
 

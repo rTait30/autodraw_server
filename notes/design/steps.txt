@@ -123,6 +123,7 @@ Step 7:
 	draw point on same x posiiton as point on bottom panel on inner offset
 	array points with gaps of 600mm
 	draw cut points,explode, delete extra points
+	
 	label cuts
 	
 

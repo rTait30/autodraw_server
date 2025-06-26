@@ -18,7 +18,7 @@ from endpoints.web.dashboard import dashboard_bp
 from endpoints.web.newproject import newproject_bp
 from endpoints.web.projects import projects_bp
 
-from server.models import db, User, Project, Log
+from models import db, User, Project, Log
 
 
 app = Flask(__name__, static_url_path='/copelands/static')

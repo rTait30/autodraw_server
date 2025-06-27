@@ -41,19 +41,17 @@ function ProjectDetails({ projectId }) {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', marginTop: '24px' }}>
-
       <div style={{ flex: '0 0 320px', maxWidth: '100%' }}>
-
-         <ProjectDataTable
+        <ProjectDataTable
           project={project}
           role={localStorage.getItem('role')}
         />
-
       </div>
 
-      <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '100%' }}>
-
+      {/* Main column: EstimateTable, SchemaEditor, then Canvas */}
+      <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 32 }}>
         <EstimateTable schema={schema} data={project} />
+        <SchemaEditor schema={schema} setSchema={setSchema} />
         <div style={{ marginTop: 32 }}>
           <canvas
             ref={canvasRef}
@@ -62,12 +60,6 @@ function ProjectDetails({ projectId }) {
             style={{ border: '1px solid #ccc', background: '#fff' }}
           />
         </div>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', marginTop: '24px' }}>
-
-        <SchemaEditor schema={schema} setSchema={setSchema} />
-
       </div>
     </div>
   );
@@ -105,38 +97,39 @@ const defaultSchema = [
   {
     type: 'row',
     group: 'materials',
-    rowCount: 3,
+    rowCount: 4,
     fields: [
       {
         key: 'description',
         label: 'Description',
         type: 'text',
-        default: (data, idx) => ['Fabric', 'Zip', 'Thread'][idx]
+        defaultExpr: "['Fabric', 'Zip', 'Thread', 'Thread 2'][idx]"
       },
       {
         key: 'quantity',
         label: 'Quantity',
         type: 'number',
-        default: (data, idx) => [
-          // Fabric
-          data.calculated?.nestData?.total_width ? data.calculated.nestData.total_width / 1000 : 0,
-          // Zip
-          2 * (data.attributes?.quantity || 0),
-          // Thread
-          (() => {
-            const seam = Number(data.calculated?.totalSeamLength) / 1000 || 0;
-            const heightM2 = Number(data.attributes?.height) / 1000 || 0;
-            const lengthM2 = Number(data.attributes?.length) / 1000 || 0;
-            const widthM2 = Number(data.attributes?.width) / 1000 || 0;
-            return ((seam / 1000) + heightM2 * 2 + lengthM2 * 2 + widthM2 * 2) * 2.5 * (data.attributes?.quantity || 0);
-          })()
-        ][idx]
+        defaultExpr: `
+          [
+            data.calculated?.nestData?.total_width ? data.calculated.nestData.total_width / 1000 : 0,
+            2 * (data.attributes?.quantity || 0),
+            (
+              (
+                (Number(data.calculated?.totalSeamLength) / 1000 || 0) / 1000 +
+                Number(data.attributes?.height) / 1000 * 2 +
+                Number(data.attributes?.length) / 1000 * 2 +
+                Number(data.attributes?.width) / 1000 * 2
+              ) * 2.5 * (data.attributes?.quantity || 0)
+            ),
+            20
+          ][idx]
+        `
       },
       {
         key: 'unitCost',
         label: 'Unit Cost',
         type: 'number',
-        default: (data, idx) => [13.33, 0.65, 0.03][idx]
+        defaultExpr: "[13.33, 0.65, 0.03, 0.04][idx]"
       }
     ]
   },
@@ -152,44 +145,56 @@ const defaultSchema = [
         key: 'description',
         label: 'Description',
         type: 'text',
-        default: (data, idx) => ['Design', 'Cutting/Plotting', 'Sewing', 'Welding', 'QA', 'Packing Up'][idx]
+        defaultExpr: "['Design', 'Cutting/Plotting', 'Sewing', 'Welding', 'QA', 'Packing Up'][idx]"
       },
       {
         key: 'quantity',
         label: 'Quantity',
         type: 'number',
-        default: (data, idx) => [
-          0.5,
-          (() => {
-            const finalAreaM2 = (data.calculated?.finalArea / 1000000) || 0;
-            const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
-            return cuttingPer * (data.attributes?.quantity || 0);
-          })(),
-          1,
-          2,
-          0.5,
-          0.5
-        ][idx]
+        defaultExpr: `
+          [
+            0.5,
+            (
+              (() => {
+                const finalAreaM2 = (data.calculated?.finalArea / 1000000) || 0;
+                const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
+                return cuttingPer * (data.attributes?.quantity || 0);
+              })()
+            ),
+            1,
+            2,
+            0.5,
+            0.5
+          ][idx]
+        `
       },
       {
         key: 'unitCost',
         label: 'Unit Cost',
         type: 'number',
-        default: () => 55
+        defaultExpr: "55"
       }
     ]
   },
   { type: 'subtotal', label: 'Total Labour', group: 'labour' },
 
-  { type: 'calc', label: 'Total Cost Fabrication', calc: (data) => data.materialsTotal + data.labourTotal },
+  { type: 'calc', key: 'totalCostFabrication', label: 'Total Cost Fabrication', calcExpr: "data.materialsTotal + data.labourTotal" },
   { type: 'input', label: 'Contingencies %', key: 'contingencyPercent', default: 3 },
-  { type: 'calc', key: 'contingencyAmount', label: 'Contingency Amount', calc: (data) => data.baseCost * (data.contingencyPercent / 100) },
+  { type: 'calc', key: 'contingencyAmount', label: 'Contingency Amount', calcExpr: "data.baseCost * data.contingencyPercent / 100" },
   { type: 'input', label: 'Gross Margin %', key: 'marginPercent', default: 45 },
-  { type: 'calc', key: 'marginAmount', label: 'Margin Amount', calc: (data) => (data.baseCost + data.contingencyAmount) * (data.marginPercent / 100) },
-  { type: 'calc', key: 'suggestedPrice', label: 'Suggested Price', calc: (data) => data.baseCost + data.contingencyAmount + data.marginAmount }
+  { type: 'calc', key: 'marginAmount', label: 'Margin Amount', calcExpr: "(data.baseCost + data.contingencyAmount) * data.marginPercent / 100" },
+  { type: 'calc', key: 'suggestedPrice', label: 'Suggested Price', calcExpr: "data.baseCost + data.contingencyAmount + data.marginAmount" }
 ];
 
-
+function evalExpr(expr, context = {}) {
+  // WARNING: This uses Function and is not safe for untrusted input!
+  // For production, use a safe expression evaluator like 'expr-eval'.
+  try {
+    return Function("data", "idx", `"use strict"; return (${expr});`)(context.data, context.idx);
+  } catch (e) {
+    return null;
+  }
+}
 
 function SchemaEditor({ schema, setSchema }) {
   const [text, setText] = React.useState(JSON.stringify(schema, null, 2));
@@ -197,7 +202,11 @@ function SchemaEditor({ schema, setSchema }) {
 
   // Only update textarea if schema changes from outside (not on every keystroke)
   React.useEffect(() => {
-    setText(JSON.stringify(schema, null, 2));
+    // Replace \\n and \\t with real characters for editing
+    const pretty = JSON.stringify(schema, null, 2)
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t');
+    setText(pretty);
   }, [schema]);
 
   const handleChange = (e) => {
@@ -207,7 +216,11 @@ function SchemaEditor({ schema, setSchema }) {
 
   const handleUpdate = () => {
     try {
-      const newSchema = JSON.parse(text);
+      // Convert real newlines/tabs back to escaped for JSON.parse
+      const safe = text
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t');
+      const newSchema = JSON.parse(safe);
       setSchema(newSchema);
       setError(null);
     } catch {
@@ -216,12 +229,32 @@ function SchemaEditor({ schema, setSchema }) {
   };
 
   return (
-    <div>
+    <div
+      style={{
+        width: '100%',
+        maxWidth: 'none',
+        minWidth: 0,
+        display: 'block',
+        padding: 0,
+        margin: 0,
+      }}
+    >
       <textarea
         value={text}
         onChange={handleChange}
         rows={20}
-        style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }}
+        style={{
+          width: '100%',
+          maxWidth: 'none',
+          minWidth: 0,
+          display: 'block',
+          fontFamily: 'monospace',
+          fontSize: 13,
+          boxSizing: 'border-box',
+          padding: 8,
+          margin: 0,
+          resize: 'vertical'
+        }}
       />
       <div style={{ marginTop: 8 }}>
         <button onClick={handleUpdate}>Update Schema</button>
@@ -240,9 +273,13 @@ function EstimateTable({ schema, data }) {
     return Array.from({ length: count }).map((_, idx) => {
       const row = {};
       rowDef.fields.forEach(field => {
-        row[field.key] = typeof field.default === 'function'
-          ? field.default(data, idx)
-          : field.default;
+        if (field.defaultExpr) {
+          row[field.key] = evalExpr(field.defaultExpr, { data, idx });
+        } else if (field.default !== undefined) {
+          row[field.key] = field.default;
+        } else {
+          row[field.key] = '';
+        }
       });
       return row;
     });
@@ -280,7 +317,7 @@ function EstimateTable({ schema, data }) {
     });
     setInputState(newInputState);
     // eslint-disable-next-line
-  }, [data]);
+  }, [data, schema]);
 
   const handleRowChange = (group, idx, field, value) => {
     setGroupState(prev => ({
@@ -385,15 +422,9 @@ function EstimateTable({ schema, data }) {
           if (entry.type === 'calc') {
             let value = '';
             try {
-              value = entry.calc(calcContext);
-              // Store this value in calcContext using a key derived from the label or add a key property to your schema
-              // If you want to be explicit, add a `key` property to each calc entry in your schema
+              value = evalExpr(entry.calcExpr, { data: calcContext });
               if (entry.key) {
                 calcContext[entry.key] = value;
-              } else {
-                // fallback: camelCase the label
-                const key = entry.label.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase()).replace(/[^a-zA-Z0-9]/g, '');
-                calcContext[key] = value;
               }
             } catch (e) {
               value = '';

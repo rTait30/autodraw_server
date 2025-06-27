@@ -1,148 +1,59 @@
 function ProjectDetails({ projectId }) {
-  // ...existing state...
   const [project, setProject] = React.useState(null);
-  const [role, setRole] = React.useState('estimator');
-  const [stepperData, setStepperData] = React.useState({});
+  const [schema, setSchema] = React.useState(defaultSchema);
   const canvasRef = React.useRef(null);
   const processStepperRef = React.useRef(null);
-  
 
-  const handleProjectChange = (updated) => {
-    setProject(updated);
-    if (updated && updated.attributes) {
-      setStepperData(updated.attributes);
-    }
-  };
-  
-
-  // Fetch project data
+  // Fetch project data once on mount
   React.useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    fetch(`/copelands/api/project/${projectId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Unauthorized or not found');
-        return res.json();
-      })
-      .then(data => {
-        setProject(data);
-        setRole(data.role || 'estimator');
-      })
-      .catch(err => {
-        console.error(err);
-      });
+    fetch(`/copelands/api/project/${projectId}`)
+      .then(res => res.json())
+      .then(data => setProject(data))
+      .catch(err => console.error(err));
   }, [projectId]);
 
-  // Update stepperData when project attributes change
+  // Initialise ProcessStepper ONCE and add steps ONCE
   React.useEffect(() => {
-    if (project && project.attributes) {
-      setStepperData(project.attributes);
-    }
-  }, [project]);
-
-  // Redraw ProcessStepper when stepperData changes
-  React.useEffect(() => {
-    if (!canvasRef.current) return;
-
-    if (!processStepperRef.current) {
-      const stepper = new ProcessStepper(canvasRef.current, {
-
+    if (!canvasRef.current || processStepperRef.current) return;
+    const stepper = new ProcessStepper(canvasRef.current, {
       scaleFactor: 0.5,
       virtualWidth: 1000,
       virtualHeight: 1000,
     });
-      stepper.addStep(zeroVisualise);
-      stepper.addStep(oneFlatten);
-      stepper.addStep(twoExtra);
-      stepper.addStep(threeNest);
-      processStepperRef.current = stepper;
-    }
-    processStepperRef.current.runAll({ ...stepperData });
+    stepper.addStep(zeroVisualise);
+    stepper.addStep(oneFlatten);
+    stepper.addStep(twoExtra);
+    stepper.addStep(threeNest);
+    processStepperRef.current = stepper;
+  }, []);
 
-    async function runStepper() {
-      const result = await processStepperRef.current.runAll({ ...stepperData });
-      setProject((prev) => (prev ? { ...prev, calculated: result } : prev));
-    }
+  console.log('Project Details:', project);
 
-    runStepper();
-  }, [stepperData]);
+  // Run ProcessStepper when project data is loaded
+  React.useEffect(() => {
+    if (!project || !processStepperRef.current) return;
+    // Merge attributes and calculated fields into one object
+    const merged = { ...(project.attributes || {}), ...(project.calculated || {}) };
+    processStepperRef.current.runAll(merged);
+  }, [project]);
 
-  // --- DYNAMIC MATERIALS & LABOUR CALCULATION ---
-  let defaultMaterials = [];
-  let defaultLabour = [];
-
-  if (project) {
-    const calculated = project.calculated || project.attributes?.calculated || {};
-    const attrs = project.attributes || {};
-
-    // Defensive: fallback to 0 if missing
-    const nestWidth = (calculated.nestData && calculated.nestData.total_width ? calculated.nestData.total_width / 1000 : 0);
-
-    const zips = 2 * (attrs.quantity || 0);
-
-    const seam = Number(calculated.totalSeamLength) / 1000 || 0;
-    const heightM2 = Number(attrs.height) / 1000 || 0;
-    const lengthM2 = Number(attrs.length) / 1000 || 0;
-    const widthM2 = Number(attrs.width) / 1000 || 0;
-    const threadQty = ((seam / 1000) + heightM2 * 2 + lengthM2 * 2 + widthM2 * 2) * 2.5 * (attrs.quantity || 0);
-
-    defaultMaterials = [
-      { description: 'Fabric', quantity: nestWidth, unitCost: 13.33 },
-      { description: 'Zip', quantity: zips, unitCost: 0.65 },
-      { description: 'Thread', quantity: threadQty, unitCost: 0.03 },
-    ];
-
-    const design = 0.5;
-
-    const finalAreaM2 = (calculated.finalArea / 1000000) || 0;
-    const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
-    const cutting = cuttingPer * (attrs.quantity || 0);
-
-    // You may want to define F5, F6, G6, H6 or remove these lines if not used
-    // const sewing1 = ((calculated.flatMainWidth * 2 * F5) + (flatMainHeight * 2 * F5) + (G6 * 2 * F6) + (H6 * 2 * F6)) / 1000 * 2 / 60;
-
-    defaultLabour = [
-      { description: 'Design', quantity: design, unitCost: 55 },
-      { description: 'Cutting/Plotting', quantity: cutting, unitCost: 55 },
-      { description: 'Sewing', quantity: 1, unitCost: 55 },
-      { description: 'Welding', quantity: 2, unitCost: 55 },
-      { description: 'QA', quantity: 0.5, unitCost: 55 },
-      { description: 'Packing Up', quantity: 0.5, unitCost: 55 },
-    ];
-  }
-
-  console.log('Default Materials:', defaultMaterials);
+  
 
   return (
-    <div style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '32px',
-      marginTop: '24px',
-    }}>
-      {/* Fixed-width left panel */}
-      <div style={{
-        flex: '0 0 320px',
-        maxWidth: '100%'
-      }}>
-         <ProjectDataTable project={project} role={role} onChange={handleProjectChange} />
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', marginTop: '24px' }}>
+
+      <div style={{ flex: '0 0 320px', maxWidth: '100%' }}>
+
+         <ProjectDataTable
+          project={project}
+          role={localStorage.getItem('role')}
+        />
+
       </div>
 
-      {/* Flexible right panel */}
-      <div style={{
-        flex: '1 1 0',
-        minWidth: '300px',
-        maxWidth: '100%'
-      }}>
-        <EstimateTable
-          defaultMaterials={defaultMaterials}
-          defaultLabour={defaultLabour}
-        />
-        {/* Canvas for ProcessStepper visualization */}
+      <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '100%' }}>
+
+        <EstimateTable schema={schema} data={project} />
         <div style={{ marginTop: 32 }}>
           <canvas
             ref={canvasRef}
@@ -152,16 +63,22 @@ function ProjectDetails({ projectId }) {
           />
         </div>
       </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', marginTop: '24px' }}>
+
+        <SchemaEditor schema={schema} setSchema={setSchema} />
+
+      </div>
     </div>
   );
 }
 
+// Table styles
 const tableStyle = {
   width: "100%",
   borderCollapse: "collapse",
   fontSize: "15px",
 };
-
 const thStyle = {
   background: "#f7f7f7",
   fontWeight: "bold",
@@ -169,13 +86,11 @@ const thStyle = {
   borderBottom: "1px solid #ccc",
   textAlign: "left",
 };
-
 const tdStyle = {
   padding: "8px",
   borderBottom: "1px solid #eee",
   textAlign: "left",
 };
-
 const headingStyle = {
   padding: "8px",
   borderBottom: "1px solid #eee",
@@ -184,100 +99,315 @@ const headingStyle = {
   fontSize: "18px",
 };
 
-// EstimateTable component (copy it in here fully if not already)
-function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
-  const [materials, setMaterials] = React.useState(defaultMaterials);
-  const [labour, setLabour] = React.useState(defaultLabour);
-  const [contingencyPercent, setContingencyPercent] = React.useState(3);
-  const [marginPercent, setMarginPercent] = React.useState(45);
 
-  // Sync state with props when they change
+const defaultSchema = [
+  { type: 'section', label: 'Materials' },
+  {
+    type: 'row',
+    group: 'materials',
+    rowCount: 3,
+    fields: [
+      {
+        key: 'description',
+        label: 'Description',
+        type: 'text',
+        default: (data, idx) => ['Fabric', 'Zip', 'Thread'][idx]
+      },
+      {
+        key: 'quantity',
+        label: 'Quantity',
+        type: 'number',
+        default: (data, idx) => [
+          // Fabric
+          data.calculated?.nestData?.total_width ? data.calculated.nestData.total_width / 1000 : 0,
+          // Zip
+          2 * (data.attributes?.quantity || 0),
+          // Thread
+          (() => {
+            const seam = Number(data.calculated?.totalSeamLength) / 1000 || 0;
+            const heightM2 = Number(data.attributes?.height) / 1000 || 0;
+            const lengthM2 = Number(data.attributes?.length) / 1000 || 0;
+            const widthM2 = Number(data.attributes?.width) / 1000 || 0;
+            return ((seam / 1000) + heightM2 * 2 + lengthM2 * 2 + widthM2 * 2) * 2.5 * (data.attributes?.quantity || 0);
+          })()
+        ][idx]
+      },
+      {
+        key: 'unitCost',
+        label: 'Unit Cost',
+        type: 'number',
+        default: (data, idx) => [13.33, 0.65, 0.03][idx]
+      }
+    ]
+  },
+  { type: 'subtotal', label: 'Total Materials', group: 'materials' },
+
+  { type: 'section', label: 'Labour' },
+  {
+    type: 'row',
+    group: 'labour',
+    rowCount: 6,
+    fields: [
+      {
+        key: 'description',
+        label: 'Description',
+        type: 'text',
+        default: (data, idx) => ['Design', 'Cutting/Plotting', 'Sewing', 'Welding', 'QA', 'Packing Up'][idx]
+      },
+      {
+        key: 'quantity',
+        label: 'Quantity',
+        type: 'number',
+        default: (data, idx) => [
+          0.5,
+          (() => {
+            const finalAreaM2 = (data.calculated?.finalArea / 1000000) || 0;
+            const cuttingPer = finalAreaM2 < 80 ? 0.5 : Math.ceil(finalAreaM2 / 80 / 0.25) * 0.25;
+            return cuttingPer * (data.attributes?.quantity || 0);
+          })(),
+          1,
+          2,
+          0.5,
+          0.5
+        ][idx]
+      },
+      {
+        key: 'unitCost',
+        label: 'Unit Cost',
+        type: 'number',
+        default: () => 55
+      }
+    ]
+  },
+  { type: 'subtotal', label: 'Total Labour', group: 'labour' },
+
+  { type: 'calc', label: 'Total Cost Fabrication', calc: (data) => data.materialsTotal + data.labourTotal },
+  { type: 'input', label: 'Contingencies %', key: 'contingencyPercent', default: 3 },
+  { type: 'calc', key: 'contingencyAmount', label: 'Contingency Amount', calc: (data) => data.baseCost * (data.contingencyPercent / 100) },
+  { type: 'input', label: 'Gross Margin %', key: 'marginPercent', default: 45 },
+  { type: 'calc', key: 'marginAmount', label: 'Margin Amount', calc: (data) => (data.baseCost + data.contingencyAmount) * (data.marginPercent / 100) },
+  { type: 'calc', key: 'suggestedPrice', label: 'Suggested Price', calc: (data) => data.baseCost + data.contingencyAmount + data.marginAmount }
+];
+
+
+
+function SchemaEditor({ schema, setSchema }) {
+  const [text, setText] = React.useState(JSON.stringify(schema, null, 2));
+  const [error, setError] = React.useState(null);
+
+  // Only update textarea if schema changes from outside (not on every keystroke)
   React.useEffect(() => {
-    setMaterials(defaultMaterials);
-  }, [defaultMaterials]);
-  React.useEffect(() => {
-    setLabour(defaultLabour);
-  }, [defaultLabour]);
+    setText(JSON.stringify(schema, null, 2));
+  }, [schema]);
 
-  const updateItem = (section, index, field, value) => {
-    const parsed = parseFloat(value) || 0;
-    const updater = section === 'materials' ? setMaterials : setLabour;
-    const list = section === 'materials' ? materials : labour;
-
-    const updated = [...list];
-    updated[index] = { ...updated[index], [field]: parsed };
-    updater(updated);
+  const handleChange = (e) => {
+    setText(e.target.value);
+    setError(null);
   };
 
-  const calculateTotal = (item) => item.quantity * item.unitCost;
+  const handleUpdate = () => {
+    try {
+      const newSchema = JSON.parse(text);
+      setSchema(newSchema);
+      setError(null);
+    } catch {
+      setError('Invalid JSON');
+    }
+  };
 
-  const totalMaterials = materials.reduce((sum, i) => sum + calculateTotal(i), 0);
-  const totalLabour = labour.reduce((sum, i) => sum + calculateTotal(i), 0);
-  const baseCost = totalMaterials + totalLabour;
-  const contingencyAmount = baseCost * (contingencyPercent / 100);
-  const subtotalWithContingency = baseCost + contingencyAmount;
-  const marginAmount = subtotalWithContingency * (marginPercent / 100);
-  const suggestedPrice = subtotalWithContingency + marginAmount;
-
-  const renderSection = (title, items, section, total) => (
-    <>
-      <tr><th colSpan="4">{title}</th></tr>
-      {items.map((item, idx) => (
-        <tr key={`${section}-${idx}`}>
-          <td>{item.description}</td>
-          <td><input type="number" value={item.quantity} onChange={(e) => updateItem(section, idx, 'quantity', e.target.value)} /></td>
-          <td><input type="number" value={item.unitCost} onChange={(e) => updateItem(section, idx, 'unitCost', e.target.value)} /></td>
-          <td>{calculateTotal(item).toFixed(2)}</td>
-        </tr>
-      ))}
-      <tr>
-        <td style={tdStyle}><b>Total {title}</b></td>
-        <td><b>{total.toFixed(2)}</b></td>
-      </tr>
-    </>
+  return (
+    <div>
+      <textarea
+        value={text}
+        onChange={handleChange}
+        rows={20}
+        style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }}
+      />
+      <div style={{ marginTop: 8 }}>
+        <button onClick={handleUpdate}>Update Schema</button>
+        {error && <span style={{ color: 'red', marginLeft: 16 }}>{error}</span>}
+      </div>
+    </div>
   );
+}
+
+
+
+function EstimateTable({ schema, data }) {
+  function getDefaultRows(rowDef) {
+    if (!data) return [];
+    const count = rowDef.rowCount || 1;
+    return Array.from({ length: count }).map((_, idx) => {
+      const row = {};
+      rowDef.fields.forEach(field => {
+        row[field.key] = typeof field.default === 'function'
+          ? field.default(data, idx)
+          : field.default;
+      });
+      return row;
+    });
+  }
+
+  const groupDefs = schema.filter(s => s.type === 'row');
+  const inputDefs = schema.filter(s => s.type === 'input');
+
+  const [groupState, setGroupState] = React.useState(() => {
+    const state = {};
+    groupDefs.forEach(rowDef => {
+      state[rowDef.group] = getDefaultRows(rowDef);
+    });
+    return state;
+  });
+
+  const [inputState, setInputState] = React.useState(() => {
+    const state = {};
+    inputDefs.forEach(inputDef => {
+      state[inputDef.key] = inputDef.default;
+    });
+    return state;
+  });
+
+  React.useEffect(() => {
+    const newGroupState = {};
+    groupDefs.forEach(rowDef => {
+      newGroupState[rowDef.group] = getDefaultRows(rowDef);
+    });
+    setGroupState(newGroupState);
+
+    const newInputState = {};
+    inputDefs.forEach(inputDef => {
+      newInputState[inputDef.key] = inputDef.default;
+    });
+    setInputState(newInputState);
+    // eslint-disable-next-line
+  }, [data]);
+
+  const handleRowChange = (group, idx, field, value) => {
+    setGroupState(prev => ({
+      ...prev,
+      [group]: prev[group].map((item, i) =>
+        i === idx ? { ...item, [field]: field === "description" ? value : Number(value) } : item
+      )
+    }));
+  };
+
+  const handleInputChange = (key, value) => {
+    setInputState(prev => ({
+      ...prev,
+      [key]: Number(value)
+    }));
+  };
+
+  // Calculations for totals and passing to calc fields
+  const calcContext = {};
+  groupDefs.forEach(rowDef => {
+    const group = rowDef.group;
+    calcContext[group] = groupState[group] || [];
+    calcContext[`${group}Total`] = (groupState[group] || []).reduce(
+      (sum, row) => sum + (Number(row.quantity) * Number(row.unitCost)), 0
+    );
+  });
+  calcContext.baseCost = Object.keys(groupState).reduce(
+    (sum, group) => sum + (calcContext[`${group}Total`] || 0), 0
+  );
+  Object.assign(calcContext, inputState);
 
   return (
     <table style={tableStyle}>
       <thead>
         <tr>
-          
           <th style={thStyle}>Description</th>
           <th style={thStyle}>Quantity</th>
           <th style={thStyle}>Unit Cost</th>
           <th style={thStyle}>Total</th>
-
         </tr>
       </thead>
       <tbody>
-        {renderSection('Materials', materials, 'materials', totalMaterials)}
-        {renderSection('Labour', labour, 'labour', totalLabour)}
-
-        <tr>
-          <td style={tdStyle}><b>Total Cost Fabrication</b></td>
-          <td><b>{baseCost.toFixed(2)}</b></td>
-        </tr>
-
-        <tr>
-          <td style={tdStyle}>Contingencies %</td>
-          <td>
-            <input type="number" value={contingencyPercent} onChange={(e) => setContingencyPercent(parseFloat(e.target.value) || 0)} />
-          </td>
-          <td>{contingencyAmount.toFixed(2)}</td>
-        </tr>
-
-        <tr>
-          <td style={tdStyle}>Gross Margin %</td>
-          <td>
-            <input type="number" value={marginPercent} onChange={(e) => setMarginPercent(parseFloat(e.target.value) || 0)} />
-          </td>
-          <td>{marginAmount.toFixed(2)}</td>
-        </tr>
-
-        <tr>
-          <td style={tdStyle}>Suggested Price</td>
-          <td style={tdStyle}>{suggestedPrice.toFixed(2)}</td>
-        </tr>
+        {schema.map((entry, idx) => {
+          if (entry.type === 'section') {
+            return (
+              <tr key={idx}>
+                <td colSpan={4} style={headingStyle}>{entry.label}</td>
+              </tr>
+            );
+          }
+          if (entry.type === 'row') {
+            const group = entry.group;
+            return (groupState[group] || []).map((item, i) => (
+              <tr key={`${group}-${i}`}>
+                {entry.fields.map(field => (
+                  <td key={field.key}>
+                    {field.key === 'description' ? (
+                      item[field.key]
+                    ) : field.type === 'number' ? (
+                      <input
+                        type="number"
+                        value={item[field.key]}
+                        onChange={e => handleRowChange(group, i, field.key, e.target.value)}
+                        style={{ width: "80px" }}
+                      />
+                    ) : (
+                      item[field.key]
+                    )}
+                  </td>
+                ))}
+                <td>
+                  {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                </td>
+              </tr>
+            ));
+          }
+          if (entry.type === 'subtotal') {
+            const group = entry.group;
+            return (
+              <tr key={idx}>
+                <td style={tdStyle}><b>{entry.label}</b></td>
+                <td colSpan={3}><b>{(calcContext[`${group}Total`] || 0).toFixed(2)}</b></td>
+              </tr>
+            );
+          }
+          if (entry.type === 'input') {
+            return (
+              <tr key={idx}>
+                <td style={tdStyle}>{entry.label}</td>
+                <td>
+                  <input
+                    type="number"
+                    value={inputState[entry.key]}
+                    onChange={e => handleInputChange(entry.key, e.target.value)}
+                    style={{ width: "60px" }}
+                  />
+                </td>
+                <td colSpan={2}></td>
+              </tr>
+            );
+          }
+          if (entry.type === 'calc') {
+            let value = '';
+            try {
+              value = entry.calc(calcContext);
+              // Store this value in calcContext using a key derived from the label or add a key property to your schema
+              // If you want to be explicit, add a `key` property to each calc entry in your schema
+              if (entry.key) {
+                calcContext[entry.key] = value;
+              } else {
+                // fallback: camelCase the label
+                const key = entry.label.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase()).replace(/[^a-zA-Z0-9]/g, '');
+                calcContext[key] = value;
+              }
+            } catch (e) {
+              value = '';
+            }
+            return (
+              <tr key={idx}>
+                <td style={tdStyle}><b>{entry.label}</b></td>
+                <td colSpan={2}></td>
+                <td style={{ textAlign: 'right' }}><b>{typeof value === 'number' ? value.toFixed(2) : value}</b></td>
+              </tr>
+            );
+          }
+          return null;
+        })}
       </tbody>
     </table>
   );
@@ -285,7 +415,7 @@ function EstimateTable({ defaultMaterials = [], defaultLabour = [] }) {
 
 
 
-function ProjectDataTable({ project, role, onChange }) {
+function ProjectDataTable({ project, role }) {
   if (!project) return null;
 
   const isEstimator = role === 'estimator';
@@ -301,52 +431,29 @@ function ProjectDataTable({ project, role, onChange }) {
     }
   }
 
-  // Handle change for editable fields
-  const handleFieldChange = (section, key, value) => {
-    const updated = { ...project };
-
-    if (section === 'project') {
-      updated[key] = value;
-    } else if (section === 'attributes') {
-      updated.attributes = { ...updated.attributes, [key]: value };
-    }
-
-    onChange?.(updated);
-  };
-
   // Render section rows
   const renderRows = (data, section, editable = false) =>
     Object.entries(data).map(([key, value]) => (
       <tr key={`${section}-${key}`}>
         <td style={tdStyle}>{key}</td>
         <td style={tdStyle}>
-          {editable ? (
-            <input
-              type="text"
-              defaultValue={value}
-              onBlur={(e) => handleFieldChange(section, key, e.target.value)}
-            />
-          ) : (
-            typeof value === 'object' ? JSON.stringify(value) : String(value)
-          )}
+          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
         </td>
       </tr>
     ));
 
   return (
     <table style={tableStyle}>
-
       <tbody>
-        
         <tr>
           <td style={headingStyle}>Project Data</td>
         </tr>
-        {renderRows(projectData, 'project', true)}
+        {renderRows(projectData, 'project', false)}
 
         <tr>
           <td style={headingStyle}>Project Attributes</td>
         </tr>
-        {renderRows(attributes, 'attributes', true)}
+        {renderRows(attributes, 'attributes', false)}
 
         {isEstimator && (
           <>
@@ -362,15 +469,13 @@ function ProjectDataTable({ project, role, onChange }) {
 }
 
 
+
+
 // Render to DOM
 const root = document.getElementById('project-detail-root');
 if (root && window.projectId) {
   ReactDOM.render(<ProjectDetails projectId={window.projectId} />, root);
 }
-
-
-
-
 
 
 
@@ -481,6 +586,58 @@ class ProcessStepper {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-----------------------------------------------------------------------------------------------------------
+
+//                                PROCESS STEPPER
+
+//-----------------------------------------------------------------------------------------------------------
 
 
 
@@ -1163,10 +1320,11 @@ async function sendPanelData(panelData, fabricWidth) {
 }
 
 function drawNest(ctx, nestData, panels, fabricHeight) {
-  const startX = 0;
+  const startX = 100;
 
   const nestWidth = nestData.total_width;
-  const scale = Math.min(2000 / nestWidth, 0.1); // Scale X to fit 1000px
+  const fabricBoxWidthPx = 1000; // Always make the red box 1000px wide
+  const scale = fabricBoxWidthPx / nestWidth; // Scale so fabric box is always 1000px wide
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
@@ -1177,8 +1335,6 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   for (const [label, placement] of Object.entries(nestData.panels)) {
     const panelKey = label.split('_')[1];
     const panel = panels[panelKey];
-
-    //console.log("Panels:", panels);
 
     if (!panel) {
       console.warn(`Panel not found for label: ${label} (key: ${panelKey})`);
@@ -1210,10 +1366,10 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
     ctx.fillText(label, scaledX + scaledW / 2, scaledY + scaledH / 2);
   }
 
-  // 🖼 Draw fabric height box
+  // 🖼 Draw fabric height box (always 2000px wide)
   const fabricBoxX = startX;
   const fabricBoxY = centerY - fabricHeight * scale;
-  const fabricBoxWidth = nestWidth * scale;
+  const fabricBoxWidth = fabricBoxWidthPx;
   const fabricBoxHeight = fabricHeight * scale;
 
   ctx.setLineDash([]);
@@ -1264,9 +1420,15 @@ const threeNest = {
 
 
   calcFunction: async (data) => {
+
+    if (data.nestData) {
+      console.warn('Nesting data already calculated, skipping nesting calculation.');
+      return data;
+    }
+
     if (!data || !data.finalPanels || !data.fabricWidth) {
       console.warn('Missing data for nesting calcFunction');
-      return;
+      return data;
     }
 
     const nestData = await sendPanelData(data.finalPanels, data.fabricWidth);

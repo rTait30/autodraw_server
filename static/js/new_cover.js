@@ -1,5 +1,5 @@
 import { saveConfig } from './api.js';
-import CanvasManager from './core/CanvasManager.js';
+//import CanvasManager from './core/CanvasManager.js';
 `import zeroVisualise from './steps/covers/zeroVisualise.js';
 import oneFlatten from './steps/covers/oneFlatten.js';
 import twoExtra from './steps/covers/twoExtra.js';
@@ -28,7 +28,7 @@ export function initSurgicalCoversOLD(mode) {
         }
     }
 
-    const manager = new CanvasManager('surgicalCanvas', {});
+    const manager = new ProcessStepper('surgicalCanvas', {});
 
     // Always include step 0
     manager.addStep(zeroVisualise);
@@ -70,7 +70,7 @@ export function initSurgicalCoversOLD(mode) {
 
     // Initial update
     //const initialData = getLiveSurgicalData();
-    manager.updateAll(getLiveSurgicalData());
+    //manager.updateAll(getLiveSurgicalData());
 
 
     // Debounce helper
@@ -85,7 +85,12 @@ export function initSurgicalCoversOLD(mode) {
     const handleLiveUpdate = debounce(() => {
         const liveData = getLiveSurgicalData();
         console.log("📦 Live Surgical Config Updated:", liveData);
-        manager.updateAll(liveData);
+
+        if (liveData.height && liveData.height > 0) {
+            
+            console.log("🟢 Updating manager with live data");
+            manager.updateAll(liveData);
+        }
     }, 2000);
 
     // Attach live update to inputs
@@ -184,7 +189,7 @@ export function initSurgicalCovers(mode) {
     if (canvas) {
         if (mode === 'estimator') {
             canvas.height = 2000; // or any height you want for estimator
-            canvas.width = 1000
+            canvas.width = 2000
         } else {
             canvas.height = 500; // default for client
         }
@@ -232,7 +237,7 @@ export function initSurgicalCovers(mode) {
 
     // Initial update
     //const initialData = getLiveSurgicalData();
-    manager.runAll(getLiveSurgicalData());
+    //manager.runAll(getLiveSurgicalData());
 
 
     // Debounce helper
@@ -246,8 +251,11 @@ export function initSurgicalCovers(mode) {
 
     const handleLiveUpdate = debounce(() => {
         const liveData = getLiveSurgicalData();
-        console.log("📦 Live Surgical Config Updated:", liveData);
-        manager.runAll(liveData);
+
+        if ((liveData.width && liveData.width > 1) && (liveData.height && liveData.height > 1) && (liveData.length && liveData.length > 1)) {
+            console.log("🟢 Updating manager with live data");
+            manager.runAll(liveData);
+        }
     }, 2000);
 
     // Attach live update to inputs

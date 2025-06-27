@@ -678,10 +678,11 @@ async function sendPanelData(panelData, fabricWidth) {
 }
 
 function drawNest(ctx, nestData, panels, fabricHeight) {
-  const startX = 0;
+  const startX = 100;
 
   const nestWidth = nestData.total_width;
-  const scale = Math.min(2000 / nestWidth, 0.1); // Scale X to fit 1000px
+  const fabricBoxWidthPx = 2000; // Always make the red box 2000px wide
+  const scale = fabricBoxWidthPx / nestWidth; // Scale so fabric box is always 2000px wide
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
@@ -692,8 +693,6 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   for (const [label, placement] of Object.entries(nestData.panels)) {
     const panelKey = label.split('_')[1];
     const panel = panels[panelKey];
-
-    //console.log("Panels:", panels);
 
     if (!panel) {
       console.warn(`Panel not found for label: ${label} (key: ${panelKey})`);
@@ -725,10 +724,10 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
     ctx.fillText(label, scaledX + scaledW / 2, scaledY + scaledH / 2);
   }
 
-  // 🖼 Draw fabric height box
+  // 🖼 Draw fabric height box (always 2000px wide)
   const fabricBoxX = startX;
   const fabricBoxY = centerY - fabricHeight * scale;
-  const fabricBoxWidth = nestWidth * scale;
+  const fabricBoxWidth = fabricBoxWidthPx;
   const fabricBoxHeight = fabricHeight * scale;
 
   ctx.setLineDash([]);

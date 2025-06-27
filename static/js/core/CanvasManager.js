@@ -57,6 +57,8 @@ class CanvasManager {
 
 
     async updateAll(initialData) {
+
+        console.log('Updating all steps with initial data:', initialData);
         let currentData = initialData;
 
         // Clear the entire canvas

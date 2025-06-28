@@ -1,6 +1,0 @@
-arc
-delete
-trim
-polyline
-red
-measure

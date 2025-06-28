@@ -1,8 +1,0 @@
-Length: 100
-Width: 200
-Height: 500
-Seam: 50
-Hem: 20
-Quantity: 2
-Fabric Width: 1200
-Nesting Iterations: 500

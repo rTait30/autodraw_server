@@ -1,4 +1,0 @@
-
-vlc
-aldo obs
-node js

@@ -158,6 +158,17 @@ def get_next_id():
     return next_id
 
 
+# -- REACT --
+
+
+@app.route('/copelands/react')
+@app.route('/<path:path>')
+def serve_react(path='index.html'):
+    file_path = os.path.join(app.static_folder, path)
+    if os.path.exists(file_path):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
+
 
 
 if __name__ == '__main__':

@@ -22,6 +22,11 @@ class ProcessStepper  {
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
         this.data = {};
+
+        console.log('ProcessStepper: created', {
+            hasCanvas: this.hasCanvas,
+            draw: this.draw,
+        });
     }
 
     addStep(config) {
@@ -38,6 +43,7 @@ class ProcessStepper  {
     }
 
     async runAll(initialData = {}) {
+        console.log('ProcessStepper: runAll called with data', initialData);
         this.data = initialData;
 
         if (this.hasCanvas) {

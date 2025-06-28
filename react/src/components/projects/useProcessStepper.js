@@ -6,9 +6,16 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
 
   useEffect(() => {
     const canvas = canvasRef?.current || null;
+    if (stepperRef.current) {
+      console.log('useProcessStepper: replacing existing ProcessStepper');
+    } else {
+      console.log('useProcessStepper: creating ProcessStepper');
+    }
+
     const stepper = new ProcessStepper(canvas, options);
 
     steps.forEach(step => stepper.addStep(step));
+    console.log('useProcessStepper: added steps', steps.map(s => s.title || s.id));
     stepperRef.current = stepper;
   }, [canvasRef, steps, options]);
 

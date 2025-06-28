@@ -27,7 +27,7 @@ function LoginForm({ onShowRegister }) {
       localStorage.setItem('username', data.username);
       localStorage.setItem('id', data.id);
       localStorage.setItem('role', data.role);
-      navigate('/dashboard');
+      navigate('/copelands/reacthome');
     } else {
       setErrorText('Login failed.');
     }

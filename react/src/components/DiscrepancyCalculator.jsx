@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function DiscrepancyCalculatorLink() {
+function DiscrepancyCalculator() {
   const navigate = useNavigate();
 
   return (
@@ -43,4 +43,4 @@ function DiscrepancyCalculatorLink() {
   );
 }
 
-export default DiscrepancyCalculatorLink;
+export default DiscrepancyCalculator;

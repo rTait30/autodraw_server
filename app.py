@@ -174,7 +174,9 @@ def serve_react_app(path):
     # ...static file logic...
     return render_template('reactindex.html')
 
-
+@app.route('/copelands/reactdiscrepancy')
+def react_discrepancy():
+    return render_template('reactindex.html')
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)

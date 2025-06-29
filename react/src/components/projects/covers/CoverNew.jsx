@@ -14,14 +14,12 @@ export default function CoverNew() {
   });
   const [mode, setMode] = useState('client');
 
-  const canvasHeight = mode === 'estimator' ? 2000 : 1000;
+  //const canvasHeight = mode === 'estimator' ? 2000 : 1000;
   const steps = useMemo(() => [zeroVisualise], []);
   const options = useMemo(
     () => ({
       showData: false,
       scaleFactor: 1,
-      virtualWidth: 1000,
-      virtualHeight: 1000,
       stepOffsetY: 400,
     }),
     []
@@ -50,24 +48,58 @@ export default function CoverNew() {
     return () => clearTimeout(timeout);
   }, [formData, runAll]);
 
+  const canvasWidth = 500;
+
+  const canvasHeight = canvasWidth * steps.length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="cover-new-root">
       <h2>Create New Cover Project</h2>
-      <div style={{ display: 'flex', gap: '40px' }}>
-        <CoverForm formData={formData} onChange={setFormData} />
+      <div className="cover-row">
         <div>
+          <CoverForm formData={formData} onChange={setFormData} />
+        </div>
+        <div className="cover-canvas-right">
           <canvas
             ref={canvasRef}
-            width={1000}
+            width={canvasWidth}
             height={canvasHeight}
             style={{
               border: '1px solid #ccc',
               marginTop: '20px',
-              maxWidth: '100%',
+              width: '100%',
+              maxWidth: '500px',
+              display: 'block',
             }}
           />
         </div>
       </div>
+      <style>{`
+        .cover-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          width: 100vw;
+        }
+        .cover-canvas-right {
+          max-width: 500px;
+          width: 100%;
+          display: flex;
+          justify-content: flex-end;
+          margin-right: 200px;
+        }
+        @media (max-width: 900px) {
+          .cover-row {
+            flex-direction: column;
+            width: 100%;
+          }
+          .cover-canvas-right {
+            max-width: 100%;
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </div>
   );
 }

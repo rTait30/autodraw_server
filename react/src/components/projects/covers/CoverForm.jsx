@@ -3,8 +3,13 @@ import React, { useEffect } from 'react';
 export default function CoverForm({ formData, onChange }) {
   // Update parent on any field change
   const handleInput = (e) => {
-    const { name, value } = e.target;
-    onChange({ ...formData, [name]: value });
+    const { name, value, type } = e.target;
+    let newValue = value;
+    // Convert to number if input type is number and value is not empty
+    if (type === 'number' && value !== '') {
+      newValue = Number(value);
+    }
+    onChange({ ...formData, [name]: newValue });
   };
 
   useEffect(() => {

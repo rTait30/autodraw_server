@@ -17,16 +17,8 @@ class ProcessStepper  {
 
         this.showData = options.showData || false;
         this.steps = [];
-        this.scaleFactor = options.scaleFactor || 0.5;
-        this.stepOffsetY = options.stepOffsetY || 400;
-        this.virtualWidth = options.virtualWidth || 1000;
-        this.virtualHeight = options.virtualHeight || 1000;
+        this.stepOffsetY = options.stepOffsetY || 1000; // Each step gets a 1000px square by default
         this.data = {};
-
-        console.log('ProcessStepper: created', {
-            hasCanvas: this.hasCanvas,
-            draw: this.draw,
-        });
     }
 
     addStep(config) {
@@ -43,7 +35,6 @@ class ProcessStepper  {
     }
 
     async runAll(initialData = {}) {
-        console.log('ProcessStepper: runAll called with data', initialData);
         this.data = initialData;
 
         if (this.hasCanvas) {
@@ -60,19 +51,22 @@ class ProcessStepper  {
     }
 
     async executeStep(step) {
-
-
         if (this.hasCanvas) {
             const index = this.steps.indexOf(step);
+            // Each step gets a 1000x1000 square, scaled to fit the canvas width
+            const squareSize = 1000;
+            const scale = this.canvas.width / squareSize;
             const offsetX = 0;
-            const offsetY = index * this.stepOffsetY;
-            this.ctx.setTransform(this.scaleFactor, 0, 0, this.scaleFactor, offsetX, offsetY);
+            const offsetY = index * squareSize * scale;
+
+            this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
             if (step.isAsync) {
                 await step.calcFunction(this.data);
-                step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
+                step.drawFunction(this.ctx, squareSize, squareSize, this.data);
             } else {
                 step.calcFunction(this.data);
-                step.drawFunction(this.ctx, this.virtualWidth, this.virtualHeight, this.data);
+                step.drawFunction(this.ctx, squareSize, squareSize, this.data);
             }
 
             if (this.showData) {
@@ -84,17 +78,13 @@ class ProcessStepper  {
                     this.ctx.fillText(line, 10, 100 + i * 20);
                 });
             }
-        }
-
-        else {
+        } else {
             if (step.isAsync) {
                 await step.calcFunction(this.data);
             } else {
                 step.calcFunction(this.data);
             }
         }
-
-
     }
 
     getData() {

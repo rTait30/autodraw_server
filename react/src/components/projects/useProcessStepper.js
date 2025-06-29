@@ -20,6 +20,7 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
   }, [canvasRef, steps, options]);
 
   const runAll = async (data) => {
+    console.log('[useProcessStepper] runAll called with data:', JSON.stringify(data, null, 2));
     if (stepperRef.current) {
       return await stepperRef.current.runAll(data);
     }

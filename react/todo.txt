@@ -1,0 +1,28 @@
+Landing page
+
+Discrepency page
+
+Dashboard page
+
+New Project Page
+
+Projects page
+
+Project page
+
+Professional styling
+
+No Jinja
+
+clean
+
+codex
+
+Logging
+
+User Settings/Page
+
+Graceful errors
+
+Analytics page
+

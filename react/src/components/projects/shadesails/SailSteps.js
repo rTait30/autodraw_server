@@ -197,9 +197,13 @@ export const zeroDiscrepancy = {
                 ? `⚠️ ${failedCombos} out of ${totalCombos} combinations show discrepancies.`
                 : `✅ No discrepancies detected in any 4-point group.`,
             errorBD: failedCombos
-                ? (confident
-                    ? `Most likely issue: ${sorted[0][0]} (${sorted[0][1]} combos)\n\nTop suspects:\n${topSuspects}`
-                    : `Top suspects:\n${topSuspects}`)
+                ? (
+                    pointIds.length === 4
+                        ? 'There is a discrepancy, but with only 4 points it is not possible to identify the specific problem.'
+                        : (confident && sorted.length > 0
+                            ? `Please check dimension ${sorted[0][0]} (${sorted[0][1]} combos)\n\nTop suspects:\n${topSuspects}`
+                            : `Please check dimensions:\n${topSuspects}`)
+                )
                 : ''
         };
         console.log('[SailSteps] zeroDiscrepancy.calcFunction result:', JSON.stringify(data.result, null, 2));

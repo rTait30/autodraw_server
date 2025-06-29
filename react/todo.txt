@@ -26,5 +26,5 @@ Graceful errors
 
 Analytics page
 
-cp dist/index.html ../templates/index.html
+cp dist/index.html ../templates/reactindex.html
 cp -r dist/assets ../static/assets

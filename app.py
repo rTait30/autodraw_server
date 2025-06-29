@@ -73,7 +73,18 @@ app.config['SQLALCHEMY_BINDS'] = {
 
 # ---- API ENDPOINTS ----
 
+@app.route('/copelands/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory(os.path.join(app.static_folder, 'assets'), filename)
 
+@app.route('/copelands/vite.svg')
+def serve_vite_svg():
+    return send_from_directory(app.static_folder, 'vite.svg')
+
+@app.route('/copelands/', defaults={'path': ''})
+@app.route('/copelands/<path:path>')
+def serve_index(path):
+    return render_template('index.html')
 
 @app.route('/copelands/new_project/new_cover')
 def new_project_covers():

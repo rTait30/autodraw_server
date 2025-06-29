@@ -1,67 +1,50 @@
-// src/pages/DiscrepancyCalculator.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useProcessStepper } from '../components/projects/useProcessStepper';
+import { zeroDiscrepancy } from '../components/projects/shadesails/SailSteps.js'; // or define inline
 
-const Discrepancy = () => {
-  const [fabricType, setFabricType] = useState('PVC');
-  const [inputs, setInputs] = useState({
-    AB: '', BC: '', CD: '', DA: '',
-    HA: '', HB: '', HC: '', HD: '',
-    AC: '', BD: ''
-  });
+const initialInputs = {
+  AB: '', BC: '', CD: '', DA: '',
+  HA: '', HB: '', HC: '', HD: '',
+  AC: '', BD: '',
+  fabricType: 'PVC',
+};
+
+export default function Discrepancy() {
+  const [inputs, setInputs] = useState(initialInputs);
   const [result, setResult] = useState({ discrepancy: '', errorBD: '' });
+
+  const steps = useMemo(() => [zeroDiscrepancy], []);
+  const { runAll } = useProcessStepper({ steps });
 
   const handleChange = (e) => {
     const { id, value } = e.target;
     setInputs((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleCalculate = () => {
-    const values = Object.values(inputs).map(parseFloat);
-    if (values.some(isNaN)) {
-      alert('Please enter a value in each input.');
-      setResult({ discrepancy: '', errorBD: '' });
-      return;
-    }
-
-    const { AB, BC, CD, DA, HA, HB, HC, HD, AC, BD } = Object.fromEntries(
-      Object.entries(inputs).map(([k, v]) => [k, parseFloat(v)])
-    );
-
-    const ABxy = Math.sqrt(AB ** 2 - (HB - HA) ** 2);
-    const BCxy = Math.sqrt(BC ** 2 - (HC - HB) ** 2);
-    const CDxy = Math.sqrt(CD ** 2 - (HD - HC) ** 2);
-    const DAxy = Math.sqrt(DA ** 2 - (HA - HD) ** 2);
-    const BDxy = Math.sqrt(BD ** 2 - (HD - HB) ** 2);
-    const ACxy = Math.sqrt(AC ** 2 - (HA - HC) ** 2);
-
-    const angleABC = Math.acos((ACxy ** 2 + ABxy ** 2 - BCxy ** 2) / (2 * ACxy * ABxy));
-    const angleACD = Math.acos((ACxy ** 2 + DAxy ** 2 - CDxy ** 2) / (2 * ACxy * DAxy));
-
-    const Bx = ABxy * Math.cos(angleABC);
-    const By = ABxy * Math.sin(angleABC);
-    const Dx = DAxy * Math.cos(angleACD);
-    const Dy = -DAxy * Math.sin(angleACD);
-
-    const BDTeoricXYZ = Math.sqrt((Bx - Dx) ** 2 + (By - Dy) ** 2 + (HB - HD) ** 2);
-    const discrepancy = BDTeoricXYZ - BD;
-    const errorBD = (discrepancy / BDTeoricXYZ) * 100;
-
-    const threshold = fabricType === 'PVC' ? 40 : 80;
-    const message = Math.abs(discrepancy) <= threshold
-      ? 'Your dimensions are suitable for Four points'
-      : 'Your dimensions are NOT suitable for Four points. Please recheck dimensions';
-
-    setResult({
-      discrepancy: `${message}\nDiscrepancy: ${discrepancy.toFixed(2)} mm`,
-      errorBD: `Error: ${errorBD.toFixed(2)}%`
-    });
+  const handleCalculate = async () => {
+    // Convert all numeric fields to numbers
+    const data = {
+      ...inputs,
+      AB: parseFloat(inputs.AB),
+      BC: parseFloat(inputs.BC),
+      CD: parseFloat(inputs.CD),
+      DA: parseFloat(inputs.DA),
+      HA: parseFloat(inputs.HA),
+      HB: parseFloat(inputs.HB),
+      HC: parseFloat(inputs.HC),
+      HD: parseFloat(inputs.HD),
+      AC: parseFloat(inputs.AC),
+      BD: parseFloat(inputs.BD),
+    };
+    await runAll(data);
+    setResult(data.result || { discrepancy: '', errorBD: '' });
   };
 
   return (
     <div className="discrepancy-container">
       <h1>Four points structure</h1>
       <label htmlFor="fabricType">Choose the type of fabric:</label>
-      <select id="fabricType" value={fabricType} onChange={(e) => setFabricType(e.target.value)}>
+      <select id="fabricType" value={inputs.fabricType} onChange={handleChange}>
         <option value="PVC">PVC</option>
         <option value="ShadeCloth">Shade Cloth</option>
       </select>
@@ -94,6 +77,4 @@ const Discrepancy = () => {
       </div>
     </div>
   );
-};
-
-export default Discrepancy;
+}

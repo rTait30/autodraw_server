@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 
-export default function CoverForm({ width, setWidth }) {
-  const [widthInput, setWidthInput] = useState(width ?? 1000);
+export default function CoverForm({ formData, onChange }) {
+  // Update parent on any field change
+  const handleInput = (e) => {
+    const { name, value } = e.target;
+    onChange({ ...formData, [name]: value });
+  };
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setWidth(Number(widthInput));
-    }, 2000);
-
-    return () => clearTimeout(timeout);
-  }, [widthInput, setWidth]);
+    // Debounce logic can be handled in parent if needed
+  }, [formData]);
 
   return (
     <div style={{ width: '200px' }}>
@@ -18,8 +18,39 @@ export default function CoverForm({ width, setWidth }) {
         Width (mm):
         <input
           type="number"
-          value={widthInput}
-          onChange={(e) => setWidthInput(e.target.value)}
+          name="width"
+          value={formData.width}
+          onChange={handleInput}
+          style={{ width: '100%', marginTop: '8px' }}
+        />
+      </label>
+      <label>
+        Height (mm):
+        <input
+          type="number"
+          name="height"
+          value={formData.height}
+          onChange={handleInput}
+          style={{ width: '100%', marginTop: '8px' }}
+        />
+      </label>
+      <label>
+        Length (mm):
+        <input
+          type="number"
+          name="length"
+          value={formData.length}
+          onChange={handleInput}
+          style={{ width: '100%', marginTop: '8px' }}
+        />
+      </label>
+      <label>
+        Quantity:
+        <input
+          type="number"
+          name="quantity"
+          value={formData.quantity}
+          onChange={handleInput}
           style={{ width: '100%', marginTop: '8px' }}
         />
       </label>

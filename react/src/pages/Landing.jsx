@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import LoginForm from '../components/LoginForm';
-import RegisterForm from '../components/RegisterForm';
-import DiscrepancyCalculator from '../components/DiscrepancyCalculator';
-
+import Authentication from '../components/Authentication';
 import { getBaseUrl } from '../utils/baseUrl';
 
 export default function Landing() {
-  const [showRegister, setShowRegister] = useState(false);
   const [backgroundStyle, setBackgroundStyle] = useState({});
 
   useEffect(() => {
-    // Lazy-load background image
     setTimeout(() => {
       setBackgroundStyle({
         backgroundImage: `url(${getBaseUrl('/static/img/shadesails.jpg')})`,
@@ -30,42 +25,15 @@ export default function Landing() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#000',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         transition: 'background-image 0.3s ease-in-out',
         ...backgroundStyle,
       }}
     >
-      <div
-        style={{
-          background: 'white',
-          borderRadius: 20,
-          padding: 40,
-          width: 320,
-          boxShadow: '0 0 30px rgba(0,0,0,0.15)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <img
-          src={getBaseUrl('/static/img/DRlogo.png')}
-          alt="Logo"
-          style={{ maxWidth: '100%', marginBottom: 20 }}
-        />
-        {showRegister ? (
-          <RegisterForm onCancel={() => setShowRegister(false)} />
-        ) : (
-          <LoginForm onShowRegister={() => setShowRegister(true)} />
-        )}
-        <div style={{ marginTop: 16, fontSize: 14 }}>
-          <a href="#" style={{ color: '#333', textDecoration: 'none' }}>
-            Forgot password?
-          </a>
-        </div>
-      </div>
+      <Authentication />
 
+      
       <div
         style={{
           marginTop: 24,

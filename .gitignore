@@ -1,12 +1,4 @@
-# Ignore all contents of configs/shadesail
-/configs/shadesail/*
-!/configs/shadesail/.gitkeep
-!/configs/shadesail/.gitignore
 
-# Ignore all contents of configs/surgical
-/configs/surgical/*
-!/configs/surgical/.gitkeep
-!/configs/surgical/.gitignore
 
 # Virtual environment
 venv/

@@ -23,7 +23,6 @@ function TopBar({ children }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         color: 'white',
-        boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <img
@@ -45,7 +44,7 @@ function TopBar({ children }) {
         </div>
       </header>
 
-      <main style={{ padding: '24px', backgroundColor: '#f9f9f9', minHeight: 'calc(100vh - 60px)' }}>
+      <main style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Outlet /> {/* <-- replace {children} */}
       </main>
     </>

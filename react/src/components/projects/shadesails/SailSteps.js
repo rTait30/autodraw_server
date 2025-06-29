@@ -101,83 +101,118 @@ export const zeroDiscrepancy = {
 
     // ------------------- CALC FUNCTION -------------------
     calcFunction: (data) => {
-        console.log('[SailSteps] zeroDiscrepancy.calcFunction input:', JSON.stringify(data, null, 2));
-        const allKeys = Object.keys(data);
-        const pointIds = allKeys
-            .filter((k) => k.startsWith('H') && typeof data[k] === 'number' && !isNaN(data[k]))
-            .map((k) => k.slice(1));
+    console.log('[SailSteps] zeroDiscrepancy.calcFunction input:', JSON.stringify(data, null, 2));
+    const allKeys = Object.keys(data);
+    const pointIds = allKeys
+        .filter((k) => k.startsWith('H') && typeof data[k] === 'number' && !isNaN(data[k]))
+        .map((k) => k.slice(1));
 
-        const N = pointIds.length;
+    const N = pointIds.length;
+    data.positions = {};
+
+    if (N === 3) {
+        // Trilateration for 3 points
+        const [p1, p2, p3] = pointIds;
+        const d12 = getLength(data, p1, p2);
+        const d13 = getLength(data, p1, p3);
+        const d23 = getLength(data, p2, p3);
+
+        data.positions[p1] = { x: 0, y: 0, z: data[`H${p1}`] || 0 };
+        data.positions[p2] = { x: d12, y: 0, z: data[`H${p2}`] || 0 };
+        let x3 = (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
+        let y3 = Math.sqrt(Math.max(0, d13 ** 2 - x3 ** 2));
+        data.positions[p3] = { x: x3, y: y3, z: data[`H${p3}`] || 0 };
+    } else if (N === 4) {
+        // Place A at (0,0), B at (dAB,0), C at (xC, yC), D at (xD, yD)
+        const [A, B, C, D] = pointIds;
+        const dAB = getLength(data, A, B);
+        const dBC = getLength(data, B, C);
+        const dCD = getLength(data, C, D);
+        const dDA = getLength(data, D, A);
+        const dAC = getLength(data, A, C);
+        const dBD = getLength(data, B, D);
+
+        // Place A at (0,0)
+        data.positions[A] = { x: 0, y: 0, z: data[`H${A}`] || 0 };
+        // Place B at (dAB,0)
+        data.positions[B] = { x: dAB, y: 0, z: data[`H${B}`] || 0 };
+
+        // Find C using circle intersection (from A and B)
+        // Circle 1: center A (0,0), radius dAC
+        // Circle 2: center B (dAB,0), radius dBC
+        const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
+        const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
+        data.positions[C] = { x: xC, y: yC, z: data[`H${C}`] || 0 };
+
+        // Find D using intersection from A and C
+        // Circle 1: center A (0,0), radius dDA
+        // Circle 2: center C (xC, yC), radius dCD
+        const dx = xC, dy = yC;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
+        const xD = a * dx / d;
+        const yD = a * dy / d;
+        // Two possible solutions, pick the one that forms a convex quad
+        const rx = -dy * (h / d);
+        const ry = dx * (h / d);
+        data.positions[D] = { x: xD + rx, y: yD + ry, z: data[`H${D}`] || 0 };
+    } else {
+        // fallback: place points in a circle for visualization
         const centerX = 500, centerY = 500, radius = 350;
-        data.positions = {};
+        pointIds.forEach((pid, i) => {
+            const angle = (2 * Math.PI * i) / N;
+            data.positions[pid] = {
+                x: centerX + radius * Math.cos(angle),
+                y: centerY + radius * Math.sin(angle),
+                z: data[`H${pid}`] || 0
+            };
+        });
+    }
 
-        // --- Position calculation for 3 points (trilateration) ---
-        if (pointIds.length === 3) {
-            const [p1, p2, p3] = pointIds;
-            const d12 = getLength(data, p1, p2);
-            const d13 = getLength(data, p1, p3);
-            const d23 = getLength(data, p2, p3);
+    // --- Discrepancy checks for all 4-point combos ---
+    if (pointIds.length >= 4) {
+        console.log('[SailSteps] Starting 4-point discrepancy checks for pointIds:', pointIds);
+        const allCombos = getCombinations(pointIds, 4);
+        const blameScores = {};
+        const failingCombos = [];
 
-            data.positions[p1] = { x: centerX, y: centerY, z: data[`H${p1}`] || 0 };
-            data.positions[p2] = { x: centerX + d12, y: centerY, z: data[`H${p2}`] || 0 };
-            let x3 = centerX + (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
-            let y3 = centerY + Math.sqrt(Math.max(0, d13 ** 2 - ((x3 - centerX) ** 2)));
-            data.positions[p3] = { x: x3, y: y3, z: data[`H${p3}`] || 0 };
-        } else {
-            // fallback: place points in a circle for visualization
-            pointIds.forEach((pid, i) => {
-                const angle = (2 * Math.PI * i) / N;
-                data.positions[pid] = {
-                    x: centerX + radius * Math.cos(angle),
-                    y: centerY + radius * Math.sin(angle),
-                    z: data[`H${pid}`] || 0
-                };
-            });
+        for (const combo of allCombos) {
+            checkDiscrepancyCombo(data, combo, blameScores, failingCombos);
         }
 
-        // --- Discrepancy checks for all 4-point combos ---
-        if (pointIds.length >= 4) {
-          console.log('[SailSteps] Starting 4-point discrepancy checks for pointIds:', pointIds);
-            const allCombos = getCombinations(pointIds, 4);
-            const blameScores = {};
-            const failingCombos = [];
+        const sorted = Object.entries(blameScores).sort((a, b) => b[1] - a[1]);
+        const totalCombos = allCombos.length;
+        const failedCombos = failingCombos.length;
 
-            for (const combo of allCombos) {
-                checkDiscrepancyCombo(data, combo, blameScores, failingCombos);
-            }
+        const topSuspects = sorted.slice(0, 3).map(([id, count]) =>
+            `• ${id}: ${count} combos`
+        ).join('\n');
 
-            const sorted = Object.entries(blameScores).sort((a, b) => b[1] - a[1]);
-            const totalCombos = allCombos.length;
-            const failedCombos = failingCombos.length;
+        const confident =
+            sorted.length > 1 && sorted[0][1] >= 3 && sorted[0][1] >= sorted[1][1] * 1.5;
 
-            const topSuspects = sorted.slice(0, 3).map(([id, count]) =>
-                `• ${id}: ${count} combos`
-            ).join('\n');
+        data.result = {
+            discrepancy: failedCombos
+                ? `⚠️ ${failedCombos} out of ${totalCombos} combinations show discrepancies.`
+                : `✅ No discrepancies detected in any 4-point group.`,
+            errorBD: failedCombos
+                ? (confident
+                    ? `Most likely issue: ${sorted[0][0]} (${sorted[0][1]} combos)\n\nTop suspects:\n${topSuspects}`
+                    : `Top suspects:\n${topSuspects}`)
+                : ''
+        };
+        console.log('[SailSteps] zeroDiscrepancy.calcFunction result:', JSON.stringify(data.result, null, 2));
+    } else {
+        data.result = {
+            discrepancy: 'Not enough points for 4-point discrepancy check.',
+            errorBD: ''
+        };
+        console.log('[SailSteps] zeroDiscrepancy.calcFunction result:', JSON.stringify(data.result, null, 2));
+    }
 
-            const confident =
-                sorted.length > 1 && sorted[0][1] >= 3 && sorted[0][1] >= sorted[1][1] * 1.5;
-
-            data.result = {
-                discrepancy: failedCombos
-                    ? `⚠️ ${failedCombos} out of ${totalCombos} combinations show discrepancies.`
-                    : `✅ No discrepancies detected in any 4-point group.`,
-                errorBD: failedCombos
-                    ? (confident
-                        ? `Most likely issue: ${sorted[0][0]} (${sorted[0][1]} combos)\n\nTop suspects:\n${topSuspects}`
-                        : `Top suspects:\n${topSuspects}`)
-                    : ''
-            };
-            console.log('[SailSteps] zeroDiscrepancy.calcFunction result:', JSON.stringify(data.result, null, 2));
-        } else {
-            data.result = {
-                discrepancy: 'Not enough points for 4-point discrepancy check.',
-                errorBD: ''
-            };
-            console.log('[SailSteps] zeroDiscrepancy.calcFunction result:', JSON.stringify(data.result, null, 2));
-        }
-
-        console.log('[SailSteps] zeroDiscrepancy.calcFunction output data:', JSON.stringify(data, null, 2));
-        return data;
+    console.log('[SailSteps] zeroDiscrepancy.calcFunction output data:', JSON.stringify(data, null, 2));
+    return data;
     },
 
     // ------------------- DRAW FUNCTION -------------------
@@ -188,9 +223,55 @@ export const zeroDiscrepancy = {
       const pointIds = Object.keys(data.positions);
       if (pointIds.length === 0) return;
 
+      // --- Compute bounding box and scaling ---
+      // Order points so A is first and clockwise (if possible)
+      let orderedIds = [...pointIds];
+      if (orderedIds.includes('A')) {
+          // Try to order clockwise: A, B, C, D, ...
+          orderedIds = ['A'];
+          let current = 'A';
+          for (let i = 1; i < pointIds.length; i++) {
+              // Find the next point (B, C, D, ...)
+              const next = String.fromCharCode('A'.charCodeAt(0) + i);
+              if (pointIds.includes(next)) orderedIds.push(next);
+          }
+          // Add any remaining points (for >4 points)
+          for (const pid of pointIds) {
+              if (!orderedIds.includes(pid)) orderedIds.push(pid);
+          }
+      }
+
+      // Get min/max XY
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const pid of pointIds) {
+          const p = data.positions[pid];
+          if (!p) continue;
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+      }
+
+      // Padding for canvas
+      const pad = 40;
+      const drawW = virtualWidth - 2 * pad;
+      const drawH = virtualHeight - 2 * pad;
+      const shapeW = maxX - minX || 1;
+      const shapeH = maxY - minY || 1;
+      const scale = Math.min(drawW / shapeW, drawH / shapeH);
+
+      // Map positions to canvas coordinates, with A at top-left
+      const mapped = {};
+      for (const pid of pointIds) {
+          const p = data.positions[pid];
+          mapped[pid] = {
+              x: pad + (p.x - minX) * scale,
+              y: pad + (p.y - minY) * scale
+          };
+      }
+
       // Helper to get color for a line
       function getLineColor(a, b) {
-          // If 5+ points and this line is a top suspect, draw in red
           if (pointIds.length >= 5 && data.result && data.result.errorBD) {
               const suspects = data.result.errorBD.match(/[A-Z]{2}/g) || [];
               if (suspects.includes(`${a}${b}`) || suspects.includes(`${b}${a}`)) {
@@ -200,7 +281,6 @@ export const zeroDiscrepancy = {
           return '#333';
       }
 
-      // Draw all points
       ctx.clearRect(0, 0, virtualWidth, virtualHeight);
       ctx.save();
       ctx.font = '16px Arial';
@@ -210,7 +290,7 @@ export const zeroDiscrepancy = {
       for (let i = 0; i < pointIds.length; i++) {
           for (let j = i + 1; j < pointIds.length; j++) {
               const a = pointIds[i], b = pointIds[j];
-              const pa = data.positions[a], pb = data.positions[b];
+              const pa = mapped[a], pb = mapped[b];
               if (!pa || !pb) continue;
 
               // Draw line
@@ -236,8 +316,8 @@ export const zeroDiscrepancy = {
       }
 
       // Draw points and height labels
-      for (const pid of pointIds) {
-          const p = data.positions[pid];
+      for (const pid of orderedIds) {
+          const p = mapped[pid];
           if (!p) continue;
           // Draw point
           ctx.beginPath();

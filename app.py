@@ -21,7 +21,7 @@ from endpoints.web.projects import projects_bp
 from models import db, User, Project, Log
 
 
-app = Flask(__name__, static_url_path='/copelands/static')
+app = Flask(__name__, static_url_path='/copelands/static', static_folder='static')
 app.secret_key = "C0p3l4nds_S3cr3t_K3y"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)

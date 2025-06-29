@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // <-- Add this line
 import SailForm from '../components/projects/shadesails/SailForm';
 import { zeroDiscrepancy } from '../components/projects/shadesails/SailSteps';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
@@ -26,6 +27,9 @@ function getInitialInputs(pointCount = defaultPointCount) {
 }
 
 export default function Discrepancy() {
+
+  const navigate = useNavigate();
+
   const [inputs, setInputs] = useState(getInitialInputs());
   const [result, setResult] = useState({ discrepancy: '', errorBD: '' });
 
@@ -97,6 +101,12 @@ export default function Discrepancy() {
   return (
     <div className="discrepancy-root">
       <h2>Sail Discrepancy Checker</h2>
+      <button
+          style={{ marginBottom: 16 }}
+          onClick={() => navigate('/copelands/react')}
+        >
+          &larr; Back
+      </button>
       <div className="discrepancy-row">
         <div>
           <SailForm formData={inputs} onChange={handleFormChange} />

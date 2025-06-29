@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+import { getBaseUrl } from './utils/baseUrl';
 
 import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
@@ -22,6 +24,12 @@ import Projects from './pages/Projects';
 
 
 function App() {
+  useEffect(() => {
+    const favicon = document.querySelector("link[rel~='icon']");
+    if (favicon) {
+      favicon.href = getBaseUrl('static/favicon/favicon-96x96.png');
+    }
+  }, []);
   return (
     <Router>
       <Routes>

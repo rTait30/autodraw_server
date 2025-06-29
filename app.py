@@ -168,13 +168,13 @@ def get_next_id():
 # -- REACT --
 
 
-@app.route('/copelands/react')
-@app.route('/<path:path>')
-def serve_react(path='index.html'):
-    file_path = os.path.join(app.static_folder, path)
-    if os.path.exists(file_path):
+@app.route('/copelands/react', defaults={'path': ''})
+@app.route('/copelands/react/<path:path>')
+def serve_react_app(path):
+    full_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(full_path):
         return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    return render_template('index.html')  # index.html should live in /templates
 
 
 

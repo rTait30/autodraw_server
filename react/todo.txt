@@ -2,6 +2,8 @@ Landing page
 
 Discrepency page
 
+Admin page
+
 Dashboard page
 
 New Project Page
@@ -9,6 +11,8 @@ New Project Page
 Projects page
 
 Project page
+
+projects (templates)
 
 Professional styling
 

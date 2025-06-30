@@ -17,8 +17,9 @@ class ProcessStepper  {
 
         this.showData = options.showData || false;
         this.steps = [];
-        this.stepOffsetY = options.stepOffsetY || 1000; // Each step gets a 1000px square by default
+        this.stepOffsetY = options.stepOffsetY || 800; // Each step gets a 1000px square by default
         this.data = {};
+
     }
 
     addStep(config) {
@@ -31,6 +32,7 @@ class ProcessStepper  {
             provides: config.provides || []
         };
         this.steps.push(step);
+        
         return step;
     }
 
@@ -57,7 +59,7 @@ class ProcessStepper  {
             const squareSize = 1000;
             const scale = this.canvas.width / squareSize;
             const offsetX = 0;
-            const offsetY = index * squareSize * scale;
+            const offsetY = index * this.stepOffsetY * scale;
 
             this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
 

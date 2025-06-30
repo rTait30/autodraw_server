@@ -21,6 +21,7 @@ import SailNew from './components/projects/shadesails/SailNew';
 import SailEdit from './components/projects/shadesails/SailEdit';
 
 import Projects from './pages/Projects';
+import Project from './pages/Project';
 
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
             <Route path="/copelands/reactnew/shadesail" element={<SailNew />} />
           </Route>
           <Route path="/copelands/reactprojects" element={<Projects />} />
+          <Route path="/copelands/reactprojects/:id" element={<Project />} />
         </Route>
       </Routes>
     </Router>

@@ -37,7 +37,7 @@ export default function Authentication() {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
-    const res = await fetch('/copelands/api/register', {
+    const res = await fetch(getBaseUrl('/copelands/api/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom'; // Import Link
+
+import { getBaseUrl } from '../utils/baseUrl';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/copelands/api/projects/list')
-      .then(res => res.json()) // Now that it's working, parse as JSON
+    fetch(getBaseUrl('/api/projects/list'))
+      .then(res => res.json())
       .then(data => {
         setProjects(data);
         setLoading(false);
@@ -38,7 +41,9 @@ function Projects() {
           {projects.map(project => (
             <tr key={project.id}>
               <td style={td}>{project.id}</td>
-              <td style={td}>{project.name}</td>
+              <td style={td}>
+                <Link to={`/copelands/reactprojects/${project.id}`}>{project.name}</Link>
+              </td>
               <td style={td}>{project.type}</td>
               <td style={td}>{project.status}</td>
               <td style={td}>{project.client}</td>

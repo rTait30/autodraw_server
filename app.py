@@ -8,6 +8,7 @@ import json
 
 
 
+
 from endpoints.api.auth.routes import auth_bp
 from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
@@ -23,6 +24,11 @@ from models import db, User, Project, Log
 
 app = Flask(__name__, static_url_path='/copelands/static', static_folder='static')
 app.secret_key = "C0p3l4nds_S3cr3t_K3y"
+
+from flask_cors import CORS
+CORS(app, supports_credentials=True)
+
+CORS(app, origins=["http://localhost:5173"], supports_credentials=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
 app.config['SQLALCHEMY_BINDS'] = {
@@ -167,7 +173,7 @@ def get_next_id():
 
 # -- REACT --
 
-
+@app.route('/copelands/react')
 @app.route('/copelands/react', defaults={'path': ''})
 @app.route('/copelands/react/<path:path>')
 def serve_react_app(path):

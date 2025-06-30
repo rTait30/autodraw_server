@@ -192,7 +192,7 @@ export const zeroVisualise = {
 
 
 
-const oneFlatten = {
+export const oneFlatten = {
     title: 'Step 1: Flatten Panels',
     initialData: { length: 1, width: 1, height: 1 },
     dependencies: [],
@@ -472,7 +472,7 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
     ];
 }
 
-const twoExtra = {
+export const twoExtra = {
     title: 'Step 2: Create extra seams if wider than fabric',
     initialData: { },
     dependencies: [],
@@ -549,14 +549,14 @@ const twoExtra = {
           maxHeight = Math.max(maxHeight, panel.height);
       }
 
-      const availableWidth = virtualWidth - 2 * padding;
+      const availableWidth = 600;
       const availableHeight = virtualHeight - 2 * padding;
       const scale = Math.min(
           availableWidth / totalWidth,
           availableHeight / maxHeight
       );
 
-      let cursorX = (virtualWidth - totalWidth * scale) / 2;
+      let cursorX = 100;
       const originY = (virtualHeight - maxHeight * scale) / 2;
 
       const drawData = [];
@@ -673,8 +673,8 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 100;
 
   const nestWidth = nestData.total_width;
-  const fabricBoxWidthPx = 1000; // Always make the red box 1000px wide
-  const scale = fabricBoxWidthPx / nestWidth; // Scale so fabric box is always 1000px wide
+  const fabricBoxWidthPx = 800; // Always make the red box 800px wide
+  const scale = fabricBoxWidthPx / nestWidth; // Scale so fabric box is always 800px wide
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
@@ -756,7 +756,7 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   ctx.restore();
 }
 
-const threeNest = {
+export const threeNest = {
   title: 'Step 3: Nesting',
   initialData: {},
   dependencies: [],

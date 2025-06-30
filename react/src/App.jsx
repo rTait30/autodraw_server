@@ -34,17 +34,17 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/copelands/react" element={<Landing />} />
-        <Route path="/copelands/reactdiscrepancy" element={<Discrepancy />} />
+        <Route path="/copelands" element={<Landing />} />
+        <Route path="/copelands/discrepancy" element={<Discrepancy />} />
         <Route element={<TopBar />}>
-          <Route path="/copelands/reacthome" element={<Home />} />
-          <Route path="/copelands/reactnew" element={<NewProject />}>
+          <Route path="/copelands/home" element={<Home />} />
+          <Route path="/copelands/new" element={<NewProject />}>
             <Route index element={<p>Select a project type to begin.</p>} />
-            <Route path="/copelands/reactnew/cover" element={<CoverNew />} />
-            <Route path="/copelands/reactnew/shadesail" element={<SailNew />} />
+            <Route path="/copelands/new/cover" element={<CoverNew />} />
+            <Route path="/copelands/new/shadesail" element={<SailNew />} />
           </Route>
-          <Route path="/copelands/reactprojects" element={<Projects />} />
-          <Route path="/copelands/reactprojects/:id" element={<Project />} />
+          <Route path="/copelands/projects" element={<Projects />} />
+          <Route path="/copelands/projects/:id" element={<Project />} />
         </Route>
       </Routes>
     </Router>

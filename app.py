@@ -13,11 +13,6 @@ from endpoints.api.auth.routes import auth_bp
 from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
 
-from endpoints.web.index import index_bp
-from endpoints.web.discrepancy import discrepancy_bp
-from endpoints.web.dashboard import dashboard_bp
-from endpoints.web.newproject import newproject_bp
-from endpoints.web.projects import projects_bp
 
 from models import db, User, Project, Log
 
@@ -61,11 +56,6 @@ app.register_blueprint(nest_bp)
 
 
 
-app.register_blueprint(index_bp)
-app.register_blueprint(discrepancy_bp)
-app.register_blueprint(dashboard_bp)
-app.register_blueprint(newproject_bp)
-app.register_blueprint(projects_bp)
 
 
 

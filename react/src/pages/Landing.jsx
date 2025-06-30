@@ -47,7 +47,7 @@ export default function Landing() {
           alignItems: 'center',
         }}
       >
-        <Link to="/copelands/reactdiscrepancy">
+        <Link to="/copelands/discrepancy">
           <button style={{ padding: '12px 24px', fontSize: 16, borderRadius: 8, border: 'none', background: '#1b1c3a', color: '#fff', cursor: 'pointer' }}>
             Open Discrepancy Calculator
           </button>

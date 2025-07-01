@@ -58,3 +58,15 @@ class Log(db.Model):
     __tablename__ = 'logs'
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(255))
+
+class Product(db.Model):
+    __tablename__ = 'products'
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(64), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    price = db.Column(db.Float, nullable=False)
+    unit = db.Column(db.String(32), nullable=True)  # e.g., 'each', 'meter', etc.
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

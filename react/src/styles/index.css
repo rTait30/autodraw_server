@@ -14,4 +14,16 @@
   .buttonStyle {
     @apply w-full p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1;
   }
+  .inputStyle {
+    @apply w-full p-3 mb-3 border border-gray-300 rounded-lg text-sm;
+  }
+  .formStyle {
+    @apply w-full flex flex-col items-center;
+  }
+  .linkStyle {
+    @apply text-white no-underline font-medium text-sm;
+  }
+  .roleStyle {
+    @apply font-medium text-sm opacity-80;
+  }
 }

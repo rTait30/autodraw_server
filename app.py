@@ -28,15 +28,16 @@ app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY")
 db.init_app(app)
 jwt = JWTManager(app)
 
-first = True
 
-# --- Create all databases/tables before first request ---
+
+db_initialized = False
+
 @app.before_request
 def create_all_databases():
-    if first:
-        # Create the main database for users/auth
+    global db_initialized
+    if not db_initialized:
         db.create_all()
-        first = False
+        db_initialized = True
 
 BASE_CONFIG_DIR = 'configs'
 

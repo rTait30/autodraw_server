@@ -82,7 +82,7 @@ export default function Authentication() {
                 value={login.username}
                 onChange={e => setLogin(l => ({ ...l, username: e.target.value }))}
                 required
-                class={inputStyle}
+                class="inputStyle"
               />
               <input
                 type="password"
@@ -90,18 +90,18 @@ export default function Authentication() {
                 value={login.password}
                 onChange={e => setLogin(l => ({ ...l, password: e.target.value }))}
                 required
-                class={inputStyle}
+                class="inputStyle"
               />
               <div class="flex items-center mb-5 text-sm">
                 <label htmlFor="remember">Remember me</label>
                 <input type="checkbox" id="remember" class="ml-2" />
               </div>
-              <button type="submit" class={buttonStyle}>Login</button>
+              <button type="submit" class="buttonStyle">Login</button>
               <div class="my-2" />
               <button
                 type="button"
                 onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
-                class={buttonStyle}
+                class="buttonStyle"
               >
                 Register as client
               </button>
@@ -143,12 +143,12 @@ export default function Authentication() {
                 onChange={e => setRegister(r => ({ ...r, password2: e.target.value }))}
                 required class={inputStyle}
               />
-              <button type="submit" class={buttonStyle}>Register</button>
+              <button type="submit" class="buttonStyle">Register</button>
               <div class="my-2" />
               <button
                 type="button"
                 onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
-                class={buttonStyle}
+                class="buttonStyle"
               >
                 Cancel
               </button>

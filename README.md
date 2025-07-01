@@ -1,34 +1,110 @@
-# AutoDraw Server
+# Flask + React Fullstack Application
 
-This repository contains the backend and client assets for a small Flask application used internally by **Copelands**.  It exposes a REST API, HTML pages and client‑side JavaScript used for creating and managing canvas based projects such as covers or shade sails.
+This is a fullstack application built with a **Flask** backend and a **React** frontend. The React project is located in the `/react` directory and is compiled into static assets which are served by Flask. Flask also provides RESTful API endpoints for the frontend to consume.
 
-## Features
+---
 
-- **User authentication** – API endpoints allow users to register and login.  JWT tokens are issued for subsequent authenticated requests.  Roles include `admin`, `designer`, `estimator` and `client`.
-- **Project management** – Users can create projects of different types (e.g. `cover`, `sail`).  Each project can store attributes and calculated values.  Projects are listed and viewed through the web UI.
-- **Interactive forms** – The `New Project` pages provide forms for entering project parameters.  A canvas visualiser updates based on the values entered, and estimators can run extra calculation steps such as nesting panels.
-- **Nesting API** – A dedicated endpoint `/copelands/nest_panels` calculates how to nest rectangular panels efficiently using the `rectpack` library.
-- **Dashboard and roles** – Different HTML dashboards exist for admins, clients, estimators and designers.  The logged in role is stored in local storage and displayed in the navigation bar.
-- **Discrepancy calculator** – A standalone page under `/copelands/discrepancy` allows checking sail corner discrepancies.
+## 🔧 Project Structure
 
-## Running
+```
+project-root/
+├── app.py                # Flask entry point
+├── api/                  # Flask Blueprints for API routes
+├── static/               # Compiled React assets (copied here after build)
+│   └── ...
+├── templates/
+│   └── index.html        # The React index.html (after build)
+├── react/                # Source code for the React app
+│   ├── public/
+│   ├── src/
+│   ├── package.json
+│   └── ...
+├── build_and_deploy.py   # Script to build React and copy assets to Flask
+└── ...
+```
 
-The application is a standard Flask project.  The main entry point is `app.py`.  When executed it starts a development server on port `5001` using SQLite databases.  The models are defined in `models.py` and tables are created automatically on the first request.
+---
 
-Static assets live in `static/` and HTML templates in `templates/`.
+## 🚀 How It Works
 
-## Directory overview
+- The React frontend is **built using Vite** with `npm run build` inside `/react/`.
+- A deployment script (`build_and_deploy.py`) runs the build process and copies:
+  - the built static files to `/static`
+  - `index.html` to `/templates`
+- Flask serves:
+  - Static files (JS/CSS/images) from `/static`
+  - The main React app via `render_template("index.html")` on unmatched routes
+  - API endpoints under `/api/...`
 
-- `app.py` – Flask application setup and route registration
-- `endpoints/` – Blueprints for API and web routes
-- `models.py` – SQLAlchemy models (`User`, `Project`, `ProjectAttribute`, `Log`)
-- `static/js/` – Front‑end JavaScript including canvas utilities and project rendering logic
-- `templates/` – Jinja templates for the web interface
+---
 
-## Development notes
+## 🛠️ Setup & Development
 
-There is no `requirements.txt` provided, but the project relies on typical Flask packages (`flask`, `flask_sqlalchemy`, `flask_jwt_extended`, `passlib`, `rectpack`).  A local Python environment should be set up with these dependencies installed.
+### 1. Backend Setup (Flask)
 
-## License
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-This project does not currently include an explicit license file.
+### 2. Frontend Setup (React)
+
+```bash
+cd react
+npm install
+```
+
+---
+
+## 🏗️ Building the Frontend
+
+Always build the React app before running Flask in production:
+
+```bash
+# From project root
+python build_and_deploy.py
+```
+
+This will:
+- Run `npm run build` in `/react`
+- Copy the output to the Flask `/static` and `/templates/index.html`
+
+---
+
+## 🧪 Running the App
+
+```bash
+python app.py
+```
+
+Access the app at [http://localhost:5001](http://localhost:5001).
+
+---
+
+## 🔐 API Endpoints
+
+All API routes are prefixed with `/api/`, for example:
+
+- `GET /api/projects`
+- `POST /api/login`
+
+---
+
+## 📁 Deployment Notes
+
+- You **should not use React’s dev server** (`npm run dev`) in production.
+- The Flask server serves the compiled React app and handles routing via `index.html`.
+- All API routes should avoid conflicting with React frontend routes.
+
+---
+
+## 📜 License
+
+MIT License
+
+---
+
+## ✍️ Author
+
+Built by Ryan.

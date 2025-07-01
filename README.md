@@ -82,6 +82,19 @@ Access the app at [http://localhost:5001](http://localhost:5001).
 
 ---
 
+
+## 🌱 Environment Variables
+
+Set the following variables before running `python app.py`:
+
+- `FLASK_SECRET_KEY` – secret key used by Flask for session management
+- `JWT_SECRET_KEY` – key used to sign JWT tokens
+
+You can export them in your shell or configure them in your environment manager.
+
+---
+
+
 ## 🔐 API Endpoints
 
 All API routes are prefixed with `/api/`, for example:

@@ -1,13 +1,14 @@
-
-
-# Virtual environment
-venv/
-
-settings.json
-/settings.json
-
 /*.json
 
 instance/*.db
 instance/*.sqlite3
 instance/*.sqlite
+
+.venv/
+
+.venv/
+node_modules/
+
+# Built frontend assets
+static/assets/
+templates/index.html

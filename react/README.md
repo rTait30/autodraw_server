@@ -27,7 +27,7 @@ project-root/
 
 ## 🚀 How It Works
 
-- The React frontend is **built using Vite** (or similar bundler) with `npm run build` inside `/react/`.
+- The React frontend is **built using Vite** with `npm run build` inside `/react/`.
 - A deployment script (`build_and_deploy.py`) runs the build process and copies:
   - the built static files to `/static`
   - `index.html` to `/templates`
@@ -107,4 +107,4 @@ MIT License
 
 ## ✍️ Author
 
-Built by [Your Name or Team].
+Built by Ryan.

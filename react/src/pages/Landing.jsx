@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import { getBaseUrl } from '../utils/baseUrl';
+import '../styles/index.css'; // Uncomment if you want to use the global styles
+
+//const buttonStyle = "w-full p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1";
 
 export default function Landing() {
   const [backgroundStyle, setBackgroundStyle] = useState({});
@@ -33,7 +36,6 @@ export default function Landing() {
     >
       <Authentication />
 
-      
       <div
         style={{
           marginTop: 24,
@@ -48,7 +50,7 @@ export default function Landing() {
         }}
       >
         <Link to="/copelands/discrepancy">
-          <button style={{ padding: '12px 24px', fontSize: 16, borderRadius: 8, border: 'none', background: '#1b1c3a', color: '#fff', cursor: 'pointer' }}>
+          <button className="buttonStyle">
             Open Discrepancy Calculator
           </button>
         </Link>

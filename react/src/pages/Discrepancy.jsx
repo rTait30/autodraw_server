@@ -103,7 +103,7 @@ export default function Discrepancy() {
       <h2>Sail Discrepancy Checker</h2>
       <button
           style={{ marginBottom: 16 }}
-          onClick={() => navigate('/copelands/react')}
+          onClick={() => navigate('/copelands')}
         >
           &larr; Back
       </button>

@@ -1,12 +1,110 @@
-# React + Vite
+# Flask + React Fullstack Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a fullstack application built with a **Flask** backend and a **React** frontend. The React project is located in the `/react` directory and is compiled into static assets which are served by Flask. Flask also provides RESTful API endpoints for the frontend to consume.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🔧 Project Structure
 
-## Expanding the ESLint configuration
+```
+project-root/
+├── app.py                # Flask entry point
+├── api/                  # Flask Blueprints for API routes
+├── static/               # Compiled React assets (copied here after build)
+│   └── ...
+├── templates/
+│   └── index.html        # The React index.html (after build)
+├── react/                # Source code for the React app
+│   ├── public/
+│   ├── src/
+│   ├── package.json
+│   └── ...
+├── build_and_deploy.py   # Script to build React and copy assets to Flask
+└── ...
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🚀 How It Works
+
+- The React frontend is **built using Vite** (or similar bundler) with `npm run build` inside `/react/`.
+- A deployment script (`build_and_deploy.py`) runs the build process and copies:
+  - the built static files to `/static`
+  - `index.html` to `/templates`
+- Flask serves:
+  - Static files (JS/CSS/images) from `/static`
+  - The main React app via `render_template("index.html")` on unmatched routes
+  - API endpoints under `/api/...`
+
+---
+
+## 🛠️ Setup & Development
+
+### 1. Backend Setup (Flask)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Frontend Setup (React)
+
+```bash
+cd react
+npm install
+```
+
+---
+
+## 🏗️ Building the Frontend
+
+Always build the React app before running Flask in production:
+
+```bash
+# From project root
+python build_and_deploy.py
+```
+
+This will:
+- Run `npm run build` in `/react`
+- Copy the output to the Flask `/static` and `/templates/index.html`
+
+---
+
+## 🧪 Running the App
+
+```bash
+python app.py
+```
+
+Access the app at [http://localhost:5001](http://localhost:5001).
+
+---
+
+## 🔐 API Endpoints
+
+All API routes are prefixed with `/api/`, for example:
+
+- `GET /api/projects`
+- `POST /api/login`
+
+---
+
+## 📁 Deployment Notes
+
+- You **should not use React’s dev server** (`npm run dev`) in production.
+- The Flask server serves the compiled React app and handles routing via `index.html`.
+- All API routes should avoid conflicting with React frontend routes.
+
+---
+
+## 📜 License
+
+MIT License
+
+---
+
+## ✍️ Author
+
+Built by [Your Name or Team].

@@ -1,36 +1,8 @@
 import React, { useState } from 'react';
 
-// Table styles
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "15px",
-};
-const thStyle = {
-  background: "#f7f7f7",
-  fontWeight: "bold",
-  padding: "8px",
-  borderBottom: "1px solid #ccc",
-  textAlign: "left",
-};
-const tdStyle = {
-  padding: "8px",
-  borderBottom: "1px solid #eee",
-  textAlign: "left",
-};
-const headingStyle = {
-  padding: "8px",
-  borderBottom: "1px solid #eee",
-  textAlign: "left",
-  fontWeight: "bold",
-  fontSize: "18px",
-};
-
 export default function EstimateTable({ schema, data }) {
   // Helper to evaluate expressions
   function evalExpr(expr, context = {}) {
-
-    console.log('Evaluating:', expr, 'with context:', context);
     try {
       return Function("data", `"use strict"; return (${expr});`)(context.data);
     } catch {
@@ -98,97 +70,104 @@ export default function EstimateTable({ schema, data }) {
   Object.assign(calcContext, inputState);
 
   return (
-    <table style={tableStyle}>
-      <tbody>
-        {Object.entries(schema).map(([section, rows]) => (
-          <React.Fragment key={section}>
-            <tr>
-              <td colSpan={4} style={headingStyle}>{section}</td>
-            </tr>
-            {rows.map((row, idx) => {
-              if (row.type === 'row') {
-                const item = rowState[section]?.[idx] || {};
-                return (
-                  <tr key={idx}>
-                    <td>{item.description}</td>
-                    <td>
-                      <input
-                        type="number"
-                        value={item.quantity !== undefined && item.quantity !== null ? item.quantity : ''}
-                        onChange={e => handleRowChange(section, idx, 'quantity', e.target.value)}
-                        style={{ width: "80px" }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        value={item.unitCost !== undefined && item.unitCost !== null ? item.unitCost : ''}
-                        onChange={e => handleRowChange(section, idx, 'unitCost', e.target.value)}
-                        style={{ width: "80px" }}
-                      />
-                    </td>
-                    <td>
-                      {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              }
-              if (row.type === 'subtotal') {
-                const subtotalValue = calcContext[`${section.toLowerCase()}Total`] || 0;
-                // If a key is provided, store the subtotal in calcContext
-                if (row.key) {
-                  calcContext[row.key] = subtotalValue;
+    <div className="overflow-x-auto">
+      <table className="min-w-full border border-gray-300 rounded-lg shadow-sm bg-white">
+        <tbody>
+          {Object.entries(schema).map(([section, rows]) => (
+            <React.Fragment key={section}>
+              <tr>
+                <td colSpan={4} className="bg-blue-50 text-blue-900 font-bold text-lg px-4 py-3 border-b border-gray-200 rounded-t">
+                  {section}
+                </td>
+              </tr>
+              <tr className="bg-gray-100 text-gray-700">
+                <th className="px-4 py-2 text-left font-semibold">Description</th>
+                <th className="px-4 py-2 text-left font-semibold">Quantity</th>
+                <th className="px-4 py-2 text-left font-semibold">Unit Cost</th>
+                <th className="px-4 py-2 text-left font-semibold">Total</th>
+              </tr>
+              {rows.map((row, idx) => {
+                if (row.type === 'row') {
+                  const item = rowState[section]?.[idx] || {};
+                  return (
+                    <tr key={idx} className="hover:bg-blue-50 transition">
+                      <td className="px-4 py-2 border-b border-gray-100">{item.description}</td>
+                      <td className="px-4 py-2 border-b border-gray-100">
+                        <input
+                          type="number"
+                          value={item.quantity !== undefined && item.quantity !== null ? item.quantity : ''}
+                          onChange={e => handleRowChange(section, idx, 'quantity', e.target.value)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </td>
+                      <td className="px-4 py-2 border-b border-gray-100">
+                        <input
+                          type="number"
+                          value={item.unitCost !== undefined && item.unitCost !== null ? item.unitCost : ''}
+                          onChange={e => handleRowChange(section, idx, 'unitCost', e.target.value)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </td>
+                      <td className="px-4 py-2 border-b border-gray-100 text-right font-mono">
+                        {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
                 }
-                return (
-                  <tr key={idx}>
-                    <td style={tdStyle}><b>{row.label}</b></td>
-                    <td colSpan={3}><b>{subtotalValue.toFixed(2)}</b></td>
-                  </tr>
-                );
-              }
-              if (row.type === 'input') {
-                return (
-                  <tr key={idx}>
-                    <td style={tdStyle}>{row.label}</td>
-                    <td>
-                      <input
-                        type="number"
-                        value={inputState[row.key] !== undefined && inputState[row.key] !== null ? inputState[row.key] : ''}
-                        onChange={e => handleInputChange(row.key, e.target.value)}
-                        style={{ width: "60px" }}
-                      />
-                    </td>
-                    <td colSpan={2}></td>
-                  </tr>
-                );
-              }
-              if (row.type === 'calc') {
-                let value = '';
-                try {
-                  value = evalExpr(row.expr, { data: calcContext });
-                } catch {
-                  value = '';
+                if (row.type === 'subtotal') {
+                  const subtotalValue = calcContext[`${section.toLowerCase()}Total`] || 0;
+                  if (row.key) {
+                    calcContext[row.key] = subtotalValue;
+                  }
+                  return (
+                    <tr key={idx} className="bg-blue-100">
+                      <td className="px-4 py-2 font-semibold" colSpan={3}>{row.label}</td>
+                      <td className="px-4 py-2 font-bold text-right">{subtotalValue.toFixed(2)}</td>
+                    </tr>
+                  );
                 }
-                // Always store the result if there's a key
-                if (row.key) {
-                  calcContext[row.key] = value;
-                  console.log(`Calculated ${row.key}:`, value);
+                if (row.type === 'input') {
+                  return (
+                    <tr key={idx} className="bg-gray-50">
+                      <td className="px-4 py-2">{row.label}</td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          value={inputState[row.key] !== undefined && inputState[row.key] !== null ? inputState[row.key] : ''}
+                          onChange={e => handleInputChange(row.key, e.target.value)}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  );
                 }
-                return (
-                  <tr key={idx}>
-                    <td style={tdStyle}><b>{row.label}</b></td>
-                    <td colSpan={2}></td>
-                    <td style={{ textAlign: 'right' }}>
-                      <b>{typeof value === 'number' ? value.toFixed(2) : value}</b>
-                    </td>
-                  </tr>
-                );
-              }
-              return null;
-            })}
-          </React.Fragment>
-        ))}
-      </tbody>
-    </table>
+                if (row.type === 'calc') {
+                  let value = '';
+                  try {
+                    value = evalExpr(row.expr, { data: calcContext });
+                  } catch {
+                    value = '';
+                  }
+                  if (row.key) {
+                    calcContext[row.key] = value;
+                  }
+                  return (
+                    <tr key={idx} className="bg-green-50">
+                      <td className="px-4 py-2 font-semibold">{row.label}</td>
+                      <td colSpan={2}></td>
+                      <td className="px-4 py-2 text-right font-bold">
+                        {typeof value === 'number' ? value.toFixed(2) : value}
+                      </td>
+                    </tr>
+                  );
+                }
+                return null;
+              })}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

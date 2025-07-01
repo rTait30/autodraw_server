@@ -10,7 +10,7 @@ function TopBar({ children }) {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/copelands/react');
+    navigate('/copelands');
   };
 
   return (
@@ -30,11 +30,11 @@ function TopBar({ children }) {
             alt="Logo"
             style={{ height: '36px', marginRight: '20px' }}
           />
-          <Link to="/copelands/reacthome" style={linkStyle}>Home</Link>
-          <Link to="/copelands/reactnew" style={linkStyle}>New Project</Link>
-          <Link to="/copelands/reactprojects" style={linkStyle}>Projects</Link>
+          <Link to="/copelands/home" style={linkStyle}>Home</Link>
+          <Link to="/copelands/new" style={linkStyle}>New Project</Link>
+          <Link to="/copelands/projects" style={linkStyle}>Projects</Link>
           {role === 'estimator' && (
-            <Link to="/copelands/reactanalytics" style={linkStyle}>Analytics</Link>
+            <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>

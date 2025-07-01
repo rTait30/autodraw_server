@@ -23,6 +23,9 @@ import SailEdit from './components/projects/shadesails/SailEdit';
 import Projects from './pages/Projects';
 import Project from './pages/Project';
 
+import Analytics from './pages/Analytics';
+
+import './styles/index.css';
 
 function App() {
   useEffect(() => {
@@ -45,6 +48,7 @@ function App() {
           </Route>
           <Route path="/copelands/projects" element={<Projects />} />
           <Route path="/copelands/projects/:id" element={<Project />} />
+          <Route path="/copelands/analytics" element={<Analytics />} />
         </Route>
       </Routes>
     </Router>

@@ -42,7 +42,7 @@ function Projects() {
             <tr key={project.id}>
               <td style={td}>{project.id}</td>
               <td style={td}>
-                <Link to={`/copelands/reactprojects/${project.id}`}>{project.name}</Link>
+                <Link to={`/copelands/projects/${project.id}`}>{project.name}</Link>
               </td>
               <td style={td}>{project.type}</td>
               <td style={td}>{project.status}</td>

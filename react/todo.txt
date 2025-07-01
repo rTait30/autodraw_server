@@ -22,6 +22,8 @@ clean
 
 codex
 
+Price list DB
+
 Logging
 
 User Settings/Page

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, Project, ProjectAttribute, User
+from models import db, Project, ProjectAttribute, User, Product
 from datetime import datetime, timezone
 
 projects_api_bp = Blueprint('projects_api', __name__)
@@ -166,3 +166,21 @@ def get_project_config(project_id):
     if attr and attr.data:
         data.update(attr.data)
     return jsonify(data)
+
+@projects_api_bp.route('/copelands/api/pricelist', methods=['GET'])
+def get_pricelist():
+    products = Product.query.order_by(Product.name).all()
+    result = []
+    for product in products:
+        result.append({
+            'id': product.id,
+            'sku': product.sku,
+            'name': product.name,
+            'description': product.description,
+            'price': product.price,
+            'unit': product.unit,
+            'active': product.active,
+            'created_at': product.created_at.isoformat() if product.created_at else None,
+            'updated_at': product.updated_at.isoformat() if product.updated_at else None,
+        })
+    return jsonify(result)

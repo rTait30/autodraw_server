@@ -26,4 +26,22 @@
   .roleStyle {
     @apply font-medium text-sm opacity-80;
   }
+  .auth-container {
+    @apply flex items-center justify-center;
+  }
+  .auth-box {
+    @apply rounded-2xl bg-white p-8 w-80 shadow-lg flex flex-col items-center;
+  }
+  .auth-logo {
+    @apply flex justify-center w-full mb-5;
+  }
+  .auth-error {
+    @apply text-red-600 text-sm mt-2;
+  }
+  .auth-success {
+    @apply text-green-600 text-sm mt-2;
+  }
+  .auth-checkbox-row {
+    @apply flex items-center mb-5 text-sm;
+  }
 }

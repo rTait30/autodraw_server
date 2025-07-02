@@ -11,7 +11,12 @@ from endpoints.api.projects.projects_api import projects_api_bp
 
 from models import db, User, Project, Log
 
+from dotenv import load_dotenv
+
 app = Flask(__name__, static_url_path='/copelands/static', static_folder='static')
+
+load_dotenv(os.path.join(app.instance_path, '.env'))
+
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 from flask_cors import CORS

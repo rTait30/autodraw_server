@@ -34,7 +34,10 @@ function TopBar({ children }) {
           <Link to="/copelands/new" style={linkStyle}>New Project</Link>
           <Link to="/copelands/projects" style={linkStyle}>Projects</Link>
           {role === 'estimator' && (
-            <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
+            <>
+              <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
+              <Link to="/copelands/prices" style={linkStyle}>Prices</Link>
+            </>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>

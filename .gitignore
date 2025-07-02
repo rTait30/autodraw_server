@@ -1,8 +1,6 @@
 /*.json
 
-instance/*.db
-instance/*.sqlite3
-instance/*.sqlite
+instance/
 
 .venv/
 

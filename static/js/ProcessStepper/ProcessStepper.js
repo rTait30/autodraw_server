@@ -18,7 +18,7 @@ class ProcessStepper  {
         this.showData = options.showData || false;
         this.steps = [];
         this.scaleFactor = options.scaleFactor || 0.5;
-        this.stepOffsetY = options.stepOffsetY || 400;
+        this.stepOffsetY = 1000;
         this.virtualWidth = options.virtualWidth || 1000;
         this.virtualHeight = options.virtualHeight || 1000;
         this.data = {};

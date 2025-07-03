@@ -188,8 +188,8 @@ export function initSurgicalCovers(mode) {
     const canvas = document.getElementById('surgicalCanvas');
     if (canvas) {
         if (mode === 'estimator') {
-            canvas.height = 2000; // or any height you want for estimator
-            canvas.width = 2000
+            canvas.height = 10000; // or any height you want for estimator
+            canvas.width = 10000;
         } else {
             canvas.height = 500; // default for client
         }

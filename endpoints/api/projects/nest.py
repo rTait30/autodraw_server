@@ -30,7 +30,7 @@ def prepare_rectangles(data):
         group_width = 0
         group_height = 0
         group = []
-        while small_panels and group_width + small_panels[0][0] <= 2000:  # Example max width
+        while small_panels and group_width + small_panels[0][0] <= 3000:  # Example max width
             panel = small_panels.pop(0)
             group_width += panel[0]
             group_height = max(group_height, panel[1])
@@ -67,6 +67,8 @@ def can_fit(rectangles, bin_width, bin_height):
 
 
 def run_rectpack_with_fixed_height(rectangles, fabric_height):
+
+    fabric_height = 3000
     # Binary search bounds
     min_width = max(r[0] for r in rectangles)  # At least the widest panel
     max_width = sum(r[0] for r in rectangles)  # Worst case, all side by side

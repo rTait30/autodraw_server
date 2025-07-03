@@ -416,6 +416,8 @@ export const oneFlatten = {
 
 
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
+
+    seam = 0;
     let rotated = false;
 
     // Normalize orientation: shorter side = height
@@ -494,37 +496,100 @@ export const twoExtra = {
 
 
     calcFunction: (data) => {
+        // ---- HARDCODED PANELS ----
+        // Each panel should have width and height in mm
 
-        if (data.finalPanels)
+        //bowenville
+        const hardcodedPanels2 = [
+            { label: "A", width: 90000, height: 2030 },
+        ];
+
+        //Speedwell
+        const hardcodedPanels = [
+            { label: "B", width: 27000, height: 1230 },
+
+            { label: "C", width: 25600, height: 1430 },
+
+            { label: "D", width: 202800, height: 1530 },
+
+            { label: "E", width: 62000, height: 1730 },
+
+            { label: "F", width: 92440, height: 1830 },
             
-        {
-            console.warn('Final panels already calculated, skipping seam calculation.');
-            return;
-        }
+            { label: "G", width: 30000, height: 1930 },
 
-        const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 200, data.seam);
-        const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 200, data.seam);
+            { label: "h", width: 90000, height: 2030 },
 
+            { label: "i", width: 61600, height: 2130 },
+
+            { label: "j", width: 1123000, height: 2230 },
+
+            { label: "k", width: 128300, height: 2430 },
+
+            { label: "l", width: 284000, height: 2630 },
+
+            { label: "m", width: 367000, height: 2730 },
+
+            { label: "n", width: 196000, height: 3230 }
+
+        ];
+
+        const hardcodedPanels3 = [
+
+
+
+
+            { label: "G", width: 12000, height: 2230 },
+            { label: "H", width: 12500, height: 2230 },
+
+            { label: "i", width: 12000, height: 2230 },
+            { label: "j", width: 12500, height: 2230 },
+
+            { label: "k", width: 12000, height: 2230 },
+            { label: "l", width: 12500, height: 2230 },
+
+            { label: "m", width: 27500, height: 2230 },
+
+            { label: "n", width: 12000, height: 2230 },
+            { label: "o", width: 12500, height: 2230 },
+
+            { label: "p", width: 12000, height: 2230 },
+            { label: "q", width: 12500, height: 2230 },
+
+            { label: "r", width: 12000, height: 2230 },
+            { label: "s", width: 12500, height: 2230 },
+
+            { label: "t", width: 12000, height: 2230 },
+            { label: "u", width: 12500, height: 2230 },
+        ];
+
+        const hardcodedPanels4 = [
+            { label: "A", width: 1000, height: 2000 },
+            { label: "B", width: 3000, height: 1000 },
+            { label: "C", width: 200, height: 500 },
+            { label: "D", width: 1000, height: 3000 },
+        ];
+
+        // Optionally, set fabricWidth and seam if not present
+        data.fabricWidth = 3000;
+        //data.seam = data.seam || 20;
+
+        // Split panels if needed
         const result = {};
-        mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);
-        sidePanels.forEach((panel, i) => result[`Rside${i + 1}`] = panel);
-        sidePanels.forEach((panel, i) => result[`Lside${i + 1}`] = panel);
-
-        let totalWidth = 0;
-        let maxHeight = 0;
-        for (const [, panel] of Object.entries(result)) {
-            totalWidth += panel.width + 50;
-            maxHeight = Math.max(maxHeight, panel.height);
+        for (const panel of hardcodedPanels) {
+            // Use your existing splitPanelIfNeeded logic
+            const splits = splitPanelIfNeeded(panel.width, panel.height, data.fabricWidth, 200, data.seam);
+            splits.forEach((split, i) => {
+                result[`${panel.label}${i + 1}`] = split;
+            });
         }
-        totalWidth -= 50;
 
+        // Build finalPanels as before
         let finalArea = 0;
-
         const finalPanels = {
-            quantity: data.quantity,
+            quantity: 1,
             panels: {}
         };
-
         for (const [key, panel] of Object.entries(result)) {
             const { hasSeam, ...panelWithoutSeam } = panel;
             finalPanels.panels[key] = panelWithoutSeam;
@@ -532,12 +597,10 @@ export const twoExtra = {
         }
 
         data.finalArea = finalArea;
-
         data.finalPanels = finalPanels;
-
-        console.log('Final panels:', finalPanels);
-
         data.rawPanels = result;
+        // Optionally log for debugging
+        console.log('Hardcoded panels, after split:', finalPanels);
     },
 
 
@@ -652,6 +715,8 @@ export const twoExtra = {
 
 
 async function sendPanelData(panelData, fabricWidth) {
+
+    fabricWidth = 2000; // Default to 2000 if not provided
   try {
     const response = await fetch('/copelands/nest_panels', {
       method: 'POST',
@@ -681,8 +746,8 @@ function drawNest(ctx, nestData, panels, fabricHeight) {
   const startX = 100;
 
   const nestWidth = nestData.total_width;
-  const fabricBoxWidthPx = 2000; // Always make the red box 2000px wide
-  const scale = fabricBoxWidthPx / nestWidth; // Scale so fabric box is always 2000px wide
+  const fabricBoxWidthPx = 8000; // Always make the red box 800px wide
+  const scale = (fabricBoxWidthPx / nestWidth) * 2; // Scale so fabric box is always 800px wide
   const centerY = 200 + (fabricHeight / 2) * scale;
 
   ctx.save();
@@ -778,9 +843,15 @@ export const threeNest = {
 
 
   calcFunction: async (data) => {
+
+    if (data.nestData) {
+      console.warn('Nesting data already calculated, skipping nesting calculation.');
+      return data;
+    }
+
     if (!data || !data.finalPanels || !data.fabricWidth) {
       console.warn('Missing data for nesting calcFunction');
-      return;
+      return data;
     }
 
     const nestData = await sendPanelData(data.finalPanels, data.fabricWidth);

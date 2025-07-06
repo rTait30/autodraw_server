@@ -1,24 +1,28 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 
-export default function CoverForm({ formData, onChange }) {
-  // Update parent on any field change
+export default function CoverForm({ formData, onChange, showFabricWidth = false }) {
   const handleInput = (e) => {
     const { name, value, type } = e.target;
     let newValue = value;
-    // Convert to number if input type is number and value is not empty
     if (type === 'number' && value !== '') {
       newValue = Number(value);
     }
     onChange({ ...formData, [name]: newValue });
   };
 
-  useEffect(() => {
-    // Debounce logic can be handled in parent if needed
-  }, [formData]);
-
   return (
     <div style={{ width: '200px' }}>
       <h3>Cover Form</h3>
+      <label>
+        Project Name:
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleInput}
+          style={{ width: '100%', marginTop: '8px' }}
+        />
+      </label>
       <label>
         Width (mm):
         <input
@@ -59,6 +63,18 @@ export default function CoverForm({ formData, onChange }) {
           style={{ width: '100%', marginTop: '8px' }}
         />
       </label>
+      {showFabricWidth && (
+        <label>
+          Fabric Width (mm):
+          <input
+            type="number"
+            name="fabricWidth"
+            value={formData.fabricWidth || ''}
+            onChange={handleInput}
+            style={{ width: '100%', marginTop: '8px' }}
+          />
+        </label>
+      )}
       <p style={{ fontSize: '0.9em', color: '#666' }}>
         Updates canvas after 2 seconds of no typing.
       </p>

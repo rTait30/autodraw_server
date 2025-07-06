@@ -33,10 +33,10 @@ function TopBar({ children }) {
           <Link to="/copelands/home" style={linkStyle}>Home</Link>
           <Link to="/copelands/new" style={linkStyle}>New Project</Link>
           <Link to="/copelands/projects" style={linkStyle}>Projects</Link>
-          {role === 'estimator' && (
+          {role !== 'client' && (
             <>
               <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
-              <Link to="/copelands/prices" style={linkStyle}>Prices</Link>
+              <Link to="/copelands/database" style={linkStyle}>Database</Link>
             </>
           )}
         </div>

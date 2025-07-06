@@ -5,11 +5,18 @@ from flask_jwt_extended import JWTManager
 import os
 import json
 
+from dotenv import load_dotenv
+from pathlib import Path
+
 from endpoints.api.auth.routes import auth_bp
 from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
 
+from endpoints.api.database import database_api_bp
+
 from models import db, User, Project, Log
+
+load_dotenv(dotenv_path=Path('instance') / '.env')
 
 app = Flask(__name__, static_url_path='/copelands/static', static_folder='static')
 
@@ -31,6 +38,8 @@ jwt = JWTManager(app)
 
 
 
+# ---- API ENDPOINTS ----
+
 db_initialized = False
 
 @app.before_request
@@ -46,9 +55,10 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(projects_api_bp)
 app.register_blueprint(nest_bp)
 
+app.register_blueprint(database_api_bp)
 
 
-# ---- API ENDPOINTS ----
+
 
 
 

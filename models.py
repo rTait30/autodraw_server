@@ -45,7 +45,7 @@ class Project(db.Model):
     info = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
-    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
 class ProjectAttribute(db.Model):
     __tablename__ = 'project_attributes'
@@ -67,6 +67,6 @@ class Product(db.Model):
     description = db.Column(db.Text, nullable=True)
     price = db.Column(db.Float, nullable=False)
     unit = db.Column(db.String(32), nullable=True)  # e.g., 'each', 'meter', etc.
-    active = db.Column(db.Boolean, default=True, nullable=False)
+    active = db.Column(db.Boolean, default=True, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

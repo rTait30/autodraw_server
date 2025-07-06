@@ -7,7 +7,8 @@ projects_api_bp = Blueprint('projects_api', __name__)
 
 # Create or update a project (save)
 @projects_api_bp.route('/copelands/api/projects/create', methods=['POST'])
-@jwt_required()
+# !! PROTECT THIS ENDPOINT IN PRODUCTION !!
+# @jwt_required()
 def save_project_config():
     data = request.get_json()
     project_id = data.get('id')
@@ -32,21 +33,25 @@ def save_project_config():
         db.session.add(project)
         db.session.flush()
 
-    # Save or update attributes (with calculated as a subkey)
+    # Save or update attributes (data) and calculated (calculated)
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    new_data = {}
-    if attributes:
-        new_data['attributes'] = attributes
-    if calculated:
-        new_data['calculated'] = calculated
 
     if attr:
-        # Merge with existing data if needed
-        if attr.data is None:
-            attr.data = {}
-        attr.data.update(new_data)
+        # Update in-place
+        if attributes:
+            if attr.data is None:
+                attr.data = {}
+            attr.data.update(attributes)
+        if calculated:
+            if attr.calculated is None:
+                attr.calculated = {}
+            attr.calculated.update(calculated)
     else:
-        attr = ProjectAttribute(project_id=project.id, data=new_data)
+        attr = ProjectAttribute(
+            project_id=project.id,
+            data=attributes or {},
+            calculated=calculated or {}
+        )
         db.session.add(attr)
 
     db.session.commit()
@@ -163,8 +168,13 @@ def get_project_config(project_id):
         'updated_at': project.updated_at.isoformat() if project.updated_at else None,
         'client_id': project.client_id,
     }
-    if attr and attr.data:
-        data.update(attr.data)
+
+    if attr:
+        if attr.data:
+            data['attributes'] = attr.data
+        if attr.calculated:
+            data['calculated'] = attr.calculated
+
     return jsonify(data)
 
 @projects_api_bp.route('/copelands/api/pricelist', methods=['GET'])

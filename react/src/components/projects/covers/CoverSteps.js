@@ -434,16 +434,18 @@ export const oneFlatten = {
 
 
 
+
+
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
     let rotated = false;
 
-    // Normalize orientation: always treat shorter side as height
+    // Normalize orientation: shorter side = height
     if (width < height) {
         [width, height] = [height, width];
         rotated = true;
     }
 
-    // Case 1: Panel fits in fabric without splitting
+    // Case 1: Fits without split
     if (height <= fabricWidth) {
         return [{
             width: rotated ? height : width,
@@ -452,25 +454,52 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
         }];
     }
 
-    // Small panel gets exactly: minAllowance + seam
-    const smallPanelHeight = minAllowance + seam;
+    // Preferred: small panel gets minAllowance + seam
+    const smallPanelTotal = minAllowance + seam;
+    const mainPanel = height - minAllowance;
 
-    // Main panel gets the rest of the original height
-    const mainPanelHeight = height - minAllowance;
+    if (mainPanel <= fabricWidth) {
+        return [
+            {
+                width: rotated ? height : width,
+                height: rotated ? mainPanel : mainPanel,
+                hasSeam: "main"
+            },
+            {
+                width: rotated ? height : width,
+                height: rotated ? smallPanelTotal : smallPanelTotal,
+                hasSeam: "small"
+            }
+        ];
+    }
 
-    return [
-        {
-            width: rotated ? height : width,
-            height: rotated ? mainPanelHeight : mainPanelHeight,
-            hasSeam: "main"
-        },
-        {
-            width: rotated ? height : width,
-            height: rotated ? smallPanelHeight : smallPanelHeight,
-            hasSeam: "small"
-        }
-    ];
+    // Fallback: main panel = fabricWidth, small gets rest + seam
+    const mainFallback = fabricWidth;
+    const smallPanelBody = height - mainFallback;
+    const smallFallbackTotal = smallPanelBody + seam;
+
+    if (smallPanelBody >= minAllowance) {
+        return [
+            {
+                width: rotated ? height : width,
+                height: rotated ? mainFallback : mainFallback,
+                hasSeam: "main"
+            },
+            {
+                width: rotated ? height : width,
+                height: rotated ? smallFallbackTotal : smallFallbackTotal,
+                hasSeam: "small"
+            }
+        ];
+    }
+
+    // If neither strategy works
+    throw new Error("Cannot split panel with given constraints.");
 }
+
+
+
+
 
 export const twoExtra = {
     title: 'Step 2: Create extra seams if wider than fabric',
@@ -645,6 +674,8 @@ export const twoExtra = {
 
 async function sendPanelData(panelData, fabricWidth) {
   try {
+    
+
     const response = await fetch('/copelands/nest_panels', {
       method: 'POST',
       headers: {
@@ -653,6 +684,7 @@ async function sendPanelData(panelData, fabricWidth) {
       body: JSON.stringify({
         ...panelData,
         fabricWidth // 🔁 Include fabricWidth in the payload
+
       })
     });
 
@@ -780,6 +812,8 @@ export const threeNest = {
       console.warn('Missing data for nesting calcFunction');
       return data;
     }
+
+    data.finalPanels.quantity = data.quantity || 1;
 
     const nestData = await sendPanelData(data.finalPanels, data.fabricWidth);
 

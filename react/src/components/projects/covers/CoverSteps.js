@@ -21,8 +21,7 @@ export const zeroVisualise = {
 
     // Calculation step: does nothing for this step
     calcFunction: (data) => {
-        // No calculation, just return data as-is
-        return data;
+      return {}; // no calculated fields, safe to return empty
     },
 
 
@@ -206,40 +205,37 @@ export const oneFlatten = {
 
 
     calcFunction: (data) => {
+      if (data.flatMainHeight) {
+        return {}; // calculation already done
+      }
 
-        if (data.flatMainHeight) {
-            // If flatMainHeight already exists calculations are already done, return data as-is
-            return data;
-        }
-        // ...all your calculation logic here...
-        let flatMainHeight = data.width + 2 * data.seam;
-        let flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
-        let flatSideWidth = data.width + data.seam * 2;
-        let flatSideHeight = data.height + data.hem + data.seam;
-        let totalSeamLength =
-            2 * flatMainWidth +
-            2 * flatSideWidth +
-            4 * flatSideHeight;
+      const flatMainHeight = data.width + 2 * data.seam;
+      const flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
+      const flatSideWidth = data.width + data.seam * 2;
+      const flatSideHeight = data.height + data.hem + data.seam;
+      const totalSeamLength =
+        2 * flatMainWidth +
+        2 * flatSideWidth +
+        4 * flatSideHeight;
 
-        
-        data.flatMainHeight = flatMainHeight;
-        data.flatMainWidth = flatMainWidth;
-        data.flatSideHeight = flatSideHeight;
-        data.flatSideWidth = flatSideWidth;
-        data.totalSeamLength = totalSeamLength;
+      const areaMainMM = flatMainWidth * flatMainHeight;
+      const areaSideMM = flatSideWidth * flatSideHeight;
+      const areaMainM2 = areaMainMM / 1e6;
+      const areaSideM2 = areaSideMM / 1e6;
+      const totalFabricArea = areaMainM2 + 2 * areaSideM2;
 
-        const areaMainMM = flatMainWidth * flatMainHeight;
-        const areaSideMM = flatSideWidth * flatSideHeight;
-        const areaMainM2 = areaMainMM / 1e6;
-        const areaSideM2 = areaSideMM / 1e6;
-        const totalFabricArea = areaMainM2 + 2 * areaSideM2;
-
-        data.areaMainM2 = areaMainM2;
-        data.areaSideM2 = areaSideM2;
-        data.totalFabricArea = totalFabricArea;
-
-        return data;
+      return {
+        flatMainHeight,
+        flatMainWidth,
+        flatSideWidth,
+        flatSideHeight,
+        totalSeamLength,
+        areaMainM2,
+        areaSideM2,
+        totalFabricArea,
+      };
     },
+
 
 
 
@@ -515,50 +511,40 @@ export const twoExtra = {
 
 
     calcFunction: (data) => {
+      
+      /*
+      if (data.finalPanels) {
+        console.warn('Final panels already calculated, skipping seam calculation.');
+        return {};
+      }
 
-        if (data.finalPanels)
-            
-        {
-            console.warn('Final panels already calculated, skipping seam calculation.');
-            return;
-        }
+      */
 
-        const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
-        const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
+      const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
+      const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
 
-        const result = {};
-        mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);
-        sidePanels.forEach((panel, i) => result[`Rside${i + 1}`] = panel);
-        sidePanels.forEach((panel, i) => result[`Lside${i + 1}`] = panel);
+      const result = {};
+      mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);
+      sidePanels.forEach((panel, i) => result[`Rside${i + 1}`] = panel);
+      sidePanels.forEach((panel, i) => result[`Lside${i + 1}`] = panel);
 
-        let totalWidth = 0;
-        let maxHeight = 0;
-        for (const [, panel] of Object.entries(result)) {
-            totalWidth += panel.width + 50;
-            maxHeight = Math.max(maxHeight, panel.height);
-        }
-        totalWidth -= 50;
+      let finalArea = 0;
+      const finalPanels = {
+        quantity: data.quantity,
+        panels: {}
+      };
 
-        let finalArea = 0;
+      for (const [key, panel] of Object.entries(result)) {
+        const { hasSeam, ...panelWithoutSeam } = panel;
+        finalPanels.panels[key] = panelWithoutSeam;
+        finalArea += panel.width * panel.height;
+      }
 
-        const finalPanels = {
-            quantity: data.quantity,
-            panels: {}
-        };
-
-        for (const [key, panel] of Object.entries(result)) {
-            const { hasSeam, ...panelWithoutSeam } = panel;
-            finalPanels.panels[key] = panelWithoutSeam;
-            finalArea += (panel.width * panel.height);
-        }
-
-        data.finalArea = finalArea;
-
-        data.finalPanels = finalPanels;
-
-        console.log('Final panels:', finalPanels);
-
-        data.rawPanels = result;
+      return {
+        finalArea,
+        finalPanels,
+        rawPanels: result
+      };
     },
 
 
@@ -802,28 +788,29 @@ export const threeNest = {
 
 
   calcFunction: async (data) => {
-
     if (data.nestData) {
       console.warn('Nesting data already calculated, skipping nesting calculation.');
-      return data;
+      return {};
     }
 
-    if (!data || !data.finalPanels || !data.fabricWidth) {
+    if (!data.finalPanels || !data.fabricWidth) {
       console.warn('Missing data for nesting calcFunction');
-      return data;
+      return {};
     }
 
-    data.finalPanels.quantity = data.quantity || 1;
+    const payload = {
+      ...data.finalPanels,
+      quantity: data.quantity || 1,
+    };
 
-    const nestData = await sendPanelData(data.finalPanels, data.fabricWidth);
+    const nestData = await sendPanelData(payload, data.fabricWidth);
 
     if (!nestData) {
       console.error('No nest data returned from server');
-      return;
+      return {};
     }
 
-
-    data.nestData = nestData;
+    return { nestData };
   },
 
 

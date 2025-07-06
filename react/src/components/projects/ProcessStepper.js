@@ -37,12 +37,16 @@ class ProcessStepper {
   }
 
   async runAll(initialData = {}) {
-    console.log('RUN START: initialData passed into runAll', initialData);
-    this.data = {};
+    const initialKeys = Object.keys(initialData);
+    const clone = JSON.parse(JSON.stringify(initialData));
+    const cloneKeys = Object.keys(clone);
 
-    this.data = structuredClone(initialData); // now we clone to isolate
+    console.log('🧪 initialData keys:', initialKeys);
+    console.log('🧪 cloned keys:', cloneKeys);
 
-    console.log('RUN START: data after cloning', this.data);
+    if (cloneKeys.length !== initialKeys.length) {
+      console.warn('❗ DATA MUTATED BEFORE CLONING — keys changed');
+    }
 
     if (this.hasCanvas) {
       this.ctx.setLineDash([]);
@@ -53,23 +57,31 @@ class ProcessStepper {
     for (let i = 0; i < this.steps.length; i++) {
       const step = this.steps[i];
       console.log(`Running step ${i}`);
-      //console.log(this.data);
-      await this.executeStep(step, this.data, i);
+      await this.executeStep(step, clone, i);
     }
-    
-    return this.data;
+
+    return clone; // ✅ returns only local result
   }
 
   async executeStep(step, data, index) {
+    console.groupCollapsed(`🧪 Step ${index}: ${step.title}`);
+
+    // Log keys seen by the calcFunction
+    console.log('📥 Data before calcFunction:', JSON.parse(JSON.stringify(data)));
+
+    // Run the calculation
     const result = step.isAsync
       ? await step.calcFunction(data)
       : step.calcFunction(data);
 
-    // Merge step result into shared run-local data
+    // Merge returned result into data
     if (typeof result === 'object' && result !== null) {
       Object.assign(data, result);
     }
 
+    console.log('📤 Data after calcFunction (merged):', JSON.parse(JSON.stringify(data)));
+
+    // Draw step if applicable
     if (this.hasCanvas && step.drawFunction) {
       const squareSize = 1000;
       const scale = this.canvas.width / squareSize;
@@ -77,18 +89,12 @@ class ProcessStepper {
       const offsetY = index * this.stepOffsetY * scale;
 
       this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-      step.drawFunction(this.ctx, squareSize, squareSize, data);
 
-      if (this.showData) {
-        this.ctx.fillStyle = 'black';
-        this.ctx.font = '20px Arial';
-        const dataText = JSON.stringify(data, null, 2);
-        const lines = dataText.split('\n');
-        lines.forEach((line, i) => {
-          this.ctx.fillText(line, 10, 100 + i * 20);
-        });
-      }
+      console.log('🎨 Drawing with data:', JSON.parse(JSON.stringify(data)));
+      step.drawFunction(this.ctx, squareSize, squareSize, data);
     }
+
+    console.groupEnd();
   }
 }
 

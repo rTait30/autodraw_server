@@ -8,19 +8,10 @@ export default function CoverNew() {
   const storedMode = localStorage.getItem('role') || 'client';
   const [mode] = useState(storedMode);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    width: 1000,
-    height: 1000,
-    length: 1000,
-    quantity: 2,
-    hem: 20,
-    seam: 20,
-    ...(storedMode === 'estimator' && { fabricWidth: 1370 }),
-  });
-
+  const [formData, setFormData] = useState({});
   const [calculated, setCalculated] = useState({});
   const canvasRef = useRef(null);
+  const lastRunRef = useRef(null);
 
   const steps = useMemo(() => {
     return mode === 'estimator'
@@ -28,45 +19,41 @@ export default function CoverNew() {
       : [zeroVisualise];
   }, [mode]);
 
-  const options = useMemo(
-    () => ({
-      showData: false,
-      scaleFactor: 1,
-      stepOffsetY: 700,
-    }),
-    []
-  );
+  const options = useMemo(() => ({
+    showData: false,
+    scaleFactor: 1,
+    stepOffsetY: 700,
+  }), []);
 
-  const { runAll } = useProcessStepper({
-    canvasRef,
-    steps,
-    options,
-  });
+  const { runAll } = useProcessStepper({ canvasRef, steps, options });
 
-  const lastRunRef = useRef(null);
+  function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj)); // Safe deep clone for pure data
+  }
 
   useEffect(() => {
     const timeout = setTimeout(async () => {
+      const hasRequired = ['width', 'height', 'length'].every(
+        (key) => formData[key] > 1
+      );
+
       const significantChange =
         !lastRunRef.current ||
         JSON.stringify(lastRunRef.current) !== JSON.stringify(formData);
 
-      if (
-        significantChange &&
-        formData.width > 1 &&
-        formData.height > 1 &&
-        formData.length > 1
-      ) {
-        const result = await runAll(formData);
+      if (hasRequired && significantChange) {
+        console.log('🔥 formData BEFORE cloning or runAll', formData);
+
+        const freshInput = deepClone(formData); // 💥 Clone defensively
+        const result = await runAll(freshInput);
+
         setCalculated(result);
-        lastRunRef.current = formData; // Save last run input
+        lastRunRef.current = freshInput; // 🧠 Save the clean snapshot
       }
     }, 2000);
+
     return () => clearTimeout(timeout);
   }, [formData, runAll]);
-
-  const canvasWidth = 500;
-  const canvasHeight = canvasWidth * steps.length;
 
   const handleSubmit = async () => {
     const payload = {
@@ -81,23 +68,20 @@ export default function CoverNew() {
     try {
       const res = await fetch(getBaseUrl('/api/projects/create'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const result = await res.json();
-      if (res.ok) {
-        alert(`Project saved! ID: ${result.id}`);
-      } else {
-        alert(`Failed to save: ${result.error}`);
-      }
+      alert(res.ok ? `Project saved! ID: ${result.id}` : `Failed to save: ${result.error}`);
     } catch (err) {
       console.error(err);
       alert('Error saving project.');
     }
   };
+
+  const canvasWidth = 500;
+  const canvasHeight = canvasWidth * steps.length;
 
   return (
     <div className="cover-new-root">
@@ -105,7 +89,6 @@ export default function CoverNew() {
       <div className="cover-row">
         <div>
           <CoverForm
-            formData={formData}
             onChange={setFormData}
             showFabricWidth={mode === 'estimator'}
           />

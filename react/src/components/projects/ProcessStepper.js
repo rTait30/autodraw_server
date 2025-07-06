@@ -37,8 +37,12 @@ class ProcessStepper {
   }
 
   async runAll(initialData = {}) {
-    // Local state scoped only to this run
-    const data = structuredClone(initialData);
+    console.log('RUN START: initialData passed into runAll', initialData);
+    this.data = {};
+
+    this.data = structuredClone(initialData); // now we clone to isolate
+
+    console.log('RUN START: data after cloning', this.data);
 
     if (this.hasCanvas) {
       this.ctx.setLineDash([]);
@@ -49,11 +53,11 @@ class ProcessStepper {
     for (let i = 0; i < this.steps.length; i++) {
       const step = this.steps[i];
       console.log(`Running step ${i}`);
-      console.log(data);
-      await this.executeStep(step, data, i);
+      //console.log(this.data);
+      await this.executeStep(step, this.data, i);
     }
-
-    return data;
+    
+    return this.data;
   }
 
   async executeStep(step, data, index) {

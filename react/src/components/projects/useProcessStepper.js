@@ -6,12 +6,13 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
 
   useEffect(() => {
     const canvas = canvasRef?.current || null;
+
     if (stepperRef.current) {
-      console.log('useProcessStepper: replacing existing ProcessStepper');
-    } else {
-      console.log('useProcessStepper: creating ProcessStepper');
+      console.log('useProcessStepper: destroying previous ProcessStepper');
+      stepperRef.current = null; // Optional: clean up
     }
 
+    console.log('useProcessStepper: creating ProcessStepper');
     const stepper = new ProcessStepper(canvas, options);
 
     steps.forEach(step => stepper.addStep(step));
@@ -22,7 +23,8 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
 
   const runAll = async (data) => {
     if (stepperRef.current) {
-      return await stepperRef.current.runAll(data); // <- data flows through
+      const cloned = structuredClone(data);  // clone before passing into stepper
+      return await stepperRef.current.runAll(cloned);
     }
     return {};
   };

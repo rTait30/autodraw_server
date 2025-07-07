@@ -37,7 +37,7 @@ export const coverSchema = {
     {
       "type": "row",
       "description": "Sewing",
-      "quantity": "(data.attributes.quantity ? Math.ceil(((2 * (data.calculated.flatMainWidth + data.calculated.flatMainHeight + 2 * (data.calculated.flatSideWidth + data.calculated.flatSideHeight))) / 1000 * 2 / 60) / 0.25) * 0.25 : 0)",
+      "quantity": "(Math.ceil(((2 * data.attributes.quantity * (data.calculated.flatMainWidth + data.calculated.flatMainHeight) + 4 * data.attributes.quantity * (data.calculated.flatSideWidth + data.calculated.flatSideHeight)) / 1000 * 2 / 60) / 0.25) * 0.25)",
       "unitCost": 55
     },
     {

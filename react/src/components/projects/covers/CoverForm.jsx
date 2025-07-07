@@ -4,7 +4,7 @@ export default function CoverForm({ onChange, showFabricWidth = false }) {
   const [formData, setFormData] = useState(() => ({
     name: '',
     width: 1000,
-    height: 2000,
+    height: 1000,
     length: 1000,
     quantity: 2,
     hem: 20,

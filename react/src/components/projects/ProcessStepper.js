@@ -48,6 +48,8 @@ class ProcessStepper {
       console.warn('❗ DATA MUTATED BEFORE CLONING — keys changed');
     }
 
+    
+
     if (this.hasCanvas) {
       this.ctx.setLineDash([]);
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);

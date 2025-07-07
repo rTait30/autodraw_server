@@ -118,14 +118,16 @@ export default function CoverNew() {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          width: 100vw;
+          width: 100%;
+          max-width: 1000px; /* Optional constraint */
+          margin: 0 auto;    /* Center it */
         }
         .cover-canvas-right {
           max-width: 500px;
           width: 100%;
           display: flex;
           justify-content: flex-end;
-          margin-right: 200px;
+          margin-right: 50px;
         }
         @media (max-width: 900px) {
           .cover-row {

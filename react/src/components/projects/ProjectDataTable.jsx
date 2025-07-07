@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-// Table styles
 const tableStyle = {
   width: "100%",
   borderCollapse: "collapse",
@@ -26,29 +25,50 @@ const headingStyle = {
   fontSize: "18px",
 };
 
-export default function ProjectDataTable({ project, role }) {
+export default function ProjectDataTable({
+  project,
+  role,
+  attributes,
+  setAttributes,
+  calculated,
+  onCheck,
+  onSubmit,
+  onReset
+}) {
   if (!project) return null;
 
   const isEstimator = role === 'estimator';
 
-  // Separate fields
   const projectData = {};
-  const attributes = project.attributes || {};
-  const calculated = project.calculated || {};
-
   for (const [key, value] of Object.entries(project)) {
     if (key !== 'attributes' && key !== 'calculated') {
       projectData[key] = value;
     }
   }
 
-  // Render section rows
-  const renderRows = (data, section, editable = false) =>
+  const renderStaticRows = (data, section) =>
     Object.entries(data).map(([key, value]) => (
       <tr key={`${section}-${key}`}>
         <td style={tdStyle}>{key}</td>
+        <td style={tdStyle}>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</td>
+      </tr>
+    ));
+
+  const renderEditableRows = (data) =>
+    Object.entries(data).map(([key, value]) => (
+      <tr key={`attributes-${key}`}>
+        <td style={tdStyle}>{key}</td>
         <td style={tdStyle}>
-          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+          {isEstimator ? (
+            <input
+              type="text"
+              value={value ?? ''}
+              onChange={e => setAttributes(prev => ({ ...prev, [key]: e.target.value }))}
+              style={{ width: '100%', padding: '4px', border: '1px solid #ccc' }}
+            />
+          ) : (
+            typeof value === 'object' ? JSON.stringify(value) : String(value)
+          )}
         </td>
       </tr>
     ));
@@ -56,22 +76,26 @@ export default function ProjectDataTable({ project, role }) {
   return (
     <table style={tableStyle}>
       <tbody>
-        <tr>
-          <td style={headingStyle}>Project Data</td>
-        </tr>
-        {renderRows(projectData, 'project', false)}
+        <tr><td style={headingStyle} colSpan="2">Project Data</td></tr>
+        {renderStaticRows(projectData, 'project')}
 
-        <tr>
-          <td style={headingStyle}>Project Attributes</td>
-        </tr>
-        {renderRows(attributes, 'attributes', false)}
+        <tr><td style={headingStyle} colSpan="2">Project Attributes</td></tr>
+        {renderEditableRows(attributes)}
 
         {isEstimator && (
+          <tr>
+            <td colSpan="2" style={{ textAlign: 'right', padding: '8px' }}>
+              <button onClick={onReset} style={{ marginRight: '8px' }}>Return</button>
+              <button onClick={onCheck} style={{ marginRight: '8px' }}>Check</button>
+              <button onClick={onSubmit}>Submit</button>
+            </td>
+          </tr>
+        )}
+
+        {isEstimator && calculated && Object.keys(calculated).length > 0 && (
           <>
-            <tr>
-              <td style={headingStyle}>Calculations</td>
-            </tr>
-            {renderRows(calculated, 'calculations', false)}
+            <tr><td style={headingStyle} colSpan="2">Calculated</td></tr>
+            {renderStaticRows(calculated, 'calculated')}
           </>
         )}
       </tbody>

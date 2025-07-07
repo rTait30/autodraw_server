@@ -5,14 +5,14 @@ from rectpack import newPacker
 nest_bp = Blueprint('nest_bp', __name__)
 
 def prepare_rectangles(data):
-    quantity = data['quantity']
+    quantity = int(data['quantity'])
     panels = data['panels']
     
     rectangles = []
     
     for i in range(1, quantity + 1):
         for name, dims in panels.items():
-            label = f"{i}_{name}"
+            label = f"{i}_{str(name)}"
             width = dims['width']
             height = dims['height']
             rectangles.append((width, height, label))

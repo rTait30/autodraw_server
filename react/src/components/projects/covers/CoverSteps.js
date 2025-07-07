@@ -559,13 +559,13 @@ export const twoExtra = {
 
     let finalArea = 0;
     const finalPanels = {
-      quantity: data.quantity,
+      quantity: Number(data.quantity),
       panels: {},
     };
 
     for (const [key, panel] of Object.entries(rawPanels)) {
       const { hasSeam, rotated, ...cleanPanel } = panel;
-      finalPanels.panels[key] = cleanPanel;
+      finalPanels.panels[String(key)] = cleanPanel;  // ✅ Force key to string
       finalArea += (panel.width * panel.height);
     }
 

@@ -1,6 +1,12 @@
 export const coverSchema = {
   "Materials": [
     {
+      "type": "row",
+      "description": "height test",
+      "unitCost": "2",
+      "quantity": "data.attributes.height"
+    },
+    {
       "type": "sku",
       "sku": "FAB002",
       "quantity": "data.calculated?.nestData?.total_width ? Math.ceil((data.calculated.nestData.total_width / 1000) * 2) / 2 : 0"
@@ -58,8 +64,6 @@ export const coverSchema = {
       "quantity": "0.5",
       "unitCost": 55
     },
-
-    
     {
       "type": "subtotal",
       "label": "Total Labour",
@@ -93,15 +97,9 @@ export const coverSchema = {
     },
     {
       "type": "calc",
-      "key": "marginAmount",
-      "label": "Margin Amount",
-      "expr": "(data.baseCost + data.contingencyAmount) * data.marginPercent / 100"
-    },
-    {
-      "type": "calc",
       "key": "suggestedPrice",
       "label": "Suggested Price",
-      "expr": "data.baseCost + data.contingencyAmount + data.marginAmount"
+      "expr": "(data.baseCost + data.contingencyAmount) / (1 - (data.marginPercent * 0.01))"
     }
   ]
-};
+}

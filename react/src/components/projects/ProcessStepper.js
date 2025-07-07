@@ -62,6 +62,8 @@ class ProcessStepper {
       await this.executeStep(step, clone, i);
     }
 
+    this.data = clone; // Store final data in stepper instance
+
     return clone; // ✅ returns only local result
   }
 
@@ -97,6 +99,10 @@ class ProcessStepper {
     }
 
     console.groupEnd();
+  }
+
+  getData() {
+    return this.data || {};
   }
 }
 

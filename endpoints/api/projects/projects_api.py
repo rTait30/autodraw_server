@@ -3,9 +3,12 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, Project, ProjectAttribute, User, Product
 from datetime import datetime, timezone
 
+from sqlalchemy.orm.attributes import flag_modified
+
 projects_api_bp = Blueprint('projects_api', __name__)
 
-# Create or update a project (save)
+from sqlalchemy.orm.attributes import flag_modified
+
 @projects_api_bp.route('/copelands/api/projects/create', methods=['POST'])
 # !! PROTECT THIS ENDPOINT IN PRODUCTION !!
 # @jwt_required()
@@ -13,11 +16,8 @@ def save_project_config():
     data = request.get_json()
     project_id = data.get('id')
 
-    # Project fields
     project_fields = {'name', 'type', 'status', 'due_date', 'info', 'client_id'}
     project_data = {k: v for k, v in data.items() if k in project_fields}
-
-    # Attribute and calculated fields (optional)
     attributes = data.get('attributes', {})
     calculated = data.get('calculated', {})
 
@@ -33,19 +33,37 @@ def save_project_config():
         db.session.add(project)
         db.session.flush()
 
-    # Save or update attributes (data) and calculated (calculated)
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
 
+    changes = {
+        'attributes_updated': [],
+        'attributes_added': [],
+        'calculated_updated': [],
+        'calculated_added': [],
+    }
+
     if attr:
-        # Update in-place
         if attributes:
             if attr.data is None:
                 attr.data = {}
-            attr.data.update(attributes)
+            for k, v in attributes.items():
+                if k not in attr.data:
+                    changes['attributes_added'].append(k)
+                elif attr.data[k] != v:
+                    changes['attributes_updated'].append(k)
+                attr.data[k] = v
+            flag_modified(attr, 'data')
+
         if calculated:
             if attr.calculated is None:
                 attr.calculated = {}
-            attr.calculated.update(calculated)
+            for k, v in calculated.items():
+                if k not in attr.calculated:
+                    changes['calculated_added'].append(k)
+                elif attr.calculated[k] != v:
+                    changes['calculated_updated'].append(k)
+                attr.calculated[k] = v
+            flag_modified(attr, 'calculated')
     else:
         attr = ProjectAttribute(
             project_id=project.id,
@@ -53,9 +71,16 @@ def save_project_config():
             calculated=calculated or {}
         )
         db.session.add(attr)
+        changes['attributes_added'].extend(list(attributes.keys()))
+        changes['calculated_added'].extend(list(calculated.keys()))
 
     db.session.commit()
-    return jsonify({'id': project.id, 'status': project.status.name if hasattr(project.status, 'name') else project.status})
+
+    return jsonify({
+        'id': project.id,
+        'status': project.status.name if hasattr(project.status, 'name') else project.status,
+        'changes': changes
+    })
 
 
 

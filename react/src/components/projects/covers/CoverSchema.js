@@ -3,7 +3,7 @@ export const coverSchema = {
     {
       "type": "row",
       "description": "height test",
-      "unitCost": "2",
+      "unitCost": "0.01",
       "quantity": "data.attributes.height"
     },
     {

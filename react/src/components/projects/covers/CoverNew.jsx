@@ -4,7 +4,10 @@ import { zeroVisualise, oneFlatten, twoExtra, threeNest } from './CoverSteps';
 import { useProcessStepper } from '../useProcessStepper';
 import { getBaseUrl } from '../../../utils/baseUrl';
 
+import { Link } from 'react-router-dom'; // Add this
+
 export default function CoverNew() {
+  const [newProjectId, setNewProjectId] = useState(null); // Add this state
   const storedMode = localStorage.getItem('role') || 'client';
   const [mode] = useState(storedMode);
 
@@ -73,7 +76,13 @@ export default function CoverNew() {
       });
 
       const result = await res.json();
-      alert(res.ok ? `Project saved! ID: ${result.id}` : `Failed to save: ${result.error}`);
+
+      if (res.ok) {
+        setNewProjectId(result.id); // ✅ Store new project ID
+        alert(`Project saved! ID: ${result.id}`);
+      } else {
+        alert(`Failed to save: ${result.error}`);
+      }
     } catch (err) {
       console.error(err);
       alert('Error saving project.');
@@ -97,6 +106,13 @@ export default function CoverNew() {
               Submit Project
             </button>
           )}
+          {newProjectId && (
+              <div style={{ marginTop: '10px' }}>
+                <Link to={`/copelands/projects/${newProjectId}`}>
+                  🔗 View Project #{newProjectId}
+                </Link>
+              </div>
+            )}
         </div>
         <div className="cover-canvas-right">
           <canvas

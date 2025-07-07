@@ -79,6 +79,13 @@ export default function ProjectDetailsPage() {
   const handleCheck = async () => {
     const coerced = coerceNumericFields(editedAttributes, numericKeys);
     setAttributes(coerced);
+    if (coerced.height) coerced.height = Number(coerced.height) || 0; // Ensure height is a number
+    if (coerced.width) coerced.width = Number(coerced.width) || 0; // Ensure width is a number
+    if (coerced.length) coerced.length = Number(coerced.length) || 0; // Ensure length is a number
+    if (coerced.hem) coerced.hem = Number(coerced.hem) || 0; // Ensure hem is a number
+    if (coerced.seam) coerced.seam = Number(coerced.seam) || 0; // Ensure seam is a number
+    if (coerced.fabricWidth) coerced.fabricWidth = Number(coerced.fabricWidth) || 0; // Ensure fabricWidth is a number
+    if (coerced.quantity) coerced.quantity = Number(coerced.quantity) || 0; // Ensure quantity is a number
     const newCalculated = await stepper.runAll(coerced);
     if (newCalculated) {
       setCalculated(newCalculated);

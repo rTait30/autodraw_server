@@ -428,224 +428,227 @@ export const oneFlatten = {
 
 //-----------------------------------------------------------------------------------------------------------
 
-
-
-
-
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
-    let rotated = false;
+  let rotated = false;
 
-    // Normalize orientation: shorter side = height
-    if (width < height) {
-        [width, height] = [height, width];
-        rotated = true;
-    }
-
-    // Case 1: Fits without split
-    if (height <= fabricWidth) {
-        return [{
-            width: rotated ? height : width,
-            height: rotated ? width : height,
-            hasSeam: "no"
-        }];
-    }
-
-    // Preferred: small panel gets minAllowance + seam
-    const smallPanelTotal = minAllowance + seam;
-    const mainPanel = height - minAllowance;
-
-    if (mainPanel <= fabricWidth) {
-        return [
-            {
-                width: rotated ? height : width,
-                height: rotated ? mainPanel : mainPanel,
-                hasSeam: "main"
-            },
-            {
-                width: rotated ? height : width,
-                height: rotated ? smallPanelTotal : smallPanelTotal,
-                hasSeam: "small"
-            }
-        ];
-    }
-
-    // Fallback: main panel = fabricWidth, small gets rest + seam
-    const mainFallback = fabricWidth;
-    const smallPanelBody = height - mainFallback;
-    const smallFallbackTotal = smallPanelBody + seam;
-
-    if (smallPanelBody >= minAllowance) {
-        return [
-            {
-                width: rotated ? height : width,
-                height: rotated ? mainFallback : mainFallback,
-                hasSeam: "main"
-            },
-            {
-                width: rotated ? height : width,
-                height: rotated ? smallFallbackTotal : smallFallbackTotal,
-                hasSeam: "small"
-            }
-        ];
-    }
-
-    // If neither strategy works
-    throw new Error("Cannot split panel with given constraints.");
-}
-
-
-
-
-
-export const twoExtra = {
-    title: 'Step 2: Create extra seams if wider than fabric',
-    initialData: { },
-    dependencies: [],
-    isLive: false,
-    isAsync: false,
-
-
-
-    // ----------------------------------- CALC -------------------------------------------
-
-
-
-    calcFunction: (data) => {
-      
-      /*
-      if (data.finalPanels) {
-        console.warn('Final panels already calculated, skipping seam calculation.');
-        return {};
-      }
-
-      */
-
-      const mainPanels = splitPanelIfNeeded(data.flatMainWidth, data.flatMainHeight, data.fabricWidth, 1, data.seam);
-      const sidePanels = splitPanelIfNeeded(data.flatSideWidth, data.flatSideHeight, data.fabricWidth, 1, data.seam);
-
-      const result = {};
-      mainPanels.forEach((panel, i) => result[`main${i + 1}`] = panel);
-      sidePanels.forEach((panel, i) => result[`Rside${i + 1}`] = panel);
-      sidePanels.forEach((panel, i) => result[`Lside${i + 1}`] = panel);
-
-      let finalArea = 0;
-      const finalPanels = {
-        quantity: data.quantity,
-        panels: {}
-      };
-
-      for (const [key, panel] of Object.entries(result)) {
-        const { hasSeam, ...panelWithoutSeam } = panel;
-        finalPanels.panels[key] = panelWithoutSeam;
-        finalArea += panel.width * panel.height;
-      }
-
-      return {
-        finalArea,
-        finalPanels,
-        rawPanels: result
-      };
-    },
-
-
-
-    // ----------------------------------- DRAW -------------------------------------------
-
-
-
-  drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
-      const padding = 100;
-
-      // Calculate total width and max height of all panels
-      let totalWidth = 0;
-      let maxHeight = 0;
-      for (const [, panel] of Object.entries(data.rawPanels)) {
-          totalWidth += panel.width;
-          maxHeight = Math.max(maxHeight, panel.height);
-      }
-
-      const availableWidth = 600;
-      const availableHeight = virtualHeight - 2 * padding;
-      const scale = Math.min(
-          availableWidth / totalWidth,
-          availableHeight / maxHeight
-      );
-
-      let cursorX = 100;
-      const originY = (virtualHeight - maxHeight * scale) / 2;
-
-      const drawData = [];
-      let totalArea = 0;
-
-      for (const [name, panel] of Object.entries(data.rawPanels)) {
-          const w = panel.width * scale;
-          const h = panel.height * scale;
-          const x = cursorX;
-          const y = originY;
-
-          const area = (panel.width * panel.height) / 1e6;
-          totalArea += area;
-
-          drawData.push({
-              name,
-              x,
-              y,
-              w,
-              h,
-              panel,
-              area,
-              seamY: panel.hasSeam === "top"
-                  ? y + (data.seam || 0) * scale
-                  : panel.hasSeam === "bottom"
-                  ? y + h - (data.seam || 0) * scale
-                  : null
-          });
-
-          cursorX += w + 50; // 50px gap between panels
-      }
-
-      ctx.save();
-      ctx.lineWidth = 2;
-      ctx.font = "14px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      for (const item of drawData) {
-          const { name, x, y, w, h, panel, area, seamY } = item;
-
-          ctx.strokeStyle = "#000";
-          ctx.setLineDash([]);
-          ctx.strokeRect(x, y, w, h);
-
-          if (seamY !== null) {
-              ctx.strokeStyle = "#00f";
-              ctx.setLineDash([4, 4]);
-              ctx.beginPath();
-              ctx.moveTo(x, seamY);
-              ctx.lineTo(x + w, seamY);
-              ctx.stroke();
-          }
-
-          ctx.setLineDash([]);
-          ctx.strokeStyle = "#000";
-
-          ctx.fillText(name, x + w / 2, y + h / 2 - 18);
-          ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
-          ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
-
-          ctx.save();
-          ctx.translate(x - 12, y + h / 2);
-          ctx.rotate(-Math.PI / 2);
-          ctx.fillText(`${panel.height} mm`, 0, 0);
-          ctx.restore();
-      }
-
-      ctx.restore();
+  // Normalize orientation: shorter side = height
+  if (width < height) {
+    [width, height] = [height, width];
+    rotated = true;
   }
 
-    // ----------------------------------- END DRAW --------------------------------------
+  // Case 1: Fits without split
+  if (height <= fabricWidth) {
+    const panel = {
+      width: rotated ? height : width,
+      height: rotated ? width : height,
+      hasSeam: "no",
+      rotated,
+    };
+    return [panel];
+  }
 
+  // Preferred: small panel gets minAllowance + seam
+  const smallPanelTotal = minAllowance + seam;
+  const mainPanel = height - minAllowance;
+
+  if (mainPanel <= fabricWidth) {
+    const panels = [
+      {
+        width: rotated ? height : width,
+        height: rotated ? mainPanel : mainPanel,
+        hasSeam: "main",
+        rotated,
+      },
+      {
+        width: rotated ? height : width,
+        height: rotated ? smallPanelTotal : smallPanelTotal,
+        hasSeam: "small",
+        rotated,
+      },
+    ];
+    return panels;
+  }
+
+  // Fallback: main panel = fabricWidth, small gets rest + seam
+  const mainFallback = fabricWidth;
+  const smallPanelBody = height - mainFallback;
+  const smallFallbackTotal = smallPanelBody + seam;
+
+  if (smallPanelBody >= minAllowance) {
+    const panels = [
+      {
+        width: rotated ? height : width,
+        height: rotated ? mainFallback : mainFallback,
+        hasSeam: "main",
+        rotated,
+      },
+      {
+        width: rotated ? height : width,
+        height: rotated ? smallFallbackTotal : smallFallbackTotal,
+        hasSeam: "small",
+        rotated,
+      },
+    ];
+    return panels;
+  }
+
+  throw new Error("Cannot split panel with given constraints.");
+}
+
+export const twoExtra = {
+  title: 'Step 2: Create extra seams if wider than fabric',
+  initialData: {},
+  dependencies: [],
+  isLive: false,
+  isAsync: false,
+
+  calcFunction: (data) => {
+    if (data.finalPanels) {
+      console.warn('Final panels already calculated, skipping seam calculation.');
+      return {};
+    }
+
+    const mainPanels = splitPanelIfNeeded(
+      data.flatMainWidth,
+      data.flatMainHeight,
+      data.fabricWidth,
+      200,
+      data.seam
+    );
+    const sidePanels = splitPanelIfNeeded(
+      data.flatSideWidth,
+      data.flatSideHeight,
+      data.fabricWidth,
+      200,
+      data.seam
+    );
+
+    const rawPanels = {};
+    mainPanels.forEach((panel, i) => rawPanels[`main${i + 1}`] = { ...panel });
+    sidePanels.forEach((panel, i) => rawPanels[`Rside${i + 1}`] = { ...panel });
+    sidePanels.forEach((panel, i) => rawPanels[`Lside${i + 1}`] = { ...panel });
+
+    let totalWidth = 0;
+    let maxHeight = 0;
+
+    for (const panel of Object.values(rawPanels)) {
+      totalWidth += panel.width + 50;
+      maxHeight = Math.max(maxHeight, panel.height);
+    }
+    totalWidth -= 50;
+
+    let finalArea = 0;
+    const finalPanels = {
+      quantity: data.quantity,
+      panels: {},
+    };
+
+    for (const [key, panel] of Object.entries(rawPanels)) {
+      const { hasSeam, rotated, ...cleanPanel } = panel;
+      finalPanels.panels[key] = cleanPanel;
+      finalArea += (panel.width * panel.height);
+    }
+
+    console.log('✅ Final panels:', finalPanels);
+
+    return {
+      rawPanels,
+      finalPanels,
+      finalArea,
+    };
+  },
+
+  drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+    const padding = 100;
+
+    let totalWidth = 0;
+    let maxHeight = 0;
+    for (const [, panel] of Object.entries(data.rawPanels)) {
+      totalWidth += panel.width;
+      maxHeight = Math.max(maxHeight, panel.height);
+    }
+
+    const availableWidth = 600;
+    const availableHeight = virtualHeight - 2 * padding;
+    const scale = Math.min(
+      availableWidth / totalWidth,
+      availableHeight / maxHeight
+    );
+
+    let cursorX = 100;
+    const originY = (virtualHeight - maxHeight * scale) / 2;
+
+    const drawData = [];
+    let totalArea = 0;
+
+    for (const [name, panel] of Object.entries(data.rawPanels)) {
+      const w = panel.width * scale;
+      const h = panel.height * scale;
+      const x = cursorX;
+      const y = originY;
+
+      const area = (panel.width * panel.height) / 1e6;
+      totalArea += area;
+
+      drawData.push({
+        name,
+        x,
+        y,
+        w,
+        h,
+        panel,
+        area,
+        seamY: panel.hasSeam === "top"
+          ? y + (data.seam || 0) * scale
+          : panel.hasSeam === "bottom"
+          ? y + h - (data.seam || 0) * scale
+          : null
+      });
+
+      cursorX += w + 50;
+    }
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.font = "14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (const item of drawData) {
+      const { name, x, y, w, h, panel, area, seamY } = item;
+
+      ctx.strokeStyle = "#000";
+      ctx.setLineDash([]);
+      ctx.strokeRect(x, y, w, h);
+
+      if (seamY !== null) {
+        ctx.strokeStyle = "#00f";
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, seamY);
+        ctx.lineTo(x + w, seamY);
+        ctx.stroke();
+      }
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#000";
+
+      ctx.fillText(name, x + w / 2, y + h / 2 - 18);
+      ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
+      ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
+
+      ctx.save();
+      ctx.translate(x - 12, y + h / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(`${panel.height} mm`, 0, 0);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  },
 };
+
 
 
 

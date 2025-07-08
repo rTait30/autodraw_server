@@ -1,46 +1,56 @@
-Landing page
+Done:
 
-Discrepency page
+    Landing page    
 
-Admin page
+    Discrepency page
 
-Dashboard page
+    Admin page
 
-New Project Page
+    Dashboard page
 
-Projects page
+    New Project Page
 
-Project page
+    Projects page
 
-projects (templates)
+    Project page
 
-Professional styling
+    projects (templates)
 
-No Jinja
+    Professional styling
 
-clean
+    No Jinja
 
-codex
+    clean
 
-Price list DB
+    codex
 
-DB page
+    Price list DB
 
-Schema:
-
-    Saving
-
-    use product code
+    DB page
 
 
 
-Logging
+TO DO:
 
-User Settings/Page
+    Schema:
 
-Graceful errors
+        use product code
 
-Analytics page
+        merge with EstimateTable
+
+        Saving
+
+    generalise styling
+
+    all project types
+
+    Logging
+
+    User Settings/Page
+
+    Graceful errors
+
+    Analytics page
 
 cp dist/index.html ../templates/reactindex.html
 cp -r dist/assets ../static/assets

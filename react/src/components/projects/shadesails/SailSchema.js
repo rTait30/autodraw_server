@@ -10,14 +10,14 @@ export const sailSchema = {
     {
       "type": "row",
       "description": "Design",
-      "quantity": 0.5,
-      "unitCost": 55
+      "quantity": "0.5",
+      "unitCost": "55"
     },
     {
       "type": "row",
       "description": "Cutting/Plotting",
       "quantity": "0.4",
-      "unitCost": 55
+      "unitCost": "55"
     },
     {
       "type": "subtotal",

@@ -32,6 +32,7 @@ function TopBar({ children }) {
           />
           <Link to="/copelands/home" style={linkStyle}>Home</Link>
           <Link to="/copelands/new" style={linkStyle}>New Project</Link>
+          <Link to="/copelands/newgeneral" style={linkStyle}>New General</Link>
           <Link to="/copelands/projects" style={linkStyle}>Projects</Link>
           {role !== 'client' && (
             <>

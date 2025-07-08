@@ -94,7 +94,6 @@ export default function CoverNew() {
 
   return (
     <div className="cover-new-root">
-      <h2>Create New Cover Project</h2>
       <div className="cover-row">
         <div>
           <CoverForm
@@ -136,7 +135,6 @@ export default function CoverNew() {
           align-items: flex-start;
           width: 100%;
           max-width: 1000px; /* Optional constraint */
-          margin: 0 auto;    /* Center it */
         }
         .cover-canvas-right {
           max-width: 500px;

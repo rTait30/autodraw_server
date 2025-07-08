@@ -14,11 +14,11 @@ import Home from './pages/Home';
 import TopBar from './components/TopBar';
 
 import NewProject from './pages/NewProject';
+import NewProjectGeneral from './pages/NewProjectGeneral';
+
 import CoverNew from './components/projects/covers/CoverNew';
-import CoverEdit from './components/projects/covers/CoverEdit';
 
 import SailNew from './components/projects/shadesails/SailNew';
-import SailEdit from './components/projects/shadesails/SailEdit';
 
 import Projects from './pages/Projects';
 import Project from './pages/Project';
@@ -48,6 +48,7 @@ function App() {
             <Route path="/copelands/new/cover" element={<CoverNew />} />
             <Route path="/copelands/new/shadesail" element={<SailNew />} />
           </Route>
+          <Route path="/copelands/newgeneral" element={<NewProjectGeneral />} />
           <Route path="/copelands/projects" element={<Projects />} />
           <Route path="/copelands/projects/:id" element={<Project />} />
           <Route path="/copelands/database" element={<Database />} />

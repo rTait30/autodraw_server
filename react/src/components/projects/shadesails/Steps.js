@@ -1,67 +1,4 @@
-function checkDiscrepancyCombo(data, combo, blameScores, failingCombos) {
 
-    console.log('[SailSteps] Checking 4-point group:', combo);
-    const [p1, p2, p3, p4] = combo;
-    // Get all edge and diagonal pairs for this quad
-    const pairs = [
-        [p1, p2], [p2, p3], [p3, p4], [p4, p1], // edges
-        [p1, p3], [p2, p4]                      // diagonals
-    ];
-    const lengths = pairs.map(([a, b]) => getLength(data, a, b));
-    const heights = combo.map(pid => data[`H${pid}`]);
-
-    if (lengths.some(l => typeof l !== 'number' || isNaN(l)) || heights.some(h => typeof h !== 'number' || isNaN(h))) {
-        console.log('[SailSteps] Invalid lengths or heights for combo:', combo, 'lengths:', lengths, 'heights:', heights);
-        failingCombos.push(combo);
-        return;
-    }
-
-    try {
-        // Unpack for clarity
-        const [l12, l23, l34, l41, l13, l24] = lengths;
-        const [h1, h2, h3, h4] = heights;
-
-        // XY projections
-        const l12xy = Math.sqrt(l12 ** 2 - (h2 - h1) ** 2);
-        const l23xy = Math.sqrt(l23 ** 2 - (h3 - h2) ** 2);
-        const l34xy = Math.sqrt(l34 ** 2 - (h4 - h3) ** 2);
-        const l41xy = Math.sqrt(l41 ** 2 - (h1 - h4) ** 2);
-        const l13xy = Math.sqrt(l13 ** 2 - (h1 - h3) ** 2);
-        const l24xy = Math.sqrt(l24 ** 2 - (h2 - h4) ** 2);
-
-        // Angles
-        const angle123 = Math.acos((l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy));
-        const angle134 = Math.acos((l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy));
-
-        // 2D positions for p2 and p4 relative to p1
-        const p2x = l12xy * Math.cos(angle123);
-        const p2y = l12xy * Math.sin(angle123);
-        const p4x = l41xy * Math.cos(angle134);
-        const p4y = -l41xy * Math.sin(angle134);
-
-        // 3D theoretical l24
-        const l24TeoricXYZ = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2 + (h2 - h4) ** 2);
-        const discrepancy = l24TeoricXYZ - l24;
-        const threshold = data.fabricType === 'PVC' ? 40 : 80;
-
-        if (Math.abs(discrepancy) > threshold) {
-            console.log('[SailSteps] Discrepancy detected in combo:', combo, 'Discrepancy:', discrepancy);
-            failingCombos.push(combo);
-
-            // Blame all pairs and heights in this combo
-            pairs.forEach(([a, b]) => {
-                const id = `${a}${b}`;
-                blameScores[id] = (blameScores[id] || 0) + 1;
-            });
-            combo.forEach(pid => {
-                blameScores[`H${pid}`] = (blameScores[`H${pid}`] || 0) + 1;
-            });
-        }
-    } catch (err) {
-        console.log('[SailSteps] Error in checkDiscrepancyCombo:', err, combo);
-        // Ignore errors for this combo
-    }
-}
 
 function getCombinations(arr, k) {
     const results = [];
@@ -81,139 +18,153 @@ function getCombinations(arr, k) {
 }
 
 function getLength(data, a, b) {
-    // Try both AB and BA keys for edge/diagonal
-    const key1 = `${a}${b}`;
-    const key2 = `${b}${a}`;
-    if (typeof data[key1] === 'number') return data[key1];
-    if (typeof data[key2] === 'number') return data[key2];
-    // If not a number, try to parse as float if string
-    if (data[key1] !== undefined) return parseFloat(data[key1]);
-    if (data[key2] !== undefined) return parseFloat(data[key2]);
-    return NaN;
+  const key1 = `${a}${b}`;
+  const key2 = `${b}${a}`;
+  if (typeof data.dimensions?.[key1] === 'number') return data.dimensions[key1];
+  if (typeof data.dimensions?.[key2] === 'number') return data.dimensions[key2];
+  return NaN;
+}
+
+function getHeight(data, pointId) {
+  return data.points?.[pointId]?.height ?? NaN;
+}
+
+function checkDiscrepancyCombo(data, combo, blameScores, failingCombos) {
+  const [p1, p2, p3, p4] = combo;
+  const pairs = [[p1, p2], [p2, p3], [p3, p4], [p4, p1], [p1, p3], [p2, p4]];
+  const lengths = pairs.map(([a, b]) => getLength(data, a, b));
+  const heights = combo.map(pid => getHeight(data, pid));
+
+  if (lengths.some(l => isNaN(l)) || heights.some(h => isNaN(h))) {
+    failingCombos.push(combo);
+    return;
+  }
+
+  try {
+    const [l12, l23, l34, l41, l13, l24] = lengths;
+    const [h1, h2, h3, h4] = heights;
+
+    const l12xy = Math.sqrt(l12 ** 2 - (h2 - h1) ** 2);
+    const l23xy = Math.sqrt(l23 ** 2 - (h3 - h2) ** 2);
+    const l34xy = Math.sqrt(l34 ** 2 - (h4 - h3) ** 2);
+    const l41xy = Math.sqrt(l41 ** 2 - (h1 - h4) ** 2);
+    const l13xy = Math.sqrt(l13 ** 2 - (h1 - h3) ** 2);
+    const l24xy = Math.sqrt(l24 ** 2 - (h2 - h4) ** 2);
+
+    const angle123 = Math.acos((l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy));
+    const angle134 = Math.acos((l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy));
+
+    const p2x = l12xy * Math.cos(angle123);
+    const p2y = l12xy * Math.sin(angle123);
+    const p4x = l41xy * Math.cos(angle134);
+    const p4y = -l41xy * Math.sin(angle134);
+
+    const l24TeoricXYZ = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2 + (h2 - h4) ** 2);
+    const discrepancy = l24TeoricXYZ - l24;
+    const threshold = data.fabricType === 'PVC' ? 40 : 80;
+
+    if (Math.abs(discrepancy) > threshold) {
+      failingCombos.push(combo);
+      pairs.forEach(([a, b]) => {
+        const id = `${a}${b}`;
+        blameScores[id] = (blameScores[id] || 0) + 1;
+      });
+      combo.forEach(pid => {
+        const hKey = pid;
+        blameScores[hKey] = (blameScores[hKey] || 0) + 1;
+      });
+    }
+  } catch (err) {
+    // Skip combo on error
+  }
 }
 
 export const steps = [
+  {
+    title: 'Step 0: Discrepancy & Top View',
+    id: 'discrepancy',
+    dependencies: [],
+    isLive: false,
+    isAsync: false,
+    calcFunction: (data) => {
+      const pointIds = Object.keys(data.points || {});
+      const N = pointIds.length;
+      const positions = {};
+      const getH = pid => getHeight(data, pid);
+      const getD = (a, b) => getLength(data, a, b);
 
-    {
-        title: 'Step 0: Discrepancy & Top View',
-        id: 'discrepancy',
-        dependencies: [],
-        isLive: false,
-        isAsync: false,
+      if (N === 3) {
+        const [p1, p2, p3] = pointIds;
+        const d12 = getD(p1, p2);
+        const d13 = getD(p1, p3);
+        const d23 = getD(p2, p3);
+        positions[p1] = { x: 0, y: 0, z: getH(p1) };
+        positions[p2] = { x: d12, y: 0, z: getH(p2) };
+        const x3 = (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
+        const y3 = Math.sqrt(Math.max(0, d13 ** 2 - x3 ** 2));
+        positions[p3] = { x: x3, y: y3, z: getH(p3) };
+      } else if (N === 4) {
+        const [A, B, C, D] = pointIds;
+        const dAB = getD(A, B), dBC = getD(B, C), dCD = getD(C, D), dDA = getD(D, A);
+        const dAC = getD(A, C), dBD = getD(B, D);
 
-        // ------------------- CALC FUNCTION -------------------
-  calcFunction: (data) => {
-    console.log('[SailSteps] zeroDiscrepancy.calcFunction input:', JSON.stringify(data, null, 2));
+        positions[A] = { x: 0, y: 0, z: getH(A) };
+        positions[B] = { x: dAB, y: 0, z: getH(B) };
+        const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
+        const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
+        positions[C] = { x: xC, y: yC, z: getH(C) };
 
-    const pointIds = Object.keys(data.points || {});
-    const N = pointIds.length;
-    const positions = {};
-
-    const getH = (pid) => data.points?.[pid]?.height ?? 0;
-    const getD = (a, b) => parseFloat(data[`${a}${b}`] || data[`${b}${a}`] || '0');
-
-    if (N === 3) {
-      const [p1, p2, p3] = pointIds;
-      const d12 = getD(p1, p2);
-      const d13 = getD(p1, p3);
-      const d23 = getD(p2, p3);
-
-      positions[p1] = { x: 0, y: 0, z: getH(p1) };
-      positions[p2] = { x: d12, y: 0, z: getH(p2) };
-      const x3 = (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
-      const y3 = Math.sqrt(Math.max(0, d13 ** 2 - x3 ** 2));
-      positions[p3] = { x: x3, y: y3, z: getH(p3) };
-
-    } else if (N === 4) {
-      const [A, B, C, D] = pointIds;
-      const dAB = getD(A, B);
-      const dBC = getD(B, C);
-      const dCD = getD(C, D);
-      const dDA = getD(D, A);
-      const dAC = getD(A, C);
-      const dBD = getD(B, D);
-
-      positions[A] = { x: 0, y: 0, z: getH(A) };
-      positions[B] = { x: dAB, y: 0, z: getH(B) };
-
-      const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
-      const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
-      positions[C] = { x: xC, y: yC, z: getH(C) };
-
-      const dx = xC, dy = yC;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
-      const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
-      const xD = a * dx / d;
-      const yD = a * dy / d;
-      const rx = -dy * (h / d);
-      const ry = dx * (h / d);
-      positions[D] = { x: xD + rx, y: yD + ry, z: getH(D) };
-    } else {
-      const centerX = 500, centerY = 500, radius = 350;
-      pointIds.forEach((pid, i) => {
-        const angle = (2 * Math.PI * i) / N;
-        positions[pid] = {
-          x: centerX + radius * Math.cos(angle),
-          y: centerY + radius * Math.sin(angle),
-          z: getH(pid)
-        };
-      });
-    }
-
-    let result;
-    if (pointIds.length >= 4) {
-      const allCombos = getCombinations(pointIds, 4);
-      const blameScores = {};
-      const failingCombos = [];
-
-      for (const combo of allCombos) {
-        checkDiscrepancyCombo({ ...data, positions }, combo, blameScores, failingCombos);
+        const dx = xC, dy = yC;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
+        const xD = a * dx / d;
+        const yD = a * dy / d;
+        const rx = -dy * (h / d);
+        const ry = dx * (h / d);
+        positions[D] = { x: xD + rx, y: yD + ry, z: getH(D) };
+      } else {
+        const centerX = 500, centerY = 500, radius = 350;
+        pointIds.forEach((pid, i) => {
+          const angle = (2 * Math.PI * i) / N;
+          positions[pid] = {
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle),
+            z: getH(pid)
+          };
+        });
       }
 
-      const sorted = Object.entries(blameScores).sort((a, b) => b[1] - a[1]);
-      const totalCombos = allCombos.length;
-      const failedCombos = failingCombos.length;
-
-      const topSuspects = sorted.slice(0, 3).map(([id, count]) =>
-        `• ${id}: ${count} combos`
-      ).join('\n');
-
-      const confident =
-        sorted.length > 1 && sorted[0][1] >= 3 && sorted[0][1] >= sorted[1][1] * 1.5;
-
-      result = {
-        discrepancy: failedCombos
+      const result = {};
+      if (N >= 4) {
+        const allCombos = getCombinations(pointIds, 4);
+        const blameScores = {}, failingCombos = [];
+        for (const combo of allCombos) {
+          checkDiscrepancyCombo(data, combo, blameScores, failingCombos);
+        }
+        const sorted = Object.entries(blameScores).sort((a, b) => b[1] - a[1]);
+        const totalCombos = allCombos.length;
+        const failedCombos = failingCombos.length;
+        const topSuspects = sorted.slice(0, 3).map(([id, count]) => `• ${id}: ${count} combos`).join('\n');
+        const confident = sorted.length > 1 && sorted[0][1] >= 3 && sorted[0][1] >= sorted[1][1] * 1.5;
+        result.discrepancy = failedCombos
           ? `⚠️ ${failedCombos} out of ${totalCombos} combinations show discrepancies.`
-          : `✅ No discrepancies detected in any 4-point group.`,
-        errorBD: failedCombos
-          ? (
-            pointIds.length === 4
-              ? 'There is a discrepancy, but with only 4 points it is not possible to identify the specific problem.'
-              : (confident && sorted.length > 0
-                ? `Please check dimension ${sorted[0][0]} (${sorted[0][1]} combos)\n\nTop suspects:\n${topSuspects}`
-                : `Please check dimensions:\n${topSuspects}`)
-          )
-          : ''
-      };
-    } else {
-      result = {
-        discrepancy: 'Not enough points for 4-point discrepancy check.',
-        errorBD: ''
-      };
-    }
+          : `✅ No discrepancies detected.`;
+        result.errorBD = failedCombos
+          ? (N === 4
+            ? 'There is a discrepancy, but with only 4 points it is not possible to identify the specific problem.'
+            : confident
+              ? `Please check dimension ${sorted[0][0]}\n\nTop suspects:\n${topSuspects}`
+              : `Please check dimensions:\n${topSuspects}`)
+          : '';
+      } else {
+        result.discrepancy = 'Not enough points for 4-point discrepancy check.';
+        result.errorBD = '';
+      }
 
-    const out = {
-      positions,
-      result,
-    };
-
-    console.log('[SailSteps] zeroDiscrepancy.calcFunction output:', JSON.stringify(out, null, 2));
-    return out;
-  },
-
-        // ------------------- DRAW FUNCTION -------------------
-        drawFunction: (ctx, virtualWidth, virtualHeight, data) => {
+      return { positions, result };
+    },
+    drawFunction: (ctx, data) => {
         console.log('[SailSteps] zeroDiscrepancy.drawFunction called with data:', JSON.stringify(data, null, 2));
         if (!data.positions) return;
 
@@ -251,8 +202,8 @@ export const steps = [
 
         // Padding for canvas
         const pad = 40;
-        const drawW = virtualWidth - 2 * pad;
-        const drawH = virtualHeight - 2 * pad;
+        const drawW = 1000 - 2 * pad;
+        const drawH = 1000 - 2 * pad;
         const shapeW = maxX - minX || 1;
         const shapeH = maxY - minY || 1;
         const scale = Math.min(drawW / shapeW, drawH / shapeH);
@@ -278,7 +229,7 @@ export const steps = [
             return '#333';
         }
 
-        ctx.clearRect(0, 0, virtualWidth, virtualHeight);
+        ctx.clearRect(0, 0, 1000, 1000);
         ctx.save();
         ctx.font = '16px Arial';
         ctx.lineWidth = 2;
@@ -340,7 +291,6 @@ export const steps = [
 
         ctx.restore();
     }
-    }
-
-// ------------------- END OF STEPS -------------------
+  }
 ];
+  

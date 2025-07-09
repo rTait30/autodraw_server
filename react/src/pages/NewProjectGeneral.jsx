@@ -7,6 +7,7 @@ const projectTypes = [
   { name: 'Covers', id: 'covers' },
   { name: 'Shade Sail', id: 'shadesails' },
   { name: 'Simple Box', id: 'simplebox' },
+  { name: 'Calculator', id: 'calculator' },
 ];
 
 export default function NewProjectGeneral() {
@@ -63,30 +64,60 @@ export default function NewProjectGeneral() {
     load();
   }, [selectedType]);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!loadedConfig || !formRef.current?.getData) return;
+  const [formData, setFormData] = useState(null);
 
-      const data = formRef.current.getData();
-      const stringified = JSON.stringify(data);
+  // Monitor form data changes (debounced)
+  useEffect(() => {
+    if (!formData || !loadedConfig) return;
+
+    const timeout = setTimeout(() => {
+      const stringified = JSON.stringify(formData);
       if (stringified !== lastSubmittedRef.current) {
-        runAll(data);
-        setResult(data.result || {});
+        runAll(formData);
+        setResult(formData.result || {});
         lastSubmittedRef.current = stringified;
       }
-    }, 1000);
+    }, 2000);
 
     return () => clearTimeout(timeout);
-  }, [loadedConfig, runAll]);
+  }, [formData, loadedConfig, runAll]);
+
+  // Poll formRef for changes (when formRef updates)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (formRef.current?.getData) {
+        const data = formRef.current.getData();
+        setFormData(data);
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [loadedConfig]);
+
 
   const handleSubmit = async () => {
     if (!formRef.current?.getData || !generalFormRef.current?.getData || !selectedType) return;
 
+    const general = generalFormRef.current.getData();
+    const attributes = formRef.current.getData();
+    const calculatedRaw = getData();
+
+    // Merge keys to exclude
+    const excludeKeys = new Set([
+      ...Object.keys(general),
+      ...Object.keys(attributes),
+    ]);
+
+    // Strip out overlapping keys from calculated
+    const calculated = Object.fromEntries(
+      Object.entries(calculatedRaw).filter(([key]) => !excludeKeys.has(key))
+    );
+
     const payload = {
       type: selectedType,
-      ...generalFormRef.current.getData(),
-      attributes: formRef.current.getData(),
-      calculated: getData()
+      ...general,
+      attributes,
+      calculated,
     };
 
     try {

@@ -17,6 +17,9 @@
   .inputStyle {
     @apply w-full p-3 mb-3 border border-blue-300 rounded-lg text-sm;
   }
+  .inputCompact {
+    @apply border border-blue-300 p-2 rounded text-left text-sm;
+  }
   .formStyle {
     @apply w-full flex flex-col items-center;
   }

@@ -95,7 +95,7 @@ class ProcessStepper {
       this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
 
       console.log('🎨 Drawing with data:', JSON.parse(JSON.stringify(data)));
-      step.drawFunction(this.ctx, squareSize, squareSize, data);
+      step.drawFunction(this.ctx, data);
     }
 
     console.groupEnd();

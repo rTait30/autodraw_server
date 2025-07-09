@@ -1,10 +1,24 @@
-import React from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
 }
 
-export default function SailForm({ formData, onChange }) {
+const SailForm = forwardRef(({ role }, ref) => {
+  const [formData, setFormData] = useState({
+    fabricType: 'ShadeCloth',
+    colour: 'Black',
+    exitPoint: 'A',
+    logo: 'A',
+    pointCount: 4,
+    dimensions: {},
+    points: {},
+  });
+
+  useImperativeHandle(ref, () => ({
+    getData: () => formData,
+  }));
+
   const pointCount = formData.pointCount || 4;
   const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
   const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
@@ -17,139 +31,212 @@ export default function SailForm({ formData, onChange }) {
     }
   }
 
-  // Safe getter
   const getPoint = (p) => formData.points?.[p] || {};
 
-  // Unified handler for point data
-  const handlePointChange = (point, field, value) => {
-    const updated = {
-      ...formData,
-      points: {
-        ...formData.points,
-        [point]: {
-          ...formData.points?.[point],
-          [field]: value,
-        },
+  const updateFormData = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateDimension = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      dimensions: {
+        ...prev.dimensions,
+        [key]: value === '' ? '' : Number(value),
       },
-    };
-    onChange(updated);
+    }));
   };
 
-  // Flat fields like edge lengths and diagonals
-  const handleFlatInput = (e) => {
-    const { name, value } = e.target;
-    onChange({ ...formData, [name]: value });
-  };
+  const handlePointChange = (point, field, value) => {
+    setFormData((prev) => {
+      const currentPoint = prev.points?.[point] || {};
+      const updatedPoint = {
+        ...currentPoint,
+        [field]: value,
+      };
 
-  const handlePointCount = (e) => {
-    const newCount = parseInt(e.target.value, 10);
-    const newPoints = Array.from({ length: newCount }, (_, i) => getPointLabel(i));
-    const newEdges = newPoints.map((p, i) => `${p}${newPoints[(i + 1) % newCount]}`);
-    const newDiagonals = [];
-    for (let i = 0; i < newCount; i++) {
-      for (let j = i + 1; j < newCount; j++) {
-        if ((j === (i + 1) % newCount) || (i === 0 && j === newCount - 1)) continue;
-        newDiagonals.push(`${newPoints[i]}${newPoints[j]}`);
+      if (field === 'fixingType') {
+        // Only auto-fill if not already manually entered
+        const defaultValue = defaultTensionAllowances[value] ?? 0;
+        const hasCustomTension =
+          typeof currentPoint.tensionAllowance === 'number' && currentPoint.tensionAllowance !== 0;
+        if (!hasCustomTension) {
+          updatedPoint.tensionAllowance = defaultValue;
+        }
       }
-    }
 
-    // Reset formData but preserve known fields
-    const newFormData = {
-      pointCount: newCount,
-      fabricType: formData.fabricType || 'PVC',
-      points: {},
-    };
+      return {
+        ...prev,
+        points: {
+          ...prev.points,
+          [point]: updatedPoint,
+        },
+      };
+    });
+  };
 
-    // Copy over valid edge/diagonal values
-    for (const edge of newEdges) {
-      if (formData[edge]) newFormData[edge] = formData[edge];
-    }
-    for (const diag of newDiagonals) {
-      if (formData[diag]) newFormData[diag] = formData[diag];
-    }
-
-    onChange(newFormData);
+  const defaultTensionAllowances = {
+    M8B: 50,
+    M10B: 50,
+    M12B: 50,
+    M8T: 300,
+    M10T: 350,
+    M12T: 450,
+    Plate: 150,
   };
 
   return (
-    <form style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '400px' }}>
-      <label>
-        Number of Points:
-        <select name="pointCount" value={pointCount} onChange={handlePointCount}>
-          {[3, 4, 5, 6, 7, 8].map((n) => (
-            <option key={n} value={n}>{n}</option>
+    <div>
+      <div className=" gap-4">
+        <label>
+          Fabric Type:
+          <select
+            className="inputStyle"
+            value={formData.fabricType}
+            onChange={(e) => updateFormData('fabricType', e.target.value)}
+          >
+            <option value="PVC">PVC</option>
+            <option value="ShadeCloth">Shade Cloth</option>
+          </select>
+        </label>
+
+        <label>
+          Colour:
+          <input
+            className="inputStyle"
+            value={formData.colour}
+            onChange={(e) => updateFormData('colour', e.target.value)}
+          />
+        </label>
+
+        <label>
+          Exit Point:
+          <input
+            className="inputStyle"
+            value={formData.exitPoint}
+            onChange={(e) => updateFormData('exitPoint', e.target.value)}
+          />
+        </label>
+
+        <label>
+          Logo:
+          <input
+            className="inputStyle"
+            value={formData.logo}
+            onChange={(e) => updateFormData('logo', e.target.value)}
+          />
+        </label>
+
+        <label>
+          Point Count:
+          <select
+            className="inputStyle"
+            value={pointCount}
+            onChange={(e) => updateFormData('pointCount', Number(e.target.value))}
+          >
+            {[3, 4, 5, 6, 7, 8].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div></div>
+
+      <div>
+        <b>Edges (mm)</b>
+        <div className="space-y-1 mt-1">
+          {edges.map((id) => (
+            <div key={id} className="flex items-center gap-2">
+              <label className="text-sm">{id}:</label>
+              <input
+                type="number"
+                className="inputCompact"
+                value={formData.dimensions[id] || ''}
+                onChange={(e) => updateDimension(id, e.target.value)}
+              />
+            </div>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
 
-      <label>
-        Fabric Type:
-        <select name="fabricType" value={formData.fabricType || 'PVC'} onChange={handleFlatInput}>
-          <option value="PVC">PVC</option>
-          <option value="ShadeCloth">Shade Cloth</option>
-        </select>
-      </label>
+      <div></div>
 
-      <b>Point Details</b>
-      {points.map((p) => (
-        <fieldset key={p} style={{ border: '1px solid #ccc', padding: '10px' }}>
-          <legend>Point {p}</legend>
-          <label>
-            Height (mm):
-            <input
-              type="number"
-              value={getPoint(p).height || ''}
-              onChange={(e) => handlePointChange(p, 'height', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            Fixing Type:
-            <select
-              value={getPoint(p).fixingType || 'Wall Plate'}
-              onChange={(e) => handlePointChange(p, 'fixingType', e.target.value)}
-            >
-              <option value="Wall Plate">Wall Plate</option>
-              <option value="Post">Post</option>
-              <option value="Turnbuckle">Turnbuckle</option>
-              <option value="Eye Bolt">Eye Bolt</option>
-            </select>
-          </label>
-          <label>
-            Tensioning Allowance (mm):
-            <input
-              type="number"
-              value={getPoint(p).tensionAllowance || ''}
-              onChange={(e) => handlePointChange(p, 'tensionAllowance', Number(e.target.value))}
-            />
-          </label>
-        </fieldset>
-      ))}
+      <div>
+        <b>Diagonals (mm)</b>
+        <div className="space-y-1 mt-1">
+          {diagonals.map((id) => (
+            <div key={id} className="flex items-center gap-2">
+              <label className="text-sm">{id}:</label>
+              <input
+                type="number"
+                className="inputCompact"
+                value={formData.dimensions[id] || ''}
+                onChange={(e) => updateDimension(id, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
 
-      <b>Edge Lengths (mm)</b>
-      {edges.map((id) => (
-        <label key={id}>
-          {id}:
-          <input
-            type="number"
-            name={id}
-            value={formData[id] || ''}
-            onChange={handleFlatInput}
-          />
-        </label>
-      ))}
+      <div>
+        <b>Point Properties</b>
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="font-semibold border-b">
+                <th className="text-left p-1">Point</th>
+                <th className="text-left p-1">Height</th>
+                <th className="text-left p-1">Fixing</th>
+                <th className="text-left p-1">Tension (mm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((p) => (
+                <tr key={p} className="border-b">
+                  <td className="p-1 font-medium">{p}</td>
+                  <td>
+                    <input
+                      type="number"
+                      className="inputCompact"
+                      value={getPoint(p).height || ''}
+                      onChange={(e) => handlePointChange(p, 'height', Number(e.target.value))}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="inputCompact"
+                      value={getPoint(p).fixingType || 'Wall Plate'}
+                      onChange={(e) => handlePointChange(p, 'fixingType', e.target.value)}
+                    >
+                      
+                      <option value="M8B">M8 Bowshackle</option>
+                      <option value="M10B">M10 Bowshackle</option>
+                      <option value="M12B">M12 Bowshackle</option>
 
-      <b>Diagonals (mm)</b>
-      {diagonals.map((id) => (
-        <label key={id}>
-          {id}:
-          <input
-            type="number"
-            name={id}
-            value={formData[id] || ''}
-            onChange={handleFlatInput}
-          />
-        </label>
-      ))}
-    </form>
+                      <option value="M8T">M8 Turnbuckle</option>
+                      <option value="M10T">M10 Turnbuckle</option>
+                      <option value="M12T">M12 Turnbuckle</option>
+
+                      <option value="Plate">Plate</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="inputCompact"
+                      value={getPoint(p).tensionAllowance || ''}
+                      onChange={(e) => handlePointChange(p, 'tensionAllowance', Number(e.target.value))}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
-}
+});
+
+export default SailForm;

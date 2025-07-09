@@ -29,7 +29,15 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
     return {};
   };
 
+  const getData = () => {
+    if (stepperRef.current) {
+      return stepperRef.current.getData() || {};
+    }
+    return {};
+  };
+
   return {
     runAll,
+    getData,
   };
 }

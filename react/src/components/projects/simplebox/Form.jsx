@@ -1,25 +1,37 @@
-import React from 'react';
+import React, { useImperativeHandle, forwardRef, useState, useEffect } from 'react';
 
-export default function SimpleBoxForm({ formData, onChange }) {
+const SimpleBoxForm = forwardRef((props, ref) => {
+  const [formData, setFormData] = useState({
+    width: 100,
+    height: 100,
+    depth: 100,
+  });
+
+  useImperativeHandle(ref, () => ({
+    getData: () => formData,
+  }));
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    onChange({ ...formData, [name]: Number(value) });
+    setFormData((prev) => ({ ...prev, [name]: Number(value) }));
   };
 
   return (
-    <form style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px' }}>
+    <div>
       <label>
         Width (mm):
-        <input type="number" name="width" value={formData.width || ''} onChange={handleChange} />
+        <input type="number" className="inputStyle" name="width" value={formData.width} onChange={handleChange} />
       </label>
       <label>
         Height (mm):
-        <input type="number" name="height" value={formData.height || ''} onChange={handleChange} />
+        <input type="number" className="inputStyle" name="height" value={formData.height} onChange={handleChange} />
       </label>
       <label>
         Depth (mm):
-        <input type="number" name="depth" value={formData.depth || ''} onChange={handleChange} />
+        <input type="number" className="inputStyle" name="depth" value={formData.depth} onChange={handleChange} />
       </label>
-    </form>
+    </div>
   );
-}
+});
+
+export default SimpleBoxForm;

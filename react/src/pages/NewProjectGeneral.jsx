@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Menu } from 'lucide-react';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
+import GeneralFields from '../components/projects/GeneralFields';
 
 const projectTypes = [
   { name: 'Covers', id: 'covers' },
-  { name: 'Shade Sails', id: 'shadesails' },
+  { name: 'Shade Sail', id: 'shadesails' },
   { name: 'Simple Box', id: 'simplebox' },
 ];
 
@@ -12,39 +13,16 @@ export default function NewProjectGeneral() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [loadedConfig, setLoadedConfig] = useState(null);
-
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-
-  useEffect(() => {
-    if (!selectedType) return;
-
-    const load = async () => {
-      try {
-        const [FormModule, StepsModule, InfoModule] = await Promise.all([
-          import(`../components/projects/${selectedType}/Form.jsx`),
-          import(`../components/projects/${selectedType}/Steps.js`),
-          import(`../components/projects/${selectedType}/info.js`),
-        ]);
-
-        setLoadedConfig({
-          FormComponent: FormModule.default,
-          steps: StepsModule.steps,
-          title: InfoModule.title || 'New Project',
-          getInitialFormData: InfoModule.getInitialFormData || (() => ({})),
-        });
-      } catch (err) {
-        console.error(`Error loading type "${selectedType}":`, err);
-        setLoadedConfig(null);
-      }
-    };
-
-    load();
-  }, [selectedType]);
-
-  const canvasRef = useRef(null);
-  const [formData, setFormData] = useState({});
   const [result, setResult] = useState({});
   const lastSubmittedRef = useRef(null);
+  const canvasRef = useRef(null);
+  const formRef = useRef(null);
+  const generalFormRef = useRef(null);
+
+  const role = localStorage.getItem('role') || 'guest';
+  const userId = localStorage.getItem('user_id') || '';
+
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const options = useMemo(() => ({
     showData: false,
@@ -54,36 +32,82 @@ export default function NewProjectGeneral() {
     stepOffsetY: 1000,
   }), []);
 
-  const { runAll } = useProcessStepper({
+  const { runAll, getData } = useProcessStepper({
     canvasRef,
     steps: loadedConfig?.steps || [],
     options,
   });
 
   useEffect(() => {
-    if (!loadedConfig) return;
-    setFormData(loadedConfig.getInitialFormData());
-  }, [loadedConfig]);
+    if (!selectedType) return;
 
-  // Auto-run on form change
+    const load = async () => {
+      try {
+        const [FormModule, StepsModule] = await Promise.all([
+          import(`../components/projects/${selectedType}/Form.jsx`),
+          import(`../components/projects/${selectedType}/Steps.js`),
+        ]);
+
+        setLoadedConfig({
+          FormComponent: FormModule.default,
+          steps: StepsModule.steps,
+          title: selectedType,
+        });
+        setResult({});
+      } catch (err) {
+        console.error(`Error loading type "${selectedType}":`, err);
+        setLoadedConfig(null);
+      }
+    };
+
+    load();
+  }, [selectedType]);
+
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!loadedConfig || !formData) return;
+      if (!loadedConfig || !formRef.current?.getData) return;
 
-      const runData = { ...formData };
-      const stringified = JSON.stringify(runData);
+      const data = formRef.current.getData();
+      const stringified = JSON.stringify(data);
       if (stringified !== lastSubmittedRef.current) {
-        runAll(runData);
-        setResult(runData.result || {});
+        runAll(data);
+        setResult(data.result || {});
         lastSubmittedRef.current = stringified;
       }
     }, 1000);
+
     return () => clearTimeout(timeout);
-  }, [formData, loadedConfig, runAll]);
+  }, [loadedConfig, runAll]);
+
+  const handleSubmit = async () => {
+    if (!formRef.current?.getData || !generalFormRef.current?.getData || !selectedType) return;
+
+    const payload = {
+      type: selectedType,
+      ...generalFormRef.current.getData(),
+      attributes: formRef.current.getData(),
+      calculated: getData()
+    };
+
+    try {
+      const response = await fetch('/copelands/api/project/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const res = await response.json();
+      alert('Project submitted successfully!');
+      console.log('Submitted:', res);
+    } catch (err) {
+      console.error('Submission error:', err);
+      alert('Failed to submit project.');
+    }
+  };
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      {/* Top bar for mobile */}
       <div className="flex items-center justify-between p-4 bg-white shadow-md md:hidden">
         <h3 className="text-lg font-bold">Products</h3>
         <button onClick={toggleSidebar}>
@@ -124,7 +148,16 @@ export default function NewProjectGeneral() {
             <h2 className="text-xl font-bold mb-4">{loadedConfig.title}</h2>
             <div className="flex flex-col md:flex-row gap-10">
               <div className="flex-1">
-                <loadedConfig.FormComponent formData={formData} onChange={setFormData} />
+                <GeneralFields ref={generalFormRef} role={role} userId={userId} />
+                <div className="my-6 border-t pt-6">
+                  <loadedConfig.FormComponent ref={formRef} role={role} />
+                </div>
+                <button
+                  onClick={handleSubmit}
+                  className="buttonStyle"
+                >
+                  Submit Project
+                </button>
               </div>
               <div className="flex-1 flex flex-col items-center">
                 <canvas

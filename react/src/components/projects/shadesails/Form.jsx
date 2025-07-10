@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
@@ -15,6 +15,8 @@ const SailForm = forwardRef(({ role }, ref) => {
     points: {},
   });
 
+
+
   useImperativeHandle(ref, () => ({
     getData: () => formData,
   }));
@@ -22,6 +24,26 @@ const SailForm = forwardRef(({ role }, ref) => {
   const pointCount = formData.pointCount || 4;
   const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
   const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
+
+    useEffect(() => {
+    setFormData((prev) => {
+      const updatedPoints = { ...prev.points };
+      const pointLabels = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
+      for (const p of pointLabels) {
+        if (!updatedPoints[p]) {
+          updatedPoints[p] = {
+            height: 0,
+            fixingType: 'M8 Bowshackle',
+            tensionAllowance: 50,
+          };
+        }
+      }
+      return {
+        ...prev,
+        points: updatedPoints,
+      };
+    });
+  }, [pointCount]);
 
   const diagonals = [];
   for (let i = 0; i < pointCount; i++) {
@@ -56,14 +78,21 @@ const SailForm = forwardRef(({ role }, ref) => {
       };
 
       if (field === 'fixingType') {
-        // Only auto-fill if not already manually entered
-        const defaultValue = defaultTensionAllowances[value] ?? 0;
-        const hasCustomTension =
-          typeof currentPoint.tensionAllowance === 'number' && currentPoint.tensionAllowance !== 0;
-        if (!hasCustomTension) {
-          updatedPoint.tensionAllowance = defaultValue;
+        const newDefault = defaultTensionAllowances[value] ?? 50;
+
+        // Try to get the previous default for the old fixingType
+        const oldFixingType = currentPoint.fixingType;
+        const oldDefault = defaultTensionAllowances[oldFixingType] ?? 50;
+
+        const isStillDefault =
+          typeof currentPoint.tensionAllowance !== 'number' || // hasn't been touched
+          currentPoint.tensionAllowance === oldDefault;
+
+        if (isStillDefault) {
+          updatedPoint.tensionAllowance = newDefault;
         }
       }
+
 
       return {
         ...prev,
@@ -225,7 +254,7 @@ const SailForm = forwardRef(({ role }, ref) => {
                     <input
                       type="number"
                       className="inputCompact"
-                      value={getPoint(p).tensionAllowance || ''}
+                      value={getPoint(p).tensionAllowance || 50}
                       onChange={(e) => handlePointChange(p, 'tensionAllowance', Number(e.target.value))}
                     />
                   </td>

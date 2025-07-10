@@ -31,13 +31,12 @@ function TopBar({ children }) {
             style={{ height: '36px', marginRight: '20px' }}
           />
           <Link to="/copelands/home" style={linkStyle}>Home</Link>
-          <Link to="/copelands/new" style={linkStyle}>New Project</Link>
-          <Link to="/copelands/newgeneral" style={linkStyle}>New General</Link>
+          <Link to="/copelands/newgeneral" style={linkStyle}>New Project</Link>
           <Link to="/copelands/projects" style={linkStyle}>Projects</Link>
           {role !== 'client' && (
             <>
-              <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
               <Link to="/copelands/database" style={linkStyle}>Database</Link>
+              <Link to="/copelands/analytics" style={linkStyle}>Analytics</Link>
             </>
           )}
         </div>

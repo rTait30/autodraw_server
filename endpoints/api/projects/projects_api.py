@@ -9,17 +9,34 @@ projects_api_bp = Blueprint('projects_api', __name__)
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from flask import request, jsonify
+from datetime import datetime, timezone
+from sqlalchemy.orm.attributes import flag_modified
+from dateutil.parser import parse as parse_date
+from models import db, Project, ProjectAttribute  # adjust imports as needed
+
 @projects_api_bp.route('/copelands/api/projects/create', methods=['POST'])
 # !! PROTECT THIS ENDPOINT IN PRODUCTION !!
 # @jwt_required()
 def save_project_config():
     data = request.get_json()
-    project_id = data.get('id')
 
-    project_fields = {'name', 'type', 'status', 'due_date', 'info', 'client_id'}
-    project_data = {k: v for k, v in data.items() if k in project_fields}
-    attributes = data.get('attributes', {})
-    calculated = data.get('calculated', {})
+    project_id = data.get('id')  # Optional update
+    allowed_fields = {'name', 'type', 'status', 'due_date', 'info', 'client_id'}
+    project_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+    # Normalize due_date: allow empty string or JavaScript-style date
+    due_date = project_data.get('due_date')
+    if due_date:
+        try:
+            project_data['due_date'] = parse_date(due_date)
+        except Exception:
+            return jsonify({'error': f"Invalid due_date format: {due_date}"}), 400
+    else:
+        project_data['due_date'] = None
+
+    attributes = data.get('attributes', {}) or {}
+    calculated = data.get('calculated', {}) or {}
 
     if project_id:
         project = Project.query.get(project_id)
@@ -31,10 +48,9 @@ def save_project_config():
     else:
         project = Project(**project_data)
         db.session.add(project)
-        db.session.flush()
+        db.session.flush()  # So we can use project.id below
 
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-
     changes = {
         'attributes_updated': [],
         'attributes_added': [],
@@ -43,32 +59,30 @@ def save_project_config():
     }
 
     if attr:
-        if attributes:
-            if attr.data is None:
-                attr.data = {}
-            for k, v in attributes.items():
-                if k not in attr.data:
-                    changes['attributes_added'].append(k)
-                elif attr.data[k] != v:
-                    changes['attributes_updated'].append(k)
-                attr.data[k] = v
-            flag_modified(attr, 'data')
+        if attr.data is None:
+            attr.data = {}
+        for k, v in attributes.items():
+            if k not in attr.data:
+                changes['attributes_added'].append(k)
+            elif attr.data[k] != v:
+                changes['attributes_updated'].append(k)
+            attr.data[k] = v
+        flag_modified(attr, 'data')
 
-        if calculated:
-            if attr.calculated is None:
-                attr.calculated = {}
-            for k, v in calculated.items():
-                if k not in attr.calculated:
-                    changes['calculated_added'].append(k)
-                elif attr.calculated[k] != v:
-                    changes['calculated_updated'].append(k)
-                attr.calculated[k] = v
-            flag_modified(attr, 'calculated')
+        if attr.calculated is None:
+            attr.calculated = {}
+        for k, v in calculated.items():
+            if k not in attr.calculated:
+                changes['calculated_added'].append(k)
+            elif attr.calculated[k] != v:
+                changes['calculated_updated'].append(k)
+            attr.calculated[k] = v
+        flag_modified(attr, 'calculated')
     else:
         attr = ProjectAttribute(
             project_id=project.id,
-            data=attributes or {},
-            calculated=calculated or {}
+            data=attributes,
+            calculated=calculated
         )
         db.session.add(attr)
         changes['attributes_added'].extend(list(attributes.keys()))

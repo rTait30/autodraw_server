@@ -10,7 +10,7 @@ export const steps = [
       if (!ctx || !data) return;
       ctx.fillStyle = '#28a745';
       ctx.font = '16px sans-serif';
-      ctx.fillText(`Step 1: ${data.a} ${data.operation === 'add' ? '+' : '*'} ${data.b} = ${data.result1}`, 50, 100);
+      ctx.fillText(`Step 1: ${data.a} ${data.operation === 'add' ? '+' : '*'} ${data.b} = ${data.result1}`, 100, 100);
     },
   },
   {
@@ -23,7 +23,7 @@ export const steps = [
       if (!ctx || !data) return;
       ctx.fillStyle = '#dc3545';
       ctx.font = '16px sans-serif';
-      ctx.fillText(`Step 2: ${data.result1} * ${data.c} = ${data.result2}`, 50, 100);
+      ctx.fillText(`Step 2: ${data.result1} * ${data.c} = ${data.result2}`, 100, 100);
     },
   },
 ];

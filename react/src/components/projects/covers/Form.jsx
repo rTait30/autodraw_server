@@ -11,7 +11,7 @@ const CoverForm = forwardRef(({ showFabricWidth = false }, ref) => {
     quantity: 2,
     hem: 20,
     seam: 20,
-    ...(showFabricWidth && { fabricWidth: 1370 }),
+    fabricWidth: 1370,
   }));
 
   useImperativeHandle(ref, () => ({
@@ -37,11 +37,18 @@ const CoverForm = forwardRef(({ showFabricWidth = false }, ref) => {
     }));
   };
 
+  
+
   return (
     <div className="space-y-4 w-[240px]">
       <h3 className="text-lg font-semibold mb-2">Cover Form</h3>
       {Object.keys(formData).map((key) => {
-        if (key === 'fabricWidth' && !showFabricWidth) return null;
+        if (key === 'fabricWidth') {
+          // 👇 Insert internal logic here — covers needs it, others don't
+          const shouldShow = true; // default, or make this dynamic
+
+          if (!shouldShow) return null;
+        }
 
         const label = key
           .replace(/([A-Z])/g, ' $1')

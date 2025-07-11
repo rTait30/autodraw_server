@@ -7,9 +7,7 @@ export const steps = [
     },
     drawFunction: (ctx, data) => {
       if (!ctx || !data) return;
-      const { width, height } = data;
       ctx.fillStyle = '#007BFF';
-      ctx.fillRect(50, yOffset, width / 10, height / 10);
 
       ctx.strokeStyle = "#00f";
         ctx.beginPath();
@@ -27,9 +25,7 @@ export const steps = [
     },
     drawFunction: (ctx, data) => {
       if (!ctx || !data) return;
-      const { width, height } = data;
       ctx.fillStyle = '#007BFF';
-      ctx.fillRect(50, yOffset, width / 10, height / 10);
 
       ctx.strokeStyle = "#00f";
         ctx.beginPath();

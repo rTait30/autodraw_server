@@ -48,8 +48,6 @@ class ProcessStepper {
       console.warn('❗ DATA MUTATED BEFORE CLONING — keys changed');
     }
 
-    
-
     if (this.hasCanvas) {
       this.ctx.setLineDash([]);
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -58,47 +56,64 @@ class ProcessStepper {
 
     for (let i = 0; i < this.steps.length; i++) {
       const step = this.steps[i];
-      console.log(`Running step ${i}`);
+      console.log(`Running step ${i}: ${step.title}`);
       await this.executeStep(step, clone, i);
     }
 
-    this.data = clone; // Store final data in stepper instance
-
-    return clone; // ✅ returns only local result
+    this.data = clone;
+    return clone;
   }
 
   async executeStep(step, data, index) {
     console.groupCollapsed(`🧪 Step ${index}: ${step.title}`);
 
-    // Log keys seen by the calcFunction
-    console.log('📥 Data before calcFunction:', JSON.parse(JSON.stringify(data)));
+    try {
+      console.log('📥 Data before calcFunction:', JSON.parse(JSON.stringify(data)));
 
-    // Run the calculation
-    const result = step.isAsync
-      ? await step.calcFunction(data)
-      : step.calcFunction(data);
+      let result;
+      try {
+        result = step.isAsync
+          ? await step.calcFunction(data)
+          : step.calcFunction(data);
+      } catch (calcError) {
+        console.error(`❌ Error in calcFunction (Step ${index} "${step.title}"):`, calcError);
+        data._errors = data._errors || {};
+        data._errors[`calc_${step.id}`] = calcError.message || 'Unknown calc error';
+        return; // Skip drawing if calculation failed
+      }
 
-    // Merge returned result into data
-    if (typeof result === 'object' && result !== null) {
-      Object.assign(data, result);
+      if (typeof result === 'object' && result !== null) {
+        Object.assign(data, result);
+      }
+
+      console.log('📤 Data after calcFunction (merged):', JSON.parse(JSON.stringify(data)));
+
+      if (this.hasCanvas && step.drawFunction) {
+        const squareSize = 1000;
+        const scale = this.canvas.width / squareSize;
+        const offsetX = 0;
+        const offsetY = index * this.stepOffsetY * scale;
+
+        this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
+        try {
+          step.drawFunction(this.ctx, data, offsetY);
+        } catch (drawError) {
+          console.error(`❌ Error in drawFunction (Step ${index} "${step.title}"):`, drawError);
+
+          // Annotate error on canvas
+          this.ctx.setTransform(1, 0, 0, 1, 0, offsetY);
+          this.ctx.fillStyle = '#b00020';
+          this.ctx.font = '16px sans-serif';
+          this.ctx.fillText(`Draw error in "${step.title}": ${drawError.message}`, 10, 20);
+
+          data._errors = data._errors || {};
+          data._errors[`draw_${step.id}`] = drawError.message || 'Unknown draw error';
+        }
+      }
+    } finally {
+      console.groupEnd();
     }
-
-    console.log('📤 Data after calcFunction (merged):', JSON.parse(JSON.stringify(data)));
-
-    // Draw step if applicable
-    if (this.hasCanvas && step.drawFunction) {
-      const squareSize = 1000;
-      const scale = this.canvas.width / squareSize;
-      const offsetX = 0;
-      const offsetY = index * this.stepOffsetY * scale;
-
-      this.ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-
-      console.log('🎨 Drawing with data:', JSON.parse(JSON.stringify(data)));
-      step.drawFunction(this.ctx, data);
-    }
-
-    console.groupEnd();
   }
 
   getData() {

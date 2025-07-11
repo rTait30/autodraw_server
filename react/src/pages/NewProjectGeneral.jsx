@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 import GeneralFields from '../components/projects/GeneralFields';
 import ProjectSidebar from '../components/ProjectSidebar';
-
 import { getBaseUrl } from "../utils/baseUrl";
 
 const projectTypes = [
@@ -21,6 +20,7 @@ export default function NewProjectGeneral() {
   const canvasRef = useRef(null);
   const formRef = useRef(null);
   const generalFormRef = useRef(null);
+  const [formData, setFormData] = useState(null);
 
   const role = localStorage.getItem('role') || 'guest';
   const userId = localStorage.getItem('user_id') || '';
@@ -28,14 +28,17 @@ export default function NewProjectGeneral() {
   const options = useMemo(() => ({
     showData: false,
     scaleFactor: 1,
-    stepOffsetY: 1000,
+    stepOffsetY: 800,
   }), []);
 
-  const { runAll, getData } = useProcessStepper({
-    canvasRef,
-    steps: loadedConfig?.steps || [],
-    options,
-  });
+  const { runAll, getData } = useProcessStepper(
+    {
+      canvasRef,
+      steps: loadedConfig?.steps || [],
+      options,
+    },
+    JSON.stringify(loadedConfig?.steps || [])
+  );
 
   useEffect(() => {
     if (!selectedType) return;
@@ -46,6 +49,8 @@ export default function NewProjectGeneral() {
           import(`../components/projects/${selectedType}/Form.jsx`),
           import(`../components/projects/${selectedType}/Steps.js`),
         ]);
+
+        console.log(`[Loader] Loaded steps for "${selectedType}":`, StepsModule.steps);
 
         setLoadedConfig({
           FormComponent: FormModule.default,
@@ -62,33 +67,47 @@ export default function NewProjectGeneral() {
     load();
   }, [selectedType]);
 
-  const [formData, setFormData] = useState(null);
-
   useEffect(() => {
-    if (!formData || !loadedConfig) return;
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  }, [selectedType]);
 
-    const timeout = setTimeout(() => {
-      const stringified = JSON.stringify(formData);
-      if (stringified !== lastSubmittedRef.current) {
-        runAll(formData);
-        setResult(formData.result || {});
-        lastSubmittedRef.current = stringified;
-      }
-    }, 2000);
 
-    return () => clearTimeout(timeout);
-  }, [formData, loadedConfig, runAll]);
+  const lastStringifiedRef = useRef('');
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (formRef.current?.getData) {
-        const data = formRef.current.getData();
-        setFormData(data);
+        try {
+          const data = formRef.current.getData();
+          const stringified = JSON.stringify(data);
+
+          if (stringified !== lastStringifiedRef.current) {
+            console.log('[NewProject] Detected formData change:', data);
+
+            lastStringifiedRef.current = stringified;
+            setFormData(data);
+            const cleanData = { ...data };
+            delete cleanData.result; // Clear old results
+            runAll(cleanData);
+            setResult(cleanData.result || {});
+          } else {
+            console.log('[NewProject] formData unchanged');
+          }
+
+        } catch (err) {
+          console.error('[NewProject] getData failed:', err);
+        }
+      } else {
+        console.warn('[NewProject] formRef.getData is not available');
       }
-    }, 200);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [loadedConfig]);
+
 
   const handleSubmit = async () => {
     if (!formRef.current?.getData || !generalFormRef.current?.getData || !selectedType) return;
@@ -106,15 +125,8 @@ export default function NewProjectGeneral() {
       Object.entries(calculatedRaw).filter(([key]) => !excludeKeys.has(key))
     );
 
-    let selectedType2;
-    if (selectedType === 'shadesails') {
-      selectedType2 = 'sail'; // Ensure correct type for shadesails
-    } else {
-      selectedType2 = selectedType;
-    }
-
     const payload = {
-      type: selectedType2,
+      type: selectedType === 'shadesails' ? 'sail' : selectedType,
       ...general,
       attributes,
       calculated,
@@ -165,7 +177,7 @@ export default function NewProjectGeneral() {
                 <canvas
                   ref={canvasRef}
                   width={500}
-                  height={1000}
+                  height={1600}
                   style={{
                     border: '1px solid #ccc',
                     marginTop: '20px',

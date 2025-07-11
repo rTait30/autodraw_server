@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import ProcessStepper from './ProcessStepper';
 
-export function useProcessStepper({ canvasRef = null, steps = [], options = {} }) {
+export function useProcessStepper({ canvasRef = null, steps = [], options = {} }, key = '') {
   const stepperRef = useRef(null);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export function useProcessStepper({ canvasRef = null, steps = [], options = {} }
     steps.forEach(step => stepper.addStep(step));
     console.log('useProcessStepper: added steps', steps.map(s => s.title || s.id));
     stepperRef.current = stepper;
-  }, [canvasRef, steps, options]);
+  }, [canvasRef, steps, options, key]);
 
 
   const runAll = async (data) => {

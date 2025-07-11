@@ -13,9 +13,8 @@ const SailForm = forwardRef(({ role }, ref) => {
     pointCount: 4,
     dimensions: {},
     points: {},
+    sailtracks: [],
   });
-
-
 
   useImperativeHandle(ref, () => ({
     getData: () => formData,
@@ -25,7 +24,20 @@ const SailForm = forwardRef(({ role }, ref) => {
   const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
   const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
 
-    useEffect(() => {
+  const getSailtrackPoints = (sailtrackEdges) => {
+    const pointSet = new Set();
+    sailtrackEdges.forEach(edge => {
+      if (edge.length === 2) {
+        pointSet.add(edge[0]);
+        pointSet.add(edge[1]);
+      }
+    });
+    return pointSet;
+  };
+
+  const sailtrackPoints = getSailtrackPoints(formData.sailtracks);
+
+  useEffect(() => {
     setFormData((prev) => {
       const updatedPoints = { ...prev.points };
       const pointLabels = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
@@ -37,13 +49,17 @@ const SailForm = forwardRef(({ role }, ref) => {
             tensionAllowance: 50,
           };
         }
+        if (sailtrackPoints.has(p)) {
+          updatedPoints[p].fixingType = 'sailtrack';
+          updatedPoints[p].tensionAllowance = 0;
+        }
       }
       return {
         ...prev,
         points: updatedPoints,
       };
     });
-  }, [pointCount]);
+  }, [pointCount, formData.sailtracks]);
 
   const diagonals = [];
   for (let i = 0; i < pointCount; i++) {
@@ -69,7 +85,22 @@ const SailForm = forwardRef(({ role }, ref) => {
     }));
   };
 
+  const updateSailtrack = (edge) => {
+    setFormData((prev) => {
+      const updated = new Set(prev.sailtracks);
+      if (updated.has(edge)) {
+        updated.delete(edge);
+      } else {
+        updated.add(edge);
+      }
+      return { ...prev, sailtracks: Array.from(updated) };
+    });
+  };
+
   const handlePointChange = (point, field, value) => {
+    if (sailtrackPoints.has(point) && (field === 'fixingType' || field === 'tensionAllowance')) {
+      return; // Ignore updates for locked fields
+    }
     setFormData((prev) => {
       const currentPoint = prev.points?.[point] || {};
       const updatedPoint = {
@@ -79,20 +110,16 @@ const SailForm = forwardRef(({ role }, ref) => {
 
       if (field === 'fixingType') {
         const newDefault = defaultTensionAllowances[value] ?? 50;
-
-        // Try to get the previous default for the old fixingType
         const oldFixingType = currentPoint.fixingType;
         const oldDefault = defaultTensionAllowances[oldFixingType] ?? 50;
-
         const isStillDefault =
-          typeof currentPoint.tensionAllowance !== 'number' || // hasn't been touched
+          typeof currentPoint.tensionAllowance !== 'number' ||
           currentPoint.tensionAllowance === oldDefault;
 
         if (isStillDefault) {
           updatedPoint.tensionAllowance = newDefault;
         }
       }
-
 
       return {
         ...prev,
@@ -170,8 +197,6 @@ const SailForm = forwardRef(({ role }, ref) => {
         </label>
       </div>
 
-      <div></div>
-
       <div>
         <b>Edges (mm)</b>
         <div className="space-y-1 mt-1">
@@ -184,12 +209,17 @@ const SailForm = forwardRef(({ role }, ref) => {
                 value={formData.dimensions[id] || ''}
                 onChange={(e) => updateDimension(id, e.target.value)}
               />
+              <label className="text-sm">
+                <input
+                  type="checkbox"
+                  checked={formData.sailtracks.includes(id)}
+                  onChange={() => updateSailtrack(id)}
+                /> Sailtrack
+              </label>
             </div>
           ))}
         </div>
       </div>
-
-      <div></div>
 
       <div>
         <b>Diagonals (mm)</b>
@@ -237,16 +267,14 @@ const SailForm = forwardRef(({ role }, ref) => {
                       className="inputCompact"
                       value={getPoint(p).fixingType || 'Wall Plate'}
                       onChange={(e) => handlePointChange(p, 'fixingType', e.target.value)}
+                      disabled={sailtrackPoints.has(p)}
                     >
-                      
                       <option value="M8B">M8 Bowshackle</option>
                       <option value="M10B">M10 Bowshackle</option>
                       <option value="M12B">M12 Bowshackle</option>
-
                       <option value="M8T">M8 Turnbuckle</option>
                       <option value="M10T">M10 Turnbuckle</option>
                       <option value="M12T">M12 Turnbuckle</option>
-
                       <option value="Plate">Plate</option>
                     </select>
                   </td>
@@ -254,8 +282,9 @@ const SailForm = forwardRef(({ role }, ref) => {
                     <input
                       type="number"
                       className="inputCompact"
-                      value={getPoint(p).tensionAllowance || 50}
+                      value={getPoint(p).tensionAllowance || 0}
                       onChange={(e) => handlePointChange(p, 'tensionAllowance', Number(e.target.value))}
+                      disabled={sailtrackPoints.has(p)}
                     />
                   </td>
                 </tr>

@@ -6,19 +6,11 @@ import { getBaseUrl } from './utils/baseUrl';
 import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
 
-
-import PrivateRoute from './components/PrivateRoute';
-
 import Home from './pages/Home';
 
 import TopBar from './components/TopBar';
 
-import NewProject from './pages/NewProject';
 import NewProjectGeneral from './pages/NewProjectGeneral';
-
-import CoverNew from './components/projects/covers/CoverNew';
-
-import SailNew from './components/projects/shadesails/SailNew';
 
 import Projects from './pages/Projects';
 import Project from './pages/Project';

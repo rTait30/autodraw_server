@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // <-- Add this line
-import SailForm from '../components/projects/shadesails/SailForm';
-import { zeroDiscrepancy } from '../components/projects/shadesails/SailSteps';
+import Form from '../components/projects/shadesails/Form';
+import { steps as sailSteps } from '../components/projects/shadesails/Steps';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
 const defaultPointCount = 4;
@@ -109,7 +109,7 @@ export default function Discrepancy() {
       </button>
       <div className="discrepancy-row">
         <div>
-          <SailForm formData={inputs} onChange={handleFormChange} />
+          <Form formData={inputs} onChange={handleFormChange} />
         </div>
         <div className="discrepancy-canvas-right">
           <canvas

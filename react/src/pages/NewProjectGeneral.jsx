@@ -126,7 +126,7 @@ export default function NewProjectGeneral() {
     );
 
     const payload = {
-      type: selectedType === 'shadesails' ? 'sail' : selectedType,
+      type: selectedType === 'shadesails' ? 'sail' : selectedType === 'covers' ? 'cover' : selectedType,
       ...general,
       attributes,
       calculated,

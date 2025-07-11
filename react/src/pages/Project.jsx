@@ -8,21 +8,22 @@ import SchemaEditor from '../components/projects/SchemaEditor';
 import { getBaseUrl } from '../utils/baseUrl.js';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
-import { zeroVisualise, oneFlatten, twoExtra, threeNest } from '../components/projects/covers/CoverSteps';
+
+import { steps as coverSteps } from '../components/projects/covers/Steps';
 import { coverSchema } from '../components/projects/covers/CoverSchema';
 
-import { zeroDiscrepancy } from '../components/projects/shadesails/SailSteps';
+import { steps as sailSteps } from '../components/projects/shadesails/Steps';
 import { sailSchema } from '../components/projects/shadesails/SailSchema';
 
 const configByType = {
-  cover: { steps: [zeroVisualise, oneFlatten, twoExtra, threeNest], schema: coverSchema },
-  sail: { steps: [zeroDiscrepancy], schema: sailSchema },
+  cover: { steps: coverSteps, schema: coverSchema },
+  sail: { steps: sailSteps, schema: sailSchema },
 };
 
-function coerceNumericFields(obj, numericKeys = []) {
+function coerceAllNumericFields(obj) {
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
-    result[key] = numericKeys.includes(key) ? Number(value) : value;
+    result[key] = typeof value === 'string' && !isNaN(value) ? Number(value) : value;
   }
   return result;
 }
@@ -45,19 +46,14 @@ export default function ProjectDetailsPage() {
   const options = useMemo(() => ({ scaleFactor: 1 }), []);
   const stepper = useProcessStepper({ canvasRef, steps, options });
 
-  const numericKeys = useMemo(
-    () => ['quantity', 'fabricWidth', 'flatMainWidth', 'flatMainHeight', 'flatSideWidth', 'flatSideHeight', 'seam', 'hem'],
-    []
-  );
-
   const loadProjectFromServer = async () => {
     try {
       const res = await fetch(getBaseUrl(`/api/project/${projectId}`));
       if (!res.ok) throw new Error('Failed to fetch project');
       const data = await res.json();
       setProject(data);
-      setAttributes(coerceNumericFields(data.attributes || {}, numericKeys));
-      setEditedAttributes(coerceNumericFields(data.attributes || {}, numericKeys));
+      setAttributes(coerceAllNumericFields(data.attributes || {}));
+      setEditedAttributes(coerceAllNumericFields(data.attributes || {}));
       setCalculated(data.calculated || {});
 
       const type = data?.type;
@@ -77,15 +73,8 @@ export default function ProjectDetailsPage() {
   }, [projectId]);
 
   const handleCheck = async () => {
-    const coerced = coerceNumericFields(editedAttributes, numericKeys);
+    const coerced = coerceAllNumericFields(editedAttributes);
     setAttributes(coerced);
-    if (coerced.height) coerced.height = Number(coerced.height) || 0; // Ensure height is a number
-    if (coerced.width) coerced.width = Number(coerced.width) || 0; // Ensure width is a number
-    if (coerced.length) coerced.length = Number(coerced.length) || 0; // Ensure length is a number
-    if (coerced.hem) coerced.hem = Number(coerced.hem) || 0; // Ensure hem is a number
-    if (coerced.seam) coerced.seam = Number(coerced.seam) || 0; // Ensure seam is a number
-    if (coerced.fabricWidth) coerced.fabricWidth = Number(coerced.fabricWidth) || 0; // Ensure fabricWidth is a number
-    if (coerced.quantity) coerced.quantity = Number(coerced.quantity) || 0; // Ensure quantity is a number
     const newCalculated = await stepper.runAll(coerced);
     if (newCalculated) {
       setCalculated(newCalculated);
@@ -95,19 +84,10 @@ export default function ProjectDetailsPage() {
   };
 
   const handleSubmit = () => {
-    const coercedAttributes = coerceNumericFields(attributes, numericKeys);
-    const coercedCalculated = calculated;
-
     const payload = {
-      id: project.id,
-      name: project.name,
-      type: project.type,
-      status: project.status,
-      due_date: project.due_date,
-      info: project.info,
-      client_id: project.client_id,
-      attributes: coercedAttributes,
-      calculated: coercedCalculated,
+      ...project,
+      attributes: coerceAllNumericFields(attributes),
+      calculated,
     };
 
     fetch(getBaseUrl(`/api/projects/create`), {

@@ -15,12 +15,12 @@ function getCombinations(arr, k) {
   return results;
 }
 
-function getLength(data, a, b) {
+function getLength(dimensions, a, b) {
   const key1 = `${a}${b}`;
   const key2 = `${b}${a}`;
-  return typeof data.dimensions?.[key1] === 'number'
-    ? data.dimensions[key1]
-    : data.dimensions?.[key2] ?? NaN;
+  return typeof dimensions?.[key1] === 'number'
+    ? dimensions[key1]
+    : dimensions?.[key2] ?? NaN;
 }
 
 function getHeight(data, pid) {
@@ -73,6 +73,109 @@ function computeDiscrepancy(points) {
   }
 }
 
+function getPointLabel(i) {
+  return String.fromCharCode(65 + i); // A, B, C...
+}
+
+
+function projectToXY(length, z1, z2) {
+  const dz = z2 - z1;
+  return Math.sqrt(Math.max(0, length ** 2 - dz ** 2));
+}
+
+function lawCosine(a, b, c) {
+  const cos = (a ** 2 + b ** 2 - c ** 2) / (2 * a * b);
+  return Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
+}
+
+function generateBoxes(N, dimensions) {
+  const labels = Array.from({ length: N }, (_, i) => getPointLabel(i));
+  const boxes = {};
+
+  const boxCount = Math.floor((N - 2) / 2);
+
+  for (let i = 0; i < boxCount; i++) {
+    const name = getPointLabel(i);
+    const topLeft = labels[i];
+    const topRight = labels[i + 1];
+    const bottomRight = labels[N - 1 - i - 1];
+    const bottomLeft = labels[N - 1 - i];
+    boxes[name] = [topLeft, topRight, bottomRight, bottomLeft];
+  }
+
+  if (N % 2 !== 0) {
+    const name = getPointLabel(boxCount);
+    const mid = Math.floor(N / 2);
+    boxes[name] = [
+      labels[mid - 1],
+      labels[mid],
+      labels[mid + 1]
+    ];
+  }
+
+  // Logging each box and edge dimensions
+  for (const [boxName, pts] of Object.entries(boxes)) {
+    console.log(`\nBox ${boxName}: ${pts.join('-')}`);
+
+    // Get all pairwise distances between points in the box
+    const dims = {};
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i];
+        const b = pts[j];
+        const key = `${a}${b}`;
+        const revKey = `${b}${a}`;
+        const value = dimensions[key] ?? dimensions[revKey];
+        dims[key] = value;
+      }
+    }
+
+    console.log('Distances:', dims);
+
+    if (pts.length === 4) {
+      console.log("Quadrilateral");
+
+      // Sort points alphabetically to standardize their roles
+      const [TL, TR, BR, BL] = [...pts].sort(); // top-left, top-right, bottom-right, bottom-left
+
+      const top = dimensions[`${TL}${TR}`] ?? dimensions[`${TR}${TL}`];
+      const left = dimensions[`${TL}${BL}`] ?? dimensions[`${BL}${TL}`];
+      const diagLeft = dimensions[`${TR}${BL}`] ?? dimensions[`${BL}${TR}`];
+
+      const right = dimensions[`${TR}${BR}`] ?? dimensions[`${BR}${TR}`];
+      const diagRight = dimensions[`${TL}${BR}`] ?? dimensions[`${BR}${TL}`];
+
+      const angle1 = lawCosine(top, left, diagLeft);   // at TL
+      const angle2 = lawCosine(top, right, diagRight); // at TR
+
+      console.log(`Angle 1 (top-left @ ${TL}): ${angle1.toFixed(2)}°`);
+      console.log(`Angle 2 (top-right @ ${TR}): ${angle2.toFixed(2)}°`);
+    }
+  }
+}
+
+function placeQuadrilateral(dAB, dBC, dCD, dDA, dAC) {
+
+  let boxPositions = {};
+  
+  boxPositions["A"] = { x: 0, y: 0 };
+  boxPositions["B"] = { x: dAB, y: 0 };
+  const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
+  const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
+  boxPositions["C"] = { x: xC, y: yC };
+
+  const dx = xC, dy = yC;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
+  const xD = a * dx / d;
+  const yD = a * dy / d;
+  const rx = -dy * (h / d);
+  const ry = dx * (h / d);
+  boxPositions["D"] = { x: xD + rx, y: yD + ry};
+
+  return boxPositions;
+}
 
 export const steps = [
   {
@@ -82,88 +185,58 @@ export const steps = [
     isLive: false,
     isAsync: false,
     calcFunction: (data) => {
+
       const pointIds = Object.keys(data.points || {});
       const N = pointIds.length;
-      const getH = pid => getHeight(data, pid);
       const getD = (a, b) => getLength(data, a, b);
+      const getH = pid => getHeight(data, pid);
+
+      const xyDistances = {};
+
+      for (const key in data.dimensions) {
+        const [p1, p2] = key.split('');
+        const z1 = data.points[p1]?.height ?? 0;
+        const z2 = data.points[p2]?.height ?? 0;
+        const length = data.dimensions[key];
+
+        xyDistances[key] = projectToXY(length, z1, z2);
+      }
+
+      console.log(`xy dimensions: ${JSON.stringify(xyDistances)}`)
 
       const positions = {};
 
       if (N === 3) {
         const [p1, p2, p3] = pointIds;
         const d12 = getD(p1, p2), d13 = getD(p1, p3), d23 = getD(p2, p3);
-        positions[p1] = { x: 0, y: 0, z: getH(p1) };
-        positions[p2] = { x: d12, y: 0, z: getH(p2) };
+        positions[p1] = { x: 0, y: 0 };
+        positions[p2] = { x: d12, y };
         const x3 = (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
         const y3 = Math.sqrt(Math.max(0, d13 ** 2 - x3 ** 2));
-        positions[p3] = { x: x3, y: y3, z: getH(p3) };
+        positions[p3] = { x: x3, y: y3 };
       } else if (N === 4) {
         const [A, B, C, D] = pointIds;
-        const dAB = getD(A, B), dBC = getD(B, C), dCD = getD(C, D), dDA = getD(D, A), dAC = getD(A, C);
 
-        positions[A] = { x: 0, y: 0, z: getH(A) };
-        positions[B] = { x: dAB, y: 0, z: getH(B) };
-        const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
-        const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
-        positions[C] = { x: xC, y: yC, z: getH(C) };
 
-        const dx = xC, dy = yC;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
-        const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
-        const xD = a * dx / d;
-        const yD = a * dy / d;
-        const rx = -dy * (h / d);
-        const ry = dx * (h / d);
-        positions[D] = { x: xD + rx, y: yD + ry, z: getH(D) };
+        positions["A","B","C","D"] = placeQuadrilateral(xyDistances["AB"], xyDistances["BC"],xyDistances["CD"],xyDistances["DA"],xyDistances["AC"]);
+
+        /*
+        positions[A].z = getH(A);
+        positions[B].z = getH(B);
+        positions[C].z = getH(C);
+        positions[D].z = getH(D);
+        */
+        
+        
       } else {
-        // Sort alphabetically to get assumed clockwise order
-          const ordered = [...pointIds].sort();
+        
+        
 
-          const A = ordered[0], B = ordered[1];
-          const dAB = getD(A, B);
 
-          if (!isFinite(dAB)) return positions;
+        console.log(xyDistances);
 
-          // Anchor A and B
-          positions[A] = { x: 0, y: 0, z: getH(A) };
-          positions[B] = { x: dAB, y: 0, z: getH(B) };
-
-          for (let i = 2; i < N; i++) {
-            const p1 = ordered[i - 2];
-            const p2 = ordered[i - 1];
-            const p3 = ordered[i];
-
-            const d12 = getD(p1, p2);
-            const d13 = getD(p1, p3);
-            const d23 = getD(p2, p3);
-
-            if (!isFinite(d12) || !isFinite(d13) || !isFinite(d23)) continue;
-            if (!positions[p1] || !positions[p2]) continue;
-
-            const { x: x1, y: y1 } = positions[p1];
-            const { x: x2, y: y2 } = positions[p2];
-
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const base = Math.sqrt(dx * dx + dy * dy);
-            if (base === 0) continue;
-
-            const angle = Math.atan2(dy, dx);
-            const x3_local = (d13 ** 2 - d23 ** 2 + base ** 2) / (2 * base);
-            const y3_local_sq = d13 ** 2 - x3_local ** 2;
-            if (y3_local_sq < 0) continue;
-            const y3_local = Math.sqrt(y3_local_sq);
-
-            // Rotate back to global coords
-            const cosA = dx / base;
-            const sinA = dy / base;
-
-            const x3 = x1 + x3_local * cosA - y3_local * sinA;
-            const y3 = y1 + x3_local * sinA + y3_local * cosA;
-
-            positions[p3] = { x: x3, y: y3, z: getH(p3) };
-          }
+        generateBoxes(N, xyDistances);
+          
       }
       const discrepancy = {};
 

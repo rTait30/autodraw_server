@@ -240,46 +240,50 @@ export const steps = [
 
       */
 
-      const pointIds = Object.keys(data.points || {});
-      const N = pointIds.length;
-      const getD = (a, b) => getLength(data, a, b);
-      const getH = pid => getHeight(data, pid);
-
       const xyDistances = {};
 
+      // Normalize keys (e.g., "BA" -> "AB") and project to 2D
       for (const key in data.dimensions) {
-        const [p1, p2] = key.split('');
+        const [raw1, raw2] = key.split('');
+        const [p1, p2] = [raw1, raw2].sort(); // Normalize
         const z1 = data.points[p1]?.height ?? 0;
         const z2 = data.points[p2]?.height ?? 0;
         const length = data.dimensions[key];
 
-        xyDistances[key] = projectToXY(length, z1, z2);
+        const normKey = `${p1}${p2}`;
+        xyDistances[normKey] = projectToXY(length, z1, z2);
       }
 
-      console.log(`xy dimensions: ${JSON.stringify(xyDistances)}`)
+      console.log(`xy dimensions: ${JSON.stringify(xyDistances)}`);
 
       const positions = {};
+      const N = data.pointCount;
+      console.log(`pointCount: ${N}`);
+      const pointIds = Object.keys(data.points || {});
+      console.log(`points: ${pointIds}`);
 
+      // Triangle layout using normalized XY-projected distances
       if (N === 3) {
-        const [p1, p2, p3] = pointIds;
-        const d12 = getD(p1, p2), d13 = getD(p1, p3), d23 = getD(p2, p3);
-        positions[p1] = { x: 0, y: 0 };
-        positions[p2] = { x: d12, y };
-        const x3 = (d13 ** 2 - d23 ** 2 + d12 ** 2) / (2 * d12);
-        const y3 = Math.sqrt(Math.max(0, d13 ** 2 - x3 ** 2));
-        positions[p3] = { x: x3, y: y3 };
+        positions["A"] = { x: 0, y: 0 };
+        positions["B"] = { x: xyDistances["AB"], y: 0 };
+
+        const AB = xyDistances["AB"];
+        const BC = xyDistances["BC"];
+        const CA = xyDistances["AC"]; // Not "CA" — we store it as "AC"
+
+        const Cx = (CA ** 2 - BC ** 2 + AB ** 2) / (2 * AB);
+        const Cy = Math.sqrt(Math.max(0, CA ** 2 - Cx ** 2));
+
+        positions["C"] = { x: Cx, y: Cy };
+      }
+
+      /*
       } else if (N === 4) {
         const [A, B, C, D] = pointIds;
 
 
         positions["A","B","C","D"] = placeQuadrilateral(xyDistances["AB"], xyDistances["BC"],xyDistances["CD"],xyDistances["DA"],xyDistances["AC"]);
 
-        /*
-        positions[A].z = getH(A);
-        positions[B].z = getH(B);
-        positions[C].z = getH(C);
-        positions[D].z = getH(D);
-        */
         
         
       } else {
@@ -292,8 +296,12 @@ export const steps = [
         generateBoxes(N, xyDistances);
           
       }
-      const discrepancy = {};
 
+      */
+
+      /*
+
+      const discrepancy = {};
 
       const blame = {}; // key: "AB", value: blame score
 
@@ -347,7 +355,11 @@ export const steps = [
       const sortedBlame = Object.entries(blame)
         .sort((a, b) => b[1] - a[1])
 
-      return { positions, discrepancy, sortedBlame };
+      */
+
+      //return { positions, discrepancy, sortedBlame };
+
+      return { positions };
     },
 
 

@@ -186,6 +186,60 @@ export const steps = [
     isAsync: false,
     calcFunction: (data) => {
 
+      // ------ FORMAT ------
+
+      /*
+
+      colour: "Black"
+​
+      dimensions: Object { AB: 100, BC: 200, CD: 300, … }
+      ​​
+        AB: 100
+        ​​
+        AC: 200
+        ​​
+        AD: 200
+        ​​
+        BC: 200
+        ​​
+        BD: 200
+        ​​
+        BE: 200
+        ​​
+        CD: 300
+        ​​
+        CE: 200
+        ​​
+        DE: 300
+        ​​
+        EA: 300
+      ​
+      exitPoint: "A"
+      ​
+      fabricType: "ShadeCloth"
+      ​
+      logo: "A"
+      ​
+      pointCount: 5
+      ​
+      points: Object { A: {…}, B: {…}, C: {…}, … }
+      ​​
+        A: Object { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 }
+        ​​
+        B: Object { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 }
+        ​​
+        C: Object { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 }
+        ​​
+        D: Object { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 }
+        ​​
+        E: Object { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 }
+      ​
+      sailtracks: Array []
+      ​​
+      length: 0
+
+      */
+
       const pointIds = Object.keys(data.points || {});
       const N = pointIds.length;
       const getD = (a, b) => getLength(data, a, b);

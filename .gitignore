@@ -8,5 +8,3 @@ instance/
 node_modules/
 
 # Built frontend assets
-static/assets/
-templates/index.html

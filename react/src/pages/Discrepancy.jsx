@@ -1,162 +1,115 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // <-- Add this line
+import { useNavigate } from 'react-router-dom';
 import Form from '../components/projects/shadesails/Form';
 import { steps as sailSteps } from '../components/projects/shadesails/Steps';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
-const defaultPointCount = 4;
-function getPointLabel(i) {
-  return String.fromCharCode(65 + i);
-}
-function getInitialInputs(pointCount = defaultPointCount) {
-  const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
-  const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
-  const heights = points.map((p) => `H${p}`);
-  const diagonals = [];
-  for (let i = 0; i < pointCount; i++) {
-    for (let j = i + 1; j < pointCount; j++) {
-      if ((j === (i + 1) % pointCount) || (i === 0 && j === pointCount - 1)) continue;
-      diagonals.push(`${points[i]}${points[j]}`);
-    }
-  }
-  const obj = { pointCount, fabricType: 'PVC' };
-  edges.forEach((k) => (obj[k] = ''));
-  heights.forEach((k) => (obj[k] = ''));
-  diagonals.forEach((k) => (obj[k] = ''));
-  return obj;
-}
-
 export default function Discrepancy() {
-
   const navigate = useNavigate();
 
-  const [inputs, setInputs] = useState(getInitialInputs());
+  const role = localStorage.getItem('role') || 'guest';
+
+  const [formData, setFormData] = useState(null);
   const [result, setResult] = useState({ discrepancy: '', errorBD: '' });
 
-  const steps = useMemo(() => [zeroDiscrepancy], []);
+  const canvasRef = useRef(null);
+  const formRef = useRef(null); // <-- we'll attach this to the Form
+
   const options = useMemo(
     () => ({
       showData: false,
       scaleFactor: 1,
-      virtualWidth: 1000,
-      virtualHeight: 1000,
-      stepOffsetY: 400,
+      stepOffsetY: 800,
     }),
     []
   );
-  const canvasRef = useRef(null);
-  const { runAll } = useProcessStepper({ canvasRef, steps, options });
 
-  const lastSubmittedRef = useRef(null);
+  const { runAll } = useProcessStepper(
+    {
+      canvasRef,
+      steps: sailSteps,
+      options,
+    },
+    JSON.stringify(sailSteps)
+  );
 
-  // Debounce and auto-run
+  const lastStringifiedRef = useRef('');
+
+  // Poll the form every 2s and update canvas
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      const pointCount = inputs.pointCount || defaultPointCount;
-      const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
-      const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
+    const interval = setInterval(() => {
+      if (formRef.current?.getData) {
+        try {
+          const data = formRef.current.getData();
+          const stringified = JSON.stringify(data);
 
-      const allEdgesFilled = edges.every(
-        (k) => inputs[k] !== '' && !isNaN(Number(inputs[k]))
-      );
+          // Only re-run if the form changed
+          if (stringified !== lastStringifiedRef.current) {
+            console.log('[Discrepancy] Detected form change:', data);
 
-      if (allEdgesFilled) {
-        // Prepare data for comparison and submission
-        const data = { ...inputs };
-        Object.keys(data).forEach((k) => {
-          if (/^[A-Z]{2}$/.test(k) || /^H[A-Z]$/.test(k)) {
-            data[k] = data[k] === '' ? undefined : parseFloat(data[k]);
+            lastStringifiedRef.current = stringified;
+            setFormData(data);
+
+            const cleanData = { ...data };
+            delete cleanData.result; // clear stale result
+
+            runAll(cleanData);
+            setResult(cleanData.result || { discrepancy: '', errorBD: '' });
+          } else {
+            console.log('[Discrepancy] formData unchanged');
           }
-        });
-
-        // Compare with last submitted data
-        const dataString = JSON.stringify(data);
-        if (lastSubmittedRef.current !== dataString) {
-          runAll(data);
-          setResult(data.result || { discrepancy: '', errorBD: '' });
-          lastSubmittedRef.current = dataString;
+        } catch (err) {
+          console.error('[Discrepancy] getData failed:', err);
         }
+      } else {
+        console.warn('[Discrepancy] formRef.getData not available yet');
       }
     }, 2000);
-    return () => clearTimeout(timeout);
-  }, [inputs, runAll]);
 
-  // When point count changes, reset fields
-  const handleFormChange = (newFormData) => {
-    setInputs((prev) => {
-      const newPointCount = newFormData.pointCount || defaultPointCount;
-      if (newPointCount !== prev.pointCount) {
-        return {
-          ...getInitialInputs(newPointCount),
-          ...newFormData,
-        };
-      }
-      return {
-        ...prev,
-        ...newFormData,
-      };
-    });
-  };
+    return () => clearInterval(interval);
+  }, [runAll]);
 
   return (
-    <div className="discrepancy-root">
-      <h2>Sail Discrepancy Checker</h2>
-      <button
-          style={{ marginBottom: 16 }}
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+      <main className="flex-1 p-6">
+        <h2 className="text-xl font-bold mb-4">Sail Discrepancy Checker</h2>
+
+        {/* Back button */}
+        <button
+          className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
           onClick={() => navigate('/copelands')}
         >
-          &larr; Back
-      </button>
-      <div className="discrepancy-row">
-        <div>
-          <Form formData={inputs} onChange={handleFormChange} />
-        </div>
-        <div className="discrepancy-canvas-right">
-          <canvas
-            ref={canvasRef}
-            width={500}
-            height={500}
-            style={{
-              border: '1px solid #ccc',
-              marginTop: '20px',
-              width: '100%',
-              maxWidth: '500px',
-              display: 'block',
-            }}
-          />
-          <div style={{ marginTop: 24 }}>
-            <p id="discrepancy">{result.discrepancy}</p>
-            <p id="errorBD">{result.errorBD}</p>
+          ← Back
+        </button>
+
+        <div className="flex flex-col md:flex-row gap-10">
+          {/* Left side: form */}
+          <div className="flex-1">
+            <Form ref={formRef} role={role} />
+          </div>
+
+          {/* Right side: canvas + discrepancy result */}
+          <div className="flex-1 flex flex-col items-center">
+            <canvas
+              ref={canvasRef}
+              width={500}
+              height={1600}
+              style={{
+                border: '1px solid #ccc',
+                marginTop: '20px',
+                width: '100%',
+                maxWidth: '500px',
+                display: 'block',
+                background: '#fff',
+              }}
+            />
+            <div className="mt-6 text-center">
+              <p className="font-semibold text-lg">{result.discrepancy}</p>
+              <p className="text-gray-600">{result.errorBD}</p>
+            </div>
           </div>
         </div>
-      </div>
-      <style>{`
-        .discrepancy-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          width: 100vw;
-        }
-        .discrepancy-canvas-right {
-          max-width: 500px;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          margin-right: 200px;
-        }
-        @media (max-width: 900px) {
-          .discrepancy-row {
-            flex-direction: column;
-            width: 100%;
-          }
-          .discrepancy-canvas-right {
-            max-width: 100%;
-            width: 100%;
-            align-items: center;
-          }
-        }
-      `}</style>
+      </main>
     </div>
   );
 }

@@ -73,6 +73,32 @@ function computeDiscrepancy(points) {
   }
 }
 
+function computeDiscrepancyXY(dimensions) {
+
+  const lengths = Object.values(dimensions);
+
+  const l12xy = lengths[0];
+  const l23xy = lengths[3];
+  const l34xy = lengths[5];
+  const l41xy = lengths[2];
+  const l13xy = lengths[1];
+  const l24xy = lengths[4];
+
+  const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
+  const angle123 = safeAcos((l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy));
+  const angle134 = safeAcos((l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy));
+
+  const p2x = l12xy * Math.cos(angle123);
+  const p2y = l12xy * Math.sin(angle123);
+  const p4x = l41xy * Math.cos(angle134);
+  const p4y = -l41xy * Math.sin(angle134);
+
+  const l24Teoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
+  const discrepancy = Math.abs(l24Teoric - l24xy);
+  console.log(discrepancy);
+  return discrepancy;
+}
+
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
 }
@@ -152,29 +178,117 @@ function generateBoxes(N, dimensions) {
       console.log(`Angle 2 (top-right @ ${TR}): ${angle2.toFixed(2)}°`);
     }
   }
+
+  return boxes;
 }
 
-function placeQuadrilateral(dAB, dBC, dCD, dDA, dAC) {
+function rotatePointCounterclockwise(x, y, angleRad) {
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
 
+  return {
+    x: x * cosA - y * sinA,
+    y: x * sinA + y * cosA
+  };
+}
+
+function placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD, rotateAngle = 0) {
   let boxPositions = {};
-  
+
+  // Place base points
   boxPositions["A"] = { x: 0, y: 0 };
   boxPositions["B"] = { x: dAB, y: 0 };
+
   const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
   const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
   boxPositions["C"] = { x: xC, y: yC };
 
   const dx = xC, dy = yC;
   const d = Math.sqrt(dx * dx + dy * dy);
-  const a = (dDA ** 2 - dCD ** 2 + d * d) / (2 * d);
-  const h = Math.sqrt(Math.max(0, dDA ** 2 - a * a));
+  const a = (dAD ** 2 - dCD ** 2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, dAD ** 2 - a * a));
   const xD = a * dx / d;
   const yD = a * dy / d;
   const rx = -dy * (h / d);
   const ry = dx * (h / d);
-  boxPositions["D"] = { x: xD + rx, y: yD + ry};
+  boxPositions["D"] = { x: xD + rx, y: yD + ry };
+
+  // ✅ Rotate all points clockwise around A if rotateAngle ≠ 0
+  if (rotateAngle !== 0) {
+    for (const key in boxPositions) {
+      const p = boxPositions[key];
+      const rotated = rotatePointCounterclockwise(p.x, p.y, rotateAngle);
+      boxPositions[key] = rotated;
+    }
+  }
 
   return boxPositions;
+}
+
+function getFourPointCombosWithDims(N, xyDimensions) {
+  const labels = Array.from({ length: N }, (_, i) => String.fromCharCode(65 + i)); // ['A','B',...]
+  
+  // Generate all 4-point combos
+  const combos = [];
+  function helper(start, combo) {
+    if (combo.length === 4) {
+      combos.push([...combo]);
+      return;
+    }
+    for (let i = start; i < labels.length; i++) {
+      combo.push(labels[i]);
+      helper(i + 1, combo);
+      combo.pop();
+    }
+  }
+  helper(0, []);
+
+  return combos.map(combo => {
+    const [a, b, c, d] = combo;
+
+    // These are the edges + diagonals we care about
+    const pairs = [
+      [a, b], [a, c], [a, d], [b, c], [b, d], [c, d]
+    ];
+
+    const dims = {};
+    for (const [p1, p2] of pairs) {
+      const alphaKey = [p1, p2].sort().join(''); // always alphabetical
+      dims[alphaKey] = xyDimensions[alphaKey] ?? null;
+    }
+
+    return { combo: combo.join(''), dims };
+  });
+}
+
+function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
+  // boxPts = ['A','B','C','D']
+  // dimensions has all distances (AB, BC, etc.)
+
+  // Get required distances for quadrilateral placement
+  const dAB = dimensions[`${boxPts[0]}${boxPts[1]}`] ?? dimensions[`${boxPts[1]}${boxPts[0]}`];
+  const dAC = dimensions[`${boxPts[0]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[0]}`];
+  const dAD = dimensions[`${boxPts[0]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[0]}`];
+  const dBC = dimensions[`${boxPts[1]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[1]}`];
+  const dBD = dimensions[`${boxPts[1]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[1]}`];
+  const dCD = dimensions[`${boxPts[2]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[2]}`];
+
+  // Place the box flat (TL = origin)
+  let placed = placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD);
+
+  // Rotate each point CCW by the globalAngleRad
+  for (const key in placed) {
+    const p = placed[key];
+    const rotated = rotatePointCounterclockwise(p.x, p.y, globalAngleRad);
+
+    // Then translate relative to the anchor point
+    placed[key] = {
+      x: rotated.x + anchorPoint.x,
+      y: rotated.y + anchorPoint.y
+    };
+  }
+
+  return placed;
 }
 
 export const steps = [
@@ -262,6 +376,57 @@ export const steps = [
       const pointIds = Object.keys(data.points || {});
       console.log(`points: ${pointIds}`);
 
+
+
+      const discrepancies = {};
+
+      const blame = {};
+
+      // Add all dimensions as 0
+      for (const key in xyDistances) {
+        blame[key] = 0;
+      }
+
+      for (const key in data.points) {
+
+        blame [`${key}`] = 0;
+      }
+
+      if (N >= 4) {
+        
+        const combos = getFourPointCombosWithDims(N, xyDistances);
+
+        combos.forEach(combo => {
+          console.log(combo.combo);
+          console.log(combo.dims);
+
+          const discrepancy = computeDiscrepancyXY(combo.dims)
+
+          console.log(discrepancy);
+
+          discrepancies[combo.combo] = discrepancy
+
+          if (discrepancy !== null && !isNaN(discrepancy)) {
+            // For each blame key, check if it shares ANY character with combo
+            for (const blameKey in blame) {
+              const allInside = [...blameKey].every(char => combo.combo.includes(char));
+
+              if (allInside) {
+                blameKey.length == 1 ? blame[blameKey] += (discrepancy * 0.5) : blame[blameKey] += discrepancy;
+              }
+            }
+          }
+        });
+
+        console.log(discrepancies);
+
+        console.log(blame);
+      }
+
+      
+      
+      let boxes = null;
+
       // Triangle layout using normalized XY-projected distances
       if (N === 3) {
         positions["A"] = { x: 0, y: 0 };
@@ -269,270 +434,432 @@ export const steps = [
 
         const AB = xyDistances["AB"];
         const BC = xyDistances["BC"];
-        const CA = xyDistances["AC"]; // Not "CA" — we store it as "AC"
+        const CA = xyDistances["AC"];
 
         const Cx = (CA ** 2 - BC ** 2 + AB ** 2) / (2 * AB);
         const Cy = Math.sqrt(Math.max(0, CA ** 2 - Cx ** 2));
 
         positions["C"] = { x: Cx, y: Cy };
-      }
-
-      /*
+      
       } else if (N === 4) {
-        const [A, B, C, D] = pointIds;
+        const quadPositions = placeQuadrilateral(
+          xyDistances["AB"],
+          xyDistances["AC"],
+          xyDistances["AD"],
+          xyDistances["BC"],
+          xyDistances["BD"],
+          xyDistances["CD"],
+          Math.PI / 4
+        );
 
-
-        positions["A","B","C","D"] = placeQuadrilateral(xyDistances["AB"], xyDistances["BC"],xyDistances["CD"],xyDistances["DA"],xyDistances["AC"]);
-
-        
-        
-      } else {
-        
-        
-
-
-        console.log(xyDistances);
-
-        generateBoxes(N, xyDistances);
-          
+        // Merge the returned A,B,C,D into positions
+        Object.assign(positions, quadPositions);
       }
+        
+      else {
+        // For N >= 5
+        boxes = generateBoxes(N, xyDistances);
+        console.log("Generated boxes:", boxes);
 
-      */
+        let currentAnchor = { x: 0, y: 0 }; // start at origin
+        let globalAngleRad = 0;
+        let prevTRangle = 0;
+        let firstBoxPlaced = false;
+        let kOffset = 0; // cumulative offset
 
-      /*
+        const tolerance = 1e-3; // tolerance for detecting conflicting coords
 
-      const discrepancy = {};
+        const boxNames = Object.keys(boxes);
+        console.log("Box order:", boxNames);
 
-      const blame = {}; // key: "AB", value: blame score
+        boxNames.forEach((boxName, idx) => {
+          const pts = boxes[boxName]; 
+          console.log(`\n=== Processing Box ${boxName} (#${idx}) ===`);
+          console.log(`Points in this box: ${pts.join(", ")}`);
 
-      const addBlame = (a, b, amount = 1) => {
-        const key = a < b ? `${a}${b}` : `${b}${a}`;
-        blame[key] = (blame[key] || 0) + amount;
-      };
+          if (pts.length === 4) {
+            const [TL, TR, BR, BL] = pts;
 
-      const addPointBlame = (p, amount = 1) => {
-        const key = `H${p}`; // e.g., 'HA' for Point A's height
-        blame[key] = (blame[key] || 0) + (amount * 0.5);
-      };
+            // Extract needed distances
+            const top = xyDistances[`${TL}${TR}`] ?? xyDistances[`${TR}${TL}`];
+            const left = xyDistances[`${TL}${BL}`] ?? xyDistances[`${BL}${TL}`];
+            const right = xyDistances[`${TR}${BR}`] ?? xyDistances[`${BR}${TR}`];
+            const diagLeft = xyDistances[`${TR}${BL}`] ?? xyDistances[`${BL}${TR}`];
+            const diagRight = xyDistances[`${TL}${BR}`] ?? xyDistances[`${BR}${TL}`];
+            const bottom = xyDistances[`${BR}${BL}`] ?? xyDistances[`${BL}${BR}`];
 
+            console.log(`Distances for Box ${boxName}:`);
+            console.log(`  top(${TL}-${TR}): ${top}`);
+            console.log(`  left(${TL}-${BL}): ${left}`);
+            console.log(`  right(${TR}-${BR}): ${right}`);
+            console.log(`  bottom(${BR}-${BL}): ${bottom}`);
+            console.log(`  diagLeft(${TR}-${BL}): ${diagLeft}`);
+            console.log(`  diagRight(${TL}-${BR}): ${diagRight}`);
 
-      if (N >= 4) {
-        const combos = getCombinations(pointIds, 4);
-        for (const combo of combos) {
-          const [p1, p2, p3, p4] = combo;
+            const angleTL = lawCosine(top, left, diagLeft);
+            const angleTR = lawCosine(top, right, diagRight);
 
-          const points = combo.map((pid) => ({
-            id: pid,
-            height: getH(pid),
-            lengths: data.dimensions,
-          }));
+            console.log(`  angleTL @${TL}: ${angleTL.toFixed(2)}°`);
+            console.log(`  angleTR @${TR}: ${angleTR.toFixed(2)}°`);
 
-          const result = computeDiscrepancy(points);
-          const key = combo.join('');
+            if (!firstBoxPlaced) {
+              console.log("Placing FIRST box flat at origin");
 
-          if (typeof result === 'number') {
-            discrepancy[key] = result;
+              // Place first box flat
+              const quadPositions = placeQuadrilateral(
+                top,
+                diagRight,
+                left,
+                right,
+                diagLeft,
+                bottom
+              );
 
-            if (result > 10) { // Threshold for significant discrepancy
-              // Edge blame (lengths)
-              addBlame(p1, p2, result);
-              addBlame(p2, p3, result);
-              addBlame(p3, p4, result);
-              addBlame(p4, p1, result);
-              addBlame(p1, p3, result);
-              addBlame(p2, p4, result);
+              // ✅ Map ABCD → TL,TR,BR,BL
+              const mappedPositions = {
+                [TL]: quadPositions["A"],
+                [TR]: quadPositions["B"],
+                [BR]: quadPositions["C"],
+                [BL]: quadPositions["D"]
+              };
 
-              // Point blame (heights)
-              addPointBlame(p1, result);
-              addPointBlame(p2, result);
-              addPointBlame(p3, result);
-              addPointBlame(p4, result);
+              console.log("\nMapped FIRST box positions:");
+              for (const key in mappedPositions) {
+                const pos = mappedPositions[key];
+                console.log(`  ${key}: (x=${pos.x.toFixed(3)}, y=${pos.y.toFixed(3)})`);
+              }
+
+              // Merge but check for conflicts
+              for (const key in mappedPositions) {
+                if (positions[key]) {
+                  const old = positions[key];
+                  const p = mappedPositions[key];
+                  const diff = Math.hypot(p.x - old.x, p.y - old.y);
+                  if (diff > tolerance) {
+                    console.warn(`⚠ Overwriting ${key} with different coords! Δ=${diff.toFixed(3)}mm`);
+                  }
+                }
+                positions[key] = mappedPositions[key];
+              }
+
+              // Set current anchor at TR
+              currentAnchor = mappedPositions[TR];
+              prevTRangle = angleTR;
+              firstBoxPlaced = true;
+
+              // kOffset adjustment for first box
+              const diffFrom45 = (Math.PI / 4) - (angleTR * Math.PI/180);
+              kOffset += diffFrom45;
+              console.log(`First box TR angle diff from 45°: ${(diffFrom45 * 180 / Math.PI).toFixed(2)}°, cumulative kOffset now ${(kOffset * 180 / Math.PI).toFixed(2)}°`);
+              console.log(`First box TR(${TR}) becomes anchor:`, currentAnchor);
+
+            } else {
+              // Compute hinge angle: 180° - (prev TR + current TL)
+              const hingeDeg = 180 - (prevTRangle + angleTL);
+              const hingeRad = (hingeDeg * Math.PI) / 180;
+              console.log(`Hinge angle = 180 - (${prevTRangle.toFixed(2)} + ${angleTL.toFixed(2)}) = ${hingeDeg.toFixed(2)}°`);
+
+              // Accumulate global rotation
+              globalAngleRad += hingeRad;
+              console.log(`Global rotation now: ${(globalAngleRad * 180 / Math.PI).toFixed(2)}°`);
+
+              // Place this box relative to current anchor
+              const genericPlaced = drawBoxAt(pts, xyDistances, currentAnchor, globalAngleRad);
+
+              // ✅ Map generic ABCD → actual TL,TR,BR,BL
+              const mappedPositions = {
+                [TL]: genericPlaced["A"],
+                [TR]: genericPlaced["B"],
+                [BR]: genericPlaced["C"],
+                [BL]: genericPlaced["D"]
+              };
+
+              console.log(`Placed box ${boxName} mapped:`);
+              for (const key in mappedPositions) {
+                const pos = mappedPositions[key];
+                console.log(`  ${key}: (x=${pos.x.toFixed(3)}, y=${pos.y.toFixed(3)})`);
+              }
+
+              // Merge with conflict check
+              for (const key in mappedPositions) {
+                if (positions[key]) {
+                  const old = positions[key];
+                  const p = mappedPositions[key];
+                  const diff = Math.hypot(p.x - old.x, p.y - old.y);
+                  if (diff > tolerance) {
+                    console.warn(`⚠ Overwriting ${key} with different coords! Δ=${diff.toFixed(3)}mm`);
+                  }
+                }
+                positions[key] = mappedPositions[key];
+              }
+
+              // Update anchor + prev TR angle
+              currentAnchor = mappedPositions[TR];
+              prevTRangle = angleTR;
+              console.log(`Box ${boxName} TR(${TR}) becomes new anchor:`, currentAnchor);
+
+              // ✅ For subsequent boxes add TL angle to kOffset
+              kOffset += angleTL * Math.PI/180;
+              console.log(`Added TL angle ${(angleTL).toFixed(2)}°, cumulative kOffset now ${(kOffset * 180 / Math.PI).toFixed(2)}°`);
             }
           }
-        }
+
+          if (pts.length === 3) {
+            console.log(`Box ${boxName} is a TRIANGLE`);
+
+            const [A, B, C] = pts;
+            const AB = xyDistances[`${A}${B}`] ?? xyDistances[`${B}${A}`];
+            const BC = xyDistances[`${B}${C}`] ?? xyDistances[`${C}${B}`];
+            const AC = xyDistances[`${A}${C}`] ?? xyDistances[`${C}${A}`];
+
+            console.log(`Triangle distances: AB=${AB}, BC=${BC}, AC=${AC}`);
+
+            // Place triangle flat
+            let tri = {};
+            tri["A"] = { x: 0, y: 0 };
+            tri["B"] = { x: AB, y: 0 };
+            const Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB);
+            const Cy = Math.sqrt(Math.max(0, AC ** 2 - Cx ** 2));
+            tri["C"] = { x: Cx, y: Cy };
+
+            // Calculate internal angle at A
+            const triAngleA = lawCosine(AB, AC, BC);
+            console.log(`Triangle internal angle @${A}: ${triAngleA.toFixed(2)}°`);
+
+            // ✅ Compute hinge relative to prevTRangle, same as quads
+            const hingeDeg = 180 - (prevTRangle + triAngleA);
+            const hingeRad = (hingeDeg * Math.PI) / 180;
+            globalAngleRad += hingeRad;
+            console.log(`Triangle hinge rotates by ${hingeDeg.toFixed(2)}°, global rotation now ${(globalAngleRad*180/Math.PI).toFixed(2)}°`);
+
+            // You can still track kOffset if needed
+            kOffset += triAngleA * Math.PI/180;
+            console.log(`Triangle added ${triAngleA.toFixed(2)}° to kOffset, cumulative ${(kOffset*180/Math.PI).toFixed(2)}°`);
+
+            console.log(`Triangle local coords: A=(0,0), B=(${AB},0), C=(${Cx.toFixed(2)},${Cy.toFixed(2)})`);
+
+            // Rotate + translate triangle into place relative to current anchor
+            const mappedTri = {};
+            for (const [key, p] of Object.entries(tri)) {
+              const rotated = rotatePointCounterclockwise(p.x, p.y, globalAngleRad);
+              mappedTri[
+                key === "A" ? A : key === "B" ? B : C
+              ] = {
+                x: rotated.x + currentAnchor.x,
+                y: rotated.y + currentAnchor.y
+              };
+            }
+
+            console.log(`Triangle ${boxName} placed at:`, mappedTri);
+
+            // Merge with conflict check
+            for (const key in mappedTri) {
+              if (positions[key]) {
+                const old = positions[key];
+                const p = mappedTri[key];
+                const diff = Math.hypot(p.x - old.x, p.y - old.y);
+                if (diff > tolerance) {
+                  console.warn(`⚠ Overwriting ${key} with different coords! Δ=${diff.toFixed(3)}mm`);
+                }
+              }
+              positions[key] = mappedTri[key];
+            }
+
+            // Update currentAnchor & prevTRangle
+            currentAnchor = mappedTri[B]; // hinge next? depends on which should be next anchor
+            prevTRangle = triAngleA; // last internal angle becomes prev for completeness
+          }
+
+        });
+
+        console.log(`\n=== FINAL cumulative kOffset: ${(kOffset * 180 / Math.PI).toFixed(2)}° ===`);
+        console.log("\n=== FINAL positions ===", positions);
       }
 
-      const sortedBlame = Object.entries(blame)
-        .sort((a, b) => b[1] - a[1])
 
-      */
 
-      //return { positions, discrepancy, sortedBlame };
+      
 
-      return { positions };
+      return {
+        positions,
+        discrepancies,
+        blame,
+        ...(boxes ? { boxes } : {})
+      };
     },
 
 
 
 
-drawFunction: (ctx, data) => {
-    console.log('[SailSteps] drawFunction with discrepancy labels');
-    if (!data.positions) return;
+    drawFunction: (ctx, data) => {
 
-    const pointIds = Object.keys(data.positions);
-    if (pointIds.length === 0) return;
+      
 
-    let orderedIds = [...pointIds];
-    if (orderedIds.includes('A')) {
-        orderedIds = ['A'];
-        for (let i = 1; i < pointIds.length; i++) {
-            const next = String.fromCharCode('A'.charCodeAt(0) + i);
-            if (pointIds.includes(next)) orderedIds.push(next);
+        ctx.clearRect(0, 0, 1000, 1000);
+        ctx.save();
+        ctx.font = '16px Arial';
+        ctx.lineWidth = 2;
+
+        let ypos = 1100;
+
+        if (data.discrepancies) {
+            ctx.fillStyle = '#b00020';
+          ctx.font = '30px Arial';
+
+          ctx.fillText(
+            `Discrepancies:`,
+            100,
+            ypos
+          );
+
+          ypos += 40;
+
+          for (const [key, value] of Object.entries(data.discrepancies)) {
+
+              const [a, b, c, d] = key.split('');
+
+              const dimKey = `${b}${d}`;
+              const measured = data.dimensions?.[dimKey];
+            
+              const abs = Math.abs(value);
+              const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
+
+              ctx.fillText(
+                  `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
+                  100,
+                  ypos
+              );
+
+              ypos += 40;
+          }
         }
+
+        if (data.blame) {
+          ctx.fillText(
+            `Blame:`,
+            100,
+            ypos + 80
+          );
+
+          ypos += 120;
+          // Convert blame object → array of [key, value] pairs
+          const sortedBlame = Object.entries(data.blame)
+            .sort((a, b) => b[1] - a[1]); // descending by score
+
+          sortedBlame.forEach(([key, value]) => {
+            const text = `${key}: ${value.toFixed(2)}`;
+            
+            // Example: draw on canvas
+            ctx.fillText(text, 100, ypos);
+
+            // Move down for next entry
+            ypos += 40;
+          });
+        }
+
+        const pointIds = Object.keys(data.points);
+        if (pointIds.length === 0) return;
+
+        let orderedIds = [...pointIds];
+        if (orderedIds.includes('A')) {
+            orderedIds = ['A'];
+            for (let i = 1; i < pointIds.length; i++) {
+                const next = String.fromCharCode('A'.charCodeAt(0) + i);
+                if (pointIds.includes(next)) orderedIds.push(next);
+            }
+            for (const pid of pointIds) {
+                if (!orderedIds.includes(pid)) orderedIds.push(pid);
+            }
+        }
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const pid of pointIds) {
-            if (!orderedIds.includes(pid)) orderedIds.push(pid);
+            const p = data.positions[pid];
+            if (!p) continue;
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
         }
-    }
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const pid of pointIds) {
-        const p = data.positions[pid];
-        if (!p) continue;
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-    }
-
-    const pad = 40;
-    const drawW = 1000 - 2 * pad;
-    const drawH = 1000 - 2 * pad;
-    const shapeW = maxX - minX || 1;
-    const shapeH = maxY - minY || 1;
-    const scale = Math.min(drawW / shapeW, drawH / shapeH);
-
-    const mapped = {};
-    for (const pid of pointIds) {
-        const p = data.positions[pid];
-        mapped[pid] = {
-            x: pad + (p.x - minX) * scale,
-            y: pad + (p.y - minY) * scale
-        };
-    }
-
-    function getLineColor(a, b) {
-        if (pointIds.length >= 5 && data.result && data.result.errorBD) {
-            const suspects = data.result.errorBD.match(/[A-Z]{2}/g) || [];
-            if (suspects.includes(`${a}${b}`) || suspects.includes(`${b}${a}`)) {
-                return 'red';
-            }
-        }
-        return '#333';
-    }
-
-    ctx.clearRect(0, 0, 1000, 1000);
-    ctx.save();
-    ctx.font = '16px Arial';
-    ctx.lineWidth = 2;
-
-    // Draw all edges and diagonals with labels
-    for (let i = 0; i < pointIds.length; i++) {
-        for (let j = i + 1; j < pointIds.length; j++) {
-            const a = pointIds[i], b = pointIds[j];
-            const pa = mapped[a], pb = mapped[b];
-            if (!pa || !pb) continue;
-
-            ctx.beginPath();
-            ctx.strokeStyle = getLineColor(a, b);
-            ctx.moveTo(pa.x, pa.y);
-            ctx.lineTo(pb.x, pb.y);
-            ctx.stroke();
-
-            const mx = (pa.x + pb.x) / 2;
-            const my = (pa.y + pb.y) / 2;
-            const key1 = `${a}${b}`, key2 = `${b}${a}`;
-            let val = data.dimensions?.[key1] ?? data.dimensions?.[key2];
-            if (typeof val === 'number' && !isNaN(val)) {
-                ctx.save();
-                ctx.fillStyle = ctx.strokeStyle;
-                ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
-                ctx.restore();
-            }
-        }
-    }
-
-    let ypos = 200
-
-    // Draw discrepancy labels for each 4-point combo
-    if (data.discrepancy) {
-        ctx.fillStyle = '#b00020';
-        ctx.font = '30px Arial';
-
-        ctx.fillText(
-          `Discrepancies:`,
-          600,
-          100
-        );
+        const pad = 40;
+        const drawW = 1000 - 2 * pad;
+        const drawH = 1000 - 2 * pad;
+        const shapeW = maxX - minX || 1;
+        const shapeH = maxY - minY || 1;
+        const scale = Math.min(drawW / shapeW, drawH / shapeH);
 
         
+        const mapped = {};
+        for (const [pid, p] of Object.entries(data.positions)) {
+          mapped[pid] = {
+            x: pad + (p.x - minX) * scale,
+            y: pad + (p.y - minY) * scale
+          };
+        }
+        
 
-        for (const [key, value] of Object.entries(data.discrepancy)) {
-            if (key.length !== 4) continue;
-            const [a, b, c, d] = key.split('');
-            const p2 = mapped[b], p4 = mapped[d];
-            if (!p2 || !p4) continue;
+        function getLineColor(a, b) {
+            if (pointIds.length >= 5 && data.result && data.result.errorBD) {
+                const suspects = data.result.errorBD.match(/[A-Z]{2}/g) || [];
+                if (suspects.includes(`${a}${b}`) || suspects.includes(`${b}${a}`)) {
+                    return 'red';
+                }
+            }
+            return '#333';
+        }
 
-            const mx = (p2.x + p4.x) / 2;
+        // Draw all edges and diagonals with labels
+        for (let i = 0; i < pointIds.length; i++) {
+            for (let j = i + 1; j < pointIds.length; j++) {
+                const a = pointIds[i], b = pointIds[j];
+                const pa = mapped[a], pb = mapped[b];
+                if (!pa || !pb) continue;
 
-            const diagKey1 = `${b}${d}`;
-            const diagKey2 = `${d}${b}`;
-            const measured = data.dimensions?.[diagKey1] ?? data.dimensions?.[diagKey2];
-            const abs = Math.abs(value);
-            const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
+                ctx.beginPath();
+                ctx.strokeStyle = getLineColor(a, b);
+                ctx.moveTo(pa.x, pa.y);
+                ctx.lineTo(pb.x, pb.y);
+                ctx.stroke();
 
-            ctx.fillText(
-                `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
-                600,
-                ypos
-            );
+                const mx = (pa.x + pb.x) / 2;
+                const my = (pa.y + pb.y) / 2;
+                const key1 = `${a}${b}`, key2 = `${b}${a}`;
+                let val = data.dimensions?.[key1] ?? data.dimensions?.[key2];
+                if (typeof val === 'number' && !isNaN(val)) {
+                    ctx.save();
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
+                    ctx.restore();
+                }
+            }
+        }
 
-            ypos += 40;
+        // Draw points and height labels
+        for (const pid of orderedIds) {
+            const p = mapped[pid];
+            if (!p) continue;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#1976d2';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#222';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText(pid, p.x + 12, p.y - 12);
+
+            const h = data[`H${pid}`];
+            if (typeof h === 'number' && !isNaN(h)) {
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#555';
+                ctx.fillText(`H${pid}: ${h}`, p.x + 12, p.y + 16);
+            }
         }
     }
-
-    // Draw sorted blame values (edges and heights)
-    if (data.sortedBlame) {
-      
-        ctx.fillText(`Blame:`, 600, ypos + 40);
-        ypos += 80;
-
-        for (const [key, value] of data.sortedBlame) {
-            const label = key.length === 3 && key.startsWith('H')
-                ? `Height ${key[1]}`
-                : `${key[0]}–${key[1]}`;
-            ctx.fillText(`${label}: ${value.toFixed(1)}`, 600, ypos);
-            ypos += 40;
-        }
-    }
-
-    // Draw points and height labels
-    for (const pid of orderedIds) {
-        const p = mapped[pid];
-        if (!p) continue;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-        ctx.fillStyle = '#1976d2';
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.fillStyle = '#222';
-        ctx.font = 'bold 18px Arial';
-        ctx.fillText(pid, p.x + 12, p.y - 12);
-
-        const h = data[`H${pid}`];
-        if (typeof h === 'number' && !isNaN(h)) {
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#555';
-            ctx.fillText(`H${pid}: ${h}`, p.x + 12, p.y + 16);
-        }
-    }
-
-    ctx.restore();
-}
-
   }
 ];
   

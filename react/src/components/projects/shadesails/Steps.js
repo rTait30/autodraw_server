@@ -1,78 +1,3 @@
-function getCombinations(arr, k) {
-  const results = [];
-  function helper(start, combo) {
-    if (combo.length === k) {
-      results.push([...combo]);
-      return;
-    }
-    for (let i = start; i < arr.length; i++) {
-      combo.push(arr[i]);
-      helper(i + 1, combo);
-      combo.pop();
-    }
-  }
-  helper(0, []);
-  return results;
-}
-
-function getLength(dimensions, a, b) {
-  const key1 = `${a}${b}`;
-  const key2 = `${b}${a}`;
-  return typeof dimensions?.[key1] === 'number'
-    ? dimensions[key1]
-    : dimensions?.[key2] ?? NaN;
-}
-
-function getHeight(data, pid) {
-  return data.points?.[pid]?.height ?? NaN;
-}
-
-function computeDiscrepancy(points) {
-  const [p1, p2, p3, p4] = points;
-
-  const getLen = (a, b) => {
-    if (!a || !b) return NaN;
-    return typeof a.lengths?.[b.id] === 'number' ? a.lengths[b.id] : a.lengths?.[`${a.id}${b.id}`] ?? a.lengths?.[`${b.id}${a.id}`] ?? NaN;
-  };
-
-  const l12 = getLen(p1, p2);
-  const l23 = getLen(p2, p3);
-  const l34 = getLen(p3, p4);
-  const l41 = getLen(p4, p1);
-  const l13 = getLen(p1, p3);
-  const l24 = getLen(p2, p4);
-
-  const h1 = p1.height, h2 = p2.height, h3 = p3.height, h4 = p4.height;
-
-  const lengths = [l12, l23, l34, l41, l13, l24];
-  const heights = [h1, h2, h3, h4];
-  if (lengths.some(isNaN) || heights.some(isNaN)) return null;
-
-  try {
-    const l12xy = Math.sqrt(Math.max(0, l12 ** 2 - (h2 - h1) ** 2));
-    const l23xy = Math.sqrt(Math.max(0, l23 ** 2 - (h3 - h2) ** 2));
-    const l34xy = Math.sqrt(Math.max(0, l34 ** 2 - (h4 - h3) ** 2));
-    const l41xy = Math.sqrt(Math.max(0, l41 ** 2 - (h1 - h4) ** 2));
-    const l13xy = Math.sqrt(Math.max(0, l13 ** 2 - (h3 - h1) ** 2));
-    const l24xy = Math.sqrt(Math.max(0, l24 ** 2 - (h4 - h2) ** 2));
-
-    const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
-    const angle123 = safeAcos((l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy));
-    const angle134 = safeAcos((l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy));
-
-    const p2x = l12xy * Math.cos(angle123);
-    const p2y = l12xy * Math.sin(angle123);
-    const p4x = l41xy * Math.cos(angle134);
-    const p4y = -l41xy * Math.sin(angle134);
-
-    const l24Teoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2 + (h2 - h4) ** 2);
-    const discrepancy = Math.abs(l24Teoric - l24);
-    return discrepancy;
-  } catch {
-    return null;
-  }
-}
-
 function computeDiscrepancyXY(dimensions) {
 
   const lengths = Object.values(dimensions);
@@ -376,8 +301,6 @@ export const steps = [
       const pointIds = Object.keys(data.points || {});
       console.log(`points: ${pointIds}`);
 
-
-
       const discrepancies = {};
 
       const blame = {};
@@ -448,8 +371,7 @@ export const steps = [
           xyDistances["AD"],
           xyDistances["BC"],
           xyDistances["BD"],
-          xyDistances["CD"],
-          Math.PI / 4
+          xyDistances["CD"]
         );
 
         // Merge the returned A,B,C,D into positions

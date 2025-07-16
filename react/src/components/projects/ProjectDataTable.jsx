@@ -39,7 +39,7 @@ export default function ProjectDataTable({
 }) {
   if (!project) return null;
 
-  const isEstimator = role !== 'client';
+  const isEstimator = role === 'client';
 
   const projectData = {};
   for (const [key, value] of Object.entries(project)) {

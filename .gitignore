@@ -1,10 +1,7 @@
 /*.json
 
-instance/
-
 .venv/
 
-.venv/
 node_modules/
 
 # Built frontend assets

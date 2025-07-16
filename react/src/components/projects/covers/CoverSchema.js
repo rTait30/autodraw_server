@@ -8,7 +8,7 @@ export const coverSchema = {
     },
     {
       "type": "sku",
-      "sku": "FAB002",
+      "sku": "FAB005",
       "quantity": "data.calculated?.nestData?.total_width ? Math.ceil((data.calculated.nestData.total_width / 1000) * 2) / 2 : 0"
     },
     {

@@ -116,8 +116,19 @@ export default function ProjectDetailsPage() {
   if (!project || !schema) return <div>Loading...</div>;
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', marginTop: '24px' }}>
-      <div style={{ flex: '0 0 320px', maxWidth: '100%' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: '32px',
+        marginTop: '24px',
+        width: '100%',
+      }}
+    >
+      {/* LEFT: Project Data Form, max half screen */}
+      <div style={{ flex: '1 1 50%', maxWidth: '50%', minWidth: '320px' }}>
+      <div style={{ maxWidth: '800px' }}>
         <ProjectDataTable
           project={project}
           role={localStorage.getItem('role')}
@@ -129,19 +140,25 @@ export default function ProjectDetailsPage() {
           onReset={handleReset}
         />
       </div>
+      </div>
 
-      <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {/* RIGHT: Always visible */}
+      <div
+        style={{
+          flex: '1 1 50%',
+          maxWidth: '50%',
+          minWidth: '320px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '32px',
+        }}
+      >
         <EstimateTable schema={schema} data={{ ...project, attributes, calculated }} />
+
         <SchemaEditor schema={schema} setSchema={setSchema} />
-        <div style={{ marginTop: 32 }}>
-          <canvas
-            ref={canvasRef}
-            width={500}
-            height={1500}
-            style={{ border: '1px solid #ccc', background: '#fff' }}
-          />
-        </div>
       </div>
     </div>
   );
+
 }

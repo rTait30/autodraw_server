@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
@@ -16,13 +16,18 @@ const SailForm = forwardRef(({ role }, ref) => {
     sailtracks: [],
   });
 
-  useImperativeHandle(ref, () => ({
-    getData: () => formData,
-  }));
-
+  // === Derived values ===
   const pointCount = formData.pointCount || 4;
   const points = Array.from({ length: pointCount }, (_, i) => getPointLabel(i));
   const edges = points.map((p, i) => `${p}${points[(i + 1) % pointCount]}`);
+
+  const diagonals = [];
+  for (let i = 0; i < pointCount; i++) {
+    for (let j = i + 1; j < pointCount; j++) {
+      if ((j === (i + 1) % pointCount) || (i === 0 && j === pointCount - 1)) continue;
+      diagonals.push(`${points[i]}${points[j]}`);
+    }
+  }
 
   const getSailtrackPoints = (sailtrackEdges) => {
     const pointSet = new Set();
@@ -37,6 +42,29 @@ const SailForm = forwardRef(({ role }, ref) => {
 
   const sailtrackPoints = getSailtrackPoints(formData.sailtracks);
 
+  // === Calculate live edge meter ===
+  const edgeMeter = useMemo(() => {
+    let total = 0;
+    edges.forEach(edge => {
+      const val = Number(formData.dimensions[edge]);
+      if (!isNaN(val) && val > 0) total += val;
+    });
+    return total; // in mm (or raw unit)
+  }, [formData.dimensions, edges]);
+
+  // Also derive ceiling in meters (e.g. 14744 mm => 15 m)
+  const edgeMeterCeilMeters = Math.max(1, Math.ceil(edgeMeter / 1000));
+
+  // === Expose data via ref ===
+  useImperativeHandle(ref, () => ({
+    getData: () => ({
+      ...formData,
+      edgeMeter,
+      edgeMeterCeilMeters
+    }),
+  }));
+
+  // === Effects for point setup ===
   useEffect(() => {
     setFormData((prev) => {
       const updatedPoints = { ...prev.points };
@@ -60,14 +88,6 @@ const SailForm = forwardRef(({ role }, ref) => {
       };
     });
   }, [pointCount, formData.sailtracks]);
-
-  const diagonals = [];
-  for (let i = 0; i < pointCount; i++) {
-    for (let j = i + 1; j < pointCount; j++) {
-      if ((j === (i + 1) % pointCount) || (i === 0 && j === pointCount - 1)) continue;
-      diagonals.push(`${points[i]}${points[j]}`);
-    }
-  }
 
   const getPoint = (p) => formData.points?.[p] || {};
 
@@ -95,6 +115,16 @@ const SailForm = forwardRef(({ role }, ref) => {
       }
       return { ...prev, sailtracks: Array.from(updated) };
     });
+  };
+
+  const defaultTensionAllowances = {
+    M8B: 50,
+    M10B: 50,
+    M12B: 50,
+    M8T: 300,
+    M10T: 350,
+    M12T: 450,
+    Plate: 150,
   };
 
   const handlePointChange = (point, field, value) => {
@@ -131,19 +161,9 @@ const SailForm = forwardRef(({ role }, ref) => {
     });
   };
 
-  const defaultTensionAllowances = {
-    M8B: 50,
-    M10B: 50,
-    M12B: 50,
-    M8T: 300,
-    M10T: 350,
-    M12T: 450,
-    Plate: 150,
-  };
-
   return (
     <div>
-      <div className=" gap-4">
+      <div className="gap-4">
         <label>
           Fabric Type:
           <select
@@ -218,6 +238,11 @@ const SailForm = forwardRef(({ role }, ref) => {
               </label>
             </div>
           ))}
+        </div>
+
+        {/* LIVE total edge length */}
+        <div className="mt-2 font-semibold">
+          Total Edge Length: {edgeMeter.toLocaleString()} mm ({edgeMeterCeilMeters} m rounded up)
         </div>
       </div>
 

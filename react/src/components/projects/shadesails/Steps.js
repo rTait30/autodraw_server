@@ -279,6 +279,10 @@ export const steps = [
 
       */
 
+      const edgeMeter = Object.values(data.dimensions).reduce((sum, value) => sum + value, 0);
+
+      console.log('Total edgeMeter:', edgeMeter);
+
       const xyDistances = {};
 
       // Normalize keys (e.g., "BA" -> "AB") and project to 2D
@@ -599,13 +603,60 @@ export const steps = [
       }
 
 
+      const category2Prices = {
+        15: 565,
+        16: 605,
+        17: 645,
+        18: 685,
+        19: 725,
+        20: 765,
+        21: 825,
+        22: 875,
+        23: 925,
+        24: 975,
+        25: 1025,
+        26: 1085,
+        27: 1145,
+        28: 1205,
+        29: 1265,
+        30: 1325,
+        31: 1385,
+        32: 1445,
+        33: 1505,
+        34: 1565,
+        35: 1630,
+        36: 1695,
+        37: 1765,
+        38: 1835,
+        39: 1905,
+        40: 1975,
+        41: 2050,
+        42: 2120,
+        43: 2195,
+        44: 2270,
+        45: 2350,
+        46: 2430,
+        47: 2510,
+        48: 2590,
+        49: 2670,
+        50: 2755
+      };
+
+      const fabricPrice = category2Prices[data.edgeMeterCeilMeters];
+
+      if (fabricPrice !== undefined) {
+      } else {
+        console.warn(`No price found for edge meter: ${edgeMeter}`);
+      };
 
       
 
       return {
+        edgeMeter,
         positions,
         discrepancies,
         blame,
+        fabricPrice,
         ...(boxes ? { boxes } : {})
       };
     },

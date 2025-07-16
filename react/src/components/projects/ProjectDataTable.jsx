@@ -1,9 +1,11 @@
 import React from 'react';
 
 const tableStyle = {
-  width: "100%",
+  width: "auto",
   borderCollapse: "collapse",
+  maxWidth: "800px",
   fontSize: "15px",
+  tableLayout: "fixed"
 };
 const thStyle = {
   background: "#f7f7f7",
@@ -37,7 +39,7 @@ export default function ProjectDataTable({
 }) {
   if (!project) return null;
 
-  const isEstimator = role === 'estimator';
+  const isEstimator = role !== 'client';
 
   const projectData = {};
   for (const [key, value] of Object.entries(project)) {
@@ -64,7 +66,7 @@ export default function ProjectDataTable({
               type="text"
               value={value ?? ''}
               onChange={e => setAttributes(prev => ({ ...prev, [key]: e.target.value }))}
-              style={{ width: '100%', padding: '4px', border: '1px solid #ccc' }}
+              style={{ width: '20%', padding: '4px', border: '1px solid #ccc' }}
             />
           ) : (
             typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -74,6 +76,7 @@ export default function ProjectDataTable({
     ));
 
   return (
+    <div style={{ maxWidth: '800px', overflowX: "auto" }}>
     <table style={tableStyle}>
       <tbody>
         <tr><td style={headingStyle} colSpan="2">Project Data</td></tr>
@@ -100,5 +103,6 @@ export default function ProjectDataTable({
         )}
       </tbody>
     </table>
+    </div>
   );
 }

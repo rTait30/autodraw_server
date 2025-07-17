@@ -675,10 +675,9 @@ export const steps = [
 
         let ypos = 1100;
 
-        if (data.discrepancies) {
-            ctx.fillStyle = '#b00020';
-          ctx.font = '30px Arial';
+        ctx.fillStyle = '#b00020';
 
+        if (data.discrepancies) {
           ctx.fillText(
             `Discrepancies:`,
             100,
@@ -687,34 +686,39 @@ export const steps = [
 
           ypos += 40;
 
-          for (const [key, value] of Object.entries(data.discrepancies)) {
+          // Convert discrepancies object → array of [key, value] pairs and sort by absolute value
+          const sortedDiscrepancies = Object.entries(data.discrepancies)
+            .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])); // descending by abs diff
 
-              const [a, b, c, d] = key.split('');
+          sortedDiscrepancies.forEach(([key, value]) => {
+            const [a, b, c, d] = key.split('');
 
-              const dimKey = `${b}${d}`;
-              const measured = data.dimensions?.[dimKey];
-            
-              const abs = Math.abs(value);
-              const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
+            const dimKey = `${b}${d}`;
+            const measured = data.dimensions?.[dimKey];
 
-              ctx.fillText(
-                  `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
-                  100,
-                  ypos
-              );
+            const abs = Math.abs(value);
+            const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
 
-              ypos += 40;
-          }
+            ctx.fillText(
+              `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
+              100,
+              ypos
+            );
+
+            ypos += 20;
+          });
         }
+
+        ypos = 1100;
 
         if (data.blame) {
           ctx.fillText(
             `Blame:`,
-            100,
-            ypos + 80
+            500,
+            ypos
           );
 
-          ypos += 120;
+          ypos += 40;
           // Convert blame object → array of [key, value] pairs
           const sortedBlame = Object.entries(data.blame)
             .sort((a, b) => b[1] - a[1]); // descending by score
@@ -723,10 +727,10 @@ export const steps = [
             const text = `${key}: ${value.toFixed(2)}`;
             
             // Example: draw on canvas
-            ctx.fillText(text, 100, ypos);
+            ctx.fillText(text, 500, ypos);
 
             // Move down for next entry
-            ypos += 40;
+            ypos += 20;
           });
         }
 

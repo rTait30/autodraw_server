@@ -177,7 +177,7 @@ export default function NewProjectGeneral() {
                 <canvas
                   ref={canvasRef}
                   width={500}
-                  height={1600}
+                  height={5000}
                   style={{
                     border: '1px solid #ccc',
                     marginTop: '20px',

@@ -210,7 +210,7 @@ const SailForm = forwardRef(({ role }, ref) => {
             value={pointCount}
             onChange={(e) => updateFormData('pointCount', Number(e.target.value))}
           >
-            {[3, 4, 5, 6, 7, 8].map((n) => (
+            {[3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>

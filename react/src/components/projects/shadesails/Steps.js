@@ -603,53 +603,8 @@ export const steps = [
       }
 
 
-      const category2Prices = {
-        15: 565,
-        16: 605,
-        17: 645,
-        18: 685,
-        19: 725,
-        20: 765,
-        21: 825,
-        22: 875,
-        23: 925,
-        24: 975,
-        25: 1025,
-        26: 1085,
-        27: 1145,
-        28: 1205,
-        29: 1265,
-        30: 1325,
-        31: 1385,
-        32: 1445,
-        33: 1505,
-        34: 1565,
-        35: 1630,
-        36: 1695,
-        37: 1765,
-        38: 1835,
-        39: 1905,
-        40: 1975,
-        41: 2050,
-        42: 2120,
-        43: 2195,
-        44: 2270,
-        45: 2350,
-        46: 2430,
-        47: 2510,
-        48: 2590,
-        49: 2670,
-        50: 2755
-      };
+      let fabricPrice = getPriceByFabric(data.edgeMeterCeilMeters, data.fabricType);
 
-      const fabricPrice = category2Prices[data.edgeMeterCeilMeters];
-
-      if (fabricPrice !== undefined) {
-      } else {
-        console.warn(`No price found for edge meter: ${edgeMeter}`);
-      };
-
-      
 
       return {
         edgeMeter,
@@ -839,4 +794,95 @@ export const steps = [
     }
   }
 ];
-  
+
+
+const priceList = {
+  1: { // Category 1 - Coolshade / Commercial 95
+    15: 490, 16: 530, 17: 570, 18: 610, 19: 650,
+    20: 690, 21: 730, 22: 770, 23: 810, 24: 850,
+    25: 900, 26: 950, 27: 1005, 28: 1060, 29: 1115,
+    30: 1170, 31: 1230, 32: 1290, 33: 1350, 34: 1410,
+    35: 1475, 36: 1530, 37: 1605, 38: 1650, 39: 1710,
+    40: 1775, 41: 1840, 42: 1910, 43: 1980, 44: 2050,
+    45: 2125, 46: 2195, 47: 2270, 48: 2345, 49: 2420,
+    50: 2505
+  },
+  2: { // Category 2 - Rainbow Z16 / Dual Shade / Comm 95FR / Comm Heavy 430
+    15: 565, 16: 605, 17: 645, 18: 685, 19: 725,
+    20: 765, 21: 825, 22: 875, 23: 925, 24: 975,
+    25: 1025, 26: 1085, 27: 1145, 28: 1205, 29: 1265,
+    30: 1325, 31: 1385, 32: 1445, 33: 1505, 34: 1565,
+    35: 1630, 36: 1695, 37: 1765, 38: 1835, 39: 1905,
+    40: 1975, 41: 2050, 42: 2120, 43: 2195, 44: 2270,
+    45: 2350, 46: 2430, 47: 2510, 48: 2590, 49: 2670,
+    50: 2755
+  },
+  3: { // Category 3 - Extreme 32
+    15: 645, 16: 685, 17: 725, 18: 765, 19: 815,
+    20: 870, 21: 925, 22: 985, 23: 1040, 24: 1100,
+    25: 1160, 26: 1225, 27: 1285, 28: 1350, 29: 1415,
+    30: 1485, 31: 1560, 32: 1630, 33: 1700, 34: 1770,
+    35: 1840, 36: 1915, 37: 1980, 38: 2050, 39: 2130,
+    40: 2190, 41: 2270, 42: 2350, 43: 2435, 44: 2520,
+    45: 2605, 46: 2690, 47: 2780, 48: 2870, 49: 2960,
+    50: 3115
+  },
+  4: { // Category 4 - Monotec 370 / Comm Heavy 430FR / Polyfab Xtra / Extrablock FR
+    15: 775, 16: 825, 17: 875, 18: 925, 19: 975,
+    20: 1035, 21: 1095, 22: 1145, 23: 1235, 24: 1285,
+    25: 1385, 26: 1435, 27: 1535, 28: 1605, 29: 1675,
+    30: 1735, 31: 1805, 32: 1875, 33: 1945, 34: 2020,
+    35: 2100, 36: 2180, 37: 2250, 38: 2335, 39: 2430,
+    40: 2515, 41: 2605, 42: 2700, 43: 2795, 44: 2885,
+    45: 2960, 46: 3050, 47: 3160, 48: 3250, 49: 3360,
+    50: 3550
+  },
+  5: { // Category 5 - Weather Resistant Shade Sail (DriZ)
+    15: 890, 16: 960, 17: 1030, 18: 1105, 19: 1180,
+    20: 1255, 21: 1365, 22: 1450, 23: 1535, 24: 1620,
+    25: 1710, 26: 1800, 27: 1890, 28: 1985, 29: 2080,
+    30: 2180, 31: 2280, 32: 2380, 33: 2485, 34: 2595,
+    35: 2705, 36: 2815, 37: 2930, 38: 3045, 39: 3160,
+    40: 3280
+  }
+};
+
+// Helper function to get price by edge meter & category
+function getPrice(edgeMeter, category) {
+  const catPrices = priceList[category];
+  if (!catPrices) {
+    console.warn(`Invalid category: ${category}`);
+    return null;
+  }
+  const price = catPrices[edgeMeter];
+  if (price !== undefined) {
+    return price;
+  } else {
+    console.warn(`No price found for edge meter ${edgeMeter} in category ${category}`);
+    return null;
+  }
+}
+
+const fabricToCategory = {
+  "Coolshade": 1,
+  "Commercial 95": 1,
+  "Rainbow Z16": 2,
+  "Dual Shade": 2,
+  "Comm 95FR": 2,
+  "Comm Heavy 430": 2,
+  "Extreme 32": 3,
+  "Monotec 370": 4,
+  "Comm Heavy 430FR": 4,
+  "Polyfab Xtra": 4,
+  "Extrablock FR": 4,
+  "DriZ": 5 // Weather Resistant Shade Sail
+};
+
+function getPriceByFabric(edgeMeter, fabricName) {
+  const category = fabricToCategory[fabricName];
+  if (!category) {
+    console.warn(`Unknown fabric: ${fabricName}`);
+    return null;
+  }
+  return getPrice(edgeMeter, category);
+}

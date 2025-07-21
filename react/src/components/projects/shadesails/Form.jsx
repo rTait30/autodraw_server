@@ -1,13 +1,120 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 
+const FABRIC_OPTIONS = {
+  ShadeCloth: [
+    { value: 'Rainbow Z16', label: 'Rainbow Z16',
+      colours: [
+        'Cinnamon',
+        'Desert Sand',
+        'Silver',
+        'Charcoal',
+        'Black',
+        'Navy Blue',
+        'Laguna Blue',
+        'Royal Blue',
+        'Turquoise',
+        'Rainforest',
+        'Red Earth',
+        'Terracotta',
+        'Rust Gold',
+        'Mulberry',
+        'Chocolate',
+        'Ice White',
+        'Zesty Lime',
+        'Electric Purple',
+        'Atomic Orange',
+        'Sunset Red',
+        'Sunflower Yellow',
+        'Eucalyptus',
+        'Olive',
+        'Gumleaf'
+      ]
+    
+    },
+    { value: 'Monotec 370', label: 'Monotec 370',
+      
+      colours: [
+        'Chino',
+        'Karloo',
+        'Bundena',
+        'Graphite',
+        'Marrocan',
+        'Abaroo',
+        'Sheba',
+        'Koonunga',
+        'Domino',
+        'Titanium',
+        'Lime Fizz',
+        'Mellow Haze',
+        'Sherbet',
+        'Bubblegum',
+        'Jazzberry',
+        'Candy'
+      ]
+    
+    },
+    { value: 'Parasol', label: 'Parasol', colours: ['Charcoal'] },
+  ],
+  PVC: [
+    { value: 'Ferrari 502', label: 'Ferrari 502',
+      
+      colours: 
+        [
+        'Night Blue',
+        'Porcelain Green',
+        'Garden Green',
+        'Marine',
+        'Pacific Blue',
+        'Revival Blue',
+        'Alphine',
+        'Lagoon',
+        'Spring Green',
+        'Victoria Blue',
+        'Tin Green',
+        'Tennis Green',
+        'Raspberry',
+        'Pepper',
+        'Orange',
+        'Poppy',
+        'Black',
+        'Titanium',
+        'Enamel White',
+        'Anthracite',
+        'Aluminium',
+        'Pearl White',
+        'Concrete',
+        'Boulder',
+        'White',
+        'Champagne',
+        'Lemon',
+        'Peach',
+        'Hemp',
+        'Buttercup',
+        'Burgundy',
+        'Rust',
+        'Taupe'
+      ]
+    },
+    { value: 'Mehler', label: 'Mehler', colours: ['Black', 'White'] },
+  ]
+};
+
+// --- Helper to get colours for selected material ---
+function getColoursForMaterial(category, material) {
+  const brand = FABRIC_OPTIONS[category]?.find(opt => opt.value === material);
+  return brand?.colours || [];
+}
+
+
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
 }
 
 const SailForm = forwardRef(({ role }, ref) => {
   const [formData, setFormData] = useState({
-    fabricType: 'ShadeCloth',
-    colour: 'Black',
+    fabricCategory: 'ShadeCloth',
+    fabricType: 'Rainbow Z16',
+    colour: 'Charcoal',
     exitPoint: 'A',
     logo: 'A',
     pointCount: 4,
@@ -165,24 +272,48 @@ const SailForm = forwardRef(({ role }, ref) => {
     <div>
       <div className="gap-4">
         <label>
-          Fabric Type:
+          Fabric Category:
+          <select
+            className="inputStyle"
+            value={formData.fabricCategory}
+            onChange={e => {
+              const newCat = e.target.value;
+              updateFormData('fabricCategory', newCat);
+              // Set default fabricType for new category
+              const defaultType = FABRIC_OPTIONS[newCat][0]?.value || '';
+              updateFormData('fabricType', defaultType);
+            }}
+          >
+            {Object.keys(FABRIC_OPTIONS).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Brand:
           <select
             className="inputStyle"
             value={formData.fabricType}
-            onChange={(e) => updateFormData('fabricType', e.target.value)}
+            onChange={e => updateFormData('fabricType', e.target.value)}
           >
-            <option value="PVC">PVC</option>
-            <option value="ShadeCloth">Shade Cloth</option>
+            {FABRIC_OPTIONS[formData.fabricCategory].map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </label>
 
         <label>
           Colour:
-          <input
+          <select
             className="inputStyle"
             value={formData.colour}
-            onChange={(e) => updateFormData('colour', e.target.value)}
-          />
+            onChange={e => updateFormData('colour', e.target.value)}
+          >
+            {getColoursForMaterial(formData.fabricCategory, formData.fabricType).map(colour => (
+              <option key={colour} value={colour}>{colour}</option>
+            ))}
+          </select>
         </label>
 
         <label>

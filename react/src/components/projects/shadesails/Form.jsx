@@ -180,6 +180,7 @@ const SailForm = forwardRef(({ role }, ref) => {
         if (!updatedPoints[p]) {
           updatedPoints[p] = {
             height: 0,
+            cornerType: 'PR', // <-- Default cornerType
             fixingType: 'M8 Bowshackle',
             tensionAllowance: 50,
           };
@@ -402,6 +403,7 @@ const SailForm = forwardRef(({ role }, ref) => {
               <tr className="font-semibold border-b">
                 <th className="text-left p-1">Point</th>
                 <th className="text-left p-1">Height</th>
+                <th className="text-left p-1">Corner Type</th>
                 <th className="text-left p-1">Fixing</th>
                 <th className="text-left p-1">Tension (mm)</th>
               </tr>
@@ -420,6 +422,20 @@ const SailForm = forwardRef(({ role }, ref) => {
                   </td>
                   <td>
                     <select
+                      type="number"
+                      className="inputCompact"
+                      value={getPoint(p).cornerType || ''}
+                      onChange={(e) => handlePointChange(p, 'cornerType', e.target.value)}
+                      disabled={sailtrackPoints.has(p)}
+                    >
+                      <option value="PR">Prorig</option>
+                      <option value="PRP">Prorig with pipe</option>
+                      <option value="EZ">Ezy slide</option>
+                      <option value="Plate">Plate</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select
                       className="inputCompact"
                       value={getPoint(p).fixingType || 'Wall Plate'}
                       onChange={(e) => handlePointChange(p, 'fixingType', e.target.value)}
@@ -431,7 +447,7 @@ const SailForm = forwardRef(({ role }, ref) => {
                       <option value="M8T">M8 Turnbuckle</option>
                       <option value="M10T">M10 Turnbuckle</option>
                       <option value="M12T">M12 Turnbuckle</option>
-                      <option value="Plate">Plate</option>
+                      <option value="Toggle">Togglebolt</option>
                     </select>
                   </td>
                   <td>

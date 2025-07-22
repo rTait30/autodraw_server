@@ -25,16 +25,16 @@ function Projects() {
   return (
     <div style={{ padding: "1rem" }}>
       <h1>Projects</h1>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table className = "tableBase w-full">
         <thead>
           <tr>
-            <th style={th}>ID</th>
-            <th style={th}>Name</th>
-            <th style={th}>Type</th>
-            <th style={th}>Status</th>
-            <th style={th}>Client</th>
-            <th style={th}>Created</th>
-            <th style={th}>Updated</th>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Client</th>
+            <th>Created</th>
+            <th>Updated</th>
           </tr>
         </thead>
         <tbody>
@@ -57,12 +57,6 @@ function Projects() {
   );
 }
 
-const th = {
-  textAlign: "left",
-  padding: "0.5rem",
-  borderBottom: "2px solid #ccc",
-  backgroundColor: "#f0f0f0"
-};
 
 const td = {
   padding: "0.5rem",

@@ -18,7 +18,7 @@
     @apply w-full p-3 mb-3 border border-blue-300 rounded-lg text-sm;
   }
   .inputCompact {
-    @apply border border-blue-300 p-2 rounded text-left text-sm w-20;
+    @apply border border-blue-300 p-2 rounded text-left text-sm w-30;
   }
   .formStyle {
     @apply w-full flex flex-col items-center;
@@ -28,6 +28,24 @@
   }
   .roleStyle {
     @apply font-medium text-sm opacity-80;
+  }
+
+
+
+  .tableBase {
+    @apply border border-gray-300 bg-white w-200;
+  }
+  .tableBase th {
+    @apply text-left text-lg;
+  }
+  .tableSection {
+    @apply text-red-900 text-2xl border-b border-gray-200 py-3;
+  }
+  .tableHeader {
+    @apply bg-gray-100 text-left;
+  }
+  .tableCalc {
+    @apply bg-gray-100;
   }
 
 

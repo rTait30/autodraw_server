@@ -1,28 +1,62 @@
 function computeDiscrepancyXY(dimensions) {
-
   const lengths = Object.values(dimensions);
 
-  const l12xy = lengths[0];
-  const l23xy = lengths[3];
-  const l34xy = lengths[5];
-  const l41xy = lengths[2];
-  const l13xy = lengths[1];
-  const l24xy = lengths[4];
+  // Naming consistent with your original code
+  const l12xy = lengths[0]; // AB
+  const l13xy = lengths[1]; // AC (diagonal)
+  const l41xy = lengths[2]; // DA
+  const l23xy = lengths[3]; // BC
+  const l24xy = lengths[4]; // BD (diagonal)
+  const l34xy = lengths[5]; // CD
 
+  // --- Utility: Safe acos for numeric stability ---
   const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
-  const angle123 = safeAcos((l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy));
-  const angle134 = safeAcos((l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy));
 
+  // --- Step 1: Compute cosines of angles ---
+  const cos123 = (l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy);
+  const cos134 = (l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy);
+
+  // --- Step 2: Get *unsigned* angles ---
+  const angle123_unsigned = safeAcos(cos123);
+  const angle134_unsigned = safeAcos(cos134);
+
+  // --- Step 3: Determine *signed* angles ---
+  // We assume CCW winding, so we flip sign if needed.
+  // For a reflex angle, the "turn" should go beyond π.
+  // Trick: if the quadrilateral is concave, the diagonals will cross differently.
+  // We'll determine sign based on triangle inequality check:
+  let angle123 = angle123_unsigned;
+  let angle134 = angle134_unsigned;
+
+  // OPTIONAL heuristic: detect reflex by checking if sum of opposite edges < diagonal
+  const isReflex123 = (l12xy + l23xy < l13xy + 1e-9);
+  const isReflex134 = (l41xy + l34xy < l13xy + 1e-9);
+
+  if (isReflex123) angle123 = 2 * Math.PI - angle123_unsigned;
+  if (isReflex134) angle134 = 2 * Math.PI - angle134_unsigned;
+
+  // --- Step 4: Place points ---
+  // P1 is at origin
+  const p1x = 0, p1y = 0;
+  // P3 is at (l13xy, 0) - baseline
+  const p3x = l13xy, p3y = 0;
+
+  // P2 is rotated CCW from baseline by angle123
   const p2x = l12xy * Math.cos(angle123);
   const p2y = l12xy * Math.sin(angle123);
-  const p4x = l41xy * Math.cos(angle134);
-  const p4y = -l41xy * Math.sin(angle134);
 
-  const l24Teoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
-  const discrepancy = Math.abs(l24Teoric - l24xy);
-  console.log(discrepancy);
+  // P4 is rotated CW from baseline by angle134 (negative y direction)
+  const p4x = l41xy * Math.cos(-angle134);
+  const p4y = l41xy * Math.sin(-angle134);
+
+  // --- Step 5: Compute theoretical BD distance ---
+  const l24Theoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
+
+  const discrepancy = Math.abs(l24Theoric - l24xy);
+  console.log("discrepancy", discrepancy);
   return discrepancy;
 }
+
 
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
@@ -37,6 +71,29 @@ function projectToXY(length, z1, z2) {
 function lawCosine(a, b, c) {
   const cos = (a ** 2 + b ** 2 - c ** 2) / (2 * a * b);
   return Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
+}
+
+function signedAngleDegrees(v1, v2) {
+  const [x1, y1] = v1;
+  const [x2, y2] = v2;
+
+  const dot = x1 * x2 + y1 * y2;         // dot product
+  const det = x1 * y2 - y1 * x2;         // z-component of cross product
+  const angleRad = Math.atan2(det, dot); // returns -π..π
+  let angleDeg = angleRad * (180 / Math.PI);
+
+  // Normalize to 0–360°
+  if (angleDeg < 0) angleDeg += 360;
+  return angleDeg;
+}
+
+function polygonAngle(A, B, C) {
+  // Build vectors BA and BC (from B)
+  const BA = [A.x - B.x, A.y - B.y];
+  const BC = [C.x - B.x, C.y - B.y];
+
+  // Compute full signed angle
+  return signedAngleDegrees(BA, BC);
 }
 
 function generateBoxes(N, dimensions) {
@@ -854,13 +911,38 @@ function getPrice(edgeMeter, category) {
     console.warn(`Invalid category: ${category}`);
     return null;
   }
-  const price = catPrices[edgeMeter];
-  if (price !== undefined) {
-    return price;
-  } else {
-    console.warn(`No price found for edge meter ${edgeMeter} in category ${category}`);
-    return null;
+
+  // Get all available edge meter keys for the category
+  const edgeKeys = Object.keys(catPrices).map(Number).sort((a, b) => a - b);
+  const minEdge = edgeKeys[0];
+  const maxEdge = edgeKeys[edgeKeys.length - 1];
+
+  // If below the lowest edge, use the lowest
+  if (edgeMeter <= minEdge) {
+    return catPrices[minEdge];
   }
+
+  // If exact match, return directly
+  if (catPrices[edgeMeter] !== undefined) {
+    return catPrices[edgeMeter];
+  }
+
+  // If above highest, you can choose:
+  // 1) use the highest value (clamp)
+  // 2) or return null / throw warning
+  // Here we'll just use the highest available
+  if (edgeMeter >= maxEdge) {
+    return catPrices[maxEdge];
+  }
+
+  // Otherwise, you could choose to:
+  // - round down to the nearest available key
+  // - or round up
+  // - or interpolate (optional)
+  //
+  // For now, we'll just round down:
+  const lowerEdge = edgeKeys.reduce((prev, curr) => (curr <= edgeMeter ? curr : prev), minEdge);
+  return catPrices[lowerEdge];
 }
 
 const fabricToCategory = {

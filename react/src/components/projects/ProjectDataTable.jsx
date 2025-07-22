@@ -77,7 +77,7 @@ export default function ProjectDataTable({
 
   return (
     <div style={{ maxWidth: '800px', overflowX: "auto" }}>
-    <table style={tableStyle}>
+    <table className = "tableBase">
       <tbody>
         <tr><td style={headingStyle} colSpan="2">Project Data</td></tr>
         {renderStaticRows(projectData, 'project')}

@@ -152,6 +152,7 @@ export default function ProjectDetailsPage() {
           display: 'flex',
           flexDirection: 'column',
           gap: '32px',
+          marginRight: '20px',
         }}
       >
         <EstimateTable schema={schema} data={{ ...project, attributes, calculated }} />

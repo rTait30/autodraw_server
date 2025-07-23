@@ -3,6 +3,8 @@
 
 This system supports modular, self-contained project types for drawing and estimation. Each project type is defined in its own folder using a simple structure.
 
+Each form passes its variables to a Steps.js file in its folder that allows calculations and visualisations in a canvas if provided.
+
 ---
 
 ## 📁 Folder Structure
@@ -27,11 +29,11 @@ Example:
 
 ## 📄 Form.jsx
 
-This react component you must just define your arbitrary fields in the formData useState variable and return a form to edit them, the rest is just boilerplate code you can copy paste and leave as is
+This react component allows you to define any arbitrary field in the formData useState variable and return a form to edit them, the rest is just boilerplate code you can copy paste and leave as is
 
 ### ✅ Example
 
-```jsx
+```
 import React, { useState, forwardRef, useImperativeHandle } from 'react';
 
 const Form = forwardRef((props, ref) => {
@@ -78,7 +80,7 @@ Defines a list of calculation and drawing steps. Each step has:
 
 ### ✅ Example
 
-```js
+```
 export const steps = [
   {
     title: 'Step 1: Compute Area',
@@ -109,8 +111,9 @@ export const steps = [
 
 In `NewProject.jsx`, add your type to `projectTypes`:
 
-```js
+```
 { name: 'Calculator', id: 'calculator' }
+{ name: 'Simple Box', id: 'simplebox' }
 ```
 
 ---
@@ -119,7 +122,7 @@ In `NewProject.jsx`, add your type to `projectTypes`:
 
 The system automatically sends:
 
-```json
+```
 {
   "type": "calculator",
   "name": "...",

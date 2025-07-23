@@ -42,6 +42,10 @@ TO DO:
 
     generalise styling
 
+    hide zero quantity on estimations
+
+    sailtrack handling
+
     all project types
 
     Logging

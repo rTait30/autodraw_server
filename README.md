@@ -42,7 +42,7 @@ project-root/
 
 ### 1. Backend Setup (Flask)
 
-```bash
+```
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 ### 2. Frontend Setup (React)
 
-```bash
+```
 cd react
 npm install
 ```
@@ -61,7 +61,7 @@ npm install
 
 Always build the React app before running Flask in production:
 
-```bash
+```
 # From project root
 python build_and_deploy.py
 ```
@@ -74,7 +74,7 @@ This will:
 
 ## 🧪 Running the App
 
-```bash
+```
 python app.py
 ```
 

@@ -12,17 +12,15 @@ This is a fullstack application using:
 
 ---
 
-## 🤖 AGENT RESPONSIBILITIES
+## AGENT RESPONSIBILITIES
 
-### 🔨 Build & Deploy Frontend
+### Build & Deploy Frontend
 Agents should **never** use React in development mode (`npm run dev` is not supported in production).
 Instead, always:
-1. Navigate to `/react/`
-2. Run `npm install` (if dependencies are missing)
-3. Run `npm run build`
-4. From the project root, run:
+1. Ensure virtual python environment is active and all dependencies from `requirements.txt` are installed
+2. From the project root, run:
 
-```bash
+```
 python build_and_deploy.py
 ```
 
@@ -34,18 +32,16 @@ This script:
 
 ---
 
-### 🚀 Run the Backend
+### Run the Backend
 To launch the application in production/test:
 
-```bash
+```
 python app.py
 ```
 
-Ensure the virtual environment is activated and all dependencies are installed from `requirements.txt`.
-
 ---
 
-### 🧠 API Awareness
+### API Awareness
 Agents should know that:
 - All backend APIs are mounted under `/api/`
 - React should consume data from these endpoints
@@ -54,7 +50,7 @@ Agents should know that:
 
 ---
 
-### 📁 File Locations
+### File Locations
 - React code: `/react`
 - Flask entry point: `app.py`
 - Build script: `build_and_deploy.py`
@@ -64,21 +60,21 @@ Agents should know that:
 
 ---
 
-### 🔐 Security & State
+### Security & State
 - Authentication is handled via tokens (e.g., JWT) and stored client-side.
 - Agents should never embed secrets or credentials in frontend source files.
 - React routes are public and controlled via frontend logic.
 
 ---
 
-### ⚠️ Guidelines for Development
+### Guidelines for Development
 - Avoid direct manipulation of `static/` or `templates/` — use the build script.
 - Do not run two servers (Flask and React dev server) in production mode.
 - Ensure that API endpoints do not conflict with frontend routes.
 
 ---
 
-## ✅ CODING STYLE
+## CODING STYLE
 
 - React components should follow functional component style.
 - Use modern React (hooks, `useState`, `useEffect`, etc.)
@@ -86,7 +82,7 @@ Agents should know that:
 
 ---
 
-## 📌 SUMMARY
+## SUMMARY
 
 | Task                  | How                                      |
 |-----------------------|-------------------------------------------|

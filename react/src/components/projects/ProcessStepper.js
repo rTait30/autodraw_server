@@ -102,10 +102,9 @@ class ProcessStepper {
           console.error(`❌ Error in drawFunction (Step ${index} "${step.title}"):`, drawError);
 
           // Annotate error on canvas
-          this.ctx.setTransform(1, 0, 0, 1, 0, offsetY);
           this.ctx.fillStyle = '#b00020';
           this.ctx.font = '16px sans-serif';
-          this.ctx.fillText(`Draw error in "${step.title}": ${drawError.message}`, 10, 20);
+          this.ctx.fillText(`Draw error in "${step.title}": ${drawError.message}`, 500, 20);
 
           data._errors = data._errors || {};
           data._errors[`draw_${step.id}`] = drawError.message || 'Unknown draw error';

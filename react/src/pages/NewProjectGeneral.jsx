@@ -23,7 +23,6 @@ export default function NewProjectGeneral() {
   const [formData, setFormData] = useState(null);
 
   const role = localStorage.getItem('role') || 'guest';
-  const userId = localStorage.getItem('user_id') || '';
 
   const options = useMemo(() => ({
     showData: false,
@@ -165,7 +164,7 @@ export default function NewProjectGeneral() {
             <h2 className="text-xl font-bold mb-4">{loadedConfig.title}</h2>
             <div className="flex flex-col md:flex-row gap-10">
               <div className="flex-1">
-                <GeneralFields ref={generalFormRef} role={role} userId={userId} />
+                <GeneralFields ref={generalFormRef} role={role} />
                 <div className="my-6 border-t pt-6">
                   <loadedConfig.FormComponent ref={formRef} role={role} />
                 </div>

@@ -53,12 +53,15 @@ const FABRIC_OPTIONS = {
       ]
     
     },
-    { value: 'Parasol', label: 'Parasol', colours: ['Charcoal'] },
+    { value: 'Parasol', label: 'Parasol',
+      colours: [
+        'Charcoal'
+      ]
+    },
   ],
   PVC: [
     { value: 'Ferrari 502', label: 'Ferrari 502',
-      
-      colours: 
+      colours:
         [
         'Night Blue',
         'Porcelain Green',
@@ -95,7 +98,14 @@ const FABRIC_OPTIONS = {
         'Taupe'
       ]
     },
-    { value: 'Mehler', label: 'Mehler', colours: ['Black', 'White'] },
+    { value: 'Mehler', label: 'Mehler',
+      
+      colours:
+      [
+        'Black',
+        'White'
+      ]
+    },
   ]
 };
 

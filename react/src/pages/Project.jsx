@@ -8,7 +8,6 @@ import SchemaEditor from '../components/projects/SchemaEditor';
 import { getBaseUrl } from '../utils/baseUrl.js';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
-
 import { steps as coverSteps } from '../components/projects/covers/Steps';
 import { coverSchema } from '../components/projects/covers/CoverSchema';
 
@@ -46,6 +45,8 @@ export default function ProjectDetailsPage() {
   const options = useMemo(() => ({ scaleFactor: 1 }), []);
   const stepper = useProcessStepper({ canvasRef, steps, options });
 
+  const role = localStorage.getItem('role');
+
   const loadProjectFromServer = async () => {
     try {
       const res = await fetch(getBaseUrl(`/api/project/${projectId}`));
@@ -71,6 +72,16 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     loadProjectFromServer();
   }, [projectId]);
+
+  useEffect(() => {
+    // Only run if steps and attributes are loaded
+    if (steps.length && Object.keys(attributes).length) {
+      // Pass both attributes and calculated as separate fields
+      stepper.runAll({ attributes, calculated });
+    }
+    // Optionally, you could use the whole project object if your steps expect more
+    // stepper.runAll({ ...project, attributes, calculated });
+  }, [steps, attributes, calculated]);
 
   const handleCheck = async () => {
     const coerced = coerceAllNumericFields(editedAttributes);
@@ -128,21 +139,21 @@ export default function ProjectDetailsPage() {
     >
       {/* LEFT: Project Data Form, max half screen */}
       <div style={{ flex: '1 1 50%', maxWidth: '50%', minWidth: '320px' }}>
-      <div style={{ maxWidth: '800px' }}>
-        <ProjectDataTable
-          project={project}
-          role={localStorage.getItem('role')}
-          attributes={editedAttributes}
-          setAttributes={setEditedAttributes}
-          calculated={calculated}
-          onCheck={handleCheck}
-          onSubmit={handleSubmit}
-          onReset={handleReset}
-        />
-      </div>
+        <div style={{ maxWidth: '800px' }}>
+          <ProjectDataTable
+            project={project}
+            role={role}
+            attributes={editedAttributes}
+            setAttributes={setEditedAttributes}
+            calculated={calculated}
+            onCheck={handleCheck}
+            onSubmit={handleSubmit}
+            onReset={handleReset}
+          />
+        </div>
       </div>
 
-      {/* RIGHT: Always visible */}
+      {/* RIGHT: */}
       <div
         style={{
           flex: '1 1 50%',
@@ -155,11 +166,44 @@ export default function ProjectDetailsPage() {
           marginRight: '20px',
         }}
       >
-        <EstimateTable schema={schema} data={{ ...project, attributes, calculated }} />
-
-        <SchemaEditor schema={schema} setSchema={setSchema} />
+        {(role === 'estimator' || role === 'admin') ? (
+          <>
+            <EstimateTable schema={schema} data={{ ...project, attributes, calculated }} />
+            <SchemaEditor schema={schema} setSchema={setSchema} />
+            {/* ProcessStepper canvas under EstimateTable/SchemaEditor */}
+            <div style={{ marginTop: 24 }}>
+              <canvas
+                ref={canvasRef}
+                width={500}
+                height={1000}
+                style={{
+                  border: '1px solid #ccc',
+                  width: '100%',
+                  maxWidth: '500px',
+                  display: 'block',
+                  background: '#fff',
+                }}
+              />
+            </div>
+          </>
+        ) : (
+          // For other roles, show canvas at the top right
+          <div style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
+            <canvas
+              ref={canvasRef}
+              width={500}
+              height={1000}
+              style={{
+                border: '1px solid #ccc',
+                width: '100%',
+                maxWidth: '500px',
+                display: 'block',
+                background: '#fff',
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
-
 }

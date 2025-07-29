@@ -46,6 +46,7 @@ export default function Database() {
   if (!Object.keys(db).length) return <p>Loading database...</p>;
 
   return (
+    <>
     <div style={{ padding: "1rem" }}>
       <h1>Database Viewer</h1>
 
@@ -116,6 +117,64 @@ export default function Database() {
         )}
       </div>
     </div>
+    <p style={{ marginTop: 40}}>
+      -- Select all columns from a table
+      SELECT * FROM table_name;
+      <br />
+      <br />
+      -- Select specific columns
+      SELECT column1, column2 FROM table_name;
+      <br />
+      <br />
+      -- Select with filtering
+      SELECT * FROM table_name WHERE condition;
+      <br />
+      <br />
+      -- Example with ordering and limiting
+      SELECT * FROM users WHERE role = 'admin' ORDER BY created_at DESC LIMIT 10;
+      <br />
+      <br />
+      ➕ INSERT (Create Data)
+      <br />
+      <br />
+
+      -- Insert a single row
+      INSERT INTO table_name (column1, column2) VALUES (value1, value2);
+      <br />
+      <br />
+
+      -- Example
+      INSERT INTO products (sku, name, price) VALUES ('123-ABC', 'Widget', 19.99);
+      <br />
+      <br />
+
+      ✏️ UPDATE (Edit Existing Data)
+      <br />
+      <br />
+
+      -- Update specific rows
+      UPDATE table_name SET column1 = value1, column2 = value2 WHERE condition;
+      <br />
+      <br />
+
+      -- Example
+      UPDATE users SET email = 'new@example.com', company = 'Acme Co' WHERE username = 'jdoe';
+      <br />
+      <br />
+
+      ❌ DELETE (Remove Data)
+      <br />
+      <br />
+
+      -- Delete specific rows
+      DELETE FROM table_name WHERE condition;
+      <br />
+      <br />
+
+      -- Example
+      DELETE FROM users WHERE id = 5;
+    </p>
+    </>
   );
 }
 
@@ -175,5 +234,8 @@ function Table({ data }) {
         ))}
       </tbody>
     </table>
+    
+    
+    
   );
 }

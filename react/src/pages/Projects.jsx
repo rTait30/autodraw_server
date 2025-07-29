@@ -8,7 +8,10 @@ function Projects() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(getBaseUrl('/api/projects/list'))
+    const token = localStorage.getItem('access_token'); // or whatever your token key is
+    fetch(getBaseUrl('/api/projects/list'), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
       .then(res => res.json())
       .then(data => {
         setProjects(data);

@@ -46,7 +46,7 @@ export default function Authentication() {
       body: JSON.stringify({
         username: register.username,
         email: register.email,
-        company: register.address,
+        address: register.address,
         password: register.password1,
         password2: register.password2,
       }),

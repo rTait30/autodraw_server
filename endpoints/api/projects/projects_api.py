@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request, decode_token
+
 from models import db, Project, ProjectAttribute, User, Product
 from datetime import datetime, timezone
 
@@ -14,6 +15,10 @@ from datetime import datetime, timezone
 from sqlalchemy.orm.attributes import flag_modified
 from dateutil.parser import parse as parse_date
 from models import db, Project, ProjectAttribute  # adjust imports as needed
+
+def verify_jwt_in_request_optional():
+    if 'Authorization' in request.headers:
+        verify_jwt_in_request()
 
 @projects_api_bp.route('/copelands/api/projects/create', methods=['POST'])
 # !! PROTECT THIS ENDPOINT IN PRODUCTION !!
@@ -148,18 +153,29 @@ def edit_project(project_id):
     db.session.commit()
     return jsonify({'id': project.id, 'status': project.status.name if hasattr(project.status, 'name') else project.status})
 
-# List all projects (optionally filter by client)
+
 @projects_api_bp.route('/copelands/api/projects/list', methods=['GET'])
-# !! PROTECT THIS ENDPOINT IN PRODUCTION !!
-# @jwt_required()
 def list_project_configs():
-    #username = get_jwt_identity()
-    #user = User.query.filter_by(username=username).first()
-    #user_role = user.role if user else None
+    # Try to get JWT token from Authorization header, but don't require it
+    token = None
+    username = None
+    user = None
+    user_role = None
+
+    auth_header = request.headers.get('Authorization', None)
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        try:
+            decoded = decode_token(token)
+            username = decoded.get('sub') or decoded.get('identity')
+        except Exception:
+            username = None
+
+    if username:
+        user = User.query.filter_by(username=username).first()
+        user_role = user.role if user else None
 
     query = Project.query
-
-    user_role = 'estimator'
 
     # If the user is a client, only show their own projects
     if user_role == 'client':
@@ -174,7 +190,7 @@ def list_project_configs():
     result = []
     for project in projects:
         attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-        client_user = User.query.get(project.client_id)  # <-- This gets the user instance
+        client_user = User.query.get(project.client_id)
 
         result.append({
             'id': project.id,
@@ -185,7 +201,7 @@ def list_project_configs():
             'info': project.info,
             'created_at': project.created_at.isoformat() if project.created_at else None,
             'updated_at': project.updated_at.isoformat() if project.updated_at else None,
-            'client': client_user.username if client_user else None,  # <-- This will now work
+            'client': client_user.username if client_user else None,
         })
     return jsonify(result)
 
@@ -232,4 +248,15 @@ def get_pricelist():
             'created_at': product.created_at.isoformat() if product.created_at else None,
             'updated_at': product.updated_at.isoformat() if product.updated_at else None,
         })
+    return jsonify(result)
+
+@projects_api_bp.route('/copelands/api/clients', methods=['GET'])
+def get_clients():
+    from models import User  # Ensure User is imported
+    # Optionally filter by role if you only want client users
+    clients = User.query.filter_by(role='client').order_by(User.username).all()
+    result = [
+        {'id': client.id, 'name': client.username}
+        for client in clients
+    ]
     return jsonify(result)

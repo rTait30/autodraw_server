@@ -24,10 +24,9 @@ def register_client():
     username = data.get('username')
     password = data.get('password')
     password2 = data.get('password2')
-    company = data.get('company')
     role = 'client'
 
-    if not email or not username or not password or not password2 or not company:
+    if not email or not username or not password or not password2:
         return jsonify({'error': 'All fields are required.'}), 400
     if password != password2:
         return jsonify({'error': 'Passwords do not match.'}), 400

@@ -39,7 +39,7 @@ export default function ProjectDataTable({
 }) {
   if (!project) return null;
 
-  const isEstimator = role === 'client';
+  const isEstimator = role === 'estimator' || role === 'admin';
 
   const projectData = {};
   for (const [key, value] of Object.entries(project)) {
@@ -49,31 +49,33 @@ export default function ProjectDataTable({
   }
 
   const renderStaticRows = (data, section) =>
-    Object.entries(data).map(([key, value]) => (
-      <tr key={`${section}-${key}`}>
-        <td style={tdStyle}>{key}</td>
-        <td style={tdStyle}>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</td>
-      </tr>
-    ));
+  Object.entries(data).map(([key, value]) => (
+    <tr key={`${section}-${key}`}>
+      <td style={tdStyle}>{key}</td>
+      <td style={tdStyle}>
+        <JsonViewer value={value} />
+      </td>
+    </tr>
+  ));
 
   const renderEditableRows = (data) =>
-    Object.entries(data).map(([key, value]) => (
-      <tr key={`attributes-${key}`}>
-        <td style={tdStyle}>{key}</td>
-        <td style={tdStyle}>
-          {isEstimator ? (
-            <input
-              type="text"
-              value={value ?? ''}
-              onChange={e => setAttributes(prev => ({ ...prev, [key]: e.target.value }))}
-              style={{ width: '20%', padding: '4px', border: '1px solid #ccc' }}
-            />
-          ) : (
-            typeof value === 'object' ? JSON.stringify(value) : String(value)
-          )}
-        </td>
-      </tr>
-    ));
+  Object.entries(data).map(([key, value]) => (
+    <tr key={`attributes-${key}`}>
+      <td style={tdStyle}>{key}</td>
+      <td style={tdStyle}>
+        {isEstimator ? (
+          <input
+            type="text"
+            value={value ?? ''}
+            onChange={e => setAttributes(prev => ({ ...prev, [key]: e.target.value }))}
+            style={{ width: '20%', padding: '4px', border: '1px solid #ccc' }}
+          />
+        ) : (
+          <JsonViewer value={value} />
+        )}
+      </td>
+    </tr>
+  ));
 
   return (
     <div style={{ maxWidth: '800px', overflowX: "auto" }}>
@@ -94,15 +96,36 @@ export default function ProjectDataTable({
             </td>
           </tr>
         )}
-
-        {isEstimator && calculated && Object.keys(calculated).length > 0 && (
-          <>
-            <tr><td style={headingStyle} colSpan="2">Calculated</td></tr>
-            {renderStaticRows(calculated, 'calculated')}
-          </>
-        )}
+        <>
+          <tr><td style={headingStyle} colSpan="2">Calculated</td></tr>
+          {renderStaticRows(calculated, 'calculated')}
+        </>
       </tbody>
     </table>
     </div>
   );
+}
+
+
+function JsonViewer({ value }) {
+  if (typeof value === 'object' && value !== null) {
+    return (
+      <pre
+        style={{
+          background: "#f9f9f9",
+          borderRadius: 4,
+          padding: 8,
+          margin: "2px 0",
+          fontFamily: "monospace",
+          fontSize: 13,
+          color: "#333",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  return <span>{String(value)}</span>;
 }

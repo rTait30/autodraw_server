@@ -14,9 +14,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(32), nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)  # Added verified field
-
-    company = db.Column(db.String(120), nullable=True)
     email = db.Column(db.String(120), nullable=True)
+    address = db.Column(db.String(120), nullable=True)
 
     def set_password(self, password):
         self.password_hash = bcrypt.hash(password)
@@ -27,12 +26,18 @@ class User(db.Model):
 class ProjectType(enum.Enum):
     cover = "cover"
     sail = "sail"
+    
     # Add more types as needed
 
 class ProjectStatus(enum.Enum):
-    draft = "draft"
+
+    quoting = "quoting"
     estimating = "estimating"
-    approved = "approved"
+    design = "design"
+    production = "production"
+    quality_checking = "quality_checking"
+    completed = "completed"
+    dispatched = "dispatched"
     # Add more statuses as needed
 
 class Project(db.Model):
@@ -40,7 +45,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     type = db.Column(SqlEnum(ProjectType), nullable=False)
-    status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.draft)
+    status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
     due_date = db.Column(db.Date, nullable=True)
     info = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))

@@ -5,5 +5,7 @@
 node_modules/
 
 # Built frontend assets
-#static/assets/
-#templates/index.html
+static/assets/
+templates/index.html
+
+instance/

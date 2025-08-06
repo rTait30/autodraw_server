@@ -4,7 +4,6 @@ const numericFields = ['width', 'height', 'length', 'quantity', 'hem', 'seam', '
 
 const CoverForm = forwardRef(({ showFabricWidth = false }, ref) => {
   const [formData, setFormData] = useState(() => ({
-    name: '',
     length: 1000,
     width: 1000,
     height: 1000,

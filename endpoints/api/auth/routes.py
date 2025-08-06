@@ -39,7 +39,6 @@ def register_client():
         username=username,
         password_hash='',
         role=role,
-        company=company,
         email=email,
         verified=False  # <-- Ensure verified is set to False
     )

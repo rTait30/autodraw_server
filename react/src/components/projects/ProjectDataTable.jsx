@@ -27,6 +27,19 @@ const headingStyle = {
   fontSize: "18px",
 };
 
+// Helper: deep clone and set value at path
+function setDeep(obj, path, value) {
+  const keys = path.split('.');
+  if (keys.length === 1) {
+    return { ...obj, [keys[0]]: value };
+  }
+  const [first, ...rest] = keys;
+  return {
+    ...obj,
+    [first]: setDeep(obj[first] !== undefined ? obj[first] : {}, rest.join('.'), value)
+  };
+}
+
 export default function ProjectDataTable({
   project,
   attributes,
@@ -39,17 +52,8 @@ export default function ProjectDataTable({
 }) {
   if (!project) return null;
 
-  // Editable for all fields, including nested JSON
   const handleChange = (data, setData, path, value) => {
-    const keys = path.split('.');
-    const newData = { ...data };
-    let obj = newData;
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (typeof obj[keys[i]] !== 'object' || obj[keys[i]] === null) obj[keys[i]] = {};
-      obj = obj[keys[i]];
-    }
-    obj[keys[keys.length - 1]] = value;
-    setData(newData);
+    setData(prev => setDeep(prev, path, value));
   };
 
   const renderEditableRows = (data, setData, section, parentKey = '') =>
@@ -60,14 +64,26 @@ export default function ProjectDataTable({
           {typeof value === 'object' && value !== null ? (
             <table style={{ width: '100%', background: '#f9f9f9', margin: '2px 0' }}>
               <tbody>
-                {renderEditableRows(value, setData, section, parentKey ? `${parentKey}.${key}.` : `${key}.`)}
+                {renderEditableRows(
+                  value,
+                  setData,
+                  section,
+                  parentKey ? `${parentKey}.${key}.` : `${key}.`
+                )}
               </tbody>
             </table>
           ) : (
             <input
               type="text"
               value={value ?? ''}
-              onChange={e => handleChange(data, setData, parentKey ? `${parentKey}${key}` : key, e.target.value)}
+              onChange={e =>
+                handleChange(
+                  data,
+                  setData,
+                  parentKey ? `${parentKey}${key}` : key,
+                  e.target.value
+                )
+              }
               style={{ width: '80%', padding: '4px', border: '1px solid #ccc' }}
             />
           )}
@@ -75,7 +91,6 @@ export default function ProjectDataTable({
       </tr>
     ));
 
-  // Non-editable rows for calculated fields
   const renderReadOnlyRows = (data, parentKey = '') =>
     Object.entries(data).map(([key, value]) => (
       <tr key={`calculated-${parentKey}${key}`}>
@@ -94,7 +109,6 @@ export default function ProjectDataTable({
       </tr>
     ));
 
-  // Project data (excluding attributes and calculated)
   const projectData = {};
   for (const [key, value] of Object.entries(project)) {
     if (key !== 'attributes' && key !== 'calculated') {
@@ -111,10 +125,7 @@ export default function ProjectDataTable({
 
           <tr><td style={headingStyle} colSpan="2">Project Attributes</td></tr>
           {renderEditableRows(attributes, setAttributes, 'attributes')}
-
-          <tr><td style={headingStyle} colSpan="2">Calculated</td></tr>
-          {renderReadOnlyRows(calculated)}
-
+          
           <tr>
             <td colSpan="2" style={{ textAlign: 'right', padding: '8px' }}>
               <button onClick={onReset} style={{ marginRight: '8px' }}>Return</button>
@@ -122,6 +133,10 @@ export default function ProjectDataTable({
               <button onClick={onSubmit}>Submit</button>
             </td>
           </tr>
+
+          <tr><td style={headingStyle} colSpan="2">Calculated</td></tr>
+          {renderReadOnlyRows(calculated)}
+
         </tbody>
       </table>
     </div>

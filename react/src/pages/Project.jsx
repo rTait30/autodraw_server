@@ -76,12 +76,14 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     // Only run if steps and attributes are loaded
     if (steps.length && Object.keys(attributes).length) {
-      // Pass both attributes and calculated as separate fields
-      stepper.runAll({ attributes, calculated });
+      // Combine attributes and calculated into one object for stepper
+      const combined = { ...attributes, ...calculated };
+      (async () => {
+        const result = await stepper.runAll(combined);
+        if (result) setCalculated(result);
+      })();
     }
-    // Optionally, you could use the whole project object if your steps expect more
-    // stepper.runAll({ ...project, attributes, calculated });
-  }, [steps, attributes, calculated]);
+  }, [steps, attributes]);
 
   const handleCheck = async () => {
     const coerced = coerceAllNumericFields(editedAttributes);

@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@tailwindcss preflight;
+@tailwindcss utilities;
 
 @layer base {
   body {

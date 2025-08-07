@@ -48,6 +48,8 @@ TO DO:
 
     all project types
 
+    project page stepper + estimate
+
     Logging
 
     User Settings/Page

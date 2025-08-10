@@ -9,3 +9,6 @@ static/assets/
 templates/index.html
 
 instance/
+
+__pycache__/
+*.pyc

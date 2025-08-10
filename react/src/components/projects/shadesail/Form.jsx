@@ -115,22 +115,28 @@ function getColoursForMaterial(category, material) {
   return brand?.colours || [];
 }
 
+const DEFAULTS = {
+  
+  fabricCategory: 'ShadeCloth',
+  fabricType: 'Rainbow Z16',
+  colour: 'Charcoal',
+  exitPoint: 'A',
+  logo: 'A',
+  pointCount: 4,
+  dimensions: {},
+  points: {},
+  sailtracks: [],
+
+}
 
 function getPointLabel(i) {
   return String.fromCharCode(65 + i); // A, B, C...
 }
 
-const SailForm = forwardRef(({ role }, ref) => {
+const SailForm = forwardRef(({ attributes = {},  role }, ref) => {
   const [formData, setFormData] = useState({
-    fabricCategory: 'ShadeCloth',
-    fabricType: 'Rainbow Z16',
-    colour: 'Charcoal',
-    exitPoint: 'A',
-    logo: 'A',
-    pointCount: 4,
-    dimensions: {},
-    points: {},
-    sailtracks: [],
+    ...DEFAULTS,
+    ...attributes,
   });
 
   // === Derived values ===

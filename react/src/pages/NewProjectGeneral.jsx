@@ -5,11 +5,12 @@ import ProjectSidebar from '../components/ProjectSidebar';
 import { getBaseUrl } from "../utils/baseUrl";
 
 const projectTypes = [
-  { name: 'Covers', id: 'covers' },
-  { name: 'Shade Sail', id: 'shadesails' },
+  { name: 'Covers', id: 'cover' },
+  { name: 'Shade Sail', id: 'shadesail' },
   { name: 'Simple Box', id: 'simplebox' },
   { name: 'Calculator', id: 'calculator' },
 ];
+//Eventually get this from the server
 
 export default function NewProjectGeneral() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,6 +22,8 @@ export default function NewProjectGeneral() {
   const formRef = useRef(null);
   const generalFormRef = useRef(null);
   const [formData, setFormData] = useState(null);
+  const [Steps, setSteps] = useState([]);
+  const [Form, setForm] = useState(null);
 
   const role = localStorage.getItem('role') || 'guest';
 
@@ -53,7 +56,7 @@ export default function NewProjectGeneral() {
 
         setLoadedConfig({
           FormComponent: FormModule.default,
-          steps: StepsModule.steps,
+          steps: StepsModule.Steps,
           title: projectTypes.find(pt => pt.id === selectedType)?.name || 'Project',
         });
         setResult({});

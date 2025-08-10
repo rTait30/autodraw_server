@@ -19,7 +19,7 @@ run_command("npm install", cwd="react")
 
 # 3. Build and deploy React frontend
 print("Building and deploying React frontend...")
-run_command("python build_and_deploy.py")
+run_command("python build_and_deploy.py", cwd="setup")
 
 # 4. Create .env file in /instance with placeholder secrets
 instance_dir = "instance"
@@ -40,6 +40,6 @@ if not os.path.exists(db_path):
 
 # 6. Bootstrap admin user
 print("Bootstrapping admin user...")
-run_command("python bootstrap_admin.py")
+run_command("python bootstrap_admin.py", cwd="setup")
 
 print("Setup complete.")

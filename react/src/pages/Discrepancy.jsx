@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Form from '../components/projects/shadesails/Form';
-import { steps as sailSteps } from '../components/projects/shadesails/Steps';
+import Form from '../components/projects/shadesail/Form';
+import { Steps as sailSteps } from '../components/projects/shadesail/Steps';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
 export default function Discrepancy() {

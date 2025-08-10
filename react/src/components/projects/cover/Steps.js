@@ -1,6 +1,6 @@
 import { getBaseUrl } from '../../../utils/baseUrl.js';
 
-export const steps = [
+export const Steps = [
   {
     title: 'Step 0: Visualise Covers',
     calcFunction: (data) => {

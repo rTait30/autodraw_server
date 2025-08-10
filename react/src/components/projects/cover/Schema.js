@@ -1,4 +1,4 @@
-export const coverSchema = {
+export const Schema = {
   "Materials": [
     {
       "type": "row",

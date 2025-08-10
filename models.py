@@ -25,7 +25,7 @@ class User(db.Model):
     
 class ProjectType(enum.Enum):
     cover = "cover"
-    sail = "sail"
+    shadesail = "shadesail"
     
     # Add more types as needed
 

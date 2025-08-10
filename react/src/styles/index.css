@@ -10,6 +10,12 @@
 }
 
 @layer components {
+
+  .headingStyle {
+    @apply text-2xl font-bold text-gray-800 mb-4;
+  }
+
+
   .buttonStyle {
     @apply w-full p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1;
   }
@@ -48,7 +54,14 @@
   }
 
 
+  .btnRow { @apply flex gap-2 justify-end py-2; }
+  .cellKey { @apply text-sm text-gray-700; }
+  .nestedTable { @apply w-full bg-gray-50 my-1 border border-gray-200; }
 
+  .pageRow { @apply w-full mt-6 grid grid-cols-1 lg:grid-cols-2 gap-8; }
+  .panel { @apply w-full max-w-[800px]; }
+  .canvasBox { @apply border border-gray-300 bg-white w-full max-w-[500px]; }
+  .btnRow { @apply flex gap-2 justify-end py-2; }
   
   .auth-container {
     @apply flex items-center justify-center;

@@ -273,7 +273,7 @@ function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
   return placed;
 }
 
-export const steps = [
+export const Steps = [
   {
     title: 'Step 0: Discrepancy & Top View',
     id: 'discrepancy',

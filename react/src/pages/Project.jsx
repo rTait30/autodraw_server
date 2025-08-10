@@ -1,49 +1,53 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import ProjectDataTable from '../components/projects/ProjectDataTable';
+
 import EstimateTable from '../components/projects/EstimateTable';
 import SchemaEditor from '../components/projects/SchemaEditor';
 
 import { getBaseUrl } from '../utils/baseUrl.js';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
-import { steps as coverSteps } from '../components/projects/covers/Steps';
-import { coverSchema } from '../components/projects/covers/CoverSchema';
 
-import { steps as sailSteps } from '../components/projects/shadesails/Steps';
-import { sailSchema } from '../components/projects/shadesails/SailSchema';
 
-const configByType = {
-  cover: { steps: coverSteps, schema: coverSchema },
-  sail: { steps: sailSteps, schema: sailSchema },
-};
+// --- minimal dynamic loader: assumes folder == type ---
+async function loadTypeResources(type) {
+  
+  const [FormModule, StepsModule, SchemaModule] = await Promise.all([
+    import(`../components/projects/${type}/Form.jsx`),
+    import(`../components/projects/${type}/Steps.js`),
+    import(`../components/projects/${type}/Schema.js`),
+  ]);
 
-function coerceAllNumericFields(obj) {
-  const result = {};
-  for (const [key, value] of Object.entries(obj)) {
-    result[key] = typeof value === 'string' && !isNaN(value) ? Number(value) : value;
-  }
-  return result;
+  return {
+    Form: FormModule.default,
+    Steps: StepsModule.Steps || [],
+    Schema: SchemaModule.Schema || null,
+  };
 }
 
 export default function ProjectDetailsPage() {
+
+  const [project, setProject] = useState(null);
+
+  const [attributes, setAttributes] = useState({});
+  const [editedAttributes, setEditedAttributes] = useState({});
+
+  const [calculated, setCalculated] = useState({});
+  const [editedCalculated, setEditedCalculated] = useState({});
+
+  const [Schema, setSchema] = useState(null);
+  const [Steps, setSteps] = useState([]);
+  const [Form, setForm] = useState(null);
+
   const location = useLocation();
   const projectId = useMemo(() => {
     const parts = location.pathname.split('/');
     return parts[parts.length - 1] || parts[parts.length - 2];
   }, [location.pathname]);
 
-  const [project, setProject] = useState(null);
-  const [attributes, setAttributes] = useState({});
-  const [editedAttributes, setEditedAttributes] = useState({});
-  const [calculated, setCalculated] = useState({});
-  const [schema, setSchema] = useState(null);
-  const [steps, setSteps] = useState([]);
-
   const canvasRef = useRef(null);
   const options = useMemo(() => ({ scaleFactor: 1 }), []);
-  const stepper = useProcessStepper({ canvasRef, steps, options });
 
   const role = localStorage.getItem('role');
 
@@ -52,54 +56,83 @@ export default function ProjectDetailsPage() {
       const res = await fetch(getBaseUrl(`/api/project/${projectId}`));
       if (!res.ok) throw new Error('Failed to fetch project');
       const data = await res.json();
-      setProject(data);
-      setAttributes(coerceAllNumericFields(data.attributes || {}));
-      setEditedAttributes(coerceAllNumericFields(data.attributes || {}));
-      setCalculated(data.calculated || {});
 
-      const type = data?.type;
-      if (type && configByType[type]) {
-        setSchema(configByType[type].schema);
-        setSteps(configByType[type].steps);
+      console.log('Fetched project:', data);
+
+      setProject(data);
+
+      setAttributes(data.attributes || {});
+      setEditedAttributes(data.attributes || {});
+
+      setCalculated(data.calculated || {});
+      setEditedCalculated(data.calculated || {});
+
+      console.log('Project type:', data.type);
+
+      if (data?.type) {
+        const modules = await loadTypeResources(data.type);
+
+        setForm(() => modules.Form);
+        setSteps(modules.Steps);
+        setSchema(modules.Schema);
+
+        
+
       } else {
-        console.warn('Unknown project type:', type);
+        console.warn('Project missing type');
+        setForm(null);
+        setSteps([]);
+        setSchema(null);
       }
     } catch (err) {
       console.error('Failed to fetch project:', err);
     }
   };
 
+  const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
+
   useEffect(() => {
     loadProjectFromServer();
   }, [projectId]);
 
+    // keep stepper up-to-date in a ref without retriggering compute by identity changes
+  const stepperRef = useRef(stepper);
   useEffect(() => {
-    // Only run if steps and attributes are loaded
-    if (steps.length && Object.keys(attributes).length) {
-      // Combine attributes and calculated into one object for stepper
-      const combined = { ...attributes, ...calculated };
-      (async () => {
-        const result = await stepper.runAll(combined);
-        if (result) setCalculated(result);
-      })();
-    }
-  }, [steps, attributes]);
+    stepperRef.current = stepper;
+  }, [stepper]);
 
-  const handleCheck = async () => {
-    const coerced = coerceAllNumericFields(editedAttributes);
-    setAttributes(coerced);
-    const newCalculated = await stepper.runAll(coerced);
-    if (newCalculated) {
-      setCalculated(newCalculated);
-    } else {
-      console.warn("No calculated data returned from runAll().");
+  useEffect(() => {
+    if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
+
+    let cancelled = false;
+    (async () => {
+      const result = await stepperRef.current.runAll({ ...editedAttributes });
+      if (!cancelled && result) setEditedCalculated(result);
+    })();
+
+    return () => { cancelled = true; };
+  }, [editedAttributes, Steps]); // <- no 'stepper' here
+
+  const handleReturn = () => {
+    setEditedAttributes(attributes);   // restore from original saved snapshot
+    setEditedCalculated(calculated);   // restore from original saved snapshot
+  };
+
+  const handleCheck = async (nextAttributes) => {
+    setEditedAttributes(nextAttributes);
+
+    try {
+      const result = await stepper.current.runAll({ ...nextAttributes });
+      setEditedCalculated(result);
+    } catch (e) {
+      console.error('Check failed:', e);
     }
   };
 
   const handleSubmit = () => {
     const payload = {
       ...project,
-      attributes: coerceAllNumericFields(attributes),
+      attributes: attributes,
       calculated,
     };
 
@@ -126,7 +159,7 @@ export default function ProjectDetailsPage() {
     loadProjectFromServer();
   };
 
-  if (!project || !schema) return <div>Loading...</div>;
+  if (!project ) return <div>Loading...</div>;
 
   return (
     <div
@@ -142,16 +175,23 @@ export default function ProjectDetailsPage() {
       {/* LEFT: Project Data Form, max half screen */}
       <div style={{ flex: '1 1 50%', maxWidth: '50%', minWidth: '320px' }}>
         <div style={{ maxWidth: '800px' }}>
-          <ProjectDataTable
-            project={project}
-            role={role}
-            attributes={editedAttributes}
-            setAttributes={setEditedAttributes}
-            calculated={calculated}
-            onCheck={handleCheck}
-            onSubmit={handleSubmit}
-            onReset={handleReset}
-          />
+          {Form ? (
+            <Suspense fallback={<div>Loading form…</div>}>
+              <Form
+                attributes={editedAttributes}
+                calculated={editedCalculated}
+                showFabricWidth
+                onReturn={handleReturn}
+                onCheck={handleCheck}
+                onSubmit={handleSubmit}
+              />
+            </Suspense>
+          ) : (
+            <>
+              {console.warn('[ProjectDetailsPage] Form component is null — not rendering')}
+              <div style={{ color: '#888' }}>Form not available for this project type.</div>
+            </>
+          )}
         </div>
       </div>
 
@@ -170,14 +210,14 @@ export default function ProjectDetailsPage() {
       >
         {(role === 'estimator' || role === 'admin') ? (
           <>
-            <EstimateTable schema={schema} data={{ ...project, attributes, calculated }} />
-            <SchemaEditor schema={schema} setSchema={setSchema} />
+            
+            
             {/* ProcessStepper canvas under EstimateTable/SchemaEditor */}
             <div style={{ marginTop: 24 }}>
               <canvas
                 ref={canvasRef}
                 width={500}
-                height={1000}
+                height={2000}
                 style={{
                   border: '1px solid #ccc',
                   width: '100%',

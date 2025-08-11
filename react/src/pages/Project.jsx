@@ -338,22 +338,33 @@ return (
 
     <style>
       {`
-        /* Mobile-first: stacked layout */
-        .layout { flex-direction: column; }
+        /* Mobile-first: stacked */
+        .layout { 
+          flex-direction: column;
+          padding-bottom: 48px; /* gives users an easy thumb area to scroll */
+        }
 
-        /* Stop the PAGE from scrolling sideways on mobile */
+        /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
         @media (max-width: 799px) {
-          html, body, .layout {
-            overflow-x: hidden;
+          html, body { 
+            overflow-x: hidden; 
+            overflow-y: auto;
+            height: 100%;
           }
-          /* Each scrollable area scrolls independently */
+          .layout { 
+            overflow-x: hidden; 
+            overflow-y: visible; 
+            touch-action: auto; /* allow natural vertical scroll on the page */
+          }
+          /* Each section can scroll horizontally without hijacking vertical swipes */
           .scroll-x {
             overflow-x: auto;
+            overflow-y: visible;              /* don't trap vertical scrolling */
             -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; /* prevent scroll chaining to page */
-            touch-action: pan-x;            /* allow horizontal pan here */
+            overscroll-behavior-x: contain;   /* don't bubble horizontal to page */
+            touch-action: pan-x pan-y;        /* allow both directions inside */
+            scrollbar-gutter: stable both-edges;
           }
-          .layout { touch-action: pan-y; }  /* page only pans vertically */
         }
 
         /* Desktop: two columns */
@@ -370,7 +381,6 @@ return (
             max-width: 50%;
             min-width: 0;
           }
-          /* Keep independent horizontal scroll available on desktop too */
           .scroll-x {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;

@@ -1,20 +1,20 @@
-export const sailSchema = {
+export const Schema = {
   "Materials": [
     {
       "type": "row",
       "description": "Fabric",
       "quantity": "1",
-      "unitCost": "data.calculated.fabricPrice"
+      "unitCost": "calculated.fabricPrice"
     },
     {
       "type": "sku",
       "sku": "CAB001",
-      "quantity": "data.attributes.edgeMeterCeilMeters"
+      "quantity": "attributes.edgeMeterCeilMeters"
     },
     {
       "type": "sku",
       "sku": "PRO001",
-      "quantity": "data.attributes.pointCount"
+      "quantity": "attributes.pointCount"
     }
   ],
   "Summary": [
@@ -22,7 +22,7 @@ export const sailSchema = {
       "type": "calc",
       "key": "totalCostFabrication",
       "label": "Total Cost Fabrication",
-      "expr": "data.materialsTotal"
+      "expr": "inputs.materialsTotal"
     }
   ]
 }

@@ -22,9 +22,11 @@ function TopBar() {
     alignItems: 'center',
     justifyContent: 'space-between',
     color: 'white',
-    width: '100vw',
+    // 🔧 change 100vw → 100% to avoid horizontal scroll
+    width: '100%',
     position: 'relative',
     zIndex: 100,
+    boxSizing: 'border-box',
   };
 
   const navLinks = (
@@ -134,6 +136,19 @@ function TopBar() {
             }
             .burger {
               display: none !important;
+            }
+          }
+
+          /* 📌 Mobile: make the topbar sticky and prevent sideways scroll */
+          @media (max-width: 799px) {
+            .topbar {
+              position: sticky;
+              top: 0;
+              left: 0;
+              right: 0;
+            }
+            html, body, main {
+              overflow-x: hidden;
             }
           }
         `}

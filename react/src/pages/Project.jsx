@@ -227,80 +227,82 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   if (!project) return <div>Loading...</div>;
 
-  return (
+return (
+  <>
     <div
+      className="layout"
       style={{
         display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: '32px',
+        // flexDirection controlled by CSS below
+        alignItems: 'stretch',
+        gap: '24px',
         marginTop: '24px',
-        marginLeft: '20px',
-        width: '100%',
+        marginLeft: '16px',
+        marginRight: '16px',
+        width: 'calc(100% - 32px)',
+        boxSizing: 'border-box',
       }}
     >
-      {/* LEFT: Project Data Form (working copy) */}
-      <div style={{ flex: '1 1 50%', maxWidth: '50%', minWidth: '320px' }}>
-        <div style={{ maxWidth: '800px' }}>
-          {Form ? (
-            <Suspense fallback={<div>Loading form…</div>}>
-              {console.log('[Render] Passing props to Form:', {
-                attributes: editedAttributes,
-                calculated: editedCalculated
-              })}
-              <Form
-                attributes={editedAttributes}
-                calculated={editedCalculated}
-                showFabricWidth
-                onReturn={handleReturn}
-                onCheck={handleCheck}
-                onSubmit={handleSubmit}
-              />
-            </Suspense>
-          ) : (
-            <div style={{ color: '#888' }}>Form not available for this project type.</div>
-          )}
+      {/* LEFT */}
+      <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
+        <div className="scroll-x">
+          <div style={{ maxWidth: '800px' }}>
+            {Form ? (
+              <Suspense fallback={<div>Loading form…</div>}>
+                <Form
+                  attributes={editedAttributes}
+                  calculated={editedCalculated}
+                  showFabricWidth
+                  onReturn={handleReturn}
+                  onCheck={handleCheck}
+                  onSubmit={handleSubmit}
+                />
+              </Suspense>
+            ) : (
+              <div style={{ color: '#888' }}>Form not available for this project type.</div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* RIGHT: Canvas + (space reserved for EstimateTable / SchemaEditor if needed) */}
+      {/* RIGHT */}
       <div
+        className="pane right"
         style={{
-          flex: '1 1 50%',
-          maxWidth: '50%',
-          minWidth: '320px',
+          flex: '1 1 auto',
+          minWidth: 0,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '32px',
-          marginRight: '20px',
+          gap: '24px',
         }}
       >
         {(role === 'estimator' || role === 'admin') ? (
           <>
             {Schema ? (
-              <EstimateTable
-                key={estimateVersion} // optional: keeps hard reset on changes
-                schema={editedSchema}
-                attributes={editedAttributes}
-                calculated={editedCalculated}
-              />
+              <div className="scroll-x">
+                <EstimateTable
+                  key={estimateVersion}
+                  schema={editedSchema}
+                  attributes={editedAttributes}
+                  calculated={editedCalculated}
+                />
+              </div>
             ) : (
               <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
             )}
-            
-            
-            <SchemaEditor
-              schema={Schema}
-              editedSchema={editedSchema}
-              onCheck={handleSchemaCheck}
-              onReturn={handleSchemaReturn}
-              onSubmit={handleSchemaSubmit}
-            />
 
+            <div className="scroll-x">
+              <SchemaEditor
+                schema={Schema}
+                editedSchema={editedSchema}
+                onCheck={handleSchemaCheck}
+                onReturn={handleSchemaReturn}
+                onSubmit={handleSchemaSubmit}
+              />
+            </div>
 
-            
-            <div style={{ marginTop: 24 }}>
+            <div className="scroll-x" style={{ marginTop: 24 }}>
               <canvas
                 ref={canvasRef}
                 width={500}
@@ -316,7 +318,7 @@ export default function ProjectDetailsPage() {
             </div>
           </>
         ) : (
-          <div style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
+          <div className="scroll-x" style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
             <canvas
               ref={canvasRef}
               width={500}
@@ -333,5 +335,53 @@ export default function ProjectDetailsPage() {
         )}
       </div>
     </div>
-  );
+
+    <style>
+      {`
+        /* Mobile-first: stacked layout */
+        .layout { flex-direction: column; }
+
+        /* Stop the PAGE from scrolling sideways on mobile */
+        @media (max-width: 799px) {
+          html, body, .layout {
+            overflow-x: hidden;
+          }
+          /* Each scrollable area scrolls independently */
+          .scroll-x {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain; /* prevent scroll chaining to page */
+            touch-action: pan-x;            /* allow horizontal pan here */
+          }
+          .layout { touch-action: pan-y; }  /* page only pans vertically */
+        }
+
+        /* Desktop: two columns */
+        @media (min-width: 800px) {
+          .layout {
+            flex-direction: row;
+            gap: 32px;
+            margin-left: 20px;
+            margin-right: 20px;
+            width: calc(100% - 40px);
+          }
+          .pane {
+            flex: 1 1 50%;
+            max-width: 50%;
+            min-width: 0;
+          }
+          /* Keep independent horizontal scroll available on desktop too */
+          .scroll-x {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+          }
+        }
+      `}
+    </style>
+  </>
+);
+
+
+
 }

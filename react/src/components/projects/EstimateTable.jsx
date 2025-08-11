@@ -1,40 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { getBaseUrl } from '../../utils/baseUrl';
 
-export default function EstimateTable({ schema, data }) {
+// Small, safe-ish evaluator that passes named params into the expression.
+// Usage inside schema: e.g. "attributes.width * 2" or "calculated.panelCount * inputs.markup"
+function evalExpr(expr, named = {}) {
+  try {
+    const argNames = Object.keys(named);
+    const argValues = Object.values(named);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...argNames, `"use strict"; return (${expr});`);
+    return fn(...argValues);
+  } catch {
+    return '';
+  }
+}
+
+export default function EstimateTable({ schema, attributes = {}, calculated = {} }) {
   const [rowState, setRowState] = useState({});
   const [inputState, setInputState] = useState({});
   const [products, setProducts] = useState({});
 
-  // Helper to evaluate expressions
-  function evalExpr(expr, context = {}) {
-    try {
-      return Function("data", `"use strict"; return (${expr});`)(context.data);
-    } catch {
-      return '';
-    }
-  }
-
-  // Fetch SKUs from schema, then load products from API
+  // --- Fetch SKUs from schema, then load products from API ---
   useEffect(() => {
     const allSkus = [];
-    Object.values(schema).forEach(rows => {
-      rows.forEach(row => {
+    Object.values(schema).forEach((rows) => {
+      rows.forEach((row) => {
         if (row.type === 'sku' && row.sku) allSkus.push(row.sku);
       });
     });
 
-    if (allSkus.length === 0) return;
+    if (allSkus.length === 0) {
+      setProducts({});
+      return;
+    }
 
     fetch(getBaseUrl('/api/database/get_by_sku'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skus: allSkus })
+      body: JSON.stringify({ skus: allSkus }),
     })
-      .then(res => res.json())
-      .then(productList => {
+      .then((res) => res.json())
+      .then((productList) => {
         const bySku = {};
-        productList.forEach(p => {
+        productList.forEach((p) => {
           bySku[p.sku] = p;
         });
         setProducts(bySku);
@@ -42,33 +50,51 @@ export default function EstimateTable({ schema, data }) {
       .catch(console.error);
   }, [schema]);
 
-  // Initialize row and input state
+  // --- Initialize row + input state whenever inputs/products/schema change ---
   useEffect(() => {
     const newRowState = {};
     const newInputState = {};
 
     Object.entries(schema).forEach(([section, rows]) => {
       newRowState[section] = rows
-        .filter(r => r.type === 'row' || r.type === 'sku')
-        .map(row => {
+        .filter((r) => r.type === 'row' || r.type === 'sku')
+        .map((row) => {
+          // Build the minimal context available at row init
+          const baseNamed = {
+            attributes,
+            calculated,
+            inputs: newInputState,     // may be sparsely filled (ok)
+            rows: newRowState,         // section rows will fill as we map
+          };
+
           if (row.type === 'sku') {
             const product = products[row.sku] || {};
             return {
               sku: row.sku,
               description: product.name || row.sku,
-              quantity: typeof row.quantity === 'string' ? evalExpr(row.quantity, { data }) : row.quantity,
-              unitCost: product.price || 0
-            };
-          } else {
-            return {
-              description: row.description,
-              quantity: typeof row.quantity === 'string' ? evalExpr(row.quantity, { data }) : row.quantity,
-              unitCost: typeof row.unitCost === 'string' ? evalExpr(row.unitCost, { data }) : row.unitCost
+              quantity:
+                typeof row.quantity === 'string'
+                  ? evalExpr(row.quantity, baseNamed)
+                  : row.quantity,
+              unitCost: product.price || 0,
             };
           }
+
+          return {
+            description: row.description,
+            quantity:
+              typeof row.quantity === 'string'
+                ? evalExpr(row.quantity, baseNamed)
+                : row.quantity,
+            unitCost:
+              typeof row.unitCost === 'string'
+                ? evalExpr(row.unitCost, baseNamed)
+                : row.unitCost,
+          };
         });
 
-      rows.forEach(row => {
+      // default values for input rows
+      rows.forEach((row) => {
         if (row.type === 'input') {
           newInputState[row.key] = row.default;
         }
@@ -77,45 +103,50 @@ export default function EstimateTable({ schema, data }) {
 
     setRowState(newRowState);
     setInputState(newInputState);
-  }, [schema, data, products]);
+  }, [schema, attributes, calculated, products]);
 
-  // Handlers
+  // --- Handlers ---
   const handleRowChange = (section, idx, field, value) => {
-    setRowState(prev => ({
+    setRowState((prev) => ({
       ...prev,
       [section]: prev[section].map((item, i) =>
-        i === idx ? { ...item, [field]: field === "description" ? value : Number(value) } : item
-      )
+        i === idx
+          ? { ...item, [field]: field === 'description' ? value : Number(value) }
+          : item
+      ),
     }));
   };
 
   const handleInputChange = (key, value) => {
-    setInputState(prev => ({
+    setInputState((prev) => ({
       ...prev,
-      [key]: Number(value)
+      [key]: Number(value),
     }));
   };
 
-  // Calculate totals and derived values
-  const calcContext = {};
+  // --- Calculate totals and derived values (exposed to expressions as `context`) ---
+  // Per-section totals + baseCost
+  const sectionTotals = {};
   Object.entries(rowState).forEach(([section, rows]) => {
-    calcContext[section] = rows;
-    calcContext[`${section.toLowerCase()}Total`] = rows.reduce(
-      (sum, row) => sum + (Number(row.quantity) * Number(row.unitCost)), 0
+    sectionTotals[`${section.toLowerCase()}Total`] = rows.reduce(
+      (sum, row) => sum + Number(row.quantity) * Number(row.unitCost),
+      0
     );
   });
-  calcContext.baseCost = Object.keys(rowState).reduce(
-    (sum, section) => sum + (calcContext[`${section.toLowerCase()}Total`] || 0), 0
-  );
-  Object.assign(calcContext, inputState);
+
+  const baseCost = Object.values(sectionTotals).reduce((a, b) => a + b, 0);
+
+  // Full context accessible to "calc" expressions
+  const context = {
+    ...sectionTotals,
+    baseCost,
+  };
 
   return (
     <table className="tableBase">
       <tbody>
         {Object.entries(schema).map(([section, rows]) => (
           <React.Fragment key={section}>
-            
-
             {/* Column Headings */}
             <tr className="tableHeader">
               <th>Description</th>
@@ -123,6 +154,7 @@ export default function EstimateTable({ schema, data }) {
               <th>Unit Cost</th>
               <th>Total</th>
             </tr>
+
             {/* Section Header */}
             <tr>
               <td colSpan={4} className="tableSection">
@@ -166,12 +198,15 @@ export default function EstimateTable({ schema, data }) {
               }
 
               if (row.type === 'subtotal') {
-                const subtotalValue = calcContext[`${section.toLowerCase()}Total`] || 0;
-                if (row.key) calcContext[row.key] = subtotalValue;
+                const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
                 return (
                   <tr key={idx} className="tableCalc">
-                    <td className="tableCell" colSpan={3}>{row.label}</td>
-                    <td className="tableCell text-right">{subtotalValue.toFixed(2)}</td>
+                    <td className="tableCell" colSpan={3}>
+                      {row.label}
+                    </td>
+                    <td className="tableCell text-right">
+                      {subtotalValue.toFixed(2)}
+                    </td>
                   </tr>
                 );
               }
@@ -194,13 +229,16 @@ export default function EstimateTable({ schema, data }) {
               }
 
               if (row.type === 'calc') {
-                let value = '';
-                try {
-                  value = evalExpr(row.expr, { data: calcContext });
-                } catch {
-                  value = '';
-                }
-                if (row.key) calcContext[row.key] = value;
+                // Expressions can reference:
+                //  - attributes.*, calculated.*, inputs.*, rows.*, context.*
+                const value = evalExpr(row.expr, {
+                  attributes,
+                  calculated,
+                  inputs: inputState,
+                  rows: rowState,
+                  context,
+                });
+
                 return (
                   <tr key={idx} className="tableCalc">
                     <td className="tableCell">{row.label}</td>
@@ -219,5 +257,4 @@ export default function EstimateTable({ schema, data }) {
       </tbody>
     </table>
   );
-
 }

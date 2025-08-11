@@ -3,28 +3,28 @@ export const Schema = {
     {
       "type": "row",
       "description": "height test",
-      "unitCost": "0.01",
-      "quantity": "data.attributes.height"
+      "unitCost": 0.01,
+      "quantity": "attributes.height"
     },
     {
       "type": "sku",
       "sku": "FAB005",
-      "quantity": "data.calculated?.nestData?.total_width ? Math.ceil((data.calculated.nestData.total_width / 1000) * 2) / 2 : 0"
+      "quantity": "calculated?.nestData?.total_width ? Math.ceil((calculated.nestData.total_width / 1000) * 2) / 2 : 0"
     },
     {
       "type": "sku",
       "sku": "ZIP002",
-      "quantity": "2 * Math.ceil((data.attributes?.height || 0) / 1000)"
+      "quantity": "2 * Math.ceil((attributes?.height || 0) / 1000)"
     },
     {
       "type": "sku",
       "sku": "THR001",
-      "quantity": "data.attributes.quantity * (2 * (data.calculated?.flatMainWidth + data.calculated?.flatMainHeight + 2 * (data.calculated?.flatSideHeight + data.calculated?.flatSideWidth)) * (2.5/1000))"
+      "quantity": "attributes.quantity * (2 * (calculated?.flatMainWidth + calculated?.flatMainHeight + 2 * (calculated?.flatSideHeight + calculated?.flatSideWidth)) * (2.5/1000))"
     },
     {
       "type": "subtotal",
       "label": "Total Materials",
-      "key": "materialsTotal"
+      "key": "materialsTotal" // optional; totals available as context.materialsTotal
     }
   ],
   "Labour": [
@@ -37,37 +37,37 @@ export const Schema = {
     {
       "type": "row",
       "description": "Cutting/Plotting",
-      "quantity": "(data.calculated?.finalArea ? (data.calculated.finalArea / 1000000 < 80 ? 0.5 : Math.ceil((data.calculated.finalArea / 1000000) / 80 / 0.25) * 0.25) : 0)",
+      "quantity": "calculated?.finalArea ? ((calculated.finalArea / 1_000_000) < 80 ? 0.5 : Math.ceil(((calculated.finalArea / 1_000_000) / 80) / 0.25) * 0.25) : 0",
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "Sewing",
-      "quantity": "(Math.ceil(((2 * data.attributes.quantity * (data.calculated.flatMainWidth + data.calculated.flatMainHeight) + 4 * data.attributes.quantity * (data.calculated.flatSideWidth + data.calculated.flatSideHeight)) / 1000 * 2 / 60) / 0.25) * 0.25)",
+      "quantity": "Math.ceil(((2 * attributes.quantity * (calculated.flatMainWidth + calculated.flatMainHeight) + 4 * attributes.quantity * (calculated.flatSideWidth + calculated.flatSideHeight)) / 1000 * 2 / 60) / 0.25) * 0.25",
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "Welding",
-      "quantity": "(data.attributes?.width > data.attributes?.fabricWidth ? Math.ceil((data.calculated?.flatMainWidth * data.calculated?.flatMainHeight * 0.05 / 1000000) / 0.25) * 0.25 : 0)",
+      "quantity": "(attributes?.width > attributes?.fabricWidth ? Math.ceil(((calculated?.flatMainWidth * calculated?.flatMainHeight * 0.05) / 1_000_000) / 0.25) * 0.25 : 0)",
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "QA",
-      "quantity": "0.5",
+      "quantity": 0.5,
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "Packing up",
-      "quantity": "0.5",
+      "quantity": 0.5,
       "unitCost": 55
     },
     {
       "type": "subtotal",
       "label": "Total Labour",
-      "key": "labourTotal"
+      "key": "labourTotal" // optional; totals available as context.labourTotal
     }
   ],
   "Summary": [
@@ -75,7 +75,7 @@ export const Schema = {
       "type": "calc",
       "key": "totalCostFabrication",
       "label": "Total Cost Fabrication",
-      "expr": "data.materialsTotal + data.labourTotal"
+      "expr": "context.materialsTotal + context.labourTotal"
     },
     {
       "type": "input",
@@ -87,7 +87,7 @@ export const Schema = {
       "type": "calc",
       "key": "contingencyAmount",
       "label": "Contingency Amount",
-      "expr": "data.baseCost * data.contingencyPercent / 100"
+      "expr": "context.baseCost * inputs.contingencyPercent / 100"
     },
     {
       "type": "input",
@@ -99,7 +99,7 @@ export const Schema = {
       "type": "calc",
       "key": "suggestedPrice",
       "label": "Suggested Price",
-      "expr": "(data.baseCost + data.contingencyAmount) / (1 - (data.marginPercent * 0.01))"
+      "expr": "(context.baseCost + (inputs.contingencyPercent ? (context.baseCost * inputs.contingencyPercent / 100) : 0)) / (1 - (inputs.marginPercent * 0.01))"
     }
   ]
-}
+};

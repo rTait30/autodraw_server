@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState, useMemo, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 
-
 import EstimateTable from '../components/projects/EstimateTable';
 import SchemaEditor from '../components/projects/SchemaEditor';
 
 import { getBaseUrl } from '../utils/baseUrl.js';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
-
-
-// --- minimal dynamic loader: assumes folder == type ---
+/* ============================================================================
+ *  MODULE LOADER (per-project-type)
+ *  - [Extract] into services/typeLoader.js later
+ * ==========================================================================*/
 async function loadTypeResources(type) {
-  
   const [FormModule, StepsModule, SchemaModule] = await Promise.all([
     import(`../components/projects/${type}/Form.jsx`),
     import(`../components/projects/${type}/Steps.js`),
@@ -21,13 +20,35 @@ async function loadTypeResources(type) {
 
   return {
     Form: FormModule.default,
-    Steps: StepsModule.Steps || [],
-    Schema: SchemaModule.Schema || null,
+    // tolerate either a named export `Steps` or a const `steps`
+    Steps: StepsModule.Steps ?? StepsModule.steps ?? [],
+    Schema: SchemaModule.Schema ?? null,
   };
 }
 
 export default function ProjectDetailsPage() {
+  /* ==========================================================================
+   *  ROUTING / PARAMS
+   *  - [Extract] into a helper like useProjectIdFromLocation()
+   * ========================================================================*/
+  const location = useLocation();
+  const projectId = useMemo(() => {
+    const parts = location.pathname.split('/');
+    return parts[parts.length - 1] || parts[parts.length - 2];
+  }, [location.pathname]);
 
+  /* ==========================================================================
+   *  ROLE / GLOBAL OPTIONS (lightweight globals)
+   * ========================================================================*/
+  const role = localStorage.getItem('role');
+  const options = useMemo(() => ({ scaleFactor: 1 }), []);
+
+  /* ==========================================================================
+   *  STATE: project snapshots (saved vs. edited)
+   *  - attributes/calculated reflect SAVED server data
+   *  - editedAttributes/editedCalculated reflect working copy
+   *  - [Extract] snapshot reducer (useReducer) if this grows
+   * ========================================================================*/
   const [project, setProject] = useState(null);
 
   const [attributes, setAttributes] = useState({});
@@ -36,104 +57,131 @@ export default function ProjectDetailsPage() {
   const [calculated, setCalculated] = useState({});
   const [editedCalculated, setEditedCalculated] = useState({});
 
+  /* ==========================================================================
+   *  DYNAMIC TYPE RESOURCES
+   *  - Form / Steps / Schema are type-dependent
+   * ========================================================================*/
   const [Schema, setSchema] = useState(null);
+  const [editedSchema, setEditedSchema] = useState(null);
+
   const [Steps, setSteps] = useState([]);
   const [Form, setForm] = useState(null);
 
-  const location = useLocation();
-  const projectId = useMemo(() => {
-    const parts = location.pathname.split('/');
-    return parts[parts.length - 1] || parts[parts.length - 2];
-  }, [location.pathname]);
+  const [estimateVersion, setEstimateVersion] = useState(0);
 
+  /* ==========================================================================
+   *  CANVAS / STEPPER
+   *  - keep `stepper` instance stable-ish; reflect via a ref to avoid effect loops
+   *  - [Extract] a custom hook useStepperRunner(canvasRef, Steps, options)
+   * ========================================================================*/
   const canvasRef = useRef(null);
-  const options = useMemo(() => ({ scaleFactor: 1 }), []);
+  const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
 
-  const role = localStorage.getItem('role');
+  // keep latest stepper in a ref, without retriggering consumers by identity change
+  const stepperRef = useRef(stepper);
+  useEffect(() => {
+    stepperRef.current = stepper;
+  }, [stepper]);
 
+  /* ==========================================================================
+   *  DATA FETCHING: loadProjectFromServer
+   *  - populates both saved and edited snapshots
+   *  - loads type modules after project fetched
+   *  - [Extract] into services/projects.getProject(projectId)
+   * ========================================================================*/
   const loadProjectFromServer = async () => {
     try {
       const res = await fetch(getBaseUrl(`/api/project/${projectId}`));
       if (!res.ok) throw new Error('Failed to fetch project');
-      const data = await res.json();
 
-      console.log('Fetched project:', data);
+      const data = await res.json();
 
       setProject(data);
 
+      // Saved snapshots
       setAttributes(data.attributes || {});
-      setEditedAttributes(data.attributes || {});
-
       setCalculated(data.calculated || {});
+
+      // Working snapshots start from saved
+      setEditedAttributes(data.attributes || {});
       setEditedCalculated(data.calculated || {});
 
-      console.log('Project type:', data.type);
-
+      // Load type modules
       if (data?.type) {
         const modules = await loadTypeResources(data.type);
-
         setForm(() => modules.Form);
-        setSteps(modules.Steps);
+        setSteps(modules.Steps || []);
         setSchema(modules.Schema);
-
-        
-
+        setEditedSchema(modules.Schema); // working copy starts as saved
       } else {
-        console.warn('Project missing type');
         setForm(null);
         setSteps([]);
         setSchema(null);
+        setEditedSchema(null);
       }
     } catch (err) {
       console.error('Failed to fetch project:', err);
     }
   };
 
-  const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
-
+  // initial fetch / refetch when projectId changes
   useEffect(() => {
     loadProjectFromServer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-    // keep stepper up-to-date in a ref without retriggering compute by identity changes
-  const stepperRef = useRef(stepper);
-  useEffect(() => {
-    stepperRef.current = stepper;
-  }, [stepper]);
-
+  /* ==========================================================================
+   *  DERIVED CALCULATIONS: re-run stepper when edited inputs change
+   *  - Effect-based recompute of editedCalculated when editedAttributes or Steps change
+   *  - [Extract] a hook useAutoRecalc(editedAttributes, Steps, stepperRef)
+   * ========================================================================*/
   useEffect(() => {
     if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
 
     let cancelled = false;
     (async () => {
       const result = await stepperRef.current.runAll({ ...editedAttributes });
-      if (!cancelled && result) setEditedCalculated(result);
+
+      if (!cancelled && result) {
+        // Keep only keys that are NOT in attributes.
+
+        //REPLACE THIS IF STEPPER LATER RETURNS ONLY CALCULATED KEYS
+
+        const filtered = Object.fromEntries(
+          Object.entries(result).filter(([key]) => !(key in editedAttributes))
+        );
+
+        setEditedCalculated(filtered);
+      }
     })();
 
-    return () => { cancelled = true; };
-  }, [editedAttributes, Steps]); // <- no 'stepper' here
+    return () => {
+      cancelled = true;
+    };
+  }, [editedAttributes, Steps]);
 
+  /* ==========================================================================
+   *  ACTIONS: UI event handlers
+   *  - [Extract] into a small controller object if desired
+   * ========================================================================*/
   const handleReturn = () => {
-    setEditedAttributes(attributes);   // restore from original saved snapshot
-    setEditedCalculated(calculated);   // restore from original saved snapshot
+    // restore working copy from saved snapshot
+    setEditedAttributes(attributes);
+    setEditedCalculated(calculated);
   };
 
   const handleCheck = async (nextAttributes) => {
+    // trigger recompute via effect by updating editedAttributes
     setEditedAttributes(nextAttributes);
-
-    try {
-      const result = await stepper.current.runAll({ ...nextAttributes });
-      setEditedCalculated(result);
-    } catch (e) {
-      console.error('Check failed:', e);
-    }
   };
 
   const handleSubmit = () => {
+    // NOTE: this submits SAVED snapshots as in your original code.
+    // If you intend to submit edits, send editedAttributes/editedCalculated instead.
     const payload = {
       ...project,
       attributes: attributes,
-      calculated,
+      calculated: calculated,
     };
 
     fetch(getBaseUrl(`/api/projects/create`), {
@@ -155,11 +203,29 @@ export default function ProjectDetailsPage() {
       });
   };
 
-  const handleReset = () => {
-    loadProjectFromServer();
+  // handlers
+  const handleSchemaCheck = (next) => setEditedSchema(next);
+  const handleSchemaReturn = () => setEditedSchema(Schema);
+  const handleSchemaSubmit = (next) => {
+    // stub — persist later
+    console.log('[Schema submit] (stub):', next);
+    alert('Schema submit not implemented yet; preview uses the edited schema.');
   };
 
-  if (!project ) return <div>Loading...</div>;
+  // bump estimate version if you want a hard reset on schema change
+  useEffect(() => {
+    setEstimateVersion(v => v + 1);
+  }, [editedSchema]);
+
+  useEffect(() => {
+    setEstimateVersion((v) => v + 1);
+  }, [Schema, editedAttributes, editedCalculated]);
+
+  /* ==========================================================================
+   *  RENDER: layout (left: Form, right: canvas + (future) estimate/schema)
+   *  - [Extract] presentational layout components later
+   * ========================================================================*/
+  if (!project) return <div>Loading...</div>;
 
   return (
     <div
@@ -169,14 +235,19 @@ export default function ProjectDetailsPage() {
         alignItems: 'flex-start',
         gap: '32px',
         marginTop: '24px',
+        marginLeft: '20px',
         width: '100%',
       }}
     >
-      {/* LEFT: Project Data Form, max half screen */}
+      {/* LEFT: Project Data Form (working copy) */}
       <div style={{ flex: '1 1 50%', maxWidth: '50%', minWidth: '320px' }}>
         <div style={{ maxWidth: '800px' }}>
           {Form ? (
             <Suspense fallback={<div>Loading form…</div>}>
+              {console.log('[Render] Passing props to Form:', {
+                attributes: editedAttributes,
+                calculated: editedCalculated
+              })}
               <Form
                 attributes={editedAttributes}
                 calculated={editedCalculated}
@@ -187,15 +258,12 @@ export default function ProjectDetailsPage() {
               />
             </Suspense>
           ) : (
-            <>
-              {console.warn('[ProjectDetailsPage] Form component is null — not rendering')}
-              <div style={{ color: '#888' }}>Form not available for this project type.</div>
-            </>
+            <div style={{ color: '#888' }}>Form not available for this project type.</div>
           )}
         </div>
       </div>
 
-      {/* RIGHT: */}
+      {/* RIGHT: Canvas + (space reserved for EstimateTable / SchemaEditor if needed) */}
       <div
         style={{
           flex: '1 1 50%',
@@ -210,9 +278,28 @@ export default function ProjectDetailsPage() {
       >
         {(role === 'estimator' || role === 'admin') ? (
           <>
+            {Schema ? (
+              <EstimateTable
+                key={estimateVersion} // optional: keeps hard reset on changes
+                schema={editedSchema}
+                attributes={editedAttributes}
+                calculated={editedCalculated}
+              />
+            ) : (
+              <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
+            )}
             
             
-            {/* ProcessStepper canvas under EstimateTable/SchemaEditor */}
+            <SchemaEditor
+              schema={Schema}
+              editedSchema={editedSchema}
+              onCheck={handleSchemaCheck}
+              onReturn={handleSchemaReturn}
+              onSubmit={handleSchemaSubmit}
+            />
+
+
+            
             <div style={{ marginTop: 24 }}>
               <canvas
                 ref={canvasRef}
@@ -229,12 +316,11 @@ export default function ProjectDetailsPage() {
             </div>
           </>
         ) : (
-          // For other roles, show canvas at the top right
           <div style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
             <canvas
               ref={canvasRef}
               width={500}
-              height={1000}
+              height={2000}
               style={{
                 border: '1px solid #ccc',
                 width: '100%',

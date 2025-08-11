@@ -132,7 +132,7 @@ const Form = forwardRef((
             {Object.entries(calculated).map(([key, value]) => (
               <div key={key}>
                 <label className="block text-xs font-medium mb-1">
-                  key
+                  {key}
                 </label>
                 <input
                   type="text"

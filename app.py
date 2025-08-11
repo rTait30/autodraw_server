@@ -25,8 +25,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 CORS(app, origins=["http://localhost:5173"], supports_credentials=True)
 
-db_path = Path("instance") / "users.db"
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path.as_posix()}'  # Default DB (users/auth)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Default DB (users/auth)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY")

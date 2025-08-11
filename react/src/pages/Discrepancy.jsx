@@ -1,19 +1,37 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Form from '../components/projects/shadesail/Form';
-import { Steps as sailSteps } from '../components/projects/shadesail/Steps';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
+
+// Lazy-load the shadesail form (keeps it in a separate chunk)
+const ShadesailForm = React.lazy(() =>
+  import('../components/projects/shadesail/Form.jsx')
+);
 
 export default function Discrepancy() {
   const navigate = useNavigate();
-
   const role = localStorage.getItem('role') || 'guest';
 
   const [formData, setFormData] = useState(null);
   const [result, setResult] = useState({ discrepancy: '', errorBD: '' });
+  const [steps, setSteps] = useState([]);
 
   const canvasRef = useRef(null);
-  const formRef = useRef(null); // <-- we'll attach this to the Form
+  const formRef = useRef(null);
+  const lastStringifiedRef = useRef('');
+
+  // Load steps dynamically so they can be split into their own chunk
+  useEffect(() => {
+    let alive = true;
+    import('../components/projects/shadesail/Steps.js')
+      .then((mod) => {
+        const loaded = mod.Steps ?? mod.steps ?? [];
+        if (alive) setSteps(loaded);
+      })
+      .catch((e) => console.error('[Discrepancy] Failed to load steps:', e));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const options = useMemo(
     () => ({
@@ -24,50 +42,49 @@ export default function Discrepancy() {
     []
   );
 
+  // Use steps from state; the key is based on length (loads once)
   const { runAll } = useProcessStepper(
     {
       canvasRef,
-      steps: sailSteps,
+      steps,
       options,
     },
-    JSON.stringify(sailSteps)
+    String(steps.length)
   );
-
-  const lastStringifiedRef = useRef('');
 
   // Poll the form every 2s and update canvas
   useEffect(() => {
     const interval = setInterval(() => {
-      if (formRef.current?.getData) {
-        try {
-          const data = formRef.current.getData();
-          const stringified = JSON.stringify(data);
+      if (!formRef.current?.getData) return;
 
-          // Only re-run if the form changed
-          if (stringified !== lastStringifiedRef.current) {
-            console.log('[Discrepancy] Detected form change:', data);
+      try {
+        const data = formRef.current.getData();
+        const stringified = JSON.stringify(data);
 
-            lastStringifiedRef.current = stringified;
-            setFormData(data);
+        // Only re-run if the form changed
+        if (stringified !== lastStringifiedRef.current) {
+          console.log('[Discrepancy] Detected form change:', data);
+          lastStringifiedRef.current = stringified;
+          setFormData(data);
 
-            const cleanData = { ...data };
-            delete cleanData.result; // clear stale result
+          const cleanData = { ...data };
+          delete cleanData.result; // clear stale result
 
+          // Only run once steps are ready
+          if (steps.length) {
             runAll(cleanData);
             setResult(cleanData.result || { discrepancy: '', errorBD: '' });
-          } else {
-            console.log('[Discrepancy] formData unchanged');
           }
-        } catch (err) {
-          console.error('[Discrepancy] getData failed:', err);
+        } else {
+          // console.log('[Discrepancy] formData unchanged');
         }
-      } else {
-        console.warn('[Discrepancy] formRef.getData not available yet');
+      } catch (err) {
+        console.error('[Discrepancy] getData failed:', err);
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [runAll]);
+  }, [runAll, steps.length]);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
@@ -85,7 +102,9 @@ export default function Discrepancy() {
         <div className="flex flex-col md:flex-row gap-10">
           {/* Left side: form */}
           <div className="flex-1">
-            <Form ref={formRef} role={role} />
+            <Suspense fallback={<div>Loading form…</div>}>
+              <ShadesailForm ref={formRef} role={role} />
+            </Suspense>
           </div>
 
           {/* Right side: canvas + discrepancy result */}

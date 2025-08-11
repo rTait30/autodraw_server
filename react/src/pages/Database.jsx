@@ -235,7 +235,5 @@ function Table({ data }) {
       </tbody>
     </table>
     
-    
-    
   );
 }

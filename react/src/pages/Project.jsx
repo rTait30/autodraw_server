@@ -227,82 +227,98 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   if (!project) return <div>Loading...</div>;
 
-return (
-  <>
-    <div
-      className="layout"
-      style={{
-        display: 'flex',
-        // flexDirection controlled by CSS below
-        alignItems: 'stretch',
-        gap: '24px',
-        marginTop: '24px',
-        marginLeft: '16px',
-        marginRight: '16px',
-        width: 'calc(100% - 32px)',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* LEFT */}
-      <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
-        <div className="scroll-x">
-          <div style={{ maxWidth: '800px' }}>
-            {Form ? (
-              <Suspense fallback={<div>Loading form…</div>}>
-                <Form
-                  attributes={editedAttributes}
-                  calculated={editedCalculated}
-                  showFabricWidth
-                  onReturn={handleReturn}
-                  onCheck={handleCheck}
-                  onSubmit={handleSubmit}
-                />
-              </Suspense>
-            ) : (
-              <div style={{ color: '#888' }}>Form not available for this project type.</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT */}
+  return (
+    <>
       <div
-        className="pane right"
+        className="layout"
         style={{
-          flex: '1 1 auto',
-          minWidth: 0,
-          boxSizing: 'border-box',
           display: 'flex',
-          flexDirection: 'column',
+          // flexDirection controlled by CSS below
+          alignItems: 'stretch',
           gap: '24px',
+          marginTop: '24px',
+          marginLeft: '16px',
+          marginRight: '16px',
+          width: 'calc(100% - 32px)',
+          boxSizing: 'border-box',
         }}
       >
-        {(role === 'estimator' || role === 'admin') ? (
-          <>
-            {Schema ? (
+        {/* LEFT */}
+        <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <div className="scroll-x">
+            <div style={{ maxWidth: '800px' }}>
+              {Form ? (
+                <Suspense fallback={<div>Loading form…</div>}>
+                  <Form
+                    attributes={editedAttributes}
+                    calculated={editedCalculated}
+                    showFabricWidth
+                    onReturn={handleReturn}
+                    onCheck={handleCheck}
+                    onSubmit={handleSubmit}
+                  />
+                </Suspense>
+              ) : (
+                <div style={{ color: '#888' }}>Form not available for this project type.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div
+          className="pane right"
+          style={{
+            flex: '1 1 auto',
+            minWidth: 0,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}
+        >
+          {(role === 'estimator' || role === 'admin') ? (
+            <>
+              {Schema ? (
+                <div className="scroll-x">
+                  <EstimateTable
+                    key={estimateVersion}
+                    schema={editedSchema}
+                    attributes={editedAttributes}
+                    calculated={editedCalculated}
+                  />
+                </div>
+              ) : (
+                <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
+              )}
+
               <div className="scroll-x">
-                <EstimateTable
-                  key={estimateVersion}
-                  schema={editedSchema}
-                  attributes={editedAttributes}
-                  calculated={editedCalculated}
+                <SchemaEditor
+                  schema={Schema}
+                  editedSchema={editedSchema}
+                  onCheck={handleSchemaCheck}
+                  onReturn={handleSchemaReturn}
+                  onSubmit={handleSchemaSubmit}
                 />
               </div>
-            ) : (
-              <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
-            )}
 
-            <div className="scroll-x">
-              <SchemaEditor
-                schema={Schema}
-                editedSchema={editedSchema}
-                onCheck={handleSchemaCheck}
-                onReturn={handleSchemaReturn}
-                onSubmit={handleSchemaSubmit}
-              />
-            </div>
-
-            <div className="scroll-x" style={{ marginTop: 24 }}>
+              <div className="scroll-x" style={{ marginTop: 24 }}>
+                <canvas
+                  ref={canvasRef}
+                  width={500}
+                  height={2000}
+                  style={{
+                    border: '1px solid #ccc',
+                    width: '100%',
+                    maxWidth: '500px',
+                    display: 'block',
+                    background: '#fff',
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="scroll-x" style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
               <canvas
                 ref={canvasRef}
                 width={500}
@@ -316,82 +332,64 @@ return (
                 }}
               />
             </div>
-          </>
-        ) : (
-          <div className="scroll-x" style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
-            <canvas
-              ref={canvasRef}
-              width={500}
-              height={2000}
-              style={{
-                border: '1px solid #ccc',
-                width: '100%',
-                maxWidth: '500px',
-                display: 'block',
-                background: '#fff',
-              }}
-            />
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
 
-    <style>
-      {`
-        /* Mobile-first: stacked */
-        .layout { 
-          flex-direction: column;
-          padding-bottom: 48px; /* gives users an easy thumb area to scroll */
-        }
-
-        /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
-        @media (max-width: 799px) {
-          html, body { 
-            overflow-x: hidden; 
-            overflow-y: auto;
-            height: 100%;
-          }
+      <style>
+        {`
+          /* Mobile-first: stacked */
           .layout { 
-            overflow-x: hidden; 
-            overflow-y: visible; 
-            touch-action: auto; /* allow natural vertical scroll on the page */
+            flex-direction: column;
+            padding-bottom: 48px; /* gives users an easy thumb area to scroll */
           }
-          /* Each section can scroll horizontally without hijacking vertical swipes */
-          .scroll-x {
-            overflow-x: auto;
-            overflow-y: visible;              /* don't trap vertical scrolling */
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;   /* don't bubble horizontal to page */
-            touch-action: pan-x pan-y;        /* allow both directions inside */
-            scrollbar-gutter: stable both-edges;
-          }
-        }
 
-        /* Desktop: two columns */
-        @media (min-width: 800px) {
-          .layout {
-            flex-direction: row;
-            gap: 32px;
-            margin-left: 20px;
-            margin-right: 20px;
-            width: calc(100% - 40px);
+          /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
+          @media (max-width: 799px) {
+            html, body { 
+              overflow-x: hidden; 
+              overflow-y: auto;
+              height: 100%;
+            }
+            .layout { 
+              overflow-x: hidden; 
+              overflow-y: visible; 
+              touch-action: auto; /* allow natural vertical scroll on the page */
+            }
+            /* Each section can scroll horizontally without hijacking vertical swipes */
+            .scroll-x {
+              overflow-x: auto;
+              overflow-y: visible;              /* don't trap vertical scrolling */
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior-x: contain;   /* don't bubble horizontal to page */
+              touch-action: pan-x pan-y;        /* allow both directions inside */
+              scrollbar-gutter: stable both-edges;
+            }
           }
-          .pane {
-            flex: 1 1 50%;
-            max-width: 50%;
-            min-width: 0;
-          }
-          .scroll-x {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;
-          }
-        }
-      `}
-    </style>
-  </>
-);
 
-
+          /* Desktop: two columns */
+          @media (min-width: 800px) {
+            .layout {
+              flex-direction: row;
+              gap: 32px;
+              margin-left: 20px;
+              margin-right: 20px;
+              width: calc(100% - 40px);
+            }
+            .pane {
+              flex: 1 1 50%;
+              max-width: 50%;
+              min-width: 0;
+            }
+            .scroll-x {
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior-x: contain;
+            }
+          }
+        `}
+      </style>
+    </>
+  );
 
 }

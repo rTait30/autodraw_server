@@ -18,7 +18,9 @@ import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState } 
  * }
  */
 
-function FieldRenderer({ field, value, onChange, formData }) {
+
+
+function FieldRenderer({ field, value, onChange, formData, setField }) {
   const {
     name, label, type = 'text', options = [], placeholder,
     readOnly, disabled, min, max, step, render
@@ -27,25 +29,24 @@ function FieldRenderer({ field, value, onChange, formData }) {
   const common = {
     name,
     value: value ?? '',
-    onChange: (e) => onChange(name, type === 'number' ? Number(e.target.value) : e.target.value),
+    onChange: (e) => onChange(
+      type === 'number' ? Number(e.target.value) : e.target.value
+    ),
     className: "inputCompact w-full",
     placeholder,
     readOnly,
     disabled,
   };
 
+  
+
   return (
     <div>
       {label && <label className="block text-sm font-medium mb-1">{label}</label>}
-      {type === 'number' && (
-        <input type="number" {...common} min={min} max={max} step={step} />
-      )}
-      {type === 'text' && (
-        <input type="text" {...common} />
-      )}
-      {type === 'textarea' && (
-        <textarea {...common} rows={3} />
-      )}
+
+      {type === 'number' && <input type="number" {...common} min={min} max={max} step={step} />}
+      {type === 'text'   && <input type="text" {...common} />}
+      {type === 'textarea' && <textarea {...common} rows={3} />}
       {type === 'select' && (
         <select {...common}>
           {options.map((opt) => (
@@ -55,10 +56,19 @@ function FieldRenderer({ field, value, onChange, formData }) {
           ))}
         </select>
       )}
-      {type === 'custom' && render && render({ name, value, onChange: (v) => onChange(name, v), formData })}
+
+      {type === 'custom' && render && render({
+        name,
+        value,
+        onChange,      // <-- updates THIS field's value
+        formData,
+        setField,      // <-- lets custom blocks set ANY field (e.g., pointCount)
+      })}
     </div>
   );
 }
+
+
 
 const FormBase = forwardRef(({
   title = 'Form',
@@ -80,6 +90,8 @@ const FormBase = forwardRef(({
     }, {});
     return { ...byFieldDefaults, ...defaults, ...attributes };
   }, [fields, defaults, attributes]);
+
+  
 
   const [formData, setFormData] = useState(initial);
 
@@ -132,17 +144,23 @@ const FormBase = forwardRef(({
   // compute visible fields
   const visibleFields = fields.filter(f => (typeof f.visible === 'function' ? f.visible(formData) : true));
 
+    const setField = (key, val) =>
+        setFormData(prev => ({ ...prev, [key]: val }));
+
   return (
     <div className="space-y-4 w-100%">
       <h3 className="headingStyle">{title}</h3>
+
+
 
       {visibleFields.map((field) => (
         <FieldRenderer
           key={field.name}
           field={field}
           value={formData[field.name]}
-          onChange={handleChange}
+          onChange={(val) => setFormData(prev => ({ ...prev, [field.name]: val }))}
           formData={formData}
+          setField={setField}
         />
       ))}
 

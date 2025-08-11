@@ -7,9 +7,10 @@ export const Schema = {
       "unitCost": "calculated.fabricPrice"
     },
     {
-      "type": "sku",
-      "sku": "CAB001",
-      "quantity": "attributes.edgeMeterCeilMeters"
+      "type": "row",
+      "description": "Cable",
+      "quantity": "calculated.edgeMeterCeilMeters",
+      "unitCost": "10"
     },
     {
       "type": "sku",
@@ -22,7 +23,7 @@ export const Schema = {
       "type": "calc",
       "key": "totalCostFabrication",
       "label": "Total Cost Fabrication",
-      "expr": "inputs.materialsTotal"
+      "expr": "context.baseCost"
     }
   ]
 }

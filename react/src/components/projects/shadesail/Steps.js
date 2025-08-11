@@ -338,6 +338,8 @@ export const Steps = [
 
       const edgeMeter = Object.values(data.dimensions).reduce((sum, value) => sum + value, 0);
 
+      const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+
       console.log('Total edgeMeter:', edgeMeter);
 
       const xyDistances = {};
@@ -665,6 +667,7 @@ export const Steps = [
 
       return {
         edgeMeter,
+        edgeMeterCeilMeters,
         positions,
         discrepancies,
         blame,

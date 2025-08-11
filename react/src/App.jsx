@@ -10,7 +10,7 @@ import Home from './pages/Home';
 
 import TopBar from './components/TopBar';
 
-import NewProjectGeneral from './pages/NewProjectGeneral';
+import NewProject from './pages/NewProject';
 
 import Projects from './pages/Projects';
 import Project from './pages/Project';
@@ -35,7 +35,7 @@ function App() {
         <Route path="/copelands/discrepancy" element={<Discrepancy />} />
         <Route element={<TopBar />}>
           <Route path="/copelands/home" element={<Home />} />
-          <Route path="/copelands/newgeneral" element={<NewProjectGeneral />} />
+          <Route path="/copelands/newproject" element={<NewProject />} />
           <Route path="/copelands/projects" element={<Projects />} />
           <Route path="/copelands/projects/:id" element={<Project />} />
           <Route path="/copelands/database" element={<Database />} />

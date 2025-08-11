@@ -1,6 +1,7 @@
-import React, { useImperativeHandle, forwardRef, useState, useEffect } from 'react';
+import React, { forwardRef } from 'react';
+import FormBase from '../FormBase';
 
-const numericFields = ['width', 'height', 'length', 'quantity', 'hem', 'seam', 'fabricWidth'];
+const numeric = ['width', 'height', 'length', 'quantity', 'hem', 'seam', 'fabricWidth'];
 
 const DEFAULTS = {
   length: 1000,
@@ -12,144 +13,43 @@ const DEFAULTS = {
   fabricWidth: 1370,
 };
 
-const Form = forwardRef((
-  { 
-    attributes = {}, 
-    calculated = {}, 
-    showFabricWidth = false,
-    onReturn,      // optional
-    onCheck,       // optional
-    onSubmit,      // optional
-  }, ref) => {
-  const [formData, setFormData] = useState(() => ({
-    ...DEFAULTS,
-    ...attributes,
-  }));
+// Field schema: only define what’s unique to “covers”
+const fields = [
+  { name: 'length', label: 'Length', type: 'number', min: 0 },
+  { name: 'width', label: 'Width', type: 'number', min: 0 },
+  { name: 'height', label: 'Height', type: 'number', min: 0 },
+  { name: 'quantity', label: 'Quantity', type: 'number', min: 1, step: 1 },
+  { name: 'hem', label: 'Hem', type: 'number', min: 0 },
+  { name: 'seam', label: 'Seam', type: 'number', min: 0 },
+  {
+    name: 'fabricWidth',
+    label: 'Fabric Width',
+    type: 'number',
+    min: 0,
+    // Visibility rule—if you ever need to hide/show per project logic
+    visible: () => true,
+  },
+];
 
-  // Log whenever props change
-  useEffect(() => {
-    console.log('[Form] attributes received:', attributes);
-  }, [attributes]);
-
-  useEffect(() => {
-    console.log('[Form] calculated received:', calculated);
-  }, [calculated]);
-
-  useImperativeHandle(ref, () => ({
-    getData: () => {
-      const cleaned = Object.fromEntries(
-        Object.entries(formData).map(([key, value]) => [
-          key,
-          numericFields.includes(key) ? Number(value) || 0 : value,
-        ])
-      );
-      return cleaned;
-    },
-  }));
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    const isNumeric = numericFields.includes(name);
-    const newValue = isNumeric ? Number(value) : value;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: newValue,
-    }));
-  };
-
-  
+const Form = forwardRef((props, ref) => {
+  const { attributes = {}, calculated = {}, onReturn, onCheck, onSubmit } = props;
 
   return (
-    <div className="space-y-4 w-[240px]">
-      <h3 className="headingStyle">Cover Form</h3>
-      {Object.keys(formData).map((key) => {
-        if (key === 'fabricWidth') {
-          // 👇 Insert internal logic here — covers needs it, others don't
-          const shouldShow = true; // default, or make this dynamic
-
-          if (!shouldShow) return null;
-        }
-
-        const label = key
-          .replace(/([A-Z])/g, ' $1')
-          .replace(/^./, (str) => str.toUpperCase());
-
-        return (
-          <div key={key}>
-            <label className="block text-sm font-medium mb-1">{label}</label>
-            <input
-              type={numericFields.includes(key) ? 'number' : 'text'}
-              name={key}
-              value={formData[key]}
-              onChange={handleChange}
-              className="inputCompact w-full"
-            />
-          </div>
-        );
-      })}
-
-      {/* Action buttons (only render if provided) */}
-      {(onReturn || onCheck || onSubmit) && (
-        <div className="flex items-center gap-2 pt-2">
-          {onReturn && (
-            <button type="button" className="btnSecondary" onClick={onReturn}>
-              Return
-            </button>
-          )}
-          {onCheck && (
-            <button
-              type="button"
-              className="btnPrimary"
-              onClick={() => {
-                // Pass the latest edited form data up if parent wants it
-                const data = (ref && typeof ref !== 'function' && ref.current?.getData?.()) || formData;
-                onCheck(data);
-              }}
-            >
-              Check
-            </button>
-          )}
-          {onSubmit && (
-            <button
-              type="button"
-              className="btnAccent"
-              onClick={() => {
-                const data = (ref && typeof ref !== 'function' && ref.current?.getData?.()) || formData;
-                onSubmit(data);
-              }}
-            >
-              Submit
-            </button>
-          )}
-        </div>
-      )}
-
-      {calculated && Object.keys(calculated).length > 0 && (
-        <div className="space-y-3">
-          <h4 className="headingStyle">Calculated</h4>
-          <div className="space-y-2">
-            {Object.entries(calculated).map(([key, value]) => (
-              <div key={key}>
-                <label className="block text-xs font-medium mb-1">
-                  {key}
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  disabled
-                  value={String(value ?? '')}
-                  className="inputCompact w-full"
-                  aria-readonly="true"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-    </div>
-    
+    <FormBase
+      ref={ref}
+      title="Cover Form"
+      fields={fields}
+      defaults={DEFAULTS}
+      attributes={attributes}
+      calculated={calculated}
+      onReturn={onReturn}
+      onCheck={onCheck}
+      onSubmit={onSubmit}
+      // You can toggle this if a project type shouldn’t show calculated block
+      showCalculated
+      // Turn on to mirror your existing console logging while integrating
+      debug={false}
+    />
   );
 });
 

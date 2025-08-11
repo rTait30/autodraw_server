@@ -3,18 +3,11 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_req
 
 from models import db, Project, ProjectAttribute, User, Product
 from datetime import datetime, timezone
+from dateutil.parser import parse as parse_date
 
 from sqlalchemy.orm.attributes import flag_modified
 
 projects_api_bp = Blueprint('projects_api', __name__)
-
-from sqlalchemy.orm.attributes import flag_modified
-
-from flask import request, jsonify
-from datetime import datetime, timezone
-from sqlalchemy.orm.attributes import flag_modified
-from dateutil.parser import parse as parse_date
-from models import db, Project, ProjectAttribute  # adjust imports as needed
 
 def verify_jwt_in_request_optional():
     if 'Authorization' in request.headers:

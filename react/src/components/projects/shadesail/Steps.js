@@ -398,7 +398,7 @@ export const Steps = [
               const allInside = [...blameKey].every(char => combo.combo.includes(char));
 
               if (allInside) {
-                blameKey.length == 1 ? blame[blameKey] += (discrepancy * 0.5) : blame[blameKey] += discrepancy;
+                blame[blameKey] += discrepancy;
               }
             }
           }

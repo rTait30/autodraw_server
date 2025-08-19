@@ -263,6 +263,27 @@ function SailtracksEditor({ formData, setSailtracks }) {
   );
 }
 
+
+const fixingOptions = [
+  { value: "M8B", label: "M8 Bowshackle" },
+  { value: "M10B", label: "M10 Bowshackle" },
+  { value: "M12B", label: "M12 Bowshackle" },
+  { value: "M8T", label: "M8 Turnbuckle" },
+  { value: "M10T", label: "M10 Turnbuckle" },
+  { value: "M12T", label: "M12 Turnbuckle" },
+  { value: "Plate", label: "Plate" }
+  // Do NOT include "sailtrack" here
+];
+
+const cornerOptions = [
+  { value: "PR", label: "Prorig" },
+  { value: "PRP", label: "Prorig with pipe" },
+  { value: "EZ", label: "Ezy slide" },
+  { value: "Plate", label: "Plate" },
+  { value: "ST", label: "Sailtrack" }
+  // Do NOT include "sailtrack" here
+];
+
 // Points table (binds to `points`), with sailtrack locks and default tension rules
 function PointsTable({ formData, setPoints }) {
   const pointCount = formData.pointCount ?? 4;
@@ -321,6 +342,7 @@ function PointsTable({ formData, setPoints }) {
     // Enforce lock for sailtrack points
     if (sailtrackPoints.has(p)) {
       next.fixingType = 'sailtrack';
+      next.cornerType = 'sailtrack';
       next.tensionAllowance = 0;
     }
 
@@ -359,38 +381,37 @@ function PointsTable({ formData, setPoints }) {
                   <td>
                     <select
                       className="inputCompact"
-                      value={pt.cornerType ?? 'PR'}
-                      onChange={(e) => handlePointChange(p, 'cornerType', e.target.value)}
+                      value={locked ? "sailtrack" : pt.cornerType ?? "PR"}
+                      onChange={e => handlePointChange(p, "cornerType", e.target.value)}
                       disabled={locked}
                     >
-                      <option value="PR">Prorig</option>
-                      <option value="PRP">Prorig with pipe</option>
-                      <option value="EZ">Ezy slide</option>
-                      <option value="Plate">Plate</option>
+                      {cornerOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                      {/* When locked, show sailtrack as the only option */}
+                      {locked && <option value="sailtrack">Sailtrack Corner</option>}
                     </select>
                   </td>
                   <td>
                     <select
                       className="inputCompact"
-                      value={pt.fixingType ?? 'M8B'}
-                      onChange={(e) => handlePointChange(p, 'fixingType', e.target.value)}
+                      value={locked ? "sailtrack" : pt.fixingType ?? "M8B"}
+                      onChange={e => handlePointChange(p, "fixingType", e.target.value)}
                       disabled={locked}
                     >
-                      <option value="M8B">M8 Bowshackle</option>
-                      <option value="M10B">M10 Bowshackle</option>
-                      <option value="M12B">M12 Bowshackle</option>
-                      <option value="M8T">M8 Turnbuckle</option>
-                      <option value="M10T">M10 Turnbuckle</option>
-                      <option value="M12T">M12 Turnbuckle</option>
-                      <option value="Plate">Plate</option>
+                      {fixingOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                      {/* When locked, show sailtrack as the only option */}
+                      {locked && <option value="sailtrack">Sailtrack</option>}
                     </select>
                   </td>
                   <td>
                     <input
                       type="number"
                       className="inputCompact"
-                      value={pt.tensionAllowance ?? 0}
-                      onChange={(e) => handlePointChange(p, 'tensionAllowance', Number(e.target.value))}
+                      value={locked ? 0 : pt.tensionAllowance ?? 0}
+                      onChange={e => handlePointChange(p, "tensionAllowance", Number(e.target.value))}
                       disabled={locked}
                     />
                   </td>

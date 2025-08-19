@@ -1,135 +1,192 @@
+# endpoints/api/projects/nest.py
+from datetime import datetime
+from typing import Dict, List, Tuple
+
 from flask import Blueprint, request, jsonify
-
+from flask_jwt_extended import jwt_required
 from rectpack import newPacker
+from sqlalchemy.orm.attributes import flag_modified
 
-nest_bp = Blueprint('nest_bp', __name__)
+from endpoints.api.auth.utils import current_user  # <- shared helper (no circular import)
 
-def prepare_rectangles(data):
-    quantity = int(data['quantity'])
-    panels = data['panels']
-    
-    rectangles = []
-    
+nest_bp = Blueprint("nest_bp", __name__)
+
+
+# ---------- Helpers ----------
+def prepare_rectangles(data: dict) -> List[Tuple[int, int, str]]:
+    """
+    Build a list of (width, height, label) tuples for rectpack.
+    - Enforces integers (mm).
+    - Preserves original labels like "1_A", "2_B", etc.
+    - Optional small-panel grouping to reduce fragmentation.
+    """
+    try:
+        quantity = int(data["quantity"])
+        assert quantity > 0
+    except Exception:
+        raise ValueError("quantity must be a positive integer")
+
+    panels = data.get("panels")
+    if not isinstance(panels, dict) or not panels:
+        raise ValueError("panels must be a non-empty object")
+
+    # Optional tuning knobs
+    small_side_max = int(data.get("small_side_max", 500))   # mm
+    group_row_max  = int(data.get("group_row_max", 2000))   # mm
+
+    rectangles: List[Tuple[int, int, str]] = []
+
+    # Build base rectangles
     for i in range(1, quantity + 1):
         for name, dims in panels.items():
-            label = f"{i}_{str(name)}"
-            width = dims['width']
-            height = dims['height']
-            rectangles.append((width, height, label))
-    
-    # Sort rectangles by height (descending) to prioritize horizontal stacking
+            try:
+                w = int(round(float(dims["width"])))
+                h = int(round(float(dims["height"])))
+            except Exception:
+                raise ValueError(f"Panel '{name}' width/height must be numeric")
+            if w <= 0 or h <= 0:
+                raise ValueError(f"Panel '{name}' width/height must be > 0")
+
+            label = f"{i}_{name}"
+            rectangles.append((w, h, label))
+
+    # Sort by larger side desc (helps packer)
     rectangles.sort(key=lambda r: max(r[0], r[1]), reverse=True)
-    
-    # Group smaller panels for horizontal stacking
-    grouped_rectangles = []
-    small_panels = [r for r in rectangles if r[0] < 500 and r[1] < 500]  # Example threshold
+
+    # Simple horizontal grouping for small panels (optional heuristic)
+    small_panels = [r for r in rectangles if r[0] < small_side_max and r[1] < small_side_max]
     large_panels = [r for r in rectangles if r not in small_panels]
 
-    # Combine small panels into horizontal groups
+    grouped_rectangles: List[Tuple[int, int, str]] = []
     while small_panels:
-        group_width = 0
-        group_height = 0
-        group = []
-        while small_panels and group_width + small_panels[0][0] <= 2000:  # Example max width
-            panel = small_panels.pop(0)
-            group_width += panel[0]
-            group_height = max(group_height, panel[1])
-            group.append(panel)
-        if group:
-            grouped_rectangles.append((group_width, group_height, f"group_{len(grouped_rectangles)}"))
+        row_w = 0
+        row_h = 0
+        row = []
+        # Greedy: keep adding until row width limit
+        while small_panels and row_w + small_panels[0][0] <= group_row_max:
+            w, h, lbl = small_panels.pop(0)
+            row_w += w
+            row_h = max(row_h, h)
+            row.append((w, h, lbl))
+        if row:
+            grouped_rectangles.append((row_w, row_h, f"group_{len(grouped_rectangles)}"))
 
-    # Add large panels and grouped small panels
     grouped_rectangles.extend(large_panels)
     return grouped_rectangles
 
-def can_fit(rectangles, bin_width, bin_height):
-    from rectpack import newPacker
 
-    packer = newPacker(rotation=True)
-
-    # Add rectangles to the packer
-    for width, height, label in rectangles:
-        packer.add_rect(width, height, label)
-
-    # Add a single bin with the given dimensions
+def can_fit(rectangles: List[Tuple[int, int, str]], bin_width: int, bin_height: int, allow_rotation: bool):
+    packer = newPacker(rotation=allow_rotation)
+    for w, h, lbl in rectangles:
+        packer.add_rect(w, h, lbl)
     packer.add_bin(bin_width, bin_height)
-
-    # Perform the packing
     packer.pack()
 
-    # Extract packed rectangles
-    packed_rectangles = packer.rect_list()
-
-    # Check if all rectangles are packed
-    all_packed = len(packed_rectangles) == len(rectangles)
-
-    return all_packed, packer
+    packed = packer.rect_list()  # list of tuples: (bin_index, x, y, w, h, rid)
+    return len(packed) == len(rectangles), packer
 
 
-def run_rectpack_with_fixed_height(rectangles, fabric_height):
-    # Binary search bounds
-    min_width = max(r[0] for r in rectangles)  # At least the widest panel
-    max_width = sum(r[0] for r in rectangles)  # Worst case, all side by side
-    best_result = None
+def run_rectpack_with_fixed_height(
+    rectangles: List[Tuple[int, int, str]],
+    fabric_height: int,
+    allow_rotation: bool = True
+):
+    """
+    Binary search minimal width to fit all rectangles into a single bin of height = fabric_height.
+    Returns placements and the minimal width achieved.
+    """
+    if fabric_height <= 0:
+        raise ValueError("fabric_height must be a positive integer")
 
-    while min_width < max_width:
-        mid_width = (min_width + max_width) // 2
-        fits, packer = can_fit(rectangles, mid_width, fabric_height)
+    min_width = max(r[0] for r in rectangles)  # at least the widest
+    max_width = sum(r[0] for r in rectangles)  # worst case: side by side
+    best_packer = None
+    best_width = None
 
+    lo, hi = min_width, max_width
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        fits, packer = can_fit(rectangles, mid, fabric_height, allow_rotation)
         if fits:
-            max_width = mid_width
-            best_result = packer
+            best_packer = packer
+            best_width = mid
+            hi = mid - 1
         else:
-            min_width = mid_width + 1
+            lo = mid + 1
 
-    # Final successful pack at min_width
-    if not best_result:
-        # One last try in case min_width just became valid
-        fits, best_result = can_fit(rectangles, min_width, fabric_height)
+    # Safety: try final lo if we never found a fit during search
+    if best_packer is None:
+        fits, packer = can_fit(rectangles, lo, fabric_height, allow_rotation)
         if not fits:
-            raise Exception("Cannot fit panels in given height.")
+            raise ValueError("Cannot fit panels in the given height.")
+        best_packer = packer
+        best_width = lo
 
     # Extract placements
-    placements = {}
-    max_x = 0
+    placements: Dict[str, Dict[str, int | bool]] = {}
+    total_used_w = 0
 
-    for rect in best_result.rect_list():
-        bin_index, x, y, w, h, rid = rect
+    for (bin_idx, x, y, w, h, rid) in best_packer.rect_list():
+        # Determine rotation by comparing to original tuple
         orig = next(r for r in rectangles if r[2] == rid)
         rotated = (w != orig[0] or h != orig[1])
-        placements[rid] = {
-            "x": x,
-            "y": y,
-            "rotated": rotated
-        }
-        max_x = max(max_x, x + w)
-
-    # Debugging output
-    print(f"Packed rectangles: {placements}")
-    print(f"Total width used: {max_x}")
+        placements[rid] = {"x": x, "y": y, "rotated": rotated}
+        total_used_w = max(total_used_w, x + w)
 
     return {
         "panels": placements,
-        "total_width": max_x,
-        "used_bin_width": min_width
+        "total_width": total_used_w,  # actual used width
+        "required_width": int(best_width),  # minimal bin width that fits
+        "bin_height": int(fabric_height),
+        "rotation": bool(allow_rotation),
     }
 
-@nest_bp.route('/copelands/nest_panels', methods=['POST'])
+
+# ---------- Route ----------
+@nest_bp.route("/nest/panels", methods=["POST"])
+@jwt_required()
 def nest_panels():
+    """
+    Body:
+    {
+      "quantity": 2,
+      "panels": {
+        "A": {"width": 1000, "height": 800},
+        "B": {"width": 600, "height": 400}
+      },
+      "fabricWidth": 3200,               # required, mm (height of bin)
+      "allowRotation": true,             # optional, default true
+      "small_side_max": 500,             # optional
+      "group_row_max": 2000              # optional
+    }
+    """
+    # Ensure user is authenticated (and available if you need role checks later)
+    user = current_user(required=True)
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     try:
-        data = request.get_json()
-        if not data or 'quantity' not in data or 'panels' not in data:
-            return jsonify({"error": "Invalid input"}), 400
+        data = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
 
+    # Validate fabric height (bin height)
+    fabric_height = data.get("fabricWidth") or data.get("fabric_height")
+    try:
+        fabric_height = int(round(float(fabric_height)))
+        if fabric_height <= 0:
+            raise ValueError
+    except Exception:
+        return jsonify({"error": "fabricWidth must be a positive number"}), 400
+
+    allow_rotation = bool(data.get("allowRotation", True))
+
+    try:
         rectangles = prepare_rectangles(data)
-
-        # Use fabricWidth from the request as the fixed height
-        fabric_height = data.get('fabricWidth')
-
-        # Run rectpack with fixed height
-        nest_result = run_rectpack_with_fixed_height(rectangles, fabric_height)
-
-        return jsonify(nest_result)
-
+        result = run_rectpack_with_fixed_height(rectangles, fabric_height, allow_rotation)
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Don’t leak internals in prod; log e if you have a logger
+        return jsonify({"error": "Nesting failed"}), 500

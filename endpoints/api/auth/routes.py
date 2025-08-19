@@ -1,126 +1,202 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+# endpoints/api/auth/routes.py
+from datetime import timedelta
+from functools import wraps
+
+from flask import Blueprint, request, jsonify, make_response
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_required,
+    get_jwt_identity,
+    set_refresh_cookies,
+    unset_jwt_cookies,
+)
 from models import db, User
 
-auth_bp = Blueprint('auth_bp', __name__)
+from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
-@auth_bp.route('/copelands/api/login', methods=['POST'])
+auth_bp = Blueprint("auth_bp", __name__)
+
+# -------------------------------
+# Auth endpoints
+# -------------------------------
+
+@auth_bp.route("/login", methods=["POST"])
 def api_login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    """
+    POST body: { username, password }
+    Returns: { access_token, role, id, username, verified }
+    Also sets an HttpOnly refresh cookie.
+    """
+    data = _json()
+    user = _user_by_credentials(data.get("username"), data.get("password"))
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
 
-    user = User.query.filter_by(username=username).first()
-    if not user or not user.check_password(password):
-        return jsonify({'error': 'Invalid credentials'}), 401
+    # sub must be a string
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            "role": user.role,
+            "username": user.username,
+            "verified": user.verified,
+        },
+        expires_delta=timedelta(minutes=10),
+    )
+    refresh_token = create_refresh_token(identity=str(user.id))
 
-    access_token = create_access_token(identity=username)
-    return jsonify({'access_token': access_token, 'role': user.role, 'id': user.id, 'username': user.username, 'verified': user.verified})
+    resp = make_response(jsonify({
+        "access_token": access_token,
+        "role": user.role,
+        "id": user.id,
+        "username": user.username,
+        "verified": user.verified,
+    }))
+    set_refresh_cookies(resp, refresh_token)
+    return resp, 200
 
-@auth_bp.route('/copelands/api/register', methods=['POST'])
+
+@auth_bp.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh_access_token():
+    """
+    Use the HttpOnly refresh cookie to mint a new access token.
+    Rotates the refresh token as well.
+    """
+    user_id = int(get_jwt_identity())  # cast back to int
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    new_access = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            "role": user.role,
+            "username": user.username,
+            "verified": user.verified,
+        },
+    )
+    new_refresh = create_refresh_token(identity=str(user.id))
+
+    resp = make_response(jsonify({"access_token": new_access}))
+    set_refresh_cookies(resp, new_refresh)  # rotate refresh
+    return resp, 200
+
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    """
+    Clears refresh cookies. (If you also want to revoke tokens, add a blocklist.)
+    """
+    resp = make_response(jsonify({"message": "Logged out"}))
+    unset_jwt_cookies(resp)
+    return resp, 200
+
+
+# -------------------------------
+# Registration & user mgmt
+# -------------------------------
+
+@auth_bp.route("/register", methods=["POST"])
 def register_client():
-    data = request.get_json()
-    email = data.get('email')
-    username = data.get('username')
-    password = data.get('password')
-    password2 = data.get('password2')
-    role = 'client'
+    """
+    Public registration for clients.
+    POST body: { email, username, password, password2 }
+    """
+    data = _json()
+    email = data.get("email", "").strip()
+    username = data.get("username", "").strip()
+    password = data.get("password")
+    password2 = data.get("password2")
 
     if not email or not username or not password or not password2:
-        return jsonify({'error': 'All fields are required.'}), 400
+        return jsonify({"error": "All fields are required."}), 400
     if password != password2:
-        return jsonify({'error': 'Passwords do not match.'}), 400
+        return jsonify({"error": "Passwords do not match."}), 400
     if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'Username already exists.'}), 400
+        return jsonify({"error": "Username already exists."}), 400
     if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already exists.'}), 400
+        return jsonify({"error": "Email already exists."}), 400
 
     user = User(
         username=username,
-        password_hash='',
-        role=role,
+        password_hash="",
+        role="client",
         email=email,
-        verified=False  # <-- Ensure verified is set to False
+        verified=False,   # adjust if you want auto-verified
     )
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    return jsonify({'message': 'Client registered'}), 201
+    return jsonify({"message": "Client registered"}), 201
 
-@auth_bp.route('/copelands/api/register_staff', methods=['POST'])
-@jwt_required()
+
+@auth_bp.route("/register_staff", methods=["POST"])
+@role_required("admin")
 def register_staff():
-    username = get_jwt_identity()
-    admin_user = User.query.filter_by(username=username).first()
-    if not admin_user or admin_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
+    """
+    Admin creates staff accounts.
+    POST body: { username, password, role }
+    role ∈ {"designer", "estimator", "admin"}
+    """
+    data = _json()
+    new_username = (data.get("username") or "").strip()
+    password = data.get("password")
+    role = data.get("role")
 
-    data = request.get_json()
-    new_username = data.get('username')
-    password = data.get('password')
-    role = data.get('role')
-
-    if role not in ['designer', 'estimator']:
-        return jsonify({'error': 'Invalid role'}), 400
-
+    if role not in {"designer", "estimator", "admin"}:
+        return jsonify({"error": "Invalid role"}), 400
     if not new_username or not password:
-        return jsonify({'error': 'Missing username or password'}), 400
-
+        return jsonify({"error": "Missing username or password"}), 400
     if User.query.filter_by(username=new_username).first():
-        return jsonify({'error': 'User already exists'}), 400
+        return jsonify({"error": "User already exists"}), 400
 
-    user = User(username=new_username, role=role)
+    user = User(username=new_username, role=role, verified=True)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    return jsonify({'message': f'{role.capitalize()} registered'}), 201
+    return jsonify({"message": f"{role.capitalize()} registered"}), 201
 
-@auth_bp.route('/copelands/api/verify_user', methods=['POST'])
-@jwt_required()
+
+@auth_bp.route("/verify_user", methods=["POST"])
+@role_required("admin")
 def verify_user():
-    username = get_jwt_identity()
-    admin_user = User.query.filter_by(username=username).first()
-    if not admin_user or admin_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    data = request.get_json()
-    target_username = data.get('username')
+    """
+    Admin marks a user as verified.
+    POST body: { username }
+    """
+    target_username = (_json().get("username") or "").strip()
     if not target_username:
-        return jsonify({'error': 'Missing username'}), 400
+        return jsonify({"error": "Missing username"}), 400
 
     user = User.query.filter_by(username=target_username).first()
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({"error": "User not found"}), 404
 
     user.verified = True
     db.session.commit()
-    return jsonify({'message': f'User {target_username} marked as verified.'}), 200
+    return jsonify({"message": f"User {target_username} marked as verified."}), 200
 
-@auth_bp.route('/copelands/api/users', methods=['GET'])
-@jwt_required()
+
+@auth_bp.route("/users", methods=["GET"])
+@role_required("admin")
 def list_users():
-    username = get_jwt_identity()
-    admin_user = User.query.filter_by(username=username).first()
-    if not admin_user or admin_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
     users = User.query.all()
     return jsonify([
-        {
-            'username': u.username,
-            'role': u.role,
-            'verified': u.verified
-        } for u in users
-    ])
+        {"username": u.username, "role": u.role, "verified": u.verified}
+        for u in users
+    ]), 200
 
-@auth_bp.route('/copelands/api/me', methods=['GET'])
+
+@auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def get_me():
-    username = get_jwt_identity()
-    user = User.query.filter_by(username=username).first()
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({"error": "User not found"}), 404
     return jsonify({
-        'username': user.username,
-        'role': user.role,
-        'verified': user.verified
-    })
+        "username": user.username,
+        "role": user.role,
+        "verified": user.verified,
+    }), 200

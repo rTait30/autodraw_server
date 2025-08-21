@@ -4,6 +4,8 @@ from sqlalchemy import text
 from models import db, Project, ProjectAttribute, User, Product
 from datetime import datetime, timezone, date
 
+from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+
 database_api_bp = Blueprint('database_api', __name__)
 
 def serialize_value(val):
@@ -16,6 +18,7 @@ def serialize_value(val):
     return str(val) if not isinstance(val, (str, int, float, bool, type(None))) else val
 
 @database_api_bp.route('/copelands/api/database')
+@role_required("admin")
 def api_database():
     table_names = db.metadata.tables.keys()
     db_data = {}
@@ -30,8 +33,7 @@ def api_database():
     return jsonify(db_data)
 
 @database_api_bp.route('/copelands/api/database/sql', methods=['POST'])
-# !! PROTECT THIS ENDPOINT IN PRODUCTION !!
-# @jwt_required()
+@role_required("admin")
 def run_sql():
     
     '''
@@ -64,6 +66,7 @@ def run_sql():
         return jsonify({'error': str(e)}), 400
     
 @database_api_bp.route('/copelands/api/database/get_by_sku', methods=['POST'])
+@role_required("estimator")
 def get_products_by_skus():
     data = request.get_json()
     skus = data.get("skus")

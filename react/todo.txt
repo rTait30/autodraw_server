@@ -32,6 +32,8 @@ Done:
 
 TO DO:
 
+    use secure endpoints on frontend
+
     Schema:
 
         use product code

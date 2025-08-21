@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import db, Project, ProjectAttribute, User, Product
-from endpoints.api.auth.utils import current_user, role_required
+from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 projects_api_bp = Blueprint("projects_api", __name__)
 

@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from rectpack import newPacker
 from sqlalchemy.orm.attributes import flag_modified
 
-from endpoints.api.auth.utils import current_user  # <- shared helper (no circular import)
+from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 nest_bp = Blueprint("nest_bp", __name__)
 
@@ -144,7 +144,7 @@ def run_rectpack_with_fixed_height(
 
 # ---------- Route ----------
 @nest_bp.route("/nest/panels", methods=["POST"])
-@jwt_required()
+@role_required("estimator")
 def nest_panels():
     """
     Body:

@@ -4,12 +4,13 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required, verify_jwt_in_request, get_jwt_identity
 from models import User
 
-def current_user(required: bool = True):
+def current_user(required: bool = True, verify: bool = True):
     """
     Returns the current User or None.
     If required=False, no error is raised when unauthenticated.
     """
-    verify_jwt_in_request(optional=not required)
+    if verify:
+        verify_jwt_in_request(optional=not required)
     ident = get_jwt_identity()
     if ident is None:
         return None
@@ -21,14 +22,11 @@ def current_user(required: bool = True):
 
 def role_required(*roles):
     """Decorator: require an authenticated user with one of the roles."""
-    print ("role_required called with roles:", roles)
     def wrapper(fn):
         @wraps(fn)
         @jwt_required()
         def decorated(*args, **kwargs):
-            user = current_user(required=True)
-            print ("Current user:", user)
-            print ("User roles:", user.role if user else None)
+            user = current_user(required=True, verify=False)
             if not user or user.role not in roles:
                 print ("User does not have required role, returning 403")
                 return jsonify({"error": "Unauthorized"}), 403

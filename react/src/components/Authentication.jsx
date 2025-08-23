@@ -1,63 +1,83 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
-
+// New style: access token stays in memory (not localStorage)
+// Expect a tiny helper exported from services/auth
+import { setAccessToken, apiFetch } from '../services/auth';
 
 export default function Authentication() {
   const [mode, setMode] = useState('login');
-  const [login, setLogin] = useState({ username: '', password: '' });
-  const [register, setRegister] = useState({
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({
     username: '', email: '', address: '', password1: '', password2: ''
   });
   const [errorText, setErrorText] = useState('');
   const [successText, setSuccessText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-
-
-  const handleLogin = async (e) => {
+  async function handleLogin(e) {
     e.preventDefault();
     setErrorText('');
-    const res = await fetch(getBaseUrl('/api/login'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ username: login.username, password: login.password }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('username', data.username);
-      localStorage.setItem('id', data.id);
-      localStorage.setItem('role', data.role);
-      navigate('/copelands/home');
-    } else {
-      setErrorText('Login failed.');
-    }
-  };
+    setSubmitting(true);
+    try {
+      const res = await apiFetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: loginForm.username.trim(),
+          password: loginForm.password,
+        }),
+      });
 
-  const handleRegister = async (e) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Login failed');
+
+      // Keep access token only in memory
+      setAccessToken(data.access_token || null);
+
+      localStorage.setItem('role', data.role || 'client');
+      localStorage.setItem('username', data.username || 'Guest');
+      localStorage.setItem('verified', data.verified ? 'true' : 'false');
+
+
+
+      navigate('/copelands/home');
+    } catch (err) {
+      setErrorText(err.message || 'Login failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRegister(e) {
     e.preventDefault();
     setErrorText('');
     setSuccessText('');
-    const res = await fetch(getBaseUrl('/api/register'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: register.username,
-        email: register.email,
-        address: register.address,
-        password: register.password1,
-        password2: register.password2,
-      }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+    setSubmitting(true);
+    try {
+      const res = await apiFetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: registerForm.username.trim(),
+          email: registerForm.email.trim(),
+          address: registerForm.address,
+          password: registerForm.password1,
+          password2: registerForm.password2,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Registration failed');
       setSuccessText('Registration successful! Awaiting verification.');
-    } else {
-      setErrorText(data.error || 'Registration failed.');
+      setMode('login');
+    } catch (err) {
+      setErrorText(err.message || 'Registration failed.');
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
+
   return (
     <div className="auth-container">
       <div className="w-full flex items-center justify-center">
@@ -69,90 +89,107 @@ export default function Authentication() {
               className="mx-auto"
             />
           </div>
+
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="formStyle">
               <input
                 type="text"
-                placeholder="Email"
-                value={login.username}
-                onChange={e => setLogin(l => ({ ...l, username: e.target.value }))}
+                placeholder="Username"
+                value={loginForm.username}
+                onChange={(e) => setLoginForm((s) => ({ ...s, username: e.target.value }))}
                 required
                 className="inputStyle"
+                autoComplete="username"
               />
               <input
                 type="password"
                 placeholder="Password"
-                value={login.password}
-                onChange={e => setLogin(l => ({ ...l, password: e.target.value }))}
+                value={loginForm.password}
+                onChange={(e) => setLoginForm((s) => ({ ...s, password: e.target.value }))}
                 required
                 className="inputStyle"
+                autoComplete="current-password"
               />
-              <div className="auth-checkbox-row">
-                <label htmlFor="remember">Remember me</label>
-                <input type="checkbox" id="remember" className="ml-2" />
-              </div>
-              <button type="submit" className="buttonStyle">Login</button>
+
+              <button type="submit" className="buttonStyle" disabled={submitting}>
+                {submitting ? 'Logging in…' : 'Login'}
+              </button>
+
               <div className="my-2" />
+
               <button
                 type="button"
                 onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
                 className="buttonStyle"
+                disabled={submitting}
               >
                 Register as client
               </button>
-              {errorText && (
-                <div className="auth-error">{errorText}</div>
-              )}
+
+              {errorText && <div className="auth-error">{errorText}</div>}
             </form>
           ) : (
             <form onSubmit={handleRegister} className="formStyle">
               <input
                 placeholder="Username"
-                value={register.username}
-                onChange={e => setRegister(r => ({ ...r, username: e.target.value }))}
-                required className="inputStyle"
+                value={registerForm.username}
+                onChange={(e) => setRegisterForm((s) => ({ ...s, username: e.target.value }))}
+                required
+                className="inputStyle"
+                autoComplete="username"
               />
               <input
                 placeholder="Email"
-                value={register.email}
-                onChange={e => setRegister(r => ({ ...r, email: e.target.value }))}
-                required className="inputStyle"
+                value={registerForm.email}
+                onChange={(e) => setRegisterForm((s) => ({ ...s, email: e.target.value }))}
+                required
+                className="inputStyle"
+                autoComplete="email"
               />
               <input
                 placeholder="Address"
-                value={register.address}
-                onChange={e => setRegister(r => ({ ...r, address: e.target.value }))}
-                required className="inputStyle"
+                value={registerForm.address}
+                onChange={(e) => setRegisterForm((s) => ({ ...s, address: e.target.value }))}
+                required
+                className="inputStyle"
+                autoComplete="street-address"
               />
               <input
                 type="password"
                 placeholder="Password"
-                value={register.password1}
-                onChange={e => setRegister(r => ({ ...r, password1: e.target.value }))}
-                required className="inputStyle"
+                value={registerForm.password1}
+                onChange={(e) => setRegisterForm((s) => ({ ...s, password1: e.target.value }))}
+                required
+                className="inputStyle"
+                autoComplete="new-password"
               />
               <input
                 type="password"
                 placeholder="Confirm Password"
-                value={register.password2}
-                onChange={e => setRegister(r => ({ ...r, password2: e.target.value }))}
-                required className="inputStyle"
+                value={registerForm.password2}
+                onChange={(e) => setRegisterForm((s) => ({ ...s, password2: e.target.value }))}
+                required
+                className="inputStyle"
+                autoComplete="new-password"
               />
-              <button type="submit" className="buttonStyle">Register</button>
+
+              <button type="submit" className="buttonStyle" disabled={submitting}>
+                {submitting ? 'Registering…' : 'Register'}
+              </button>
+
               <div className="my-2" />
+
               <button
                 type="button"
                 onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
                 className="buttonStyle"
+                disabled={submitting}
               >
                 Cancel
               </button>
-              {errorText && (
-                <div className="auth-error">{errorText}</div>
-              )}
-              {successText && (
-                <div className="auth-success">{successText}</div>
-              )}
+
+              {errorText && <div className="auth-error">{errorText}</div>}
+              {successText && <div className="auth-success">{successText}</div>}
             </form>
           )}
         </div>

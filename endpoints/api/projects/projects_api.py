@@ -21,8 +21,10 @@ def save_project_config():
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json() or {}
-    project_id = data.get("id")  # Optional update
-    allowed_fields = {"name", "type", "status", "due_date", "info", "client_id"}
+    project_id = data.get("id")  # Optional update/upsert
+
+    # Base fields settable on a project (we set client_id explicitly below)
+    allowed_fields = {"name", "type", "status", "due_date", "info"}
     project_data = {k: v for k, v in data.items() if k in allowed_fields}
 
     # Normalize due_date
@@ -38,18 +40,53 @@ def save_project_config():
     attributes = data.get("attributes") or {}
     calculated = data.get("calculated") or {}
 
+    # Determine target client_id:
+    # - clients: always themselves (ignore any payload client_id)
+    # - staff (admin/estimator/designer): may provide client_id, else leave as-is on update or None on create
+    target_client_id = None
+    if user.role == "client":
+        target_client_id = user.id
+    else:
+        if "client_id" in data and data["client_id"] is not None:
+            try:
+                target_client_id = int(data["client_id"])
+            except (TypeError, ValueError):
+                return jsonify({"error": "client_id must be an integer"}), 400
+
     if project_id:
+        # --- UPDATE ---
         project = Project.query.get(project_id)
         if not project:
             return jsonify({"error": "Project not found"}), 404
+
+        # Clients may only update their own projects and cannot change client_id
+        if user.role == "client":
+            if project.client_id != user.id:
+                return jsonify({"error": "Unauthorized"}), 403
+        else:
+            # Staff can reassign project to a different client if provided
+            if target_client_id is not None and target_client_id != project.client_id:
+                project.client_id = target_client_id
+
         for field, value in project_data.items():
             setattr(project, field, value)
         project.updated_at = datetime.now(timezone.utc)
+
     else:
-        project = Project(**project_data)
+        # --- CREATE ---
+        if user.role == "client":
+            # Force client_id to the caller
+            project = Project(client_id=user.id, **project_data)
+        else:
+            # Staff create: client_id must be provided (or enforce your own default here)
+            if target_client_id is None:
+                return jsonify({"error": "client_id is required for staff creates"}), 400
+            project = Project(client_id=target_client_id, **project_data)
+
         db.session.add(project)
         db.session.flush()  # get project.id
 
+    # Upsert attributes/calculated
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
     changes = {
         "attributes_updated": [],
@@ -81,13 +118,16 @@ def save_project_config():
     else:
         attr = ProjectAttribute(project_id=project.id, data=attributes, calculated=calculated)
         db.session.add(attr)
-        changes["attributes_added"].extend(list(attributes.keys()))
-        changes["calculated_added"].extend(list(calculated.keys()))
+        if attributes:
+            changes["attributes_added"].extend(list(attributes.keys()))
+        if calculated:
+            changes["calculated_added"].extend(list(calculated.keys()))
 
     db.session.commit()
 
     return jsonify({
         "id": project.id,
+        "client_id": project.client_id,
         "status": project.status.name if hasattr(project.status, "name") else project.status,
         "changes": changes
     }), 200

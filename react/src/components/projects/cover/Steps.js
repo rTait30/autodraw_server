@@ -1,4 +1,4 @@
-import { getBaseUrl } from '../../../utils/baseUrl.js';
+import { apiFetch } from '../../../services/auth.js';
 
 export const Steps = [
   {
@@ -558,7 +558,7 @@ async function sendPanelData(panelData, fabricWidth) {
   try {
     
 
-    const response = await fetch(getBaseUrl(`/nest_panels`), {
+    const response = await apiFetch('/nest_panels', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

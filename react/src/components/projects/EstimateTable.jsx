@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { getBaseUrl } from '../../utils/baseUrl';
 
 // Small, safe-ish evaluator that passes named params into the expression.
 // Usage inside schema: e.g. "attributes.width * 2" or "calculated.panelCount * inputs.markup"
@@ -34,7 +33,7 @@ export default function EstimateTable({ schema, attributes = {}, calculated = {}
       return;
     }
 
-    fetch(getBaseUrl('/api/database/get_by_sku'), {
+    apiFetch('/database/get_by_sku', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ skus: allSkus }),

@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import EstimateTable from '../components/projects/EstimateTable';
 import SchemaEditor from '../components/projects/SchemaEditor';
 
-import { getBaseUrl } from '../utils/baseUrl.js';
+import { apiFetch } from '../services/auth';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
 /* ============================================================================
@@ -91,7 +91,7 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   const loadProjectFromServer = async () => {
     try {
-      const res = await fetch(getBaseUrl(`/api/project/${projectId}`));
+      const res = await apiFetch(`/project/${projectId}`);
       if (!res.ok) throw new Error('Failed to fetch project');
 
       const data = await res.json();
@@ -184,7 +184,7 @@ export default function ProjectDetailsPage() {
       calculated: calculated,
     };
 
-    fetch(getBaseUrl(`/api/projects/create`), {
+    apiFetch('/api/projects/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getBaseUrl } from '../utils/baseUrl';
+
+import { apiFetch } from '../services/auth';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -8,19 +9,22 @@ function Projects() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token'); // or whatever your token key is
-    fetch(getBaseUrl('/api/projects/list'), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
-      .then(res => res.json())
-      .then(data => {
-        setProjects(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch project list:", err);
-        setLoading(false);
-      });
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/projects/list'); // no /api prefix
+        if (!res.ok) throw new Error('Failed to fetch project list');
+        const data = await res.json();
+        if (!cancelled) setProjects(data);
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch project list:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, []);
 
   if (loading) return <p>Loading projects...</p>;

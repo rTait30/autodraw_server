@@ -1,5 +1,5 @@
 const BASE_URL = import.meta.env.DEV
-  ? 'http://localhost:5001'
+  ? 'http://127.0.0.1:5001'
   : ''; // Flask + React share origin in prod
 
 

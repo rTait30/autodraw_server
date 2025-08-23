@@ -44,14 +44,14 @@ def create_app():
 
         # Cookie settings: for same-site dev use Lax; for cross-site set None+Secure on HTTPS.
         JWT_COOKIE_SECURE=False if os.getenv("ENV", "dev") == "dev" else True,
-        JWT_COOKIE_SAMESITE=os.getenv("JWT_COOKIE_SAMESITE", "Lax"),  # "Lax" (same-site) or "None"
+        JWT_COOKIE_SAMESITE=os.getenv("JWT_COOKIE_SAMESITE", "Strict"),  # "Lax" (same-site) or "None"
         JWT_COOKIE_CSRF_PROTECT=True,  # CSRF protection for cookie-based endpoints
         JWT_ACCESS_COOKIE_PATH="/copelands/api/refresh",  # only refresh endpoint needs cookie
         JWT_REFRESH_COOKIE_PATH="/copelands/api/refresh",
     )
 
     # --- CORS (match your frontend origin exactly) ---
-    frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+    frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
     CORS(app, origins=[frontend_origin], supports_credentials=True)
 
     # --- Init extensions ---

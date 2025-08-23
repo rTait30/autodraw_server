@@ -1,40 +1,50 @@
 import React, { useImperativeHandle, useState, forwardRef, useEffect } from 'react';
-import { getBaseUrl } from '../../utils/baseUrl';
+
+import { apiFetch } from '../../services/auth';
 
 const GeneralFields = forwardRef(({ role }, ref) => {
-  const initialClient = role === 'client'
-    ? localStorage.getItem('username') || ''
-    : '';
-  const initialClientId = role === 'client'
-    ? localStorage.getItem('id') || ''
-    : '';
 
   const [state, setState] = useState({
     name: '',
     due_date: '',
-    client: initialClient,
-    client_id: initialClientId,
     info: '',
   });
 
   const [clients, setClients] = useState([]);
+
   useEffect(() => {
-    if (role !== 'client') {
-      fetch(`${getBaseUrl('/api/clients')}`)
-        .then(res => res.json())
-        .then(setClients);
+    let ignore = false;
+
+    if (role === 'client') {
+      setClients([]);
+      return;
     }
+
+    (async () => {
+      try {
+        const res = await apiFetch('/clients'); // staff-only endpoint
+        if (!res.ok) throw new Error('Failed to load clients');
+        const data = await res.json();
+        if (!ignore) setClients(data);
+      } catch (e) {
+        console.error(e);
+        if (!ignore) setClients([]);
+      }
+    })();
+
+    return () => { ignore = true; };
   }, [role]);
 
   useImperativeHandle(ref, () => ({
     getData: () => {
-      if (role === 'client') {
-        return {
-          ...state,
-          client: localStorage.getItem('username') || '',
-        };
-      }
-      return state;
+      // For clients, do not send client or client_id
+      return {
+        name: state.name,
+        due_date: state.due_date,
+        info: state.info,
+        // Only staff will send client_id, but you can remove it for clients
+        ...(role !== 'client' && { client_id: state.client_id }),
+      };
     },
   }));
 
@@ -58,7 +68,7 @@ const GeneralFields = forwardRef(({ role }, ref) => {
           <label>Client</label>
           <select
             className="inputStyle"
-            value={state.client_id}
+            value={state.client_id || ''}
             onChange={e => setState(s => ({ ...s, client_id: e.target.value }))}
           >
             <option value="">Select client</option>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getBaseUrl } from "../utils/baseUrl";
+import { apiFetch } from "../services/auth";
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,34 +12,41 @@ export default function Database() {
   const [sql, setSql] = useState("");
   const [result, setResult] = useState("");
 
-  const loadDatabase = () => {
-    fetch(getBaseUrl("/api/database"))
-      .then((res) => res.json())
-      .then((data) => {
-        setDb(data);
-        if (!active || !data[active]) {
-          setActive(Object.keys(data)[0] || "");
-        }
-      });
+  const loadDatabase = async () => {
+    try {
+      const res = await apiFetch('/database'); // GET: no headers needed
+      if (!res.ok) throw new Error('Failed to load database');
+      const data = await res.json();
+      setDb(data);
+      setActive((prev) => (prev && data[prev] ? prev : Object.keys(data)[0] || ''));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
-    loadDatabase();
+    let ignore = false;
+    (async () => {
+      if (!ignore) await loadDatabase();
+    })();
+    return () => { ignore = true; };
   }, []);
 
+  // replace runSql
   const runSql = async () => {
-    setResult("Running...");
+    setResult('Running...');
     try {
-      const res = await fetch(getBaseUrl("/api/database/sql"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await apiFetch('/database/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sql }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Query failed');
       setResult(JSON.stringify(data, null, 2));
-      loadDatabase(); // refresh the tables
+      await loadDatabase(); // refresh tables
     } catch (err) {
-      setResult("Error: " + err.message);
+      setResult('Error: ' + (err.message || 'Unknown error'));
     }
   };
 

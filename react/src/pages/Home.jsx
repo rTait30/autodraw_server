@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 
+import { apiFetch } from '../services/auth';
+
 function Home() {
   const name = localStorage.getItem('username');
   const role = localStorage.getItem('role');
-  const token = localStorage.getItem('access_token');
 
   const [users, setUsers] = useState([]);
   const [newUsername, setNewUsername] = useState('');
@@ -18,73 +19,67 @@ function Home() {
     }
   }, [role]);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch('/copelands/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch users');
-      const data = await res.json();
-      setUsers(data);
-      setLoading(false);
-    } catch (err) {
-      console.error(err);
-      setUsers([]);
-      setLoading(false);
-    }
-  };
+const fetchUsers = async () => {
+  try {
+    const res = await apiFetch('/users');
+    if (!res.ok) throw new Error('Failed to fetch users');
+    const data = await res.json();
+    setUsers(data);
+  } catch (err) {
+    console.error(err);
+    setUsers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleVerify = async (username) => {
-    try {
-      const res = await fetch('/copelands/api/verify_user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ username }),
-      });
-      if (res.ok) {
-        alert('User verified!');
-        fetchUsers();
-      } else {
-        alert('Failed to verify user.');
-      }
-    } catch (err) {
-      console.error(err);
+const handleVerify = async (username) => {
+  try {
+    const res = await apiFetch('/verify_user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    if (res.ok) {
+      alert('User verified!');
+      fetchUsers();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'Failed to verify user.');
     }
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/copelands/api/register_staff', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username: newUsername,
-          password: newPassword,
-          role: newRole,
-        }),
-      });
-      if (res.ok) {
-        setCreateMsg('Staff user created!');
-        setNewUsername('');
-        setNewPassword('');
-        setNewRole('');
-        fetchUsers();
-      } else {
-        const data = await res.json();
-        setCreateMsg(data.error || 'Failed to create user.');
-      }
-    } catch (err) {
-      console.error(err);
-      setCreateMsg('Error creating user.');
+const handleCreate = async (e) => {
+  e.preventDefault();
+  try {
+    const res = await apiFetch('/register_staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: newUsername,
+        password: newPassword,
+        role: newRole,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setCreateMsg('Staff user created!');
+      setNewUsername('');
+      setNewPassword('');
+      setNewRole('');
+      fetchUsers();
+    } else {
+      setCreateMsg(data.error || 'Failed to create user.');
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setCreateMsg('Error creating user.');
+  }
+};
+
 
   return (
     <div>

@@ -21,13 +21,19 @@ def current_user(required: bool = True):
 
 def role_required(*roles):
     """Decorator: require an authenticated user with one of the roles."""
+    print ("role_required called with roles:", roles)
     def wrapper(fn):
         @wraps(fn)
         @jwt_required()
         def decorated(*args, **kwargs):
             user = current_user(required=True)
+            print ("Current user:", user)
+            print ("User roles:", user.role if user else None)
             if not user or user.role not in roles:
+                print ("User does not have required role, returning 403")
                 return jsonify({"error": "Unauthorized"}), 403
+            
+            print ("User has required role, proceeding with request")
             return fn(*args, **kwargs)
         return decorated
     return wrapper

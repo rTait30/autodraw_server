@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 import GeneralFields from '../components/projects/GeneralFields';
 import ProjectSidebar from '../components/ProjectSidebar';
-import { getBaseUrl } from "../utils/baseUrl";
+import { apiFetch } from '../services/auth';
 
 const projectTypes = [
   { name: 'Covers', id: 'cover' },
@@ -128,7 +128,7 @@ export default function NewProject() {
     };
 
     try {
-      const response = await fetch(getBaseUrl("/api/projects/create"), {
+      const response = await apiFetch("/projects/create", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

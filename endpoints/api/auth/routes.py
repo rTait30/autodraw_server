@@ -48,7 +48,6 @@ def api_login():
     resp = make_response(jsonify({
         "access_token": access_token,
         "role": user.role,
-        "id": user.id,
         "username": user.username,
         "verified": user.verified,
     }))

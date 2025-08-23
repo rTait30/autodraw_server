@@ -79,6 +79,25 @@ function TopBar() {
     </div>
   );
 
+  console.log("verified:", localStorage.getItem('verified'));
+
+  const unverified =
+    localStorage.getItem('verified') !== 'true'
+      ? (
+        <span style={{
+          color: 'red',
+          fontWeight: 'bold',
+          fontSize: '14px',
+          textTransform: 'uppercase',
+          letterSpacing: '1px',
+          marginRight: '12px'
+        }}>
+          UNVERIFIED ACCESS LIMITED
+        </span>
+      )
+      : null;
+  
+
   return (
     <>
       <header style={headerStyle} className="topbar">
@@ -94,6 +113,7 @@ function TopBar() {
         </div>
 
         <div className="topbar-user" style={{ display: 'none', alignItems: 'center', gap: '24px' }}>
+          {unverified}
           <span style={roleStyle}>{name}</span>
           <span style={roleStyle}>{role}</span>
           <a href="#" onClick={handleLogout} style={linkStyle}>Logout</a>

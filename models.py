@@ -75,3 +75,14 @@ class Product(db.Model):
     active = db.Column(db.Boolean, default=True, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+class EstimatingSchema(db.Model):
+    __tablename__ = "estimating_schemas"
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    data = db.Column(db.JSON, nullable=False, default=dict)
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
+    version = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())

@@ -284,6 +284,10 @@ export default function ProjectDetailsPage() {
                   <EstimateTable
                     key={estimateVersion}
                     schema={editedSchema}
+                    editedSchema={editedSchema}
+                    onCheck={handleSchemaCheck}
+                    onReturn={handleSchemaReturn}
+                    onSubmit={handleSchemaSubmit}
                     attributes={editedAttributes}
                     calculated={editedCalculated}
                   />
@@ -291,16 +295,6 @@ export default function ProjectDetailsPage() {
               ) : (
                 <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
               )}
-
-              <div className="scroll-x">
-                <SchemaEditor
-                  schema={Schema}
-                  editedSchema={editedSchema}
-                  onCheck={handleSchemaCheck}
-                  onReturn={handleSchemaReturn}
-                  onSubmit={handleSchemaSubmit}
-                />
-              </div>
 
               <div className="scroll-x" style={{ marginTop: 24 }}>
                 <canvas

@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
+import { apiFetch } from '../../services/auth';
+
+import SchemaEditor from './SchemaEditor';
+
 // Small, safe-ish evaluator that passes named params into the expression.
 // Usage inside schema: e.g. "attributes.width * 2" or "calculated.panelCount * inputs.markup"
 function evalExpr(expr, named = {}) {
@@ -14,7 +18,19 @@ function evalExpr(expr, named = {}) {
   }
 }
 
-export default function EstimateTable({ schema, attributes = {}, calculated = {} }) {
+export default function EstimateTable({
+  
+  key,
+  schema = {},
+  editedSchema = {},
+  onCheck = () => {},
+  onReturn = () => {},
+  onSubmit = () => {},
+  attributes = {},
+  calculated = {},
+
+
+}) {
   const [rowState, setRowState] = useState({});
   const [inputState, setInputState] = useState({});
   const [products, setProducts] = useState({});
@@ -142,118 +158,131 @@ export default function EstimateTable({ schema, attributes = {}, calculated = {}
   };
 
   return (
-    <table className="tableBase">
-      <tbody>
-        {Object.entries(schema).map(([section, rows]) => (
-          <React.Fragment key={section}>
-            {/* Column Headings */}
-            <tr className="tableHeader">
-              <th>Description</th>
-              <th>Quantity</th>
-              <th>Unit Cost</th>
-              <th>Total</th>
-            </tr>
+    <div>
+      <table className="tableBase">
+        <tbody>
+          {Object.entries(schema).map(([section, rows]) => (
+            <React.Fragment key={section}>
+              {/* Column Headings */}
+              <tr className="tableHeader">
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Cost</th>
+                <th>Total</th>
+              </tr>
 
-            {/* Section Header */}
-            <tr>
-              <td colSpan={4} className="tableSection">
-                {section}
-              </td>
-            </tr>
+              {/* Section Header */}
+              <tr>
+                <td colSpan={4} className="tableSection">
+                  {section}
+                </td>
+              </tr>
 
-            {/* Dynamic Rows */}
-            {rows.map((row, idx) => {
-              const item = rowState[section]?.[idx] || {};
+              {/* Dynamic Rows */}
+              {rows.map((row, idx) => {
+                const item = rowState[section]?.[idx] || {};
 
-              if (row.type === 'row' || row.type === 'sku') {
-                return (
-                  <tr key={idx} className="tableRowHover">
-                    <td className="tableCell">{item.description}</td>
-                    <td className="tableCell">
-                      <input
-                        type="number"
-                        value={item.quantity ?? ''}
-                        onChange={(e) =>
-                          handleRowChange(section, idx, 'quantity', e.target.value)
-                        }
-                        className="inputCompact"
-                      />
-                    </td>
-                    <td className="tableCell">
-                      <input
-                        type="number"
-                        value={item.unitCost ?? ''}
-                        onChange={(e) =>
-                          handleRowChange(section, idx, 'unitCost', e.target.value)
-                        }
-                        className="inputCompact"
-                      />
-                    </td>
-                    <td className="tableCell text-right font-mono">
-                      {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              }
+                if (row.type === 'row' || row.type === 'sku') {
+                  return (
+                    <tr key={idx} className="tableRowHover">
+                      <td className="tableCell">{item.description}</td>
+                      <td className="tableCell">
+                        <input
+                          type="number"
+                          value={item.quantity ?? ''}
+                          onChange={(e) =>
+                            handleRowChange(section, idx, 'quantity', e.target.value)
+                          }
+                          className="inputCompact"
+                        />
+                      </td>
+                      <td className="tableCell">
+                        <input
+                          type="number"
+                          value={item.unitCost ?? ''}
+                          onChange={(e) =>
+                            handleRowChange(section, idx, 'unitCost', e.target.value)
+                          }
+                          className="inputCompact"
+                        />
+                      </td>
+                      <td className="tableCell text-right font-mono">
+                        {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                }
 
-              if (row.type === 'subtotal') {
-                const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
-                return (
-                  <tr key={idx} className="tableCalc">
-                    <td className="tableCell" colSpan={3}>
-                      {row.label}
-                    </td>
-                    <td className="tableCell text-right">
-                      {subtotalValue.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              }
+                if (row.type === 'subtotal') {
+                  const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
+                  return (
+                    <tr key={idx} className="tableCalc">
+                      <td className="tableCell" colSpan={3}>
+                        {row.label}
+                      </td>
+                      <td className="tableCell text-right">
+                        {subtotalValue.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                }
 
-              if (row.type === 'input') {
-                return (
-                  <tr key={idx} className="bg-gray-50">
-                    <td className="tableCell">{row.label}</td>
-                    <td className="tableCell">
-                      <input
-                        type="number"
-                        value={inputState[row.key] ?? ''}
-                        onChange={(e) => handleInputChange(row.key, e.target.value)}
-                        className="inputCompact"
-                      />
-                    </td>
-                    <td colSpan={2}></td>
-                  </tr>
-                );
-              }
+                if (row.type === 'input') {
+                  return (
+                    <tr key={idx} className="bg-gray-50">
+                      <td className="tableCell">{row.label}</td>
+                      <td className="tableCell">
+                        <input
+                          type="number"
+                          value={inputState[row.key] ?? ''}
+                          onChange={(e) => handleInputChange(row.key, e.target.value)}
+                          className="inputCompact"
+                        />
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  );
+                }
 
-              if (row.type === 'calc') {
-                // Expressions can reference:
-                //  - attributes.*, calculated.*, inputs.*, rows.*, context.*
-                const value = evalExpr(row.expr, {
-                  attributes,
-                  calculated,
-                  inputs: inputState,
-                  rows: rowState,
-                  context,
-                });
+                if (row.type === 'calc') {
+                  // Expressions can reference:
+                  //  - attributes.*, calculated.*, inputs.*, rows.*, context.*
+                  const value = evalExpr(row.expr, {
+                    attributes,
+                    calculated,
+                    inputs: inputState,
+                    rows: rowState,
+                    context,
+                  });
 
-                return (
-                  <tr key={idx} className="tableCalc">
-                    <td className="tableCell">{row.label}</td>
-                    <td colSpan={2}></td>
-                    <td className="tableCell text-right font-bold">
-                      {typeof value === 'number' ? value.toFixed(2) : value}
-                    </td>
-                  </tr>
-                );
-              }
+                  return (
+                    <tr key={idx} className="tableCalc">
+                      <td className="tableCell">{row.label}</td>
+                      <td colSpan={2}></td>
+                      <td className="tableCell text-right font-bold">
+                        {typeof value === 'number' ? value.toFixed(2) : value}
+                      </td>
+                    </tr>
+                  );
+                }
 
-              return null;
-            })}
-          </React.Fragment>
-        ))}
-      </tbody>
-    </table>
+                return null;
+              })}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+
+      <div>
+
+          <SchemaEditor
+            schema={schema}
+            editedSchema={editedSchema}
+            onCheck={onCheck}
+            onReturn={onReturn}
+            onSubmit={onSubmit}
+          />
+      </div>
+   </div>
   );
 }

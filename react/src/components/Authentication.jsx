@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
-// New style: access token stays in memory (not localStorage)
-// Expect a tiny helper exported from services/auth
+// New style: access token stays in memory (not localStorage) (HttpOnly, same‑site cookie.)
+
 import { setAccessToken, apiFetch } from '../services/auth';
 
 export default function Authentication() {
@@ -36,6 +36,7 @@ export default function Authentication() {
       // Keep access token only in memory
       setAccessToken(data.access_token || null);
 
+      // Store non-sensitive user info in localStorage for layout and visuals
       localStorage.setItem('role', data.role || 'client');
       localStorage.setItem('username', data.username || 'Guest');
       localStorage.setItem('verified', data.verified ? 'true' : 'false');

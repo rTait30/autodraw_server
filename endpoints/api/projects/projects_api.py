@@ -5,10 +5,43 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy.orm.attributes import flag_modified
 
-from models import db, Project, ProjectAttribute, User, Product
+from models import db, Project, ProjectAttribute, User, Product, ProjectType, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 projects_api_bp = Blueprint("projects_api", __name__)
+
+# ---------- ADD THESE SMALL HELPERS (near your routes file top) ----------
+def _as_int(v):
+    try:
+        return int(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+def resolve_project_type_id(data):
+    """
+    Supports either:
+      - data['type_id'] as an int/stringified int, OR
+      - data['type'] as the ProjectType.name (e.g. 'cover', 'shadesail')
+    Returns: (type_id:int|None, error:str|None)
+    """
+    # Prefer explicit id
+    tid = _as_int(data.get("type_id"))
+    if tid:
+        pt = db.session.get(ProjectType, tid)
+        if not pt:
+            return None, f"ProjectType id {tid} not found"
+        return pt.id, None
+
+    # Fallback: lookup by name
+    tname = (data.get("type") or "").strip()
+    if tname:
+        pt = ProjectType.query.filter_by(name=tname).first()
+        if not pt:
+            return None, f"ProjectType '{tname}' not found"
+        return pt.id, None
+
+    return None, "type_id or type (name) is required"
+# ------------------------------------------------------------------------
 
 # -------------------------------
 # Create / update project (auth required)
@@ -23,8 +56,8 @@ def save_project_config():
     data = request.get_json() or {}
     project_id = data.get("id")  # Optional update/upsert
 
-    # Base fields settable on a project (we set client_id explicitly below)
-    allowed_fields = {"name", "type", "status", "due_date", "info"}
+    # ---- CHANGED: do NOT whitelist "type" because it's a relationship now
+    allowed_fields = {"name", "status", "due_date", "info"}  # <- 'type' removed
     project_data = {k: v for k, v in data.items() if k in allowed_fields}
 
     # Normalize due_date
@@ -37,21 +70,37 @@ def save_project_config():
     else:
         project_data["due_date"] = None
 
+    # Coerce status if you're using SqlEnum(ProjectStatus)
+    if "status" in project_data and project_data["status"] is not None:
+        st = project_data["status"]
+        if not isinstance(st, ProjectStatus):
+            try:
+                project_data["status"] = ProjectStatus(st)
+            except Exception:
+                try:
+                    project_data["status"] = ProjectStatus[st]
+                except Exception:
+                    return jsonify({"error": f"Invalid status: {st}"}), 400
+
     attributes = data.get("attributes") or {}
     calculated = data.get("calculated") or {}
+    if not isinstance(attributes, dict) or not isinstance(calculated, dict):
+        return jsonify({"error": "attributes and calculated must be objects"}), 400
 
-    # Determine target client_id:
-    # - clients: always themselves (ignore any payload client_id)
-    # - staff (admin/estimator/designer): may provide client_id, else leave as-is on update or None on create
+    # ---- NEW: resolve type_id from either type_id or type name
+    type_id, type_err = resolve_project_type_id(data)
+    if type_err and not project_id:
+        # On CREATE, type is required
+        return jsonify({"error": type_err}), 400
+
+    # Determine target client_id
     target_client_id = None
     if user.role == "client":
         target_client_id = user.id
     else:
-        if "client_id" in data and data["client_id"] is not None:
-            try:
-                target_client_id = int(data["client_id"])
-            except (TypeError, ValueError):
-                return jsonify({"error": "client_id must be an integer"}), 400
+        target_client_id = _as_int(data.get("client_id"))
+        if target_client_id is None and not project_id:
+            return jsonify({"error": "client_id is required for staff creates"}), 400
 
     if project_id:
         # --- UPDATE ---
@@ -64,25 +113,30 @@ def save_project_config():
             if project.client_id != user.id:
                 return jsonify({"error": "Unauthorized"}), 403
         else:
-            # Staff can reassign project to a different client if provided
+            # Staff can reassign client if provided
             if target_client_id is not None and target_client_id != project.client_id:
-                project.client_id = target_client_id
+                project.client_id = target_client_id  # ✅ set FK, not relationship
 
+        # Staff can change type if provided
+        if user.role != "client" and type_id is not None and type_id != project.type_id:
+            project.type_id = type_id  # ✅ set FK, not relationship
+
+        # Apply scalar fields only (name/status/due_date/info)
         for field, value in project_data.items():
             setattr(project, field, value)
+
         project.updated_at = datetime.now(timezone.utc)
 
     else:
         # --- CREATE ---
-        if user.role == "client":
-            # Force client_id to the caller
-            project = Project(client_id=user.id, **project_data)
-        else:
-            # Staff create: client_id must be provided (or enforce your own default here)
-            if target_client_id is None:
-                return jsonify({"error": "client_id is required for staff creates"}), 400
-            project = Project(client_id=target_client_id, **project_data)
-
+        project = Project(
+            name=(project_data.get("name") or "").strip(),
+            status=project_data.get("status") or ProjectStatus.quoting,
+            due_date=project_data.get("due_date"),
+            info=project_data.get("info"),
+            client_id=target_client_id,  # ✅ FK
+            type_id=type_id,             # ✅ FK (resolved above)
+        )
         db.session.add(project)
         db.session.flush()  # get project.id
 
@@ -125,10 +179,15 @@ def save_project_config():
 
     db.session.commit()
 
+    # Nice response: include type info now that it's a relationship
+    resp_type = {"id": project.type.id, "name": project.type.name} if project.type else None
+    resp_status = project.status.name if hasattr(project.status, "name") else project.status
+
     return jsonify({
         "id": project.id,
         "client_id": project.client_id,
-        "status": project.status.name if hasattr(project.status, "name") else project.status,
+        "type": resp_type,
+        "status": resp_status,
         "changes": changes
     }), 200
 

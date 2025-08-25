@@ -1,6 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
 from passlib.hash import bcrypt
-
 from sqlalchemy import Enum as SqlEnum
 import enum
 from datetime import datetime, timezone
@@ -13,7 +12,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(32), nullable=False)
-    verified = db.Column(db.Boolean, default=False, nullable=False)  # Added verified field
+    verified = db.Column(db.Boolean, default=False, nullable=False)
     email = db.Column(db.String(120), nullable=True)
     address = db.Column(db.String(120), nullable=True)
 
@@ -22,15 +21,18 @@ class User(db.Model):
 
     def check_password(self, password):
         return bcrypt.verify(password, self.password_hash)
-    
-class ProjectType(enum.Enum):
-    cover = "cover"
-    shadesail = "shadesail"
-    
-    # Add more types as needed
+
+class ProjectType(db.Model):
+    __tablename__ = 'project_types'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    default_schema_id = db.Column(db.Integer, db.ForeignKey('estimating_schemas.id'), nullable=True)
+    default_schema = db.relationship('EstimatingSchema', foreign_keys=[default_schema_id], post_update=True)
+    # Optional: add icon, default_attributes, etc.
+    schemas = db.relationship('EstimatingSchema', backref='project_type', lazy='dynamic', foreign_keys='EstimatingSchema.project_type_id')
 
 class ProjectStatus(enum.Enum):
-
     quoting = "quoting"
     estimating = "estimating"
     design = "design"
@@ -44,20 +46,23 @@ class Project(db.Model):
     __tablename__ = 'projects'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    type = db.Column(SqlEnum(ProjectType), nullable=False)
+    type_id = db.Column(db.Integer, db.ForeignKey('project_types.id'), nullable=False)
+    type = db.relationship('ProjectType', backref='projects')
     status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
     due_date = db.Column(db.Date, nullable=True)
     info = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    attributes = db.relationship('ProjectAttribute', backref='project', lazy='dynamic')
+    schemas = db.relationship('EstimatingSchema', backref='project', lazy='dynamic', foreign_keys='EstimatingSchema.project_id')
 
 class ProjectAttribute(db.Model):
     __tablename__ = 'project_attributes'
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
     data = db.Column(db.JSON)
-    calculated = db.Column(db.JSON)  # <-- store cached calculations here (optional)
+    calculated = db.Column(db.JSON)
 
 class Log(db.Model):
     __tablename__ = 'logs'
@@ -71,7 +76,7 @@ class Product(db.Model):
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text, nullable=True)
     price = db.Column(db.Float, nullable=False)
-    unit = db.Column(db.String(32), nullable=True)  # e.g., 'each', 'meter', etc.
+    unit = db.Column(db.String(32), nullable=True)
     active = db.Column(db.Boolean, default=True, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
@@ -79,7 +84,8 @@ class Product(db.Model):
 class EstimatingSchema(db.Model):
     __tablename__ = "estimating_schemas"
     id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=True, index=True)
+    project_type_id = db.Column(db.Integer, db.ForeignKey("project_types.id"), nullable=True, index=True)
     name = db.Column(db.String(200), nullable=False)
     data = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)

@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import { getBaseUrl } from '../utils/baseUrl';
-import '../styles/index.css'; // Uncomment if you want to use the global styles
-
-//const buttonStyle = "w-full p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1";
+import '../styles/index.css';
 
 export default function Landing() {
   const [backgroundStyle, setBackgroundStyle] = useState({});
@@ -43,7 +41,6 @@ export default function Landing() {
           borderRadius: 20,
           padding: '32px 40px',
           width: 320,
-          boxShadow: '0 0 30px rgba(0,0,0,0.10)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

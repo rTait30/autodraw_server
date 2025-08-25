@@ -40,7 +40,7 @@ TO DO:
 
         merge with EstimateTable
 
-        Saving
+        Saving, DB
 
     generalise styling
 
@@ -48,7 +48,9 @@ TO DO:
 
     sailtrack handling
 
-    all project types
+    use value, new quote value
+
+    cover, mesh tarps
 
     project page stepper + estimate
 

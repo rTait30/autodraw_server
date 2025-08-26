@@ -14,7 +14,7 @@ export default function Database() {
 
   const loadDatabase = async () => {
     try {
-      const res = await apiFetch('/database'); // GET: no headers needed
+      const res = await apiFetch('/database');
       if (!res.ok) throw new Error('Failed to load database');
       const data = await res.json();
       setDb(data);

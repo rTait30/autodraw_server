@@ -41,8 +41,6 @@ export default function Authentication() {
       localStorage.setItem('username', data.username || 'Guest');
       localStorage.setItem('verified', data.verified ? 'true' : 'false');
 
-
-
       navigate('/copelands/home');
     } catch (err) {
       setErrorText(err.message || 'Login failed.');

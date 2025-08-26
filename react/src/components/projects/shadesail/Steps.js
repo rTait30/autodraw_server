@@ -749,7 +749,7 @@ export const Steps = [
           });
         }
 
-        const pointIds = Object.keys(data.points);
+        const pointIds = Object.keys(data.positions);
         if (pointIds.length === 0) return;
 
         let orderedIds = [...pointIds];

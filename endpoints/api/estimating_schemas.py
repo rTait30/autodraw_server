@@ -1,17 +1,17 @@
 # api/estimating_schemas_api.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required
 
 from models import db, EstimatingSchema, ProjectType
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 estimating_schemas_api_bp = Blueprint(
-    "estimating_schemas_api",
+    "est_schemas_api",
     __name__,
-    url_prefix="/api/estimating_schemas"
+    url_prefix="/api/est_schemas"
 )
 
-@estimating_schemas_api_bp.route("", methods=["POST"])
+@estimating_schemas_api_bp.route("/create", methods=["POST"])
 @role_required("estimator")
 def create_schema():
     """
@@ -27,13 +27,9 @@ def create_schema():
 
     Returns: { "id": <new_schema_id> }
     """
-    user = current_user(required=True)
+    user = g.current_user(required=True)
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-
-    # Adjust RBAC as needed
-    if getattr(user, "role", "").lower() not in {"admin", "estimator"}:
-        return jsonify({"error": "Forbidden"}), 403
 
     payload = request.get_json(silent=True) or {}
     project_type_id = payload.get("project_type_id")
@@ -62,3 +58,31 @@ def create_schema():
     db.session.commit()
 
     return jsonify({"id": schema.id}), 201
+
+
+
+@estimating_schemas_api_bp.route("/get_by_type", methods=["POST"])
+@role_required("estimator")
+def get_schemas_by_type():
+    """
+    Get all estimating schemas for a specific project type.
+
+    Body:
+    {
+      "project_type_id": 3
+    }
+
+    Returns: [ { "id": <schema_id>, "name": <schema_name>, "version": <schema_version> }, ... ]
+    """
+    user = current_user(required=True)
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    project_type_id = payload.get("project_type_id")
+
+    if not project_type_id:
+        return jsonify({"error": "project_type_id is required"}), 400
+
+    schemas = EstimatingSchema.query.filter_by(project_type_id=project_type_id).all()
+    return jsonify([{"id": s.id, "name": s.name, "version": s.version} for s in schemas]), 200

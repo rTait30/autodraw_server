@@ -1,6 +1,7 @@
 # endpoints/api/auth/utils.py
 from functools import wraps
-from flask import jsonify, request
+import inspect
+from flask import jsonify, request, g, current_app
 from flask_jwt_extended import jwt_required, verify_jwt_in_request, get_jwt_identity
 from models import User
 
@@ -20,19 +21,52 @@ def current_user(required: bool = True, verify: bool = True):
         return None
     return User.query.get(uid)
 
-def role_required(*roles):
-    """Decorator: require an authenticated user with one of the roles."""
+def role_required(*roles, allow_admin=True, attach_to_g=True, inject_user_kwarg=True):
+    """
+    Require an authenticated user with one of the given roles.
+    - If no roles are provided, any authenticated user is allowed.
+    - allow_admin=True lets 'admin' bypass role checks.
+    - attach_to_g=True sets g.current_user for downstream access.
+    - inject_user_kwarg=True injects `user` kwarg into the view
+      if the view signature includes a `user` parameter.
+    """
     def wrapper(fn):
+        sig = inspect.signature(fn)
+        accepts_user_kwarg = inject_user_kwarg and ("user" in sig.parameters)
+
         @wraps(fn)
-        @jwt_required()
+        @jwt_required()  # handles 401 (no/invalid JWT)
         def decorated(*args, **kwargs):
+            # Resolve the user (JWT already verified above)
             user = current_user(required=True, verify=False)
-            if not user or user.role not in roles:
-                print ("User does not have required role, returning 403")
-                return jsonify({"error": "Unauthorized"}), 403
-            
-            print ("User has required role, proceeding with request")
+            if not user:
+                # Safety net; @jwt_required already covered 401
+                return jsonify({"error": "Unauthorized"}), 401
+
+            # Role gate
+            allowed = False
+            if not roles:
+                allowed = True  # any authenticated user
+            elif user.role in roles:
+                allowed = True
+            elif allow_admin and user.role == "admin":
+                allowed = True
+
+            if not allowed:
+                current_app.logger.info(
+                    "Forbidden: user %s with role %s not in %s",
+                    getattr(user, "id", None), getattr(user, "role", None), roles
+                )
+                return jsonify({"error": "Forbidden"}), 403
+
+            # Expose user
+            if attach_to_g:
+                g.current_user = user
+            if accepts_user_kwarg:
+                kwargs["user"] = user
+
             return fn(*args, **kwargs)
+
         return decorated
     return wrapper
 

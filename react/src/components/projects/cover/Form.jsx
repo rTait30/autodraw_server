@@ -10,7 +10,7 @@ const DEFAULTS = {
   quantity: 2,
   hem: 20,
   seam: 20,
-  fabricWidth: 1370,
+  fabricWidth: 1320,
 };
 
 // Field schema: only define what’s unique to “covers”

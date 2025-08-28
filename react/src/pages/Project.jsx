@@ -51,6 +51,9 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   const [project, setProject] = useState(null);
 
+  const [projectTypeID, setProjectTypeID] = useState(0);
+  const [projectTypeName, setProjectTypeName] = useState('');
+
   const [attributes, setAttributes] = useState({});
   const [editedAttributes, setEditedAttributes] = useState({});
 
@@ -277,6 +280,17 @@ export default function ProjectDetailsPage() {
             gap: '24px',
           }}
         >
+          {(project.type == "cover") ? (
+            <div>
+              <button onClick={() => fetchDXF(project.id) } className = "buttonStyle" >
+                Download DXF
+              </button>
+              <button onClick={() => fetchPDF(project.id) } className = "buttonStyle" >
+                Download PDF
+              </button>
+            </div>
+          ) : null}
+          
           {(role === 'estimator' || role === 'admin') ? (
             <>
               {Schema ? (
@@ -386,4 +400,117 @@ export default function ProjectDetailsPage() {
     </>
   );
 
+}
+
+
+
+
+
+
+
+// cover dxf
+
+async function fetchDXF(projectId) {
+  try {
+    const response = await apiFetch('/project/get_dxf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+
+    if (!response.ok) {
+      let msg = `Request failed with status ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData.error) msg = errData.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+
+    // Get the file blob
+    const blob = await response.blob();
+
+    // Try to extract filename from headers
+    let filename = `project_${projectId}.dxf`;
+    const cd = response.headers.get('Content-Disposition');
+    if (cd) {
+      const match = cd.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error('Error fetching DXF:', error);
+    alert(error.message || 'Failed to download DXF');
+  }
+}
+
+
+async function fetchPDF(projectId) {
+  try {
+    const response = await apiFetch('/project/get_pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+
+    if (!response.ok) {
+      let msg = `Request failed with status ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.error) msg = errData.error;
+      } catch {
+        // ignore JSON parse issues
+      }
+      throw new Error(msg);
+    }
+
+    const blob = await response.blob();
+
+    // Default filename
+    let filename = `project_${projectId}.pdf`;
+
+    // Try to extract filename from Content-Disposition
+    const cd = response.headers.get('Content-Disposition');
+    if (cd) {
+      // Prefer RFC 5987 filename* first
+      // e.g., Content-Disposition: attachment; filename*=UTF-8''project_123_sheet.pdf
+      let matchStar = cd.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)\s*;?/i);
+      if (matchStar && matchStar[2]) {
+        try {
+          filename = decodeURIComponent(matchStar[2]);
+        } catch {
+          filename = matchStar[2];
+        }
+      } else {
+        // Fallback to basic filename="..."
+        const match = cd.match(/filename\s*=\s*"?([^"]+)"?/i);
+        if (match && match[1]) filename = match[1];
+      }
+    }
+
+    // Trigger browser download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `project_${projectId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error fetching PDF:', error);
+    alert(error.message || 'Failed to download PDF');
+  }
 }

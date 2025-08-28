@@ -1,9 +1,26 @@
 from datetime import datetime, timezone
 from dateutil.parser import parse as parse_date
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file, g
 from flask_jwt_extended import jwt_required
+
+
 from sqlalchemy.orm.attributes import flag_modified
+
+from io import StringIO, BytesIO
+from flask import send_file
+import ezdxf
+
+import tempfile
+import os
+from flask import send_file, after_this_request
+
+import math
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+
 
 from models import db, Project, ProjectAttribute, User, Product, ProjectType, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
@@ -336,3 +353,668 @@ def get_pricelist():
 def get_clients():
     clients = User.query.filter_by(role="client").order_by(User.username).all()
     return jsonify([{"id": c.id, "name": c.username} for c in clients]), 200
+
+
+
+
+
+@projects_api_bp.route("/project/get_dxf", methods=["POST"])
+@role_required("estimator", "designer")  # admin allowed by default via your decorator
+def get_dxf():
+    """
+    Body: { "project_id": 123 }
+    Uses calculated.nestData + calculated.rawPanels to generate the DXF.
+    """
+    payload = request.get_json(silent=True) or {}
+    project_id = payload.get("project_id")
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    project = Project.query.get(project_id)
+    if not project:
+        return jsonify({"error": f"Project {project_id} not found"}), 404
+
+    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
+    if not attr or not attr.calculated:
+        return jsonify({"error": f"No calculated data found for Project {project_id}"}), 400
+    
+    data = attr.data or {}
+
+    print ("project:", project.id, project.name)
+
+    print ("attr.data:", data)
+
+    calc = attr.calculated
+    nest = calc.get("nestData") or calc.get("nestdata")
+    raw = calc.get("rawPanels") or calc.get("raw_panels")
+    if not nest or not raw:
+        return jsonify({"error": "calculated.nestData and calculated.rawPanels are required"}), 400
+
+    fname = f"{(project.name or 'project').strip()}.dxf".replace(" ", "_")
+    return _build_dxf_from_nest_and_raw(nest, raw, fname, data['length'], data['width'], data['height'])
+
+
+
+
+@projects_api_bp.route("/project/get_pdf", methods=["POST"])
+@role_required("estimator", "designer")  # admin allowed by default via your decorator
+def get_pdf():
+    """
+    Body: { "project_id": 123 }
+    Uses attr.attributes (NOT calculated) to generate a landscape PDF with
+    an isometric view + dimension lines on the left and an info panel on the right.
+    """
+    payload = request.get_json(silent=True) or {}
+    project_id = payload.get("project_id")
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    project = Project.query.get(project_id)
+    if not project:
+        return jsonify({"error": f"Project {project_id} not found"}), 404
+
+    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
+    if not attr or not attr.data:
+        return jsonify({"error": f"No attributes found for Project {project_id}"}), 400
+
+    a = attr.data or {}
+    # Core geometry (mm)
+    width  = _safe_float(a.get("width"), default=1000.0, min_val=1.0)
+    length = _safe_float(a.get("length"), default=1000.0, min_val=1.0)
+    # Use a small nonzero height if omitted to make the isometric readable
+    height = _safe_float(a.get("height"), default=50.0,   min_val=0.0)
+
+    # Optional metadata
+    quantity     = int(_safe_float(a.get("quantity"), default=1.0, min_val=1.0))
+    fabric_width = _safe_float(a.get("fabricWidth"), default=None)
+    hem          = _safe_float(a.get("hem"), default=None)
+    seam         = _safe_float(a.get("seam"), default=None)
+
+    # Prepare temp file
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+
+    # Build PDF
+    try:
+        _build_pdf(
+            tmp_path=tmp_path,
+            project=project,
+            width_mm=width,
+            length_mm=length,
+            height_mm=height,
+            attrs={
+                "quantity": quantity,
+                "fabricWidth": fabric_width,
+                "hem": hem,
+                "seam": seam,
+            },
+        )
+    except Exception as e:
+        # Clean up temp on failure
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return jsonify({"error": f"PDF generation failed: {e}"}), 500
+
+    # Stream and clean up (same pattern as your DXF route)
+    fname = f"{(project.name or 'project').strip()}_{project.id}.pdf".replace(" ", "_")
+
+    @after_this_request
+    def _cleanup(response):
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return response
+
+    return send_file(
+        tmp_path,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=fname,
+        max_age=0,
+        etag=False,
+        conditional=False,
+        last_modified=None,
+    )
+
+
+
+
+
+# ------------------------------- DXF GENERATORS -------------------------------
+
+# ------------------------------- COVERS -------------------------------
+
+# ----- helpers -----
+def _new_doc_mm():
+    # R2000 is widely compatible and supports TEXT halign/valign
+    doc = ezdxf.new(dxfversion="R2000", setup=True)
+    # 4 = millimetres
+    doc.units = 4
+    doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    for name, color in [("WHEEL", 3), ("PEN", 2), ("BORDER", 1)]:
+        if name not in doc.layers:
+            doc.layers.add(name, color=color)
+    return doc, msp
+
+def _basename(panel_key: str) -> str:
+    # "1_Lside1" -> "Lside1"; "main1" -> "main1"
+    return panel_key.split("_", 1)[1] if "_" in panel_key else panel_key
+
+def _dims_map_from_raw(raw_panels: dict) -> dict:
+    """
+    rawPanels example:
+      { "Lside1": {"width":1040,"height":1020, ...}, ... }
+    Returns { name: (w, h) } in mm.
+    """
+    out = {}
+    for name, rec in (raw_panels or {}).items():
+        try:
+            w = float(rec.get("width") or 0)
+            h = float(rec.get("height") or 0)
+        except (TypeError, ValueError):
+            w = h = 0.0
+        if w > 0 and h > 0:
+            out[str(name)] = (w, h)
+    return out
+
+
+def _add_unique_line(msp, a, b, layer, _seen):
+    """Add a LINE only if this exact segment hasn't been drawn already (in either direction)."""
+    # Round to avoid tiny FP jitter making duplicates
+    ra = (round(a[0], 6), round(a[1], 6))
+    rb = (round(b[0], 6), round(b[1], 6))
+    key = (ra, rb) if ra <= rb else (rb, ra)
+    if key in _seen:
+        return
+    _seen.add(key)
+    msp.add_line(ra, rb, dxfattribs={"layer": layer})
+
+
+_SNAP = 1e-3  # mm snap tolerance for de-duping (0.001 mm)
+
+def _snap_pt(p):
+    """Snap a point to a small grid so nearly-identical coordinates dedupe."""
+    return (round(p[0] / _SNAP) * _SNAP, round(p[1] / _SNAP) * _SNAP)
+
+def _seg_key(a, b):
+    """Undirected segment key with snapping; order-independent."""
+    a = _snap_pt(a); b = _snap_pt(b)
+    return (a, b) if a <= b else (b, a)
+
+def _is_on_border(pt, total_w, bin_h):
+    """Check if a snapped point lies on the border rectangle (within tolerance)."""
+    x, y = pt
+    return (
+        abs(x - 0.0) <= _SNAP or
+        abs(x - total_w) <= _SNAP or
+        abs(y - 0.0) <= _SNAP or
+        abs(y - bin_h) <= _SNAP
+    )
+
+def _snap(v: float) -> float:
+    return round(v / _SNAP) * _SNAP
+
+def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: str, width, length, height):
+    doc, msp = _new_doc_mm()
+    dims = _dims_map_from_raw(raw_panels)
+    panels = nest.get("panels") or {}
+    bin_h = float(nest.get("bin_height") or 0)
+    total_w = float(nest.get("total_width") or nest.get("required_width") or 0)
+
+    # Compute total width if not provided
+    if bin_h > 0 and total_w <= 0:
+        for name, pos in panels.items():
+            base = _basename(name)
+            if base not in dims:
+                continue
+            w, h = dims[base]
+            if pos.get("rotated"):
+                w, h = h, w
+            total_w = max(total_w, float(pos.get("x", 0)) + w)
+
+    has_border = bin_h > 0 and total_w > 0
+
+    # --- Collect intervals ---
+    # horizontals[y] -> list of (x1, x2)
+    # verticals[x]   -> list of (y1, y2)
+    horizontals = {}
+    verticals = {}
+
+    def add_h(y, x1, x2):
+        y = _snap(y)
+        a, b = sorted((_snap(x1), _snap(x2)))
+        if a == b:
+            return
+        horizontals.setdefault(y, []).append((a, b))
+
+    def add_v(x, y1, y2):
+        x = _snap(x)
+        a, b = sorted((_snap(y1), _snap(y2)))
+        if a == b:
+            return
+        verticals.setdefault(x, []).append((a, b))
+
+
+    # Panels + labels
+    for name, pos in panels.items():
+        base = _basename(name)
+        if base not in dims:
+            continue
+        
+        
+
+
+        w, h = dims[base]
+        if pos.get("rotated"):
+            w, h = h, w
+        x = float(pos.get("x", 0))
+        y = float(pos.get("y", 0))
+
+        # fold/seam lines
+        if "main" in base:
+
+            #add_h(y + width + 20,  x + height - 20, x + height + 20)
+            #add_v(x + height,  y + width, y + width + 20)
+
+            msp.add_line((x + height -20, y + width + 20), (x + height + 20, y + width + 20), dxfattribs={"layer": "PEN"})
+            msp.add_line((x + height, y + width + 20), (x + height, y + width), dxfattribs={"layer": "PEN"})
+
+        # Panel rectangle edges
+        add_h(y, x, x + w)             # bottom
+        add_h(y + h, x, x + w)         # top
+        add_v(x, y, y + h)             # left
+        add_v(x + w, y, y + h)         # right
+
+        # Dimension label in top-right
+        label = f"{int(round(width))} x {int(round(length))} x {int(round(height))}"
+        margin = 5.0
+        tx, ty = (x + w - margin, y + h - margin)
+        t = msp.add_text(label, dxfattribs={"layer": "PEN", "height": 20})
+        t.dxf.halign = 2  # Right
+        t.dxf.valign = 3  # Top
+        t.dxf.insert = (tx, ty)
+        t.dxf.align_point = (tx, ty)
+
+    # --- Merge intervals (1-D sweep) ---
+    def merge_intervals(ranges):
+        if not ranges:
+            return []
+        ranges = sorted(ranges, key=lambda ab: (ab[0], ab[1]))
+        merged = []
+        cs, ce = ranges[0]
+        for s, e in ranges[1:]:
+            # If overlapping or touching within tolerance, merge
+            if s <= ce + _SNAP:
+                ce = max(ce, e)
+            else:
+                merged.append((cs, ce))
+                cs, ce = s, e
+        merged.append((cs, ce))
+        return merged
+
+    # --- Draw merged segments once ---
+    # Horizontal segments
+    for y, spans in horizontals.items():
+        for x1, x2 in merge_intervals(spans):
+            
+            msp.add_line((x1, y), (x2, y), dxfattribs={"layer": "WHEEL"})
+
+    # Vertical segments
+    for x, spans in verticals.items():
+        for y1, y2 in merge_intervals(spans):
+            
+            msp.add_line((x, y1), (x, y2), dxfattribs={"layer": "WHEEL"})
+
+    # --- Save to a temp file and return ---
+    tmp = tempfile.NamedTemporaryFile(suffix=".dxf", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    doc.saveas(tmp_path)
+
+    return send_file(
+        tmp_path,
+        mimetype="application/dxf",
+        as_attachment=True,
+        download_name=download_name,
+        max_age=0,
+        etag=False,
+        conditional=False,
+        last_modified=None,
+    )
+
+
+
+# ------------------------------- PDF GENERATORS -------------------------------
+
+
+
+# ------------------------------- PDF BUILDER -------------------------------
+
+def _build_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
+    """
+    Draw a landscape A4 page with:
+      - Left: isometric box (width x length x height) + dimension lines
+      - Right: info panel with attributes
+    """
+    page_w, page_h = landscape(A4)  # ~842 x 595 pt
+    c = canvas.Canvas(tmp_path, pagesize=(page_w, page_h))
+
+    margin = 24  # pt
+    inner_w = page_w - 2 * margin
+    inner_h = page_h - 2 * margin
+
+    # Split into left (drawing) and right (info)
+    left_ratio = 0.55
+    left_w = inner_w * left_ratio
+    right_w = inner_w - left_w
+
+    left_x = margin
+    left_y = margin
+    right_x = margin + left_w
+    right_y = margin
+
+    # Draw simple separators (optional)
+    c.setLineWidth(0.5)
+    c.line(right_x, margin, right_x, page_h - margin)
+
+    # Titles
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(margin, page_h - margin + 6, "Cover — Isometric Sheet")
+    c.setFont("Helvetica", 9)
+    gen_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    c.drawRightString(page_w - margin, page_h - margin + 6, f"Generated: {gen_ts}")
+
+    # DRAWING VIEWPORT (left)
+    _draw_isometric_with_dimensions(
+        c,
+        viewport=(left_x + 8, left_y + 8, left_w - 16, inner_h - 16),  # padding inside left pane
+        width_mm=width_mm,
+        length_mm=length_mm,
+        height_mm=height_mm,
+    )
+
+    # INFO PANEL (right)
+    _draw_info_panel(
+        c,
+        x=right_x + 16,
+        y=right_y + inner_h - 16,
+        w=right_w - 32,
+        project=project,
+        dims={"width": width_mm, "length": length_mm, "height": height_mm},
+        attrs=attrs,
+    )
+
+    c.showPage()
+    c.save()
+
+
+# ------------------------------- DRAWING HELPERS -------------------------------
+
+def _draw_isometric_with_dimensions(c, viewport, width_mm, length_mm, height_mm):
+    """
+    Draws a proportional isometric rectangular box in the given viewport and adds
+    three baseline dimensions (width, length, height).
+    viewport = (vx, vy, vw, vh) in points
+    """
+    vx, vy, vw, vh = viewport
+
+    # 1) Build box vertices in 3D (mm)
+    # Axes: X=width, Y=length, Z=height
+    # Box corners (origin at 0,0,0 for the "front-left-bottom"):
+    pts3d = [
+        (0,         0,          0),           # 0
+        (width_mm,  0,          0),           # 1
+        (width_mm,  length_mm,  0),           # 2
+        (0,         length_mm,  0),           # 3
+        (0,         0,          height_mm),   # 4
+        (width_mm,  0,          height_mm),   # 5
+        (width_mm,  length_mm,  height_mm),   # 6
+        (0,         length_mm,  height_mm),   # 7
+    ]
+
+    # 2) Isometric projection (classic 30°/30°)
+    cos30 = math.cos(math.radians(30))
+    sin30 = math.sin(math.radians(30))
+
+    def iso_project(p):
+        X, Y, Z = p
+        x2d = (X - Y) * cos30
+        y2d = (X + Y) * sin30 - Z
+        return (x2d, y2d)
+
+    pts2d = list(map(iso_project, pts3d))
+
+    # 3) Fit to viewport with uniform scale and center
+    min_x = min(p[0] for p in pts2d)
+    max_x = max(p[0] for p in pts2d)
+    min_y = min(p[1] for p in pts2d)
+    max_y = max(p[1] for p in pts2d)
+
+    box_w = max_x - min_x
+    box_h = max_y - min_y
+    if box_w <= 0 or box_h <= 0:
+        return
+
+    # Small padding inside the viewport for dimension arrows/text
+    pad = 28.0
+    scale = min((vw - 2 * pad) / box_w, (vh - 2 * pad) / box_h)
+
+    # Translate so the projected bbox is centered in viewport
+    # First shift pts so min corner is at (0,0), then scale, then center
+    def to_screen(p):
+        x = (p[0] - min_x) * scale
+        y = (p[1] - min_y) * scale
+        # center inside viewport
+        x += vx + (vw - box_w * scale) / 2.0
+        y += vy + (vh - box_h * scale) / 2.0
+        return (x, y)
+
+    pts = list(map(to_screen, pts2d))
+
+    # 4) Draw visible edges (simple set; avoids hidden lines to keep v1 clear)
+    c.setLineWidth(1.25)
+    edges = [
+        (0, 1), (1, 2), (2, 3), (3, 0),       # bottom rectangle
+        (4, 5), (5, 6), (6, 7), (7, 4),       # top rectangle
+        (0, 4), (1, 5), (2, 6), (3, 7),       # verticals
+    ]
+    for a, b in edges:
+        c.line(pts[a][0], pts[a][1], pts[b][0], pts[b][1])
+
+    # Choose baseline edges for dimensions:
+    # - Width along edge (0->1)
+    # - Length along edge (1->2)
+    # - Height along edge (0->4)
+    # (These read clearly in this layout.)
+    dim_offset = -16  # pt offset from object for extension line start
+    txt_size = 9
+
+    # Width dimension (0 -> 1)
+    _dim_aligned(
+        c,
+        p1=pts[0], p2=pts[1],
+        value_mm=width_mm,
+        offset=dim_offset,
+        text_size=txt_size,
+    )
+
+    # Length dimension (1 -> 2)
+    _dim_aligned(
+        c,
+        p1=pts[0], p2=pts[3],
+        value_mm=length_mm,
+        offset=dim_offset,
+        text_size=txt_size,
+    )
+
+    # Height dimension (0 -> 4) — mostly vertical in page coords for this projection
+    _dim_aligned(
+        c,
+        p1=pts[0], p2=pts[4],
+        value_mm=height_mm,
+        offset=dim_offset,
+        text_size=txt_size,
+    )
+
+    # Label: small “Isometric view” note
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(vx + 4, vy + 4, "Isometric view (dimensions in mm)")
+
+
+def _dim_aligned(c, p1, p2, value_mm, offset=14, text_size=9):
+    """
+    Draw an aligned dimension between p1 and p2:
+      - Extension lines from p1, p2 outward by 'offset'
+      - Dimension line parallel to (p1->p2)
+      - Arrowheads at both ends
+      - Centered text label with value in mm (rounded nearest mm)
+    All args in points except value_mm (mm).
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    dx, dy = (x2 - x1), (y2 - y1)
+    L = math.hypot(dx, dy)
+    if L < 1e-3:
+        return
+
+    # Unit vector along the measured line
+    ux, uy = dx / L, dy / L
+    # Unit normal (rotate +90°)
+    nx, ny = -uy, ux
+
+    # Extension line points (from endpoints, offset along normal)
+    e1 = (x1 + nx * offset, y1 + ny * offset)
+    e2 = (x2 + nx * offset, y2 + ny * offset)
+
+    # Draw extension lines
+    c.setLineWidth(0.75)
+    c.line(x1, y1, e1[0], e1[1])
+    c.line(x2, y2, e2[0], e2[1])
+
+    # Dimension line (between e1 and e2)
+    c.setLineWidth(0.9)
+    c.line(e1[0], e1[1], e2[0], e2[1])
+
+    # Arrowheads at e1<- and ->e2
+    _arrowhead(c, tip=e1, direction=(-ux, -uy), size=6)
+    _arrowhead(c, tip=e2, direction=(ux, uy), size=6)
+
+    # Text label (centered)
+    label = f"{int(round(value_mm))} mm"
+    cx, cy = ((e1[0] + e2[0]) / 2.0, (e1[1] + e2[1]) / 2.0)
+
+    # Slight offset away from the dim line to avoid overlap with arrowheads
+    text_off = 8
+    tx, ty = (cx + nx * text_off, cy + ny * text_off)
+
+    # Rotate text to align with the dimension line
+    angle_deg = math.degrees(math.atan2(dy, dx))
+    c.saveState()
+    c.translate(tx, ty)
+    c.rotate(angle_deg)
+    c.setFont("Helvetica", text_size)
+    # center text: draw centered relative to its width
+    w = c.stringWidth(label, "Helvetica", text_size)
+    c.drawString(-w / 2.0, -text_size / 2.5, label)
+    c.restoreState()
+
+
+def _arrowhead(c, tip, direction, size=6):
+    """
+    Draw a filled triangular arrowhead at 'tip' pointing along 'direction'.
+    Uses a ReportLab path (beginPath/moveTo/lineTo/drawPath).
+    """
+    tx, ty = tip
+    ux, uy = direction
+    L = math.hypot(ux, uy)
+    if L < 1e-6:
+        return
+    ux, uy = ux / L, uy / L
+
+    # Perpendicular vector
+    px, py = -uy, ux
+
+    back_x, back_y = (tx - ux * size, ty - uy * size)
+    left_x, left_y = (back_x + px * (size * 0.6), back_y + py * (size * 0.6))
+    right_x, right_y = (back_x - px * (size * 0.6), back_y - py * (size * 0.6))
+
+    # Build triangle path
+    p = c.beginPath()
+    p.moveTo(tx, ty)
+    p.lineTo(left_x, left_y)
+    p.lineTo(right_x, right_y)
+    p.close()
+
+    # Draw it
+    c.setLineWidth(0.5)
+    # (Optional) set explicit color:
+    # from reportlab.lib.colors import black
+    # c.setFillColor(black); c.setStrokeColor(black)
+    c.drawPath(p, fill=1, stroke=1)
+
+
+def _draw_info_panel(c, x, y, w, project, dims, attrs):
+    """
+    Simple right-side info block: project info + attributes table.
+    (x, y) is the TOP-LEFT corner; w is the available width. Height is flexible.
+    """
+    line_h = 14
+    small = 9
+    big = 12
+
+    def line(text, bold=False, pad=0):
+        nonlocal y
+        y -= pad
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", big if bold else small)
+        c.drawString(x, y, text)
+        y -= line_h
+
+    # Title
+    line(f"Project: {project.name or 'Untitled'} (ID {project.id})", bold=True, pad=2)
+
+    # Attributes
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(x, y, "Attributes")
+    y -= line_h
+
+    c.setFont("Helvetica", 9)
+    def kv(label, val):
+        nonlocal y
+        c.drawString(x + 12, y, f"{label}: {val}")
+        y -= line_h
+
+    kv("Width",  f"{int(round(dims['width']))} mm")
+    kv("Length", f"{int(round(dims['length']))} mm")
+    kv("Height", f"{int(round(dims['height']))} mm")
+
+    if attrs.get("fabricWidth"):
+        kv("Fabric width", f"{int(round(attrs['fabricWidth']))} mm")
+    if attrs.get("hem") is not None:
+        kv("Hem", f"{int(round(attrs['hem']))} mm")
+    if attrs.get("seam") is not None:
+        kv("Seam", f"{int(round(attrs['seam']))} mm")
+
+    kv("Quantity", f"{int(attrs.get('quantity') or 1)}")
+
+    y -= 4
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(x, y, "Notes: All dimensions in millimetres. Drawing proportional; labels show true sizes.")
+
+
+# ------------------------------- UTIL -------------------------------
+
+def _safe_float(v, default=None, min_val=None, max_val=None):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return default
+    if min_val is not None and f < min_val:
+        f = min_val
+    if max_val is not None and f > max_val:
+        f = max_val
+    return f

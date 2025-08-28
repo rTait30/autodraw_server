@@ -508,13 +508,13 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
       {
         width: rotated ? height : width,
         height: rotated ? mainPanel : mainPanel,
-        hasSeam: "main",
+        hasSeam: "bottom",
         rotated,
       },
       {
         width: rotated ? height : width,
         height: rotated ? smallPanelTotal : smallPanelTotal,
-        hasSeam: "small",
+        hasSeam: "top",
         rotated,
       },
     ];
@@ -535,13 +535,13 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
       {
         width: rotated ? height : width,
         height: rotated ? mainFallback : mainFallback,
-        hasSeam: "main",
+        hasSeam: "top",
         rotated,
       },
       {
         width: rotated ? height : width,
         height: rotated ? smallFallbackTotal : smallFallbackTotal,
-        hasSeam: "small",
+        hasSeam: "bottom",
         rotated,
       },
     ];

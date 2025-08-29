@@ -20,7 +20,8 @@ import math
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
-
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.pdfgen import canvas
 
 from models import db, Project, ProjectAttribute, User, Product, ProjectType, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
@@ -397,12 +398,15 @@ def get_dxf():
 
 
 @projects_api_bp.route("/project/get_pdf", methods=["POST"])
-@role_required("estimator", "designer")  # admin allowed by default via your decorator
+@role_required("client", "estimator", "designer")  # admin allowed via decorator default
 def get_pdf():
     """
-    Body: { "project_id": 123 }
-    Uses attr.attributes (NOT calculated) to generate a landscape PDF with
-    an isometric view + dimension lines on the left and an info panel on the right.
+    Body:
+      {
+        "project_id": 123,
+        "include_bom": true,          # staff only; ignored/forbidden for clients
+        "bom_level": "summary"        # or "detailed" (optional)
+      }
     """
     payload = request.get_json(silent=True) or {}
     project_id = payload.get("project_id")
@@ -413,29 +417,41 @@ def get_pdf():
     if not project:
         return jsonify({"error": f"Project {project_id} not found"}), 404
 
+    # Use user from the decorator (no extra DB/JWT lookups)
+    user = getattr(g, "current_user", None)
+    role = getattr(user, "role", None)
+    is_staff = role in ("estimator", "designer", "admin")
+
+    requested_include_bom = bool(payload.get("include_bom", False))
+    bom_level = payload.get("bom_level") or "summary"
+    if bom_level not in ("summary", "detailed"):
+        bom_level = "summary"
+
+    if requested_include_bom and not is_staff:
+        # Hard fail if client tries to force BoM
+        return jsonify({"error": "Including Bill of Materials is not permitted for clients."}), 403
+
+    include_bom = requested_include_bom and is_staff
+
+    # Attributes
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
     if not attr or not attr.data:
         return jsonify({"error": f"No attributes found for Project {project_id}"}), 400
 
     a = attr.data or {}
-    # Core geometry (mm)
-    width  = _safe_float(a.get("width"), default=1000.0, min_val=1.0)
+    width  = _safe_float(a.get("width"),  default=1000.0, min_val=1.0)
     length = _safe_float(a.get("length"), default=1000.0, min_val=1.0)
-    # Use a small nonzero height if omitted to make the isometric readable
     height = _safe_float(a.get("height"), default=50.0,   min_val=0.0)
 
-    # Optional metadata
     quantity     = int(_safe_float(a.get("quantity"), default=1.0, min_val=1.0))
     fabric_width = _safe_float(a.get("fabricWidth"), default=None)
-    hem          = _safe_float(a.get("hem"), default=None)
-    seam         = _safe_float(a.get("seam"), default=None)
+    hem          = _safe_float(a.get("hem"),         default=None)
+    seam         = _safe_float(a.get("seam"),        default=None)
 
-    # Prepare temp file
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     tmp_path = tmp.name
     tmp.close()
 
-    # Build PDF
     try:
         _build_pdf(
             tmp_path=tmp_path,
@@ -449,17 +465,19 @@ def get_pdf():
                 "hem": hem,
                 "seam": seam,
             },
+            include_bom=include_bom,
+            bom_level=bom_level,
         )
     except Exception as e:
-        # Clean up temp on failure
         try:
             os.remove(tmp_path)
         except OSError:
             pass
         return jsonify({"error": f"PDF generation failed: {e}"}), 500
 
-    # Stream and clean up (same pattern as your DXF route)
-    fname = f"{(project.name or 'project').strip()}_{project.id}.pdf".replace(" ", "_")
+    base = f"{(project.name or 'project').strip()}_{project.id}".replace(" ", "_")
+    suffix = "_with_BoM" if include_bom else ""
+    fname = f"{base}{suffix}.pdf"
 
     @after_this_request
     def _cleanup(response):
@@ -469,7 +487,7 @@ def get_pdf():
             pass
         return response
 
-    return send_file(
+    resp = send_file(
         tmp_path,
         mimetype="application/pdf",
         as_attachment=True,
@@ -479,7 +497,8 @@ def get_pdf():
         conditional=False,
         last_modified=None,
     )
-
+    resp.headers["Cache-Control"] = "no-store, must-revalidate, private"
+    return resp
 
 
 
@@ -516,10 +535,11 @@ def _dims_map_from_raw(raw_panels: dict) -> dict:
         try:
             w = float(rec.get("width") or 0)
             h = float(rec.get("height") or 0)
+            seams = rec.get("hasSeam") or "no"
         except (TypeError, ValueError):
             w = h = 0.0
         if w > 0 and h > 0:
-            out[str(name)] = (w, h)
+            out[str(name)] = (w, h, seams)
     return out
 
 
@@ -559,7 +579,7 @@ def _is_on_border(pt, total_w, bin_h):
 def _snap(v: float) -> float:
     return round(v / _SNAP) * _SNAP
 
-def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: str, width, length, height):
+def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: str, length, width, height):
     doc, msp = _new_doc_mm()
     dims = _dims_map_from_raw(raw_panels)
     panels = nest.get("panels") or {}
@@ -600,8 +620,11 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
         verticals.setdefault(x, []).append((a, b))
 
 
+    print (panels)
+
     # Panels + labels
     for name, pos in panels.items():
+
         base = _basename(name)
         if base not in dims:
             continue
@@ -609,20 +632,31 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
         
 
 
-        w, h = dims[base]
+        w, h, seams = dims[base]
         if pos.get("rotated"):
             w, h = h, w
         x = float(pos.get("x", 0))
         y = float(pos.get("y", 0))
 
+        print (base, seams)
+
         # fold/seam lines
-        if "main" in base:
+        if "main" in base and seams == "no":
 
             #add_h(y + width + 20,  x + height - 20, x + height + 20)
             #add_v(x + height,  y + width, y + width + 20)
 
-            msp.add_line((x + height -20, y + width + 20), (x + height + 20, y + width + 20), dxfattribs={"layer": "PEN"})
-            msp.add_line((x + height, y + width + 20), (x + height, y + width), dxfattribs={"layer": "PEN"})
+            msp.add_line((x + height -20, y + width + 20), (x + height + 20, y + width + 20), dxfattribs={"layer": "PEN"}) #horizontal
+            msp.add_line((x + height, y + width + 20), (x + height, y + width), dxfattribs={"layer": "PEN"}) #vertical
+
+            msp.add_line((x + height -20, y + 20), (x + height + 20, y  + 20), dxfattribs={"layer": "PEN"})
+            msp.add_line((x + height, y + 20), (x + height, y + 40), dxfattribs={"layer": "PEN"})
+
+            msp.add_line((x + height + length -20, y + width + 20), (x + height + length + 20, y + width + 20), dxfattribs={"layer": "PEN"}) #horizontal
+            msp.add_line((x + height + length, y + width + 20), (x + height + length, y + width), dxfattribs={"layer": "PEN"}) #vertical
+
+            msp.add_line((x + height + length -20, y + 20), (x + height + length + 20, y  + 20), dxfattribs={"layer": "PEN"})
+            msp.add_line((x + height + length, y + 20), (x + height + length, y + 40), dxfattribs={"layer": "PEN"})
 
         # Panel rectangle edges
         add_h(y, x, x + w)             # bottom
@@ -631,7 +665,7 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
         add_v(x + w, y, y + h)         # right
 
         # Dimension label in top-right
-        label = f"{int(round(width))} x {int(round(length))} x {int(round(height))}"
+        label = f"{int(round(length))} x {int(round(width))} x {int(round(height))}"
         margin = 5.0
         tx, ty = (x + w - margin, y + h - margin)
         t = msp.add_text(label, dxfattribs={"layer": "PEN", "height": 20})
@@ -695,20 +729,27 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
 
 # ------------------------------- PDF BUILDER -------------------------------
 
-def _build_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
+def _build_pdf(
+    tmp_path,
+    project,
+    width_mm,
+    length_mm,
+    height_mm,
+    attrs,
+    include_bom: bool = False,
+    bom_level: str = "summary",
+):
     """
-    Draw a landscape A4 page with:
-      - Left: isometric box (width x length x height) + dimension lines
-      - Right: info panel with attributes
+    Page 1: Isometric drawing (left) + info panel (right)
+    Page 2: (optional) Bill of Materials for staff
     """
-    page_w, page_h = landscape(A4)  # ~842 x 595 pt
+    page_w, page_h = landscape(A4)
     c = canvas.Canvas(tmp_path, pagesize=(page_w, page_h))
 
-    margin = 24  # pt
+    margin = 24
     inner_w = page_w - 2 * margin
     inner_h = page_h - 2 * margin
 
-    # Split into left (drawing) and right (info)
     left_ratio = 0.55
     left_w = inner_w * left_ratio
     right_w = inner_w - left_w
@@ -718,27 +759,26 @@ def _build_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
     right_x = margin + left_w
     right_y = margin
 
-    # Draw simple separators (optional)
+    # Divider
     c.setLineWidth(0.5)
     c.line(right_x, margin, right_x, page_h - margin)
 
-    # Titles
+    # Header
     c.setFont("Helvetica-Bold", 14)
     c.drawString(margin, page_h - margin + 6, "Cover — Isometric Sheet")
     c.setFont("Helvetica", 9)
     gen_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     c.drawRightString(page_w - margin, page_h - margin + 6, f"Generated: {gen_ts}")
 
-    # DRAWING VIEWPORT (left)
+    # Page 1 content
     _draw_isometric_with_dimensions(
         c,
-        viewport=(left_x + 8, left_y + 8, left_w - 16, inner_h - 16),  # padding inside left pane
+        viewport=(left_x + 8, left_y + 8, left_w - 16, inner_h - 16),
         width_mm=width_mm,
         length_mm=length_mm,
         height_mm=height_mm,
     )
 
-    # INFO PANEL (right)
     _draw_info_panel(
         c,
         x=right_x + 16,
@@ -747,6 +787,22 @@ def _build_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
         project=project,
         dims={"width": width_mm, "length": length_mm, "height": height_mm},
         attrs=attrs,
+    )
+
+    # If no BoM requested, finish here
+    if not include_bom:
+        c.showPage()
+        c.save()
+        return
+
+    # Page 2: Bill of Materials
+    c.showPage()
+    _draw_bom_page(
+        c=c,
+        project=project,
+        dims={"width": width_mm, "length": length_mm, "height": height_mm},
+        attrs=attrs,
+        bom_level=bom_level,
     )
 
     c.showPage()
@@ -1004,6 +1060,145 @@ def _draw_info_panel(c, x, y, w, project, dims, attrs):
     y -= 4
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(x, y, "Notes: All dimensions in millimetres. Drawing proportional; labels show true sizes.")
+
+
+def _estimate_bom_items(dims: dict, attrs: dict, level: str = "summary") -> list[dict]:
+    """
+    Very simple example BoM. Replace with your schema evaluator.
+    Returns list of rows: {code, description, qty, unit, notes}
+    """
+    width = float(dims.get("width", 0.0))
+    length = float(dims.get("length", 0.0))
+    height = float(dims.get("height", 0.0))
+    qty = int(attrs.get("quantity") or 1)
+
+    fabric_w = attrs.get("fabricWidth") or 0.0  # mm
+    hem = attrs.get("hem") or 0.0              # mm
+    seam = attrs.get("seam") or 0.0            # mm
+
+    rows = []
+
+    # Fabric usage (very rough): total area / usable width => linear mm, then to meters
+    if fabric_w and fabric_w > 0:
+        usable_len_mm = (width * length) / fabric_w
+        usable_len_m = usable_len_mm / 1000.0
+        rows.append({
+            "code": "FAB-ROLL",
+            "description": "Fabric roll usage (est.)",
+            "qty": round(usable_len_m * qty, 2),
+            "unit": "m",
+            "notes": f"{int(fabric_w)} mm roll; seams ~{int(seam or 0)} mm",
+        })
+    else:
+        rows.append({
+            "code": "FAB-ROLL",
+            "description": "Fabric roll usage (est.)",
+            "qty": round((width*length)/1_000_000 * qty, 2),
+            "unit": "m²",
+            "notes": "No fabric width set; showing area",
+        })
+
+    # Perimeter hem length (mm -> m)
+    perimeter_mm = 2 * (width + length)
+    perimeter_m = perimeter_mm / 1000.0
+    if hem and hem > 0:
+        rows.append({
+            "code": "HEM-THREAD",
+            "description": "Hem / stitching",
+            "qty": round(perimeter_m * qty, 2),
+            "unit": "m",
+            "notes": f"hem ~{int(hem)} mm",
+        })
+
+    # Example accessories (edges)
+    rows.append({
+        "code": "EDGE-TAPE",
+        "description": "Edge reinforcement tape",
+        "qty": round(perimeter_m * qty, 2),
+        "unit": "m",
+        "notes": "",
+    })
+
+    if level == "detailed":
+        rows.append({
+            "code": "QA-LABEL",
+            "description": "Labels & QA tags",
+            "qty": qty,
+            "unit": "ea",
+            "notes": "Per cover",
+        })
+
+    return rows
+
+
+def _draw_bom_page(c: canvas.Canvas, project, dims: dict, attrs: dict, bom_level: str = "summary"):
+    page_w, page_h = c._pagesize  # current page size
+    margin = 24
+    inner_w = page_w - 2 * margin
+    y = page_h - margin
+
+    # Title
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margin, y, "Bill of Materials")
+    c.setFont("Helvetica", 9)
+    y -= 14
+    c.drawString(margin, y, f"Project: {getattr(project, 'name', '')} (#{getattr(project, 'id', '')})")
+    y -= 20
+
+    # Build rows
+    rows = _estimate_bom_items(dims, attrs, level=bom_level)
+
+    # Table header
+    headers = ["Code", "Description", "Qty", "Unit", "Notes"]
+    col_w = [80, inner_w - (80 + 70 + 50 + 180), 70, 50, 180]  # total == inner_w
+    assert sum(col_w) == inner_w
+
+    # Draw header background line
+    c.setLineWidth(0.8)
+    c.line(margin, y, margin + inner_w, y)
+    y -= 18
+    c.setFont("Helvetica-Bold", 10)
+
+    x = margin
+    for i, h in enumerate(headers):
+        c.drawString(x + 2, y, h)
+        x += col_w[i]
+    y -= 6
+    c.line(margin, y, margin + inner_w, y)
+
+    # Rows
+    c.setFont("Helvetica", 9)
+    for r in rows:
+        y -= 16
+        if y < margin + 40:  # simple page-break guard (rare here)
+            c.showPage()
+            # re-draw mini header on continuation
+            y = page_h - margin
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(margin, y, "Bill of Materials (cont.)")
+            y -= 24
+            c.setFont("Helvetica", 9)
+
+        x = margin
+        cells = [
+            r.get("code", ""),
+            r.get("description", ""),
+            str(r.get("qty", "")),
+            r.get("unit", ""),
+            r.get("notes", ""),
+        ]
+        for i, val in enumerate(cells):
+            c.drawString(x + 2, y, val)
+            x += col_w[i]
+
+        # row line
+        c.setLineWidth(0.3)
+        c.line(margin, y - 3, margin + inner_w, y - 3)
+
+    # Footer
+    y = margin + 8
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(margin, y, f"Level: {bom_level.capitalize()} — Generated UTC {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}")
 
 
 # ------------------------------- UTIL -------------------------------

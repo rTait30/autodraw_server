@@ -288,6 +288,9 @@ export default function ProjectDetailsPage() {
               <button onClick={() => fetchPDF(project.id) } className = "buttonStyle" >
                 Download PDF
               </button>
+              <button onClick={() => fetchPDF(project.id, true) } className = "buttonStyle" >
+                Download PDF with BOM
+              </button>
             </div>
           ) : null}
           
@@ -457,12 +460,12 @@ async function fetchDXF(projectId) {
 }
 
 
-async function fetchPDF(projectId) {
+async function fetchPDF(projectId, include_bom) {
   try {
     const response = await apiFetch('/project/get_pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: projectId }),
+      body: JSON.stringify({ project_id: projectId, include_bom: include_bom }),
     });
 
     if (!response.ok) {

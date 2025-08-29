@@ -57,6 +57,21 @@ class Project(db.Model):
     attributes = db.relationship('ProjectAttribute', backref='project', lazy='dynamic')
     schemas = db.relationship('EstimatingSchema', backref='project', lazy='dynamic', foreign_keys='EstimatingSchema.project_id')
 
+class Quote(db.Model):
+    __tablename__ = 'quotes'
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
+    
+    value = db.Column(db.Float)
+    status = db.Column(db.String(32), default="draft")  # draft, sent, accepted
+    snapshot = db.Column(db.JSON)       # evaluated line items + totals    
+
+    version = db.Column(db.Integer, nullable=True, default=1)
+    
+    #provenance = db.Column(db.JSON)     # schema, inputs, price list version, etc.
+    #created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    #created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
 class ProjectAttribute(db.Model):
     __tablename__ = 'project_attributes'
     id = db.Column(db.Integer, primary_key=True)

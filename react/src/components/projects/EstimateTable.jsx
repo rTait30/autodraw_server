@@ -273,6 +273,14 @@ export default function EstimateTable({
         </tbody>
       </table>
 
+      <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
+        Use Suggested Price
+      </button>
+
+      <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
+        Use price: {value}
+      </button>
+
       <div>
 
           <SchemaEditor
@@ -285,4 +293,9 @@ export default function EstimateTable({
       </div>
    </div>
   );
+}
+
+async function submitQuote(projectId, value) {
+  // Implement the function to submit the quote
+  console.log(`Submitting quote for project ${projectId} with value ${value}`);
 }

@@ -142,8 +142,8 @@ export const Steps = [
     calcFunction: (data) => {
       const flatMainHeight = data.width + 2 * data.seam;
       const flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
-      const flatSideWidth = data.height + data.seam * 2;
-      const flatSideHeight = data.length + data.seam;
+      const flatSideWidth = data.height + data.seam;
+      const flatSideHeight = data.length + data.seam * 2;
       const totalSeamLength =
         2 * flatMainWidth +
         2 * flatSideWidth +

@@ -20,7 +20,6 @@ function evalExpr(expr, named = {}) {
 
 export default function EstimateTable({
   
-  key,
   schema = {},
   editedSchema = {},
   onCheck = () => {},
@@ -278,7 +277,7 @@ export default function EstimateTable({
       </button>
 
       <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
-        Use price: {value}
+        Use price: todo
       </button>
 
       <div>

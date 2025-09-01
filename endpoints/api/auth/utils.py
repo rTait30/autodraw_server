@@ -81,4 +81,3 @@ def _user_by_credentials(username: str, password: str):
     if not user or not user.check_password(password):
         return None
     return user
-

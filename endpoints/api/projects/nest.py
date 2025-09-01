@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from rectpack import newPacker
 from sqlalchemy.orm.attributes import flag_modified
 
-from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+from endpoints.api.auth.utils import current_user, role_required
 
 nest_bp = Blueprint("nest_bp", __name__)
 

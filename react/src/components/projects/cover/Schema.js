@@ -1,25 +1,19 @@
 export const Schema = {
   "Materials": [
     {
-      "type": "row",
-      "description": "height test",
-      "unitCost": 0.01,
-      "quantity": "attributes.height"
-    },
-    {
       "type": "sku",
-      "sku": "FAB005",
+      "sku": "2-DR-F-225",
       "quantity": "calculated?.nestData?.total_width ? Math.ceil((calculated.nestData.total_width / 1000) * 2) / 2 : 0"
     },
     {
       "type": "sku",
-      "sku": "ZIP002",
+      "sku": "2-DR-H-113",
       "quantity": "2 * Math.ceil((attributes?.height || 0) / 1000)"
     },
     {
       "type": "sku",
-      "sku": "THR001",
-      "quantity": "attributes.quantity * (2 * (calculated?.flatMainWidth + calculated?.flatMainHeight + 2 * (calculated?.flatSideHeight + calculated?.flatSideWidth)) * (2.5/1000))"
+      "sku": "2-DR-H-001",
+      "quantity": "2 * Math.ceil((attributes?.height || 0) / 1000)"
     },
     {
       "type": "subtotal",

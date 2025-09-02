@@ -64,7 +64,7 @@ def resolve_project_type_id(data):
 # -------------------------------
 # Create / update project (auth required)
 # -------------------------------
-@projects_api_bp.route("/projects/create", methods=["POST"])
+@projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
     user = current_user(required=True)
@@ -212,50 +212,43 @@ def save_project_config():
 # -------------------------------
 # Edit existing project (auth + role aware)
 # -------------------------------
-@projects_api_bp.route("/projects/edit/<int:project_id>", methods=["PUT", "PATCH"])
-@jwt_required()
-def edit_project(project_id):
+@projects_api_bp.route("/projects/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
+def upsert_project_attributes(project_id):
     data = request.get_json() or {}
+    edited_attrs = data.get("editedAttributes") or {}
+    edited_calc = data.get("editedCalculated") or {}
+
+    if not isinstance(edited_attrs, dict) or not isinstance(edited_calc, dict):
+        return jsonify({"error": "editedAttributes and editedCalculated must be objects"}), 400
+
+    # Ensure project exists (404 if not)
     project = Project.query.get_or_404(project_id)
 
-    user = current_user(required=True)
-    role = user.role if user else None
-
-    editable_fields = {
-        "estimator": {"status", "due_date", "info", "attributes"},
-        "client": {"info", "attributes"},
-        "admin": {"name", "type", "status", "due_date", "info", "client_id", "attributes"},
-        "designer": {"info", "attributes", "status"},  # optional: allow designer to touch status/info
-    }
-    allowed = editable_fields.get(role, set())
-
-    project_fields = {"name", "type", "status", "due_date", "info", "client_id", "created_at", "updated_at"}
-    project_data = {k: v for k, v in data.items() if k in project_fields and k in allowed}
-    attribute_data = data.get("attributes") if "attributes" in allowed else None
-
-    forbidden = [k for k in data if (k in project_fields and k not in allowed)]
-    if forbidden:
-        return jsonify({"error": f"You are not allowed to edit fields: {forbidden}"}), 403
-
-    for field, value in project_data.items():
-        setattr(project, field, value)
-    project.updated_at = datetime.now(timezone.utc)
-
-    if attribute_data is not None:
-        attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-        if not attr:
-            attr = ProjectAttribute(project_id=project.id, data=attribute_data or {})
-            db.session.add(attr)
-        else:
-            if attr.data is None:
-                attr.data = {}
-            attr.data.update(attribute_data or {})
+    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
+    if not attr:
+        attr = ProjectAttribute(
+            project_id=project.id,
+            data=edited_attrs,
+            calculated=edited_calc
+        )
+        db.session.add(attr)
+    else:
+        # Replace entirely (simplest possible behavior)
+        attr.data = edited_attrs
+        attr.calculated = edited_calc
+        # If using SQLAlchemy JSON columns, flag as modified:
+        try:
             flag_modified(attr, "data")
+            flag_modified(attr, "calculated")
+        except Exception:
+            pass
 
     db.session.commit()
     return jsonify({
-        "id": project.id,
-        "status": project.status.name if hasattr(project.status, "name") else project.status
+        "ok": True,
+        "project_id": project.id,
+        "data": attr.data,
+        "calculated": attr.calculated,
     }), 200
 
 # -------------------------------
@@ -640,24 +633,65 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
 
         print (base, seams)
 
+        # helpers to avoid duplication
+        def _draw_top_marks(msp, x, y, height, width, length, *,
+                            half_tick=20, layer="PEN"):
+            # marks along the TOP edge (near y + width)
+            msp.add_line((x + height - half_tick,         y + h - half_tick),
+                        (x + height + half_tick,         y + h - half_tick),
+                        dxfattribs={"layer": layer})  # horizontal
+            msp.add_line((x + height,                     y + h - half_tick),
+                        (x + height,                     y + h - half_tick * 2),
+                        dxfattribs={"layer": layer})     # vertical
+
+            msp.add_line((x + height + length - half_tick, y + h - half_tick),
+                        (x + height + length + half_tick, y + h - half_tick),
+                        dxfattribs={"layer": layer})
+            msp.add_line((x + height + length,             y + h - half_tick),
+                        (x + height + length,             y + h - half_tick * 2),
+                        dxfattribs={"layer": layer})
+            
+
+
+            msp.add_line((x,                                y + h -50),
+                        (x + height,               y + h -50),
+                        dxfattribs={"layer": layer})
+
+        def _draw_bottom_marks(msp, x, y, height, width, length, *,
+                            half_tick=20, layer="PEN"):
+            # marks along the BOTTOM edge (near y)
+            msp.add_line((x + height - half_tick,         y + half_tick),
+                        (x + height + half_tick,         y + half_tick),
+                        dxfattribs={"layer": layer})
+            msp.add_line((x + height,                     y + half_tick),
+                        (x + height,                     y + 2 * half_tick),
+                        dxfattribs={"layer": layer})
+
+            msp.add_line((x + height + length - half_tick, y + half_tick),
+                        (x + height + length + half_tick, y + half_tick),
+                        dxfattribs={"layer": layer})
+            msp.add_line((x + height + length,             y + half_tick),
+                        (x + height + length,             y + 2 * half_tick),
+                        dxfattribs={"layer": layer})
+
+
+            msp.add_line((x,                                y + 50),
+                        (x + height,               y + 50),
+                        dxfattribs={"layer": layer})
+
         # fold/seam lines
-        if "main" in base and seams == "no":
-
-            #add_h(y + width + 20,  x + height - 20, x + height + 20)
-            #add_v(x + height,  y + width, y + width + 20)
-
-            msp.add_line((x + height -20, y + width + 20), (x + height + 20, y + width + 20), dxfattribs={"layer": "PEN"}) #horizontal
-            msp.add_line((x + height, y + width + 20), (x + height, y + width), dxfattribs={"layer": "PEN"}) #vertical
-
-            msp.add_line((x + height -20, y + 20), (x + height + 20, y  + 20), dxfattribs={"layer": "PEN"})
-            msp.add_line((x + height, y + 20), (x + height, y + 40), dxfattribs={"layer": "PEN"})
-
-            msp.add_line((x + height + length -20, y + width + 20), (x + height + length + 20, y + width + 20), dxfattribs={"layer": "PEN"}) #horizontal
-            msp.add_line((x + height + length, y + width + 20), (x + height + length, y + width), dxfattribs={"layer": "PEN"}) #vertical
-
-            msp.add_line((x + height + length -20, y + 20), (x + height + length + 20, y  + 20), dxfattribs={"layer": "PEN"})
-            msp.add_line((x + height + length, y + 20), (x + height + length, y + 40), dxfattribs={"layer": "PEN"})
-
+        if "main" in base:
+            # semantics requested:
+            # seams == "top"    -> only BOTTOM marks
+            # seams == "bottom" -> only TOP marks
+            # seams == "no"     -> both TOP and BOTTOM marks
+            if seams == "top":
+                _draw_bottom_marks(msp, x, y, height, width, length)
+            elif seams == "bottom":
+                _draw_top_marks(msp, x, y, height, width, length)
+            elif seams == "no":
+                _draw_top_marks(msp, x, y, height, width, length)
+                _draw_bottom_marks(msp, x, y, height, width, length)
         # Panel rectangle edges
         add_h(y, x, x + w)             # bottom
         add_h(y + h, x, x + w)         # top

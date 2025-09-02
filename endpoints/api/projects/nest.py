@@ -144,7 +144,7 @@ def run_rectpack_with_fixed_height(
 
 # ---------- Route ----------
 @nest_bp.route("/nest_panels", methods=["POST"])
-@role_required("estimator")
+@role_required("estimator", "client")
 def nest_panels():
     """
     Body:

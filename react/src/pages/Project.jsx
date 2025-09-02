@@ -86,6 +86,21 @@ export default function ProjectDetailsPage() {
     stepperRef.current = stepper;
   }, [stepper]);
 
+  useEffect(() => {
+    if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
+
+    let cancelled = false;
+    (async () => {
+      const result = await stepperRef.current.runAll({ ...editedAttributes });
+      const filtered = Object.fromEntries(
+        Object.entries(result || {}).filter(([k]) => !(k in editedAttributes))
+      );
+      if (!cancelled) setEditedCalculated(filtered);
+    })();
+
+    return () => { cancelled = true; };
+  }, [editedAttributes, Steps]);
+
   /* ==========================================================================
    *  DATA FETCHING: loadProjectFromServer
    *  - populates both saved and edited snapshots
@@ -134,36 +149,6 @@ export default function ProjectDetailsPage() {
   }, [projectId]);
 
   /* ==========================================================================
-   *  DERIVED CALCULATIONS: re-run stepper when edited inputs change
-   *  - Effect-based recompute of editedCalculated when editedAttributes or Steps change
-   *  - [Extract] a hook useAutoRecalc(editedAttributes, Steps, stepperRef)
-   * ========================================================================*/
-  useEffect(() => {
-    if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
-
-    let cancelled = false;
-    (async () => {
-      const result = await stepperRef.current.runAll({ ...editedAttributes });
-
-      if (!cancelled && result) {
-        // Keep only keys that are NOT in attributes.
-
-        //REPLACE THIS IF STEPPER LATER RETURNS ONLY CALCULATED KEYS
-
-        const filtered = Object.fromEntries(
-          Object.entries(result).filter(([key]) => !(key in editedAttributes))
-        );
-
-        setEditedCalculated(filtered);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [editedAttributes, Steps]);
-
-  /* ==========================================================================
    *  ACTIONS: UI event handlers
    *  - [Extract] into a small controller object if desired
    * ========================================================================*/
@@ -178,32 +163,34 @@ export default function ProjectDetailsPage() {
     setEditedAttributes(nextAttributes);
   };
 
-  const handleSubmit = () => {
-    // NOTE: this submits SAVED snapshots as in your original code.
-    // If you intend to submit edits, send editedAttributes/editedCalculated instead.
-    const payload = {
-      ...project,
-      attributes: attributes,
-      calculated: calculated,
-    };
+  // small helper to compute calcs from attrs using your stepper
+  const recalcCalculated = async (attrs) => {
+    if (!Steps.length) return {};
+    const result = await stepperRef.current.runAll({ ...attrs });
+    return Object.fromEntries(
+      Object.entries(result || {}).filter(([k]) => !(k in attrs))
+    );
+  };
 
-    apiFetch('/api/projects/create', {
-      method: 'POST',
+  const handleSubmit = async (nextAttributes) => {
+    // keep UI state in sync
+    setEditedAttributes(nextAttributes);
+
+    // decide which calculated to send
+    let calcs;
+    // staff: recompute synchronously here so payload is fresh
+    calcs = await recalcCalculated(nextAttributes);
+    setEditedCalculated(calcs);
+
+    // now submit the exact snapshot you want
+    await apiFetch(`/projects/edit/${project.id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to submit');
-        return res.json();
-      })
-      .then(() => {
-        loadProjectFromServer();
-        alert('Project updated!');
-      })
-      .catch(err => {
-        console.error(err);
-        alert('Submit failed');
-      });
+      body: JSON.stringify({
+        editedAttributes: nextAttributes, // use the param, not (possibly stale) state
+        editedCalculated: calcs,
+      }),
+    });
   };
 
   // handlers

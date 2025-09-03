@@ -685,7 +685,7 @@ export const Steps = [
 
         ctx.clearRect(0, 0, 1000, 1000);
         ctx.save();
-        ctx.font = '16px Arial';
+        ctx.font = '32px Arial';
         ctx.lineWidth = 2;
 
         let ypos = 1100;
@@ -699,7 +699,7 @@ export const Steps = [
             ypos
           );
 
-          ypos += 40;
+          ypos += 60;
 
           // Convert discrepancies object → array of [key, value] pairs and sort by absolute value
           const sortedDiscrepancies = Object.entries(data.discrepancies)
@@ -720,7 +720,7 @@ export const Steps = [
               ypos
             );
 
-            ypos += 20;
+            ypos += 40;
           });
         }
 
@@ -733,7 +733,7 @@ export const Steps = [
             ypos
           );
 
-          ypos += 40;
+          ypos += 60;
           // Convert blame object → array of [key, value] pairs
           const sortedBlame = Object.entries(data.blame)
             .sort((a, b) => b[1] - a[1]); // descending by score
@@ -745,7 +745,7 @@ export const Steps = [
             ctx.fillText(text, 500, ypos);
 
             // Move down for next entry
-            ypos += 20;
+            ypos += 40;
           });
         }
 

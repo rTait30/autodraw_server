@@ -7,6 +7,8 @@ import SchemaEditor from '../components/projects/SchemaEditor';
 import { apiFetch } from '../services/auth';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 
+import { useParams } from 'react-router-dom';
+
 /* ============================================================================
  *  MODULE LOADER (per-project-type)
  *  - [Extract] into services/typeLoader.js later
@@ -32,10 +34,7 @@ export default function ProjectDetailsPage() {
    *  - [Extract] into a helper like useProjectIdFromLocation()
    * ========================================================================*/
   const location = useLocation();
-  const projectId = useMemo(() => {
-    const parts = location.pathname.split('/');
-    return parts[parts.length - 1] || parts[parts.length - 2];
-  }, [location.pathname]);
+  const { id: projectId } = useParams();
 
   /* ==========================================================================
    *  ROLE / GLOBAL OPTIONS (lightweight globals)
@@ -50,6 +49,8 @@ export default function ProjectDetailsPage() {
    *  - [Extract] snapshot reducer (useReducer) if this grows
    * ========================================================================*/
   const [project, setProject] = useState(null);
+  
+  const [error, setError] = useState(null); // new state
 
   const [projectTypeID, setProjectTypeID] = useState(0);
   const [projectTypeName, setProjectTypeName] = useState('');
@@ -139,6 +140,7 @@ export default function ProjectDetailsPage() {
       }
     } catch (err) {
       console.error('Failed to fetch project:', err);
+      setError('Unable to load project. Please try again later.'); // store error
     }
   };
 
@@ -182,15 +184,24 @@ export default function ProjectDetailsPage() {
     calcs = await recalcCalculated(nextAttributes);
     setEditedCalculated(calcs);
 
+
     // now submit the exact snapshot you want
     await apiFetch(`/projects/edit/${project.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+          general:{
+            name: project.name,
+            client_id: project.client_id,
+            due_date: project.due_date,
+            info: project.info,
+          },
         editedAttributes: nextAttributes, // use the param, not (possibly stale) state
         editedCalculated: calcs,
       }),
     });
+
+    alert('Project updated successfully.');
   };
 
   // handlers
@@ -215,7 +226,8 @@ export default function ProjectDetailsPage() {
    *  RENDER: layout (left: Form, right: canvas + (future) estimate/schema)
    *  - [Extract] presentational layout components later
    * ========================================================================*/
-  if (!project) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;   // show error
+  if (!project) return <div>Loading...</div>; // previous fallback
 
   return (
     <>

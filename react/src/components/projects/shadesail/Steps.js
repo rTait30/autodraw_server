@@ -708,7 +708,7 @@ export const Steps = [
           const discrepanciesWithValues = sortedDiscrepancies.filter(([_, value]) => value);
 
           if (discrepanciesWithValues.length === 0) {
-            ctx.fillText("Provide all dimensions and heights for discrepancy", 100, ypos);
+            ctx.fillText("Provide all dimensions and heights to calculate discrepancy", 100, ypos);
           } else {
             discrepanciesWithValues.forEach(([key, value]) => {
               const [a, b, c, d] = key.split('');

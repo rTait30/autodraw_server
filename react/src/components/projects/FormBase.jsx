@@ -75,13 +75,15 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
 }
 
 /* -------------------- Built-in General Section -------------------- */
-function GeneralSection({ role, config, formData, setField }) {
+function GeneralSection({ config, formData, setField }) {
   const {
     clientsEndpoint = '/clients',
     showClientForRoles, // if omitted: shown for all non-client roles
   } = config || {};
 
   const [clients, setClients] = useState([]);
+
+  const role = localStorage.getItem('role')
 
   const shouldShowClient =
     role !== 'client' &&
@@ -165,6 +167,27 @@ const GENERAL_DEFAULTS = {
   info: '',
 };
 
+const handleSubmit = async (nextAttributes) => {
+  // keep UI state in sync
+  setEditedAttributes(nextAttributes);
+
+  // decide which calculated to send
+  let calcs;
+  // staff: recompute synchronously here so payload is fresh
+  calcs = await recalcCalculated(nextAttributes);
+  setEditedCalculated(calcs);
+
+  // now submit the exact snapshot you want
+  await apiFetch(`/projects/edit/${project.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      editedAttributes: nextAttributes, // use the param, not (possibly stale) state
+      editedCalculated: calcs,
+    }),
+  });
+};
+
 const FormBase = forwardRef(({
   title = 'Form',
   role,                  // <-- pass role so General can decide visibility
@@ -174,9 +197,9 @@ const FormBase = forwardRef(({
   attributes = {},
   calculated = {},
   showCalculated = true,
+  onSubmit,
   onReturn,
   onCheck,
-  onSubmit,
   debug = false,
 }, ref) => {
   // Enabled by default unless explicitly disabled
@@ -258,7 +281,7 @@ const FormBase = forwardRef(({
       {generalEnabled && (
         <>
           <h4 className="headingStyle">General</h4>
-          <GeneralSection role={role} config={general} formData={formData} setField={setField} />
+          <GeneralSection formData={formData} setField={setField} />
         </>
       )}
 
@@ -278,17 +301,17 @@ const FormBase = forwardRef(({
       {(onReturn || onCheck || onSubmit) && (
         <div className="flex items-center gap-2 pt-2">
           {onReturn && (
-            <button type="button" className="btnSecondary" onClick={onReturn}>
+            <button type="button" className="buttonStyle" onClick={onReturn}>
               Return
             </button>
           )}
           {onCheck && (
-            <button type="button" className="btnPrimary" onClick={handleCheck}>
+            <button type="button" className="buttonStyle" onClick={handleCheck}>
               Check
             </button>
           )}
           {onSubmit && (
-            <button type="button" className="btnAccent" onClick={handleSubmit}>
+            <button type="button" className="buttonStyle" onClick={handleSubmit}>
               Submit
             </button>
           )}

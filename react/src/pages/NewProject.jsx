@@ -101,11 +101,26 @@ export default function NewProject() {
   }, [loadedConfig, runAll]);
 
   const handleSubmit = async () => {
-    if (!selectedType || !formRef.current?.getData) return;
+    if (!formRef.current?.getData) return;
+
+    if (!selectedType) {
+      alert('Please select a project type before submitting.');
+      return;
+    }
 
     try {
       // 1) Gather form data (General + Attributes)
       const all = formRef.current.getData();
+
+      if (!all.name) {
+        alert('Please enter a project name.');
+        return;
+      }
+
+      if (role !== 'client' && !all.client_id) {
+        alert('Please select a client.');
+        return;
+      }
 
       const general = GENERAL_KEYS.reduce((acc, k) => {
         if (k in all) acc[k] = all[k];

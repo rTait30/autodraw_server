@@ -1,9 +1,14 @@
-// GeneralSection.jsx (or inline above your fields)
+// GeneralSection.jsx
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../../services/auth';
 
-export function GeneralSection({ role, formData, setField }) {
+export function GeneralSection({ formData, setField }) {
   const [clients, setClients] = useState([]);
+
+
+  const role = localStorage.getItem('role')
+  console.log("role", role)
+  const clientId = localStorage.getItem('client_id') ?? null;
 
   useEffect(() => {
     let ignore = false;
@@ -50,6 +55,11 @@ export function GeneralSection({ role, formData, setField }) {
             ))}
           </select>
         </div>
+      )}
+
+      {role === 'client' && (
+        // hidden input or display for client users
+        <input type="hidden" value={clientId ?? ''} />
       )}
 
       <div>

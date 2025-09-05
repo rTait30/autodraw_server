@@ -78,6 +78,12 @@ def save_project_config():
     allowed_fields = {"name", "status", "due_date", "info"}  # <- 'type' removed
     project_data = {k: v for k, v in data.items() if k in allowed_fields}
 
+    name = (project_data.get("name") or "").strip()
+    if not name or len(name) == 0 or len(name) > 200:
+        return jsonify({"error": "name is required and must be between 1 and 200 characters"}), 400
+    project_data["name"] = name
+
+
     # Normalize due_date
     due_date = project_data.get("due_date")
     if due_date:
@@ -212,31 +218,76 @@ def save_project_config():
 # -------------------------------
 # Edit existing project (auth + role aware)
 # -------------------------------
-@projects_api_bp.route("/projects/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
-def upsert_project_attributes(project_id):
-    data = request.get_json() or {}
-    edited_attrs = data.get("editedAttributes") or {}
-    edited_calc = data.get("editedCalculated") or {}
+from datetime import datetime
+from flask import jsonify, request
+from sqlalchemy.orm.attributes import flag_modified
 
+@projects_api_bp.route("/projects/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
+def upsert_project_and_attributes(project_id):
+    payload = request.get_json(silent=True) or {}
+
+    general = payload.get("general") or {}
+    edited_attrs = payload.get("editedAttributes") or {}
+    edited_calc = payload.get("editedCalculated") or {}
+
+    if not isinstance(general, dict):
+        return jsonify({"error": "general must be an object"}), 400
     if not isinstance(edited_attrs, dict) or not isinstance(edited_calc, dict):
         return jsonify({"error": "editedAttributes and editedCalculated must be objects"}), 400
 
-    # Ensure project exists (404 if not)
+    # Ensure project exists
     project = Project.query.get_or_404(project_id)
 
+    # ---------- Update general (Project) fields ----------
+    # Skip if explicitly disabled; default is enabled
+    if general.get("enabled", True):
+        if "name" in general:
+            project.name = general["name"]
+
+        if "client_id" in general:
+            cid = general["client_id"]
+            if cid in (None, "", "null"):
+                project.client_id = None
+            else:
+                try:
+                    project.client_id = int(cid)
+                except (TypeError, ValueError):
+                    return jsonify({"error": "client_id must be an integer or empty"}), 400
+
+        if "due_date" in general:
+            dd = general["due_date"]
+            # Accept None/blank to clear; accept ISO date/datetime; else store raw
+            if dd in (None, "", "null"):
+                project.due_date = None
+            elif isinstance(dd, str):
+                try:
+                    # Try full ISO first (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+                    project.due_date = datetime.fromisoformat(dd)
+                except ValueError:
+                    try:
+                        project.due_date = datetime.strptime(dd, "%Y-%m-%d")
+                    except ValueError:
+                        # Fallback: store raw string if your model allows it
+                        project.due_date = dd
+            else:
+                project.due_date = dd  # if already a datetime/date
+
+        if "info" in general:
+            project.info = general["info"]
+
+    # ---------- Upsert attributes ----------
     attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
     if not attr:
         attr = ProjectAttribute(
             project_id=project.id,
             data=edited_attrs,
-            calculated=edited_calc
+            calculated=edited_calc,
         )
         db.session.add(attr)
     else:
-        # Replace entirely (simplest possible behavior)
         attr.data = edited_attrs
         attr.calculated = edited_calc
-        # If using SQLAlchemy JSON columns, flag as modified:
+        # Mark JSON columns as modified (if needed by your SQLAlchemy setup)
         try:
             flag_modified(attr, "data")
             flag_modified(attr, "calculated")
@@ -244,12 +295,23 @@ def upsert_project_attributes(project_id):
             pass
 
     db.session.commit()
+
     return jsonify({
         "ok": True,
-        "project_id": project.id,
-        "data": attr.data,
-        "calculated": attr.calculated,
+        "project": {
+            "id": project.id,
+            "name": project.name,
+            "client_id": project.client_id,
+            # If you store datetime, you may want to format this before returning
+            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
+            "info": project.info,
+        },
+        "attributes": {
+            "data": attr.data,
+            "calculated": attr.calculated,
+        },
     }), 200
+
 
 # -------------------------------
 # List projects (auth required; client sees own only)

@@ -73,6 +73,9 @@ const DEFAULTS = {
   dimensions: {},
   points: {},
   sailtracks: [],
+  cable: 4,
+  foldSide: 'underside',
+  UFC: [],
 };
 
 const defaultTensionAllowances = {
@@ -80,6 +83,11 @@ const defaultTensionAllowances = {
   M8T: 300, M10T: 350, M12T: 450,
   Plate: 150,
 };
+
+function getDimensionForPair(dimensions = {}, a, b) {
+  // Edges/diagonals are keyed like "AB" already; try both orders
+  return dimensions[`${a}${b}`] ?? dimensions[`${b}${a}`] ?? null;
+}
 
 /* ============================================================================
  * Custom render blocks that plug into FormBase as `type: 'custom'` fields
@@ -155,6 +163,29 @@ function SailMetaFields({ formData, setField }) {
           value={formData.logo ?? ''}
           onChange={(e) => setField('logo', e.target.value)}
         />
+      </label>
+
+      <label className="block">
+        <span className="block text-sm font-medium mb-1">Cable size (mm):</span>
+        <select
+          className="inputStyle"
+          value={formData.cable ?? 4}
+          onChange={(e) => setField('cable', Number(e.target.value))}
+        >
+          {[4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="block text-sm font-medium mb-1">Fold Side</span>
+        <select
+          className="inputStyle"
+          value={formData.foldSide ?? 'topside'}
+          onChange={(e) => setField('foldSide', e.target.value)}
+        >
+          <option value="topside">Topside</option>
+          <option value="underside">Underside</option>
+        </select>
       </label>
 
       <label className="block">
@@ -449,6 +480,8 @@ const buildFields = () => [
   { name: 'colour',         label: 'Colour',         type: 'text', visible: () => false },
   { name: 'exitPoint',      label: 'Exit Point',     type: 'text', visible: () => false },
   { name: 'logo',           label: 'Logo',           type: 'text', visible: () => false },
+  { name: 'cable',          label: 'Cable',           type: 'number', visible: () => false, min: 4, max: 6, step: 1 },
+  { name: 'foldSide',       label: 'Fold Side',      type: 'text', visible: () => false },
   { name: 'pointCount',     label: 'Point Count',    type: 'number', visible: () => false, min: 3, max: 11, step: 1 },
 
   // Dimensions editor
@@ -461,7 +494,19 @@ const buildFields = () => [
     ),
   },
 
-  // Sailtracks editor
+
+
+  // Points table
+  {
+    name: 'points',
+    label: null,
+    type: 'custom',
+    render: ({ formData, onChange }) => (
+      <PointsTable formData={formData} setPoints={(next) => onChange(next)} />
+    ),
+  },
+
+    // Sailtracks editor
   {
     name: 'sailtracks',
     label: null,
@@ -471,13 +516,11 @@ const buildFields = () => [
     ),
   },
 
-  // Points table
-  {
-    name: 'points',
-    label: null,
-    type: 'custom',
+  
+  // 👇 NEW: Under-Fabric Cables
+  { name: 'ufc', label: null, type: 'custom',
     render: ({ formData, onChange }) => (
-      <PointsTable formData={formData} setPoints={(next) => onChange(next)} />
+      <UnderfabricCablesEditor formData={formData} onChange={onChange} />
     ),
   },
 
@@ -527,16 +570,17 @@ const buildFields = () => [
  * SailForm component
  * ==========================================================================*/
 const SailForm = forwardRef(function SailForm(
-  { attributes = {}, calculated = {}, role, onReturn, onCheck, onSubmit },
+  { general = {}, attributes = {}, calculated = {}, role, onReturn, onCheck, onSubmit },
   ref
 ) {
   const fields = useMemo(() => buildFields(), []);
   return (
     <FormBase
       ref={ref}
-      title="Shade Sail Form"
+      title="Shade Sail"
       fields={fields}
       defaults={DEFAULTS}
+      general={{ enabled: true, ...general }}
       attributes={attributes}
       calculated={calculated}       // sails don’t use the generic calculated panel here
       onReturn={onReturn}
@@ -549,3 +593,261 @@ const SailForm = forwardRef(function SailForm(
 });
 
 export default SailForm;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function UnderfabricCablesEditor({ formData, onChange }) {
+  const pointCount = formData.pointCount ?? 4;
+  const points = React.useMemo(
+    () => Array.from({ length: pointCount }, (_, i) => getPointLabel(i)),
+    [pointCount]
+  );
+
+  const allowedPairs = React.useMemo(() => makeDiagonals(pointCount), [pointCount]);
+  const norm = (a, b) => [a, b].sort().join("");
+
+  const rows = formData.ufc ?? [];
+  const setRows = (next) => onChange(next);
+
+  // Draft stays put after "Add"
+  const firstAllowed =
+    allowedPairs.find(([a, b]) => !rows.some(r => norm(r.from, r.to) === norm(a, b)));
+  const [draft, setDraft] = React.useState(() => ({
+    from: firstAllowed?.[0] ?? points[0],
+    to: firstAllowed?.[1] ?? points[0],
+    size: formData.cable ?? 4,
+    pocket: false,
+  }));
+
+  // Valid targets helper (prevents non-diagonals + duplicates)
+  const validTargets = React.useCallback(
+    (from, excludeIdx = -1) =>
+      points.filter((t) => {
+        if (t === from) return false;
+        const k = norm(from, t);
+        const isAllowed = allowedPairs.some(([a, b]) => norm(a, b) === k);
+        const dup = rows.some((r, i) => i !== excludeIdx && norm(r.from, r.to) === k);
+        return isAllowed && !dup;
+      }),
+    [points, allowedPairs, rows]
+  );
+
+  const canAdd = draft.from && draft.to && validTargets(draft.from).includes(draft.to);
+
+  const addRow = () => {
+    if (!canAdd) return;
+    setRows([...rows, { ...draft }]); // keep draft unchanged (per your request)
+  };
+
+  const updateRow = (idx, patch) => {
+    const next = [...rows];
+    next[idx] = { ...next[idx], ...patch };
+    setRows(next);
+  };
+
+  const removeRow = (idx) => {
+    const next = [...rows];
+    next.splice(idx, 1);
+    setRows(next);
+  };
+
+  const totalLen = rows.reduce((acc, r) => {
+    const v = getDimensionForPair(formData.dimensions, r.from, r.to);
+    return acc + (typeof v === "number" ? v : 0);
+  }, 0);
+
+  return (
+    <div className="mt-4">
+      <b>Under-Fabric Cables (UFC)</b>
+
+      {/* Add new */}
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="block text-sm mb-1">From</span>
+          <select
+            className="inputCompact"
+            value={draft.from}
+            onChange={(e) => {
+              const from = e.target.value;
+              // If current "to" becomes invalid, nudge it to first valid (or empty)
+              const valids = validTargets(from);
+              setDraft((d) => ({ ...d, from, to: valids.includes(d.to) ? d.to : (valids[0] ?? "") }));
+            }}
+          >
+            {points.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="block text-sm mb-1">To</span>
+          <select
+            className="inputCompact"
+            value={draft.to}
+            onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))}
+          >
+            {validTargets(draft.from).length === 0 ? (
+              <option value="">No valid target</option>
+            ) : (
+              validTargets(draft.from).map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))
+            )}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="block text-sm mb-1">Size (mm)</span>
+          <select
+            className="inputCompact"
+            value={draft.size}
+            onChange={(e) => setDraft((d) => ({ ...d, size: Number(e.target.value) }))}
+          >
+            {[4, 5, 6].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 mb-1">
+          <input
+            type="checkbox"
+            checked={!!draft.pocket}
+            onChange={(e) => setDraft((d) => ({ ...d, pocket: e.target.checked }))}
+          />
+          <span className="text-sm">Internal pocket</span>
+        </label>
+
+        <button
+          type="button"
+          className="px-3 py-1 rounded border"
+          onClick={addRow}
+          disabled={!canAdd}
+        >
+          Add UFC
+        </button>
+      </div>
+
+      {/* Existing rows */}
+      <div className="overflow-auto mt-3">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="font-semibold border-b">
+              <th className="text-left p-1">From</th>
+              <th className="text-left p-1">To</th>
+              <th className="text-left p-1">Size</th>
+              <th className="text-left p-1">Pocket</th>
+              <th className="text-left p-1">Length</th>
+              <th className="text-left p-1"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td className="p-2 text-sm text-gray-500" colSpan={6}>
+                  {pointCount <= 3
+                    ? "No valid UFC pairs for triangles."
+                    : "No under-fabric cables yet. Add one above."}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, idx) => {
+                const len = getDimensionForPair(formData.dimensions, row.from, row.to);
+                const toOptions = validTargets(row.from, idx);
+                return (
+                  <tr key={idx} className="border-b">
+                    <td className="p-1">
+                      <select
+                        className="inputCompact"
+                        value={row.from}
+                        onChange={(e) => {
+                          const from = e.target.value;
+                          const valids = validTargets(from, idx);
+                          const nextTo = valids.includes(row.to) ? row.to : (valids[0] ?? "");
+                          updateRow(idx, { from, to: nextTo });
+                        }}
+                      >
+                        {points.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-1">
+                      <select
+                        className="inputCompact"
+                        value={row.to}
+                        onChange={(e) => updateRow(idx, { to: e.target.value })}
+                      >
+                        {toOptions.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-1">
+                      <select
+                        className="inputCompact"
+                        value={row.size ?? 4}
+                        onChange={(e) => updateRow(idx, { size: Number(e.target.value) })}
+                      >
+                        {[4, 5, 6].map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-1">
+                      <input
+                        type="checkbox"
+                        checked={!!row.pocket}
+                        onChange={(e) => updateRow(idx, { pocket: e.target.checked })}
+                      />
+                    </td>
+                    <td className="p-1">{typeof len === "number" ? len.toLocaleString() : "-"}</td>
+                    <td className="p-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded border"
+                        aria-label="Remove row"
+                        title="Remove"
+                        onClick={() => removeRow(idx)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="p-1 font-semibold" colSpan={4}>
+                Total UFC Length (from dimensions)
+              </td>
+              <td className="p-1 font-semibold">
+                {totalLen ? totalLen.toLocaleString() : "-"}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}

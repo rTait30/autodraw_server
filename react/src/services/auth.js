@@ -29,15 +29,39 @@ export async function refresh() {
 export async function apiFetch(path, options = {}, _retried = false) {
   const headers = { ...(options.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
   const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
+    credentials: 'include',  // preserve old behavior
     ...options,
-    headers
+    headers,
   });
-  if (res.status === 401 && !_retried && await refresh()) {
-    return apiFetch(path, options, true); // retry once with fresh token
+
+  // Preserve: one retry on 401 if refresh() succeeds
+  if (res.status === 401 && !_retried) {
+    if (await refresh()) {
+      return apiFetch(path, options, true);
+    }
   }
-  return res;
+
+  // If OK, preserve old behavior: return the Response for caller to .json()/.blob()
+  if (res.ok) return res;
+
+  // New: throw a friendly error using server message (JSON or text)
+  let message = `HTTP ${res.status}`;
+  try {
+    const data = await res.clone().json();
+    message = data.error || data.message || JSON.stringify(data);
+  } catch {
+    try {
+      const text = await res.text();
+      if (text) message = text;
+    } catch { /* ignore */ }
+  }
+
+  const err = new Error(message);
+  err.status = res.status;
+  err.response = res;
+  throw err;
 }
 
 export async function login(username, password) {

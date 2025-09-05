@@ -688,7 +688,7 @@ export const Steps = [
         ctx.font = '32px Arial';
         ctx.lineWidth = 2;
 
-        let ypos = 1100;
+        let ypos = 1000;
 
         ctx.fillStyle = '#b00020';
 
@@ -705,31 +705,36 @@ export const Steps = [
           const sortedDiscrepancies = Object.entries(data.discrepancies)
             .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])); // descending by abs diff
 
-          sortedDiscrepancies.forEach(([key, value]) => {
-            const [a, b, c, d] = key.split('');
+          const discrepanciesWithValues = sortedDiscrepancies.filter(([_, value]) => value);
 
-            const dimKey = `${b}${d}`;
-            const measured = data.dimensions?.[dimKey];
+          if (discrepanciesWithValues.length === 0) {
+            ctx.fillText("Provide all dimensions and heights for discrepancy", 100, ypos);
+          } else {
+            discrepanciesWithValues.forEach(([key, value]) => {
+              const [a, b, c, d] = key.split('');
+              const dimKey = `${b}${d}`;
+              const measured = data.dimensions?.[dimKey];
 
-            const abs = Math.abs(value);
-            const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
+              const abs = Math.abs(value);
+              const percent = measured ? ((abs / measured) * 100).toFixed(1) : '?';
 
-            ctx.fillText(
-              `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
-              100,
-              ypos
-            );
+              ctx.fillText(
+                `${key}: ${abs.toFixed(1)}mm (${percent}%)`,
+                100,
+                ypos
+              );
 
-            ypos += 40;
-          });
+              ypos += 40;
+            });
+          }
         }
 
-        ypos = 1100;
+        ypos += 100;
 
         if (data.blame) {
           ctx.fillText(
             `Blame:`,
-            500,
+            100,
             ypos
           );
 
@@ -742,7 +747,7 @@ export const Steps = [
             const text = `${key}: ${value.toFixed(2)}`;
             
             // Example: draw on canvas
-            ctx.fillText(text, 500, ypos);
+            ctx.fillText(text, 100, ypos);
 
             // Move down for next entry
             ypos += 40;

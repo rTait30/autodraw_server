@@ -1,4 +1,7 @@
-import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState } from 'react';
+import React, {
+  useImperativeHandle, forwardRef, useEffect, useMemo, useState
+} from 'react';
+import { apiFetch } from '../../services/auth';
 
 /**
  * Field schema item shape:
@@ -6,19 +9,17 @@ import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState } 
  *   name: 'width',
  *   label: 'Width',
  *   type: 'number' | 'text' | 'select' | 'textarea' | 'custom',
- *   options?: [{label, value}], // for select
+ *   options?: [{label, value}],
  *   placeholder?: string,
  *   defaultValue?: any,
- *   visible?: (formData) => boolean, // optional visibility rule
+ *   visible?: (formData) => boolean,
  *   readOnly?: boolean,
  *   disabled?: boolean,
- *   min?: number, max?: number, step?: number, // number inputs
- *   transformOut?: (value, formData) => any,  // run on getData()
- *   render?: (props) => ReactNode,            // type === 'custom'
+ *   min?: number, max?: number, step?: number,
+ *   transformOut?: (value, formData) => any,
+ *   render?: (props, field) => ReactNode, // type === 'custom'
  * }
  */
-
-
 
 function FieldRenderer({ field, value, onChange, formData, setField }) {
   const {
@@ -32,22 +33,20 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
     onChange: (e) => onChange(
       type === 'number' ? Number(e.target.value) : e.target.value
     ),
-    className: "inputCompact w-full",
+    className: 'inputCompact w-full',
     placeholder,
     readOnly,
     disabled,
   };
 
-  
-
   return (
     <div>
       {label && <label className="block text-sm font-medium mb-1">{label}</label>}
 
-      {type === 'number' && <input type="number" {...common} min={min} max={max} step={step} />}
-      {type === 'text'   && <input type="text" {...common} />}
+      {type === 'number'   && <input type="number" {...common} min={min} max={max} step={step} />}
+      {type === 'text'     && <input type="text" {...common} />}
       {type === 'textarea' && <textarea {...common} rows={3} />}
-      {type === 'select' && (
+      {type === 'select'   && (
         <select {...common}>
           {options.map((opt) => (
             <option key={opt.value ?? opt.label} value={opt.value ?? opt.label}>
@@ -56,47 +55,155 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
           ))}
         </select>
       )}
-
-      {type === 'custom' && render && render({
-        name,
-        value,
-        onChange,      // <-- updates THIS field's value
-        formData,
-        setField,      // <-- lets custom blocks set ANY field (e.g., pointCount)
-      })}
+      {type === 'checkbox' && (
+        <input
+          type="checkbox"
+          name={name}
+          checked={!!value}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+          // keep styling simple; override if you have a checkbox utility class
+          className="h-4 w-4 align-middle"
+        />
+      )}
+      {type === 'custom' && render && render(
+        { name, value, onChange, formData, setField },
+        field
+      )}
     </div>
   );
 }
 
+/* -------------------- Built-in General Section -------------------- */
+function GeneralSection({ role, config, formData, setField }) {
+  const {
+    clientsEndpoint = '/clients',
+    showClientForRoles, // if omitted: shown for all non-client roles
+  } = config || {};
 
+  const [clients, setClients] = useState([]);
+
+  const shouldShowClient =
+    role !== 'client' &&
+    (Array.isArray(showClientForRoles) ? showClientForRoles.includes(role) : true);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!shouldShowClient) {
+      setClients([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await apiFetch(clientsEndpoint);
+        if (!res.ok) throw new Error('Failed to load clients');
+        const data = await res.json();
+        if (!ignore) setClients(Array.isArray(data) ? data : []);
+      } catch {
+        if (!ignore) setClients([]);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [shouldShowClient, clientsEndpoint]);
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="block text-sm font-medium mb-1">Project Name</label>
+        <input
+          type="text"
+          className="inputStyle"
+          value={formData.name ?? ''}
+          onChange={(e) => setField('name', e.target.value)}
+        />
+      </div>
+
+      {shouldShowClient && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Client</label>
+          <select
+            className="inputStyle"
+            value={formData.client_id ?? ''}
+            onChange={(e) => setField('client_id', e.target.value)}
+          >
+            <option value="">Select client</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Due Date</label>
+        <input
+          type="date"
+          className="inputStyle"
+          value={formData.due_date ?? ''}
+          onChange={(e) => setField('due_date', e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Info</label>
+        <input
+          type="text"
+          className="inputStyle"
+          value={formData.info ?? ''}
+          onChange={(e) => setField('info', e.target.value)}
+          placeholder="Notes or special instructions"
+        />
+      </div>
+    </div>
+  );
+}
+
+const GENERAL_DEFAULTS = {
+  name: '',
+  client_id: '',
+  due_date: '',
+  info: '',
+};
 
 const FormBase = forwardRef(({
   title = 'Form',
+  role,                  // <-- pass role so General can decide visibility
   fields = [],
   defaults = {},
+  general = {},        // optional hydration for General (name/client/due_date/info)
   attributes = {},
   calculated = {},
   showCalculated = true,
   onReturn,
   onCheck,
   onSubmit,
-  debug = false,        // keep your console logs opt-in
+  debug = false,
 }, ref) => {
-  // derive initial values once from defaults + attributes + field defaults
+  // Enabled by default unless explicitly disabled
+  const generalEnabled = general?.enabled !== false;
+
+  // derive initial values once from field defaults + provided defaults + attributes
   const initial = useMemo(() => {
     const byFieldDefaults = fields.reduce((acc, f) => {
-      if (f.defaultValue !== undefined) acc[f.name] = f.defaultValue;
+      if (f?.defaultValue !== undefined) acc[f.name] = f.defaultValue;
       return acc;
     }, {});
-    return { ...byFieldDefaults, ...defaults, ...attributes };
-  }, [fields, defaults, attributes]);
-
-  
+    // include built-in general defaults so getData() always has those keys
+    const base = generalEnabled ? { ...GENERAL_DEFAULTS } : {};
+    return { ...base, ...byFieldDefaults, ...defaults, ...general, ...attributes };
+  }, [fields, defaults, general, attributes, generalEnabled]);
 
   const [formData, setFormData] = useState(initial);
 
+  // Rehydrate when `general` changes (same pattern as attributes)
   useEffect(() => {
-    // If attributes change from the parent, merge into state (do not blow away user edits blindly).
+    if (general && Object.keys(general).length) {
+      setFormData(prev => ({ ...prev, ...general }));
+      if (debug) console.log('[FormBase] general received:', general);
+    }
+  }, [general, debug]);
+
+  useEffect(() => {
     setFormData((prev) => ({ ...prev, ...attributes }));
     if (debug) console.log('[FormBase] attributes received:', attributes);
   }, [attributes, debug]);
@@ -105,14 +212,23 @@ const FormBase = forwardRef(({
     if (debug) console.log('[FormBase] calculated received:', calculated);
   }, [calculated, debug]);
 
-  // expose getData() like your current API, with per-field transformOut support
+  // getData applies transformOut and also coerces client_id to number if present
   useImperativeHandle(ref, () => ({
     getData: () => {
       const out = { ...formData };
+
+      // Coerce client_id
+      if ('client_id' in out) {
+        const raw = out.client_id;
+        out.client_id =
+          raw === '' || raw == null ? undefined :
+          (Number(raw) || undefined);
+      }
+
+      // Per-field transformOut / number coercion
       for (const f of fields) {
         if (!(f.name in out)) continue;
         const raw = out[f.name];
-        // Apply transformOut if provided, otherwise coerce numbers for number type
         out[f.name] = f.transformOut
           ? f.transformOut(raw, formData)
           : (f.type === 'number' ? (Number(raw) || 0) : raw);
@@ -123,35 +239,30 @@ const FormBase = forwardRef(({
     resetToInitial: () => setFormData(initial),
   }));
 
-  const handleChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCheck = () => {
-    const data = ref && typeof ref !== 'function' && ref.current?.getData?.()
-      ? ref.current.getData()
-      : formData;
-    onCheck?.(data);
-  };
-
-  const handleSubmit = () => {
-    const data = ref && typeof ref !== 'function' && ref.current?.getData?.()
-      ? ref.current.getData()
-      : formData;
-    onSubmit?.(data);
-  };
-
-  // compute visible fields
   const visibleFields = fields.filter(f => (typeof f.visible === 'function' ? f.visible(formData) : true));
 
-    const setField = (key, val) =>
-        setFormData(prev => ({ ...prev, [key]: val }));
+  const setField = (key, val) =>
+    setFormData(prev => ({ ...prev, [key]: val }));
+
+  const handleCheck = () => {
+    onCheck?.(ref?.current?.getData ? ref.current.getData() : formData);
+  };
+  const handleSubmit = () => {
+    onSubmit?.(ref?.current?.getData ? ref.current.getData() : formData);
+  };
 
   return (
     <div className="space-y-4 w-100%">
-      <h3 className="headingStyle">{title}</h3>
+      <h3 className="headingStyle text-red-400 text-4xl">{title}</h3>
 
+      {generalEnabled && (
+        <>
+          <h4 className="headingStyle">General</h4>
+          <GeneralSection role={role} config={general} formData={formData} setField={setField} />
+        </>
+      )}
 
+      <h4 className="headingStyle">Attributes</h4>
 
       {visibleFields.map((field) => (
         <FieldRenderer

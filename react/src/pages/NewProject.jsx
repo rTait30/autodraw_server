@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
-import GeneralFields from '../components/projects/GeneralFields';
 import ProjectSidebar from '../components/ProjectSidebar';
 import { apiFetch } from '../services/auth';
 
@@ -8,7 +7,9 @@ const projectTypes = [
   { name: 'Covers', id: 'cover' },
   { name: 'Shade Sail', id: 'shadesail' },
 ];
-//Eventually get this from the server
+
+// General keys integrated in FormBase
+const GENERAL_KEYS = ['name', 'client_id', 'due_date', 'info'];
 
 export default function NewProject() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,7 +18,6 @@ export default function NewProject() {
   const [result, setResult] = useState({});
   const canvasRef = useRef(null);
   const formRef = useRef(null);
-  const generalFormRef = useRef(null);
 
   const role = localStorage.getItem('role') || 'guest';
 
@@ -33,24 +33,27 @@ export default function NewProject() {
       steps: loadedConfig?.steps || [],
       options,
     },
+    // reset when steps change
     JSON.stringify(loadedConfig?.steps || [])
   );
 
+  // Lazy-load Form + Steps for the selected type
   useEffect(() => {
     if (!selectedType) return;
 
-    const load = async () => {
+    (async () => {
       try {
         const [FormModule, StepsModule] = await Promise.all([
           import(`../components/projects/${selectedType}/Form.jsx`),
           import(`../components/projects/${selectedType}/Steps.js`),
         ]);
 
-        console.log(`[Loader] Loaded steps for "${selectedType}":`, StepsModule.steps);
+        const steps = StepsModule.Steps ?? StepsModule.steps ?? [];
+        console.log(`[Loader] Loaded steps for "${selectedType}":`, steps);
 
         setLoadedConfig({
           FormComponent: FormModule.default,
-          steps: StepsModule.Steps,
+          steps,
           title: projectTypes.find(pt => pt.id === selectedType)?.name || 'Project',
         });
         setResult({});
@@ -58,11 +61,10 @@ export default function NewProject() {
         console.error(`Error loading type "${selectedType}":`, err);
         setLoadedConfig(null);
       }
-    };
-
-    load();
+    })();
   }, [selectedType]);
 
+  // Clear canvas on type change
   useEffect(() => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
@@ -70,65 +72,66 @@ export default function NewProject() {
     }
   }, [selectedType]);
 
-
+  // Auto-run steps whenever form data changes
   const lastStringifiedRef = useRef('');
-
   useEffect(() => {
     const interval = setInterval(() => {
-      if (formRef.current?.getData) {
-        try {
-          const data = formRef.current.getData();
-          const stringified = JSON.stringify(data);
+      const api = formRef.current;
+      if (!api?.getData) return;
 
-          if (stringified !== lastStringifiedRef.current) {
-            console.log('[NewProject] Detected formData change:', data);
+      try {
+        const formData = api.getData();            // includes General + type-specific fields
+        const stringified = JSON.stringify(formData);
 
-            lastStringifiedRef.current = stringified;
-            const cleanData = { ...data };
-            delete cleanData.result; // Clear old results
-            runAll(cleanData);
-            setResult(cleanData.result || {});
-          } else {
-            console.log('[NewProject] formData unchanged');
-          }
+        if (stringified !== lastStringifiedRef.current) {
+          lastStringifiedRef.current = stringified;
 
-        } catch (err) {
-          console.error('[NewProject] getData failed:', err);
+          const cleanData = { ...formData };
+          delete cleanData.result; // safety
+
+          runAll(cleanData);
+          setResult(cleanData.result || {});
         }
-      } else {
-        console.warn('[NewProject] formRef.getData is not available');
+      } catch (err) {
+        console.error('[NewProject] getData failed:', err);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [loadedConfig]);
-
+  }, [loadedConfig, runAll]);
 
   const handleSubmit = async () => {
-    if (!formRef.current?.getData || !generalFormRef.current?.getData || !selectedType) return;
-
-    const general = generalFormRef.current.getData();
-    const attributes = formRef.current.getData();
-    const calculatedRaw = getData();
-
-    const excludeKeys = new Set([
-      ...Object.keys(general),
-      ...Object.keys(attributes),
-    ]);
-
-    const calculated = Object.fromEntries(
-      Object.entries(calculatedRaw).filter(([key]) => !excludeKeys.has(key))
-    );
-
-    const payload = {
-      type: selectedType === 'shadesails' ? 'sail' : selectedType === 'covers' ? 'cover' : selectedType,
-      ...general,
-      attributes,
-      calculated,
-    };
+    if (!selectedType || !formRef.current?.getData) return;
 
     try {
-      const response = await apiFetch("/projects/create", {
+      // 1) Gather form data (General + Attributes)
+      const all = formRef.current.getData();
+
+      const general = GENERAL_KEYS.reduce((acc, k) => {
+        if (k in all) acc[k] = all[k];
+        return acc;
+      }, {});
+
+      const attributes = Object.fromEntries(
+        Object.entries(all).filter(([k]) => !GENERAL_KEYS.includes(k))
+      );
+
+      // 2) Gather calculated data from the stepper, excluding anything that’s in the form
+      const stepOut = getData() || {};
+      const calculated = Object.fromEntries(
+        Object.entries(stepOut).filter(([k]) => !(k in all))
+      );
+
+      // 3) Build payload
+      const payload = {
+        // Project (general) fields go top-level
+        ...general,
+        type: selectedType,     // use the id; change here if your API expects another mapping
+        attributes,
+        calculated,
+      };
+
+      const response = await apiFetch('/projects/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -140,7 +143,7 @@ export default function NewProject() {
       console.log('Submitted:', res);
     } catch (err) {
       console.error('Submission error:', err);
-      alert('Failed to submit project.');
+      alert(`Error submitting project: ${err.message}`);
     }
   };
 
@@ -157,14 +160,19 @@ export default function NewProject() {
       <main className="flex-1 p-6">
         {loadedConfig ? (
           <>
-            <h2 className="text-xl font-bold mb-4">{loadedConfig.title}</h2>
             <div className="flex flex-wrap gap-10">
               <div className="flex-1 min-w-[400px]">
-                <GeneralFields ref={generalFormRef} role={role} />
-                <div className="my-6 border-t pt-6">
-                  <loadedConfig.FormComponent ref={formRef} role={role} />
-                </div>
-                <button onClick={handleSubmit} className="buttonStyle">
+                {/* The loaded FormComponent uses FormBase with built-in General section */}
+                <loadedConfig.FormComponent
+                  ref={formRef}
+                  role={role}
+                  // optional hydration for General (name/client/due_date/info)
+                  project={{}}                 // pass server-provided project data here if available
+                  // optional General config (can omit and rely on defaults)
+                  general={{ enabled: true, clientsEndpoint: '/clients' }}
+                />
+
+                <button onClick={handleSubmit} className="buttonStyle mt-6">
                   Submit Project
                 </button>
               </div>
@@ -189,7 +197,6 @@ export default function NewProject() {
                 </div>
               </div>
             </div>
-
           </>
         ) : (
           <p className="text-gray-500">Select a project type to begin.</p>

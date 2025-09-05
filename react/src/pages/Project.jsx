@@ -240,6 +240,13 @@ export default function ProjectDetailsPage() {
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>
                   <Form
+                    general={{
+                      enabled: true,
+                      name: project.name,
+                      client_id: project.client_id,
+                      due_date: project.due_date,
+                      info: project.info,
+                    }}
                     attributes={editedAttributes}
                     calculated={editedCalculated}
                     showFabricWidth

@@ -664,6 +664,34 @@ export const Steps = [
 
       let fabricPrice = getPriceByFabric(data.edgeMeterCeilMeters, data.fabricType);
 
+      let discrepancyProblem = false;
+
+      console.log("Fabric category:", data.fabricCategory);
+
+      let allowance = 40;
+
+      if (data.fabricCategory === "ShadeCloth") {
+        allowance = 80;
+      } else if (data.fabricCategory === "PVC") {
+        allowance = 40;
+      }
+      
+      if (allowance === 0) {
+        console.warn("Unknown fabric category, cannot set discrepancy allowance");
+      }
+
+      console.log(discrepancies)
+
+      for (const key in discrepancies) {
+
+        console.log(`Checking discrepancy ${key}: ${discrepancies[key]} against allowance ${allowance}`);
+
+        if (discrepancies[key] > allowance) {
+          discrepancyProblem = key;
+          break;
+        }
+      }
+
 
       return {
         edgeMeter,
@@ -672,6 +700,7 @@ export const Steps = [
         discrepancies,
         blame,
         fabricPrice,
+        discrepancyProblem,
         ...(boxes ? { boxes } : {})
       };
     },
@@ -688,11 +717,57 @@ export const Steps = [
         ctx.font = '32px Arial';
         ctx.lineWidth = 2;
 
-        let ypos = 1000;
+        let ypos = 1100;
 
         ctx.fillStyle = '#b00020';
 
         if (data.discrepancies) {
+          if (data.discrepancyProblem) {
+
+            ctx.fillStyle = 'red';
+            ctx.font = 'bold 40px Arial';
+            ctx.fillText(
+              `⚠ Discrepancy too high for ${data.fabricCategory} (${data.discrepancyProblem}) ⚠`,
+              50,
+              1000
+            );
+            ctx.font = '32px Arial';
+
+            if (data.pointCount > 4) {
+
+              ctx.fillText(
+                "Maybe check",
+                100,
+                1060
+              )
+
+              const sortedBlame = Object.entries(data.blame || {})
+              .sort((a, b) => Number(b[1]) - Number(a[1])); // descending by score
+
+              sortedBlame.slice(0, 5).forEach(([key, rawValue]) => {
+                const value = Number(rawValue);
+
+                if (key.length === 1) {
+                  ctx.fillText(`Height of point ${key}`, 100, ypos);
+                } else if (key.length === 2) {
+                  ctx.fillText(`Edge: ${key} `, 100, ypos);
+                }
+
+                ypos += 40; // Move down for next entry
+              });
+            }
+
+            ypos += 40;
+          }
+          else {
+
+            ctx.fillStyle = 'green';
+            ctx.fillText(
+              `✓ Measurements within allowance`,
+              100,
+              1000
+            );
+          }
           ctx.fillText(
             `Discrepancies:`,
             100,
@@ -740,18 +815,19 @@ export const Steps = [
 
           ypos += 60;
           // Convert blame object → array of [key, value] pairs
+          
           const sortedBlame = Object.entries(data.blame)
-            .sort((a, b) => b[1] - a[1]); // descending by score
-
-          sortedBlame.forEach(([key, value]) => {
-            const text = `${key}: ${value.toFixed(2)}`;
-            
-            // Example: draw on canvas
-            ctx.fillText(text, 100, ypos);
-
-            // Move down for next entry
+            .sort((a, b) => Number(b[1]) - Number(a[1])); // descending by score  
+          
+          for (const [key, rawValue] of sortedBlame) {
+            const value = Number(rawValue);
+            ctx.fillText(
+              `${key}: ${value.toFixed(2)}`,
+              100,
+              ypos
+            );
             ypos += 40;
-          });
+          }
         }
 
         const pointIds = Object.keys(data.positions);

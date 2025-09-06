@@ -567,7 +567,34 @@ const buildFields = () => [
 ];
 
 // Minimal field set for quick discrepancy checks
+// Minimal field set for quick discrepancy checks
 const buildDiscrepancyFields = () => [
+  // Fabric Category: dropdown only (no side-effects on brand/colour)
+  {
+    name: 'fabricCategory',
+    label: null,
+    type: 'custom',
+    render: ({ formData, setField }) => {
+      const categories = Object.keys(FABRIC_OPTIONS || {});
+      return (
+        <label className="block">
+          <span className="block text-sm font-medium mb-1">Fabric Category</span>
+          <select
+            className="inputStyle"
+            value={formData.fabricCategory ?? ''}
+            onChange={(e) => setField('fabricCategory', e.target.value)}
+          >
+            <option value="" disabled>Choose a category…</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </label>
+      );
+    },
+  },
+
+  // Keep the rest of the discrepancy inputs
   {
     name: 'pointCount',
     label: 'Point Count',
@@ -599,6 +626,7 @@ const buildDiscrepancyFields = () => [
     ),
   },
 ];
+
 
 /* ============================================================================
  * SailForm component

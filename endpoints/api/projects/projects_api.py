@@ -70,8 +70,17 @@ def save_project_config():
     user = current_user(required=True)
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    
+
 
     data = request.get_json() or {}
+
+    print (data)
+
+    if data['calculated']['discrepancyProblem']:
+
+        return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
+    
     project_id = data.get("id")  # Optional update/upsert
 
     # ---- CHANGED: do NOT whitelist "type" because it's a relationship now

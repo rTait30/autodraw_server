@@ -86,7 +86,7 @@ function GeneralSection({ config, formData, setField }) {
   const role = localStorage.getItem('role')
 
   const shouldShowClient =
-    role !== 'client' &&
+    role && role !== 'client' &&
     (Array.isArray(showClientForRoles) ? showClientForRoles.includes(role) : true);
 
   useEffect(() => {

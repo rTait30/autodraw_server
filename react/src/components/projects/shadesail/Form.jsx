@@ -566,21 +566,66 @@ const buildFields = () => [
   },
 ];
 
+// Minimal field set for quick discrepancy checks
+const buildDiscrepancyFields = () => [
+  {
+    name: 'pointCount',
+    label: 'Point Count',
+    type: 'number',
+    min: 3,
+    max: 11,
+    step: 1,
+  },
+  {
+    name: 'dimensions',
+    label: null,
+    type: 'custom',
+    render: ({ formData, onChange }) => (
+      <EdgesAndDiagonals
+        formData={formData}
+        setDimensions={(next) => onChange(next)}
+      />
+    ),
+  },
+  {
+    name: 'points',
+    label: null,
+    type: 'custom',
+    render: ({ formData, onChange }) => (
+      <PointsTable
+        formData={formData}
+        setPoints={(next) => onChange(next)}
+      />
+    ),
+  },
+];
+
 /* ============================================================================
  * SailForm component
  * ==========================================================================*/
 const SailForm = forwardRef(function SailForm(
-  { general = {}, attributes = {}, calculated = {}, role, onReturn, onCheck, onSubmit },
+   {
+    compact = false,
+    general = {},
+    attributes = {},
+    calculated = {},
+    onReturn,
+    onCheck,
+    onSubmit,
+  },
   ref
 ) {
-  const fields = useMemo(() => buildFields(), []);
+  const fields = useMemo(
+    () => (compact ? buildDiscrepancyFields() : buildFields()),
+    [compact]
+  );
   return (
     <FormBase
       ref={ref}
       title="Shade Sail"
       fields={fields}
       defaults={DEFAULTS}
-      general={{ enabled: true, ...general }}
+      general={{ enabled: !compact, ...general }}
       attributes={attributes}
       calculated={calculated}       // sails don’t use the generic calculated panel here
       onReturn={onReturn}

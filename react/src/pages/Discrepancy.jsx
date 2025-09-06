@@ -103,7 +103,7 @@ export default function Discrepancy() {
           {/* Left side: form */}
           <div className="flex-1">
             <Suspense fallback={<div>Loading form…</div>}>
-              <ShadesailForm ref={formRef} role={role} />
+              <ShadesailForm ref={formRef} role={role} compact />
             </Suspense>
           </div>
 

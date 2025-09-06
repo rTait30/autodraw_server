@@ -104,7 +104,7 @@ def create_app():
     return app
 
 
+app = create_app()
 if __name__ == '__main__':
     # For local dev only
-    app = create_app()
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='127.0.0.1', port=5001, debug=True)

@@ -480,8 +480,15 @@ const buildFields = () => [
   { name: 'colour',         label: 'Colour',         type: 'text', visible: () => false },
   { name: 'exitPoint',      label: 'Exit Point',     type: 'text', visible: () => false },
   { name: 'logo',           label: 'Logo',           type: 'text', visible: () => false },
-  { name: 'cable',          label: 'Cable',           type: 'number', visible: () => false, min: 4, max: 6, step: 1 },
   { name: 'foldSide',       label: 'Fold Side',      type: 'text', visible: () => false },
+  { 
+    name: 'cable',
+    label: 'Cable',
+    type: 'number',
+    visible: () => false,
+    min: 4, max: 6, step: 1,
+    transformOut: (_v, formData) => Number(formData.cable ?? 4),
+  },
   { name: 'pointCount',     label: 'Point Count',    type: 'number', visible: () => false, min: 3, max: 11, step: 1 },
 
   // Dimensions editor

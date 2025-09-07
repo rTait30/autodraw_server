@@ -32,9 +32,11 @@ function TopBar() {
       <Link to="/copelands/home" style={linkStyle} onClick={() => setMenuOpen(false)}>Home</Link>
       <Link to="/copelands/newproject" style={linkStyle} onClick={() => setMenuOpen(false)}>New Project</Link>
       <Link to="/copelands/projects" style={linkStyle} onClick={() => setMenuOpen(false)}>Projects</Link>
+      {role === 'admin' && (
+          <Link to="/copelands/database" style={linkStyle} onClick={() => setMenuOpen(false)}>Database</Link>
+      )}
       {role !== 'client' && (
         <>
-          <Link to="/copelands/database" style={linkStyle} onClick={() => setMenuOpen(false)}>Database</Link>
           <Link to="/copelands/analytics" style={linkStyle} onClick={() => setMenuOpen(false)}>Analytics</Link>
         </>
       )}

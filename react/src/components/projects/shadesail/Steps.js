@@ -662,7 +662,7 @@ export const Steps = [
       }
 
 
-      let fabricPrice = getPriceByFabric(data.edgeMeterCeilMeters, data.fabricType);
+      let fabricPrice = getPriceByFabric(edgeMeterCeilMeters, data.fabricType);
 
       let discrepancyProblem = false;
 
@@ -691,6 +691,10 @@ export const Steps = [
           break;
         }
       }
+
+      let cablePrice = 0;
+
+      
 
 
       return {
@@ -990,24 +994,19 @@ const priceList = {
 
 // Helper function to get price by edge meter & category
 function getPrice(edgeMeter, category) {
+  console.log(`Looking up price for ${edgeMeter}m in category ${category}`);
   const catPrices = priceList[category];
   if (!catPrices) {
     console.warn(`Invalid category: ${category}`);
     return null;
   }
 
-  // Get all available edge meter keys for the category
-  const edgeKeys = Object.keys(catPrices).map(Number).sort((a, b) => a - b);
-  const minEdge = edgeKeys[0];
-  const maxEdge = edgeKeys[edgeKeys.length - 1];
-
-  // If below the lowest edge, use the lowest
-  if (edgeMeter <= minEdge) {
-    return catPrices[minEdge];
-  }
+  console.log(`catPrices: ${catPrices}`);
 
   // If exact match, return directly
   if (catPrices[edgeMeter] !== undefined) {
+    console.log(`Exact match found: $${catPrices[edgeMeter]}`);
+    console.log(catPrices[edgeMeter]);
     return catPrices[edgeMeter];
   }
 
@@ -1015,18 +1014,12 @@ function getPrice(edgeMeter, category) {
   // 1) use the highest value (clamp)
   // 2) or return null / throw warning
   // Here we'll just use the highest available
-  if (edgeMeter >= maxEdge) {
-    return catPrices[maxEdge];
+  if (edgeMeter >= 50) {
+    console.log(`Above max price range, using highest available: $${catPrices[50]}`);
+    return catPrices[50];
   }
-
-  // Otherwise, you could choose to:
-  // - round down to the nearest available key
-  // - or round up
-  // - or interpolate (optional)
-  //
-  // For now, we'll just round down:
-  const lowerEdge = edgeKeys.reduce((prev, curr) => (curr <= edgeMeter ? curr : prev), minEdge);
-  return catPrices[lowerEdge];
+  
+  console.log(`No exact price for ${edgeMeter}m, returning null`);
 }
 
 const fabricToCategory = {
@@ -1045,10 +1038,11 @@ const fabricToCategory = {
 };
 
 function getPriceByFabric(edgeMeter, fabricName) {
+  console.log(`Getting price for ${edgeMeter}m of ${fabricName}`);
   const category = fabricToCategory[fabricName];
   if (!category) {
     console.warn(`Unknown fabric: ${fabricName}`);
     return null;
   }
-  return getPrice(edgeMeter, category);
+  return getPrice(Number(edgeMeter), category);
 }

@@ -1,0 +1,2 @@
+INSERT INTO project_types (id, name, description) VALUES (1, 'cover', 'general cover');
+INSERT INTO project_types (id, name, description) VALUES (2, 'shadesail', 'mesh or PVC shadesail');

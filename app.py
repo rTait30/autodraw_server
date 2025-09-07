@@ -52,7 +52,10 @@ def create_app():
 
     # --- CORS (match your frontend origin exactly) ---
     frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
-    CORS(app, origins=[frontend_origin], supports_credentials=True)
+    CORS(app, origins=[
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+], supports_credentials=True)
 
     # --- Init extensions ---
     db.init_app(app)

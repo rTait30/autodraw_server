@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required
 
 from models import db, EstimatingSchema, ProjectType
-from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+from endpoints.api.auth.utils import role_required, _json, _user_by_credentials
 
 estimating_schemas_api_bp = Blueprint(
     "est_schemas_api",

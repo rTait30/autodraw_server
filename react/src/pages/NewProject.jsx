@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useProcessStepper } from '../components/projects/useProcessStepper';
 import ProjectSidebar from '../components/ProjectSidebar';
 import { apiFetch } from '../services/auth';
@@ -16,8 +16,11 @@ export default function NewProject() {
   const [selectedType, setSelectedType] = useState(null);
   const [loadedConfig, setLoadedConfig] = useState(null);
   const [result, setResult] = useState({});
+  const [stepperKey, setStepperKey] = useState(0);
+
   const canvasRef = useRef(null);
   const formRef = useRef(null);
+  const lastStringifiedRef = useRef('');
 
   const role = localStorage.getItem('role') || 'guest';
 
@@ -27,19 +30,49 @@ export default function NewProject() {
     stepOffsetY: 800,
   }), []);
 
+  // Single place to "fully reset" transient state
+  const hardReset = useCallback(() => {
+    // reset diff detector so first scan runs
+    lastStringifiedRef.current = '';
+    setResult({});
+
+    const c = canvasRef.current;
+    if (c) {
+      // Reset transform + bitmap
+      const w = c.width, h = c.height;
+      c.width = w; // resetting width clears canvas+state
+      c.height = h;
+      const ctx = c.getContext('2d');
+      ctx?.setTransform(1, 0, 0, 1, 0, 0);
+      ctx?.clearRect(0, 0, c.width, c.height);
+    }
+  }, []);
+
+  // Token that guarantees new stepper instance + new components when type changes
+  const resetToken = useMemo(
+    () => `${selectedType ?? 'none'}::${stepperKey}`,
+    [selectedType, stepperKey]
+  );
+
   const { runAll, getData } = useProcessStepper(
     {
       canvasRef,
       steps: loadedConfig?.steps || [],
       options,
     },
-    // reset when steps change
-    JSON.stringify(loadedConfig?.steps || [])
+    // This token controls when the hook should throw away internal state
+    resetToken
   );
 
   // Lazy-load Form + Steps for the selected type
   useEffect(() => {
     if (!selectedType) return;
+
+    let active = true;
+    // Force full teardown of previous form/stepper/canvas
+    setLoadedConfig(null);
+    setStepperKey(k => k + 1);
+    hardReset();
 
     (async () => {
       try {
@@ -48,39 +81,45 @@ export default function NewProject() {
           import(`../components/projects/${selectedType}/Steps.js`),
         ]);
 
+        if (!active) return;
+
         const steps = StepsModule.Steps ?? StepsModule.steps ?? [];
-        console.log(`[Loader] Loaded steps for "${selectedType}":`, steps);
 
         setLoadedConfig({
           FormComponent: FormModule.default,
           steps,
           title: projectTypes.find(pt => pt.id === selectedType)?.name || 'Project',
         });
+
+        // Fresh result/view
         setResult({});
+        lastStringifiedRef.current = '';
       } catch (err) {
-        console.error(`Error loading type "${selectedType}":`, err);
-        setLoadedConfig(null);
+        if (active) {
+          console.error(`Error loading type "${selectedType}":`, err);
+          setLoadedConfig(null);
+        }
       }
     })();
-  }, [selectedType]);
 
-  // Clear canvas on type change
+    return () => { active = false; };
+  }, [selectedType, hardReset]);
+
+  // Extra safety: clear canvas any time steps set changes
   useEffect(() => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    }
-  }, [selectedType]);
+    hardReset();
+  }, [loadedConfig?.steps, hardReset]);
 
   // Auto-run steps whenever form data changes
-  const lastStringifiedRef = useRef('');
   useEffect(() => {
+    if (!loadedConfig) return;
+
     const interval = setInterval(() => {
       const api = formRef.current;
       if (!api?.getData) return;
 
       try {
-        const formData = api.getData();            // includes General + type-specific fields
+        const formData = api.getData(); // includes General + type-specific fields
         const stringified = JSON.stringify(formData);
 
         if (stringified !== lastStringifiedRef.current) {
@@ -139,9 +178,8 @@ export default function NewProject() {
 
       // 3) Build payload
       const payload = {
-        // Project (general) fields go top-level
         ...general,
-        type: selectedType,     // use the id; change here if your API expects another mapping
+        type: selectedType, // keep id
         attributes,
         calculated,
       };
@@ -168,7 +206,10 @@ export default function NewProject() {
         open={sidebarOpen}
         setOpen={setSidebarOpen}
         selectedType={selectedType}
-        setSelectedType={setSelectedType}
+        setSelectedType={(t) => {
+          setSelectedType(t);
+          // any extra per-switch cleanup can go here
+        }}
         projectTypes={projectTypes}
       />
 
@@ -177,13 +218,12 @@ export default function NewProject() {
           <>
             <div className="flex flex-wrap gap-10">
               <div className="flex-1 min-w-[400px]">
-                {/* The loaded FormComponent uses FormBase with built-in General section */}
+                {/* Force remount on type/stepper changes */}
                 <loadedConfig.FormComponent
+                  key={`form:${resetToken}`}
                   ref={formRef}
                   role={role}
-                  // optional hydration for General (name/client/due_date/info)
-                  project={{}}                 // pass server-provided project data here if available
-                  // optional General config (can omit and rely on defaults)
+                  project={{}}
                   general={{ enabled: true, clientsEndpoint: '/clients' }}
                 />
 
@@ -194,6 +234,7 @@ export default function NewProject() {
 
               <div className="flex-1 min-w-[400px] flex flex-col items-center">
                 <canvas
+                  key={`canvas:${resetToken}`}
                   ref={canvasRef}
                   width={500}
                   height={2000}

@@ -77,9 +77,13 @@ def save_project_config():
 
     print (data)
 
-    if data['calculated']['discrepancyProblem']:
+    try:
+    
+        if data['calculated']['discrepancyProblem']:
 
-        return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
+            return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
+    except KeyError:
+        pass
     
     project_id = data.get("id")  # Optional update/upsert
 

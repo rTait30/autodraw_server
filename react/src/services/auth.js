@@ -1,11 +1,14 @@
 // src/services/auth.js
 
 // Build API base from current page host, hardcode :5001
+
+// Default: dev mode → same host with :5001
 const DEFAULT_PROTO = window.location.protocol.startsWith("https") ? "https" : "http";
 const DEFAULT_HOST = window.location.hostname;
-const DEFAULT_API_BASE = `${DEFAULT_PROTO}://${DEFAULT_HOST}:5001/copelands/api`;
+const DEFAULT_DEV_API = `${DEFAULT_PROTO}://${DEFAULT_HOST}:5001/copelands/api`;
 
-const RAW_API_BASE = import.meta.env.VITE_API_BASE ?? DEFAULT_API_BASE;
+// If VITE_API_BASE is set (on the server), use that instead
+const RAW_API_BASE = import.meta.env.VITE_API_BASE ?? DEFAULT_DEV_API;
 
 // --- helpers ---------------------------------------------------------------
 const ensureProtocol = (u) => (/^https?:\/\//i.test(u) ? u : `http://${u}`);

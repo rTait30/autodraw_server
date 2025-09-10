@@ -77,7 +77,16 @@ def get_products_by_skus():
         return jsonify({"error": "No valid SKUs provided"}), 400
 
     products = Product.query.filter(Product.sku.in_(norm_skus)).all()
+
+    for p in skus:
+        if p not in [prod.sku for prod in products]:
+            print(f"Warning: SKU '{p}' not found in database.")
+            print ("trying CRM API...")
+
+
     return jsonify([
         {"sku": p.sku, "name": p.name, "price": p.price}
         for p in products
+
+    
     ]), 200

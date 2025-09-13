@@ -14,6 +14,7 @@ from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
 from endpoints.api.database import database_api_bp
 
+from WG.workGuru import get_leads
 # --- Env & app ---
 load_dotenv(dotenv_path=Path('instance') / '.env')
 
@@ -28,6 +29,10 @@ def create_app():
     # --- Secrets (fail fast in prod) ---
     app.secret_key = os.environ.get("FLASK_SECRET_KEY")
     jwt_secret = os.environ.get("JWT_SECRET_KEY")
+
+    #cp_key = os.environ.get("CP_KEY")
+
+    #print (cp_key)
 
     # --- DB config ---
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
@@ -108,6 +113,24 @@ def create_app():
 
 
 app = create_app()
+
 if __name__ == '__main__':
     # For local dev only
+
+    print ("Starting Flask dev server...")
+
+    get_leads("DR")
+    
+    '''
+    try:
+        warm_crm_token(safe=True)
+        input()
+        warm_crm_token(safe=True)
+    except Exception as e:
+        app.logger.warning("CRM warmup failed: %s", e)'''
+
     app.run(host='127.0.0.1', port=5001, debug=True)
+    
+
+        # Optional warm-up (safe=True so deploys don't fail if CRM is briefly down)
+

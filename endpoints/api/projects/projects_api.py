@@ -26,6 +26,8 @@ from reportlab.pdfgen import canvas
 from models import db, Project, ProjectAttribute, User, Product, ProjectType, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
+from WG.workGuru import get_leads
+
 projects_api_bp = Blueprint("projects_api", __name__)
 
 # ---------- ADD THESE SMALL HELPERS (near your routes file top) ----------
@@ -67,12 +69,14 @@ def resolve_project_type_id(data):
 @projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
+
+
+    get_leads("DR")
+
     user = current_user(required=True)
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     
-
-
     data = request.get_json() or {}
 
     print (data)

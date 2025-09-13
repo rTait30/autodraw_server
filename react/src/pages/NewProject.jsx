@@ -226,9 +226,10 @@ export default function NewProject() {
                   project={{}}
                   general={{ enabled: true, clientsEndpoint: '/clients' }}
                 />
-
                 <button onClick={handleSubmit} className="buttonStyle mt-6">
-                  Submit Project
+                  {["estimator", "admin", "designer"].includes(role)
+                    ? "Make Lead"
+                    : "Get Quote"}
                 </button>
               </div>
 

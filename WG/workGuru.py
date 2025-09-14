@@ -12,13 +12,6 @@ load_dotenv(TOP / "instance" / ".env")
 
 WG_BASE = "https://api.workguru.io/"
 
-CP_KEY = os.getenv("CP_KEY")
-CP_SECRET = os.getenv("CP_SECRET")
-
-print ("CP_KEY:", CP_KEY)
-
-input ("Press Enter to continue...")
-
 TENANTS = {
     "CP": {
         "key": os.getenv("CP_KEY"),
@@ -55,6 +48,9 @@ def _fetch_access_token(tenant):
     exp = _now() + max(60, expires_in - 30)  # refresh a bit early
 
     TENANTS[tenant]["token"] = access  # cache it
+
+    print ("Token: ", TENANTS[tenant]["token"])
+
     TENANTS[tenant]["token_exp"] = exp
 
 def get_access_token(tenant):
@@ -99,3 +95,70 @@ def get_leads(tenant): #DR/CP
     print ("LEADS: ", data.get("result", []).get("items", []))
 
     return res.json().get("result", [])
+
+
+def add_cover(name: str, description: str):
+    access_token = get_access_token("DR")
+    url = f"{WG_BASE}/api/services/app/Lead/AddOrUpdateLead"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+    # Build the exact shape Postman typically uses for WG: {"input": {...}}
+    body = {
+        "Id": 0,                     # for create
+        "TenantId": 826,
+        "WonOrLostDate": "",         # omit if not needed
+        "Status": "Current",         # if Postman used "Open", use that
+        "CreatorUserId": "",         # omit if not needed
+        "LeadNumber": "",            # omit if not needed
+        "Name": name,
+        "Description": description,
+        "OwnerId": 14364,            # dr ryan
+        "CategoryId": 2140,          # dr warm
+        "StageId": 2607,             # dr lead
+        "CloseProbability": 90,
+        "ForecastCloseDate": "30/09/2025",  # match Postman format if that's what worked
+        "ClientId": 178827,          # dr nsc
+        "ContactId": None,           # or omit if not used
+        "BillingClientId": 178827,
+        "BillingClientContactId": None,
+        "Budget": 0,
+        "CustomFieldValues": [
+            {
+                "TenantId": 826,
+                "CustomFieldId": 3686,
+                "Value": "2a. Tarpaulins (Tarps and Covers)",
+            },
+            {
+                "TenantId": 826,
+                "CustomFieldId": 5385,
+                "Value": "90",
+            },
+            {
+                "TenantId": 826,
+                "CustomFieldId": 5386,
+                "Value": "90",
+            },
+        ],
+    }
+
+    # Send JSON (not data=)
+    res = requests.post(url, json=body, headers=headers, timeout=30)
+
+    # Helpful diagnostics on failure
+    if not res.ok:
+        print("Status:", res.status_code)
+        print("Response headers:", res.headers)
+        try:
+            print("Response JSON:", res.json())
+        except Exception:
+            print("Response text:", res.text)
+        res.raise_for_status()
+
+    data = res.json()
+    print("LEAD CREATED/UPDATED:", data)
+    return data

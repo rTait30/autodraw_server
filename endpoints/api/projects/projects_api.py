@@ -28,6 +28,8 @@ from endpoints.api.auth.utils import current_user, role_required, _json, _user_b
 
 from WG.workGuru import get_leads
 
+from WG.workGuru import add_cover
+
 projects_api_bp = Blueprint("projects_api", __name__)
 
 # ---------- ADD THESE SMALL HELPERS (near your routes file top) ----------
@@ -70,16 +72,19 @@ def resolve_project_type_id(data):
 @jwt_required()
 def save_project_config():
 
-
-    get_leads("DR")
-
     user = current_user(required=True)
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     
     data = request.get_json() or {}
 
-    print (data)
+    if (data.get("type") == "cover"):
+
+        name = (data.get("name") or "").strip()
+
+        description = (f"{data.get('attributes').get('quantity')} x PVC Cover\n{data.get('attributes').get('length')}x{data.get('attributes').get('width')}x{data.get('attributes').get('length')}mm")
+
+        add_cover(name, description)
 
     try:
     

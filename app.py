@@ -14,7 +14,7 @@ from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
 from endpoints.api.database import database_api_bp
 
-from WG.workGuru import get_leads
+
 # --- Env & app ---
 load_dotenv(dotenv_path=Path('instance') / '.env')
 
@@ -119,15 +119,7 @@ if __name__ == '__main__':
 
     print ("Starting Flask dev server...")
 
-    get_leads("DR")
-    
-    '''
-    try:
-        warm_crm_token(safe=True)
-        input()
-        warm_crm_token(safe=True)
-    except Exception as e:
-        app.logger.warning("CRM warmup failed: %s", e)'''
+
 
     app.run(host='127.0.0.1', port=5001, debug=True)
     

@@ -456,6 +456,59 @@ function PointsTable({ formData, setPoints }) {
   );
 }
 
+
+// Minimal heights-only table
+function PointsHeightsTable({ formData, setPoints }) {
+  const pointCount = formData.pointCount ?? 4;
+  const points = useMemo(
+    () => Array.from({ length: pointCount }, (_, i) => getPointLabel(i)),
+    [pointCount]
+  );
+
+  const getPoint = (p) => (formData.points ?? {})[p] ?? {};
+
+  const setHeight = (p, height) => {
+    const all = { ...(formData.points ?? {}) };
+    all[p] = { ...getPoint(p), height };
+    setPoints(all);
+  };
+
+  return (
+    <div className="mt-4">
+      <b>Point Heights</b>
+      <div className="overflow-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="font-semibold border-b">
+              <th className="text-left p-1">Point</th>
+              <th className="text-left p-1">Height (mm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((p) => {
+              const pt = getPoint(p);
+              return (
+                <tr key={p} className="border-b">
+                  <td className="p-1 font-medium">{p}</td>
+                  <td>
+                    <input
+                      type="number"
+                      className="inputCompact"
+                      value={pt.height ?? 0}
+                      onChange={(e) => setHeight(p, Number(e.target.value))}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
 /* ============================================================================
  * Fields schema for FormBase
  * - We use a small custom “meta” block to coordinate category→brand→colour resets.
@@ -602,6 +655,7 @@ const buildDiscrepancyFields = () => [
   },
 
   // Keep the rest of the discrepancy inputs
+
   {
     name: 'pointCount',
     label: 'Point Count',
@@ -626,7 +680,7 @@ const buildDiscrepancyFields = () => [
     label: null,
     type: 'custom',
     render: ({ formData, onChange }) => (
-      <PointsTable
+      <PointsHeightsTable
         formData={formData}
         setPoints={(next) => onChange(next)}
       />

@@ -52,39 +52,30 @@ export default function Discrepancy() {
     String(steps.length)
   );
 
-  // Poll the form every 2s and update canvas
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!formRef.current?.getData) return;
+  const onCheck = () => {
+    if (!formRef.current?.getData) return;
 
-      try {
-        const data = formRef.current.getData();
-        const stringified = JSON.stringify(data);
+    try {
+      const data = formRef.current.getData();
+      const stringified = JSON.stringify(data);
 
-        // Only re-run if the form changed
-        if (stringified !== lastStringifiedRef.current) {
-          console.log('[Discrepancy] Detected form change:', data);
-          lastStringifiedRef.current = stringified;
-          setFormData(data);
+      if (stringified !== lastStringifiedRef.current) {
+        console.log('[Discrepancy] Detected form change:', data);
+        lastStringifiedRef.current = stringified;
+        setFormData(data);
 
-          const cleanData = { ...data };
-          delete cleanData.result; // clear stale result
+        const cleanData = { ...data };
+        delete cleanData.result; // clear stale result
 
-          // Only run once steps are ready
-          if (steps.length) {
-            runAll(cleanData);
-            setResult(cleanData.result || { discrepancy: '', errorBD: '' });
-          }
-        } else {
-          // console.log('[Discrepancy] formData unchanged');
+        if (steps.length) {
+          runAll(cleanData);
+          setResult(cleanData.result || { discrepancy: '', errorBD: '' });
         }
-      } catch (err) {
-        console.error('[Discrepancy] getData failed:', err);
       }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [runAll, steps.length]);
+    } catch (err) {
+      console.error('[Discrepancy] getData failed:', err);
+    }
+  };
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
@@ -100,11 +91,15 @@ export default function Discrepancy() {
         </button>
 
         <div className="flex flex-col md:flex-row gap-10">
-          {/* Left side: form */}
+          {/* Left side: form + button */}
           <div className="flex-1">
             <Suspense fallback={<div>Loading form…</div>}>
               <ShadesailForm ref={formRef} role={role} compact />
             </Suspense>
+
+            <button onClick={onCheck} className="buttonStyle mt-4">
+              Check Discrepancy
+            </button>
           </div>
 
           {/* Right side: canvas + discrepancy result */}
@@ -122,13 +117,10 @@ export default function Discrepancy() {
                 background: '#fff',
               }}
             />
-            <div className="mt-6 text-center">
-              <p className="font-semibold text-lg">{result.discrepancy}</p>
-              <p className="text-gray-600">{result.errorBD}</p>
-            </div>
           </div>
         </div>
       </main>
     </div>
   );
+
 }

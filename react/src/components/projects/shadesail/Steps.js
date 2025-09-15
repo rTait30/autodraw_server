@@ -808,7 +808,7 @@ export const Steps = [
           }
         }
 
-        ypos += 100;
+        ypos += 50;
 
         if (data.blame) {
           ctx.fillText(

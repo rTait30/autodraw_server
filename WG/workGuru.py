@@ -162,3 +162,23 @@ def add_cover(name: str, description: str):
     data = res.json()
     print("LEAD CREATED/UPDATED:", data)
     return data
+
+
+
+def wg_get(tenant: str, endpoint: str, params: dict | None = None):
+    url = f"{WG_BASE}/api/services/app/{endpoint}"
+    headers = {"Authorization": f"Bearer {get_access_token(tenant)}"}
+    res = requests.get(url, headers=headers, params=params, timeout=20)
+    res.raise_for_status()
+    return res.json()
+
+def wg_post(tenant: str, endpoint: str, body: dict):
+    url = f"{WG_BASE}/api/services/app/{endpoint}"
+    headers = {
+        "Authorization": f"Bearer {get_access_token(tenant)}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    res = requests.post(url, headers=headers, json=body, timeout=30)
+    res.raise_for_status()
+    return res.json()

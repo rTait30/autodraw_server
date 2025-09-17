@@ -457,7 +457,6 @@ function PointsTable({ formData, setPoints }) {
 }
 
 
-// Minimal heights-only table
 function PointsHeightsTable({ formData, setPoints }) {
   const pointCount = formData.pointCount ?? 4;
   const points = useMemo(
@@ -469,7 +468,8 @@ function PointsHeightsTable({ formData, setPoints }) {
 
   const setHeight = (p, height) => {
     const all = { ...(formData.points ?? {}) };
-    all[p] = { ...getPoint(p), height };
+    // If input is empty, store as empty string (not 0)
+    all[p] = { ...getPoint(p), height: height === "" ? "" : height };
     setPoints(all);
   };
 
@@ -494,8 +494,10 @@ function PointsHeightsTable({ formData, setPoints }) {
                     <input
                       type="number"
                       className="inputCompact"
-                      value={pt.height ?? 0}
-                      onChange={(e) => setHeight(p, Number(e.target.value))}
+                      value={pt.height === undefined || pt.height === null ? "" : pt.height}
+                      onChange={(e) => setHeight(p, e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder=""
+                      min={0}
                     />
                   </td>
                 </tr>

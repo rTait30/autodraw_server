@@ -202,17 +202,54 @@ function SailMetaFields({ formData, setField }) {
   );
 }
 
-// Edges + Diagonals editor (binds to `dimensions`)
 function EdgesAndDiagonals({ formData, setDimensions }) {
   const pointCount = formData.pointCount ?? 4;
   const edges = useMemo(() => makeEdges(pointCount), [pointCount]);
   const diagonals = useMemo(() => makeDiagonals(pointCount), [pointCount]);
+
+  // Refs for edge inputs
+  const edgeRefs = React.useRef([]);
+  edgeRefs.current = [];
+
+  const setEdgeRef = (el, idx) => {
+    edgeRefs.current[idx] = el;
+  };
 
   const updateDimension = (key, raw) => {
     const value = raw === '' ? '' : Number(raw);
     const next = { ...(formData.dimensions ?? {}) };
     next[key] = value;
     setDimensions(next);
+  };
+
+  const handleEdgeKeyDown = (e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nextIdx = idx + 1;
+      if (edgeRefs.current[nextIdx]) {
+        edgeRefs.current[nextIdx].focus();
+      } else if (diagonalRefs.current[0]) {
+        diagonalRefs.current[0].focus();
+      }
+    }
+  };
+
+  // Refs for diagonal inputs
+  const diagonalRefs = React.useRef([]);
+  diagonalRefs.current = [];
+
+  const setDiagonalRef = (el, idx) => {
+    diagonalRefs.current[idx] = el;
+  };
+
+  const handleDiagonalKeyDown = (e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nextIdx = idx + 1;
+      if (diagonalRefs.current[nextIdx]) {
+        diagonalRefs.current[nextIdx].focus();
+      }
+    }
   };
 
   const edgeMeter = edges.reduce((acc, id) => {
@@ -225,7 +262,7 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
     <div>
       <b>Edges (mm)</b>
       <div className="space-y-1 mt-1">
-        {edges.map((id) => (
+        {edges.map((id, idx) => (
           <div key={id} className="flex items-center gap-2">
             <label className="text-sm">{id}:</label>
             <input
@@ -233,6 +270,10 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
               className="inputCompact"
               value={(formData.dimensions ?? {})[id] ?? ''}
               onChange={(e) => updateDimension(id, e.target.value)}
+              ref={el => setEdgeRef(el, idx)}
+              onKeyDown={e => handleEdgeKeyDown(e, idx)}
+              inputMode="decimal"
+              autoComplete="off"
             />
           </div>
         ))}
@@ -242,11 +283,11 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
       <div className="mt-2 font-semibold">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span>Total Edge Length:</span>
-          <span style={{ minWidth: 110, textAlign: "right", marginRight: 50 }}>
+          <span style={{ minWidth: 110, textAlign: "right" }}>
             {edgeMeter.toLocaleString()} mm
           </span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginRight: 50 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span>Rounded (m):</span>
           <span style={{ minWidth: 110, textAlign: "right" }}>
             {edgeMeterCeilMeters} m
@@ -257,7 +298,7 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
       <div className="mt-4">
         <b>Diagonals (mm)</b>
         <div className="space-y-1 mt-1">
-          {diagonals.map((id) => (
+          {diagonals.map((id, idx) => (
             <div key={id} className="flex items-center gap-2">
               <label className="text-sm">{id}:</label>
               <input
@@ -265,6 +306,10 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
                 className="inputCompact"
                 value={(formData.dimensions ?? {})[id] ?? ''}
                 onChange={(e) => updateDimension(id, e.target.value)}
+                ref={el => setDiagonalRef(el, idx)}
+                onKeyDown={e => handleDiagonalKeyDown(e, idx)}
+                inputMode="decimal"
+                autoComplete="off"
               />
             </div>
           ))}
@@ -484,6 +529,24 @@ function PointsHeightsTable({ formData, setPoints }) {
     setPoints(all);
   };
 
+  // Refs for height inputs
+  const heightRefs = React.useRef([]);
+  heightRefs.current = [];
+
+  const setHeightRef = (el, idx) => {
+    heightRefs.current[idx] = el;
+  };
+
+  const handleHeightKeyDown = (e, idx) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nextIdx = idx + 1;
+      if (heightRefs.current[nextIdx]) {
+        heightRefs.current[nextIdx].focus();
+      }
+    }
+  };
+
   return (
     <div className="mt-4">
       <b>Point Heights</b>
@@ -496,7 +559,7 @@ function PointsHeightsTable({ formData, setPoints }) {
             </tr>
           </thead>
           <tbody>
-            {points.map((p) => {
+            {points.map((p, idx) => {
               const pt = getPoint(p);
               return (
                 <tr key={p} className="border-b">
@@ -509,6 +572,10 @@ function PointsHeightsTable({ formData, setPoints }) {
                       onChange={(e) => setHeight(p, e.target.value === "" ? "" : Number(e.target.value))}
                       placeholder=""
                       min={0}
+                      ref={el => setHeightRef(el, idx)}
+                      onKeyDown={e => handleHeightKeyDown(e, idx)}
+                      inputMode="decimal"
+                      autoComplete="off"
                     />
                   </td>
                 </tr>

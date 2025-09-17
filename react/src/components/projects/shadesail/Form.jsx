@@ -659,10 +659,20 @@ const buildDiscrepancyFields = () => [
   {
     name: 'pointCount',
     label: 'Point Count',
-    type: 'number',
-    min: 3,
-    max: 11,
-    step: 1,
+    type: 'custom',
+    render: ({ formData, setField }) => (
+      <label className="block">
+        <select
+          className="inputStyle"
+          value={formData.pointCount ?? 4}
+          onChange={e => setField('pointCount', Number(e.target.value))}
+        >
+          {[3,4,5,6,7,8,9,10,11].map(n => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </label>
+    ),
   },
   {
     name: 'dimensions',

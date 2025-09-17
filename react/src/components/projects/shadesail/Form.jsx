@@ -240,7 +240,18 @@ function EdgesAndDiagonals({ formData, setDimensions }) {
 
       {/* LIVE total edge length */}
       <div className="mt-2 font-semibold">
-        Total Edge Length: {edgeMeter.toLocaleString()} mm ({edgeMeterCeilMeters} m rounded up)
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span>Total Edge Length:</span>
+          <span style={{ minWidth: 110, textAlign: "right", marginRight: 50 }}>
+            {edgeMeter.toLocaleString()} mm
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginRight: 50 }}>
+          <span>Rounded (m):</span>
+          <span style={{ minWidth: 110, textAlign: "right" }}>
+            {edgeMeterCeilMeters} m
+          </span>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -600,7 +611,11 @@ const buildFields = () => [
       const ceilM = Math.max(1, Math.ceil(total / 1000));
       return (
         <div className="mt-2 font-semibold">
-          Total Edge Length: {total.toLocaleString()} mm ({ceilM} m rounded up)
+          Total Edge Length:
+          <br />
+          {total.toLocaleString()} mm
+          <br />
+          ({ceilM} m rounded up)
         </div>
       );
     },

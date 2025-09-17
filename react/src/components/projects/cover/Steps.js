@@ -525,7 +525,7 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
   // Fallback: main panel = fabricWidth, small gets rest + seam
   const mainFallback = fabricWidth;
   const smallPanelBody = height - mainFallback;
-  const smallFallbackTotal = smallPanelBody + seam;
+  const smallFallbackTotal = smallPanelBody + 25;
 
   console.log(`Trying fallback split. mainFallback=${mainFallback}, smallPanelBody=${smallPanelBody}, smallFallbackTotal=${smallFallbackTotal}`);
 

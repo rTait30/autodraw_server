@@ -256,6 +256,7 @@ const FormBase = forwardRef(({
           ? f.transformOut(raw, formData)
           : (f.type === 'number' ? (Number(raw) || 0) : raw);
       }
+      
       return out;
     },
     setData: (partial) => setFormData((prev) => ({ ...prev, ...partial })),

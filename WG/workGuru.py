@@ -165,9 +165,10 @@ def add_cover(name: str, description: str):
 
 
 
-def wg_get(tenant: str, endpoint: str, params: dict | None = None):
+def wg_get(tenant: str, endpoint: str, token = "", params: dict | None = None):
     url = f"{WG_BASE}/api/services/app/{endpoint}"
-    headers = {"Authorization": f"Bearer {get_access_token(tenant)}"}
+    if token == "": token = get_access_token(tenant)
+    headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers, params=params, timeout=20)
     res.raise_for_status()
     return res.json()

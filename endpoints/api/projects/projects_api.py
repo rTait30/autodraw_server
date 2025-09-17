@@ -78,7 +78,7 @@ def save_project_config():
     
     data = request.get_json() or {}
 
-    if (data.get("type") == "cover"):
+    if (data.get("type") == "cover" and False):
 
         name = (data.get("name") or "").strip()
 

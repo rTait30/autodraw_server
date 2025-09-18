@@ -106,6 +106,7 @@ function TopBar() {
   return (
     <>
       <header style={headerStyle} className="topbar">
+        <div className="topbar-spacer" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
@@ -144,12 +145,29 @@ function TopBar() {
 
       {mobileMenu}
 
-      <main style={{ minHeight: 'calc(100vh - 60px)' }}>
+      <main style={{ minHeight: 'calc(100svh - 60px)' }}>
         <Outlet />
       </main>
 
       <style>
         {`
+
+        /* iOS-specific: detect WebKit/iOS and pin header fixed with safe-area */
+          @supports (-webkit-touch-callout: none) {
+            .topbar {
+              position: fixed !important;
+              top: env(safe-area-inset-top);
+              left: 0;
+              right: 0;
+              z-index: 1000;
+              -webkit-transform: translateZ(0); /* create its own layer */
+              will-change: transform;
+            }
+            /* spacer equals bar height + safe-area so content starts below it */
+            .topbar-spacer {
+              height: calc(60px + env(safe-area-inset-top));
+            }
+          }
           @media (min-width: 800px) {
             .topbar-links, .topbar-user {
               display: flex !important;
@@ -169,13 +187,12 @@ function TopBar() {
 
             .topbar {
               position: sticky;
-              top: env(safe-area-inset-top);
+              top: 0;
+              inset-inline: 0;
               width: 100%;
               max-width: 100%;
               min-width: 0;
               box-sizing: border-box;
-              -webkit-transform: translateZ(0);
-              will-change: transform;
             }
 
             /* Make sure children don't force overflow */

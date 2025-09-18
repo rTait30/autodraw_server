@@ -169,13 +169,13 @@ function TopBar() {
 
             .topbar {
               position: sticky;
-              top: 0;
-              inset-inline: 0;      /* logical left/right = 0 (FF-friendly) */
+              top: env(safe-area-inset-top);
               width: 100%;
               max-width: 100%;
               min-width: 0;
               box-sizing: border-box;
-              contain: paint;       /* isolate paints, reduce fractional overflow */
+              -webkit-transform: translateZ(0);
+              will-change: transform;
             }
 
             /* Make sure children don't force overflow */

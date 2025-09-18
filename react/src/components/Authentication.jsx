@@ -41,7 +41,16 @@ export default function Authentication() {
       localStorage.setItem('username', data.username || 'Guest');
       localStorage.setItem('verified', data.verified ? 'true' : 'false');
 
+      let viewport = document.querySelector('meta[name=viewport]');
+      if (!viewport) {
+        viewport = document.createElement('meta');
+        viewport.name = 'viewport';
+        document.head.appendChild(viewport);
+      }
+      viewport.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+
       navigate('/copelands/home');
+
     } catch (err) {
       setErrorText(err.message || 'Login failed.');
     } finally {

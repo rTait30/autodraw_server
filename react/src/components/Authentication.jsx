@@ -17,46 +17,54 @@ export default function Authentication() {
   const navigate = useNavigate();
 
   async function handleLogin(e) {
-    e.preventDefault();
-    setErrorText('');
-    setSubmitting(true);
-    try {
-      const res = await apiFetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: loginForm.username.trim(),
-          password: loginForm.password,
-        }),
-      });
+      e.preventDefault();
+      setErrorText('');
+      setSubmitting(true);
+      try {
+        const res = await apiFetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: loginForm.username.trim(),
+            password: loginForm.password,
+          }),
+        });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Login failed');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || 'Login failed');
 
-      // Keep access token only in memory
-      setAccessToken(data.access_token || null);
+        // Keep access token only in memory
+        setAccessToken(data.access_token || null);
 
-      // Store non-sensitive user info in localStorage for layout and visuals
-      localStorage.setItem('role', data.role || 'client');
-      localStorage.setItem('username', data.username || 'Guest');
-      localStorage.setItem('verified', data.verified ? 'true' : 'false');
+        // Store non-sensitive user info in localStorage for layout and visuals
+        localStorage.setItem('role', data.role || 'client');
+        localStorage.setItem('username', data.username || 'Guest');
+        localStorage.setItem('verified', data.verified ? 'true' : 'false');
 
-      let viewport = document.querySelector('meta[name=viewport]');
-      if (!viewport) {
-        viewport = document.createElement('meta');
-        viewport.name = 'viewport';
-        document.head.appendChild(viewport);
+        // Force viewport to fully unzoom and reset scaling
+        let viewport = document.querySelector('meta[name=viewport]');
+        if (!viewport) {
+          viewport = document.createElement('meta');
+          viewport.name = 'viewport';
+          document.head.appendChild(viewport);
+        }
+        // This will force the browser to reset zoom and prevent user zoom
+        viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+
+        // Force a reflow to apply the new viewport (helps on some mobile browsers)
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.body.style.zoom = 'reset';
+        }, 50);
+
+        navigate('/copelands/home');
+
+      } catch (err) {
+        setErrorText(err.message || 'Login failed.');
+      } finally {
+        setSubmitting(false);
       }
-      viewport.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
-
-      navigate('/copelands/home');
-
-    } catch (err) {
-      setErrorText(err.message || 'Login failed.');
-    } finally {
-      setSubmitting(false);
     }
-  }
 
   async function handleRegister(e) {
     e.preventDefault();

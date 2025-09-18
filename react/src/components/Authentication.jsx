@@ -5,20 +5,24 @@ import { getBaseUrl } from '../utils/baseUrl';
 
 import { setAccessToken, apiFetch } from '../services/auth';
 
-// Reset viewport to force unzoom on mobile
 function resetViewport() {
-  // Remove any existing viewport meta
   const existing = document.querySelector('meta[name=viewport]');
   if (existing) existing.remove();
 
-  // Insert a fresh viewport meta
   const meta = document.createElement('meta');
   meta.name = 'viewport';
-  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  // First allow user zoom so we can snap it back
+  meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0';
   document.head.appendChild(meta);
 
-  // Force browser to re-evaluate layout
+  // Force reflow
   window.scrollTo(0, 0);
+
+  // After a short delay, lock it back to 1.0 (this triggers unzoom)
+  setTimeout(() => {
+    meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    window.scrollTo(0, 0);
+  }, 50);
 }
 
 export default function Authentication() {

@@ -10,10 +10,10 @@ function resetViewport() {
   // Force reflow
   window.scrollTo(0, 0);
 
-  document.body.style.transform = "0.8";
+  document.body.style.transform = "1";
   document.body.style.transformOrigin = "top left";
-  document.body.style.width = "80%";
-  document.body.style.height = "80%";
+  document.body.style.width = "100%";
+  document.body.style.height = "100%";
 }
 
 export default function Authentication() {

@@ -22,11 +22,8 @@ function TopBar() {
     justifyContent: 'space-between',
     color: 'white',
     width: '100%',
-    position: 'sticky',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,        // stays above page content
+    position: 'relative',
+    zIndex: 100,
     boxSizing: 'border-box',
   };
 
@@ -58,7 +55,7 @@ function TopBar() {
       display: menuOpen ? 'flex' : 'none',
       flexDirection: 'column',
       padding: '32px 24px',
-      zIndex: 2000,
+      zIndex: 200,
       transition: 'transform 0.2s',
       willChange: 'transform',
     }}>
@@ -106,7 +103,6 @@ function TopBar() {
   return (
     <>
       <header style={headerStyle} className="topbar">
-        <div className="topbar-spacer" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
@@ -145,29 +141,12 @@ function TopBar() {
 
       {mobileMenu}
 
-      <main style={{ minHeight: 'calc(100svh - 60px)' }}>
+      <main style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Outlet />
       </main>
 
       <style>
         {`
-
-        /* iOS-specific: detect WebKit/iOS and pin header fixed with safe-area */
-          @supports (-webkit-touch-callout: none) {
-            .topbar {
-              position: fixed !important;
-              top: env(safe-area-inset-top);
-              left: 0;
-              right: 0;
-              z-index: 1000;
-              -webkit-transform: translateZ(0); /* create its own layer */
-              will-change: transform;
-            }
-            /* spacer equals bar height + safe-area so content starts below it */
-            .topbar-spacer {
-              height: calc(60px + env(safe-area-inset-top));
-            }
-          }
           @media (min-width: 800px) {
             .topbar-links, .topbar-user {
               display: flex !important;
@@ -188,11 +167,12 @@ function TopBar() {
             .topbar {
               position: sticky;
               top: 0;
-              inset-inline: 0;
+              inset-inline: 0;      /* logical left/right = 0 (FF-friendly) */
               width: 100%;
               max-width: 100%;
               min-width: 0;
               box-sizing: border-box;
+              contain: paint;       /* isolate paints, reduce fractional overflow */
             }
 
             /* Make sure children don't force overflow */

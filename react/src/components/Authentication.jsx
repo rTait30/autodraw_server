@@ -5,6 +5,22 @@ import { getBaseUrl } from '../utils/baseUrl';
 
 import { setAccessToken, apiFetch } from '../services/auth';
 
+// Reset viewport to force unzoom on mobile
+function resetViewport() {
+  // Remove any existing viewport meta
+  const existing = document.querySelector('meta[name=viewport]');
+  if (existing) existing.remove();
+
+  // Insert a fresh viewport meta
+  const meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  document.head.appendChild(meta);
+
+  // Force browser to re-evaluate layout
+  window.scrollTo(0, 0);
+}
+
 export default function Authentication() {
   const [mode, setMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -17,54 +33,45 @@ export default function Authentication() {
   const navigate = useNavigate();
 
   async function handleLogin(e) {
-      e.preventDefault();
-      setErrorText('');
-      setSubmitting(true);
-      try {
-        const res = await apiFetch('/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: loginForm.username.trim(),
-            password: loginForm.password,
-          }),
-        });
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || 'Login failed');
+    e.preventDefault();
+    setErrorText('');
+    setSubmitting(true);
+    try {
+      const res = await apiFetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: loginForm.username.trim(),
+          password: loginForm.password,
+        }),
+      });
 
-        // Keep access token only in memory
-        setAccessToken(data.access_token || null);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Login failed');
 
-        // Store non-sensitive user info in localStorage for layout and visuals
-        localStorage.setItem('role', data.role || 'client');
-        localStorage.setItem('username', data.username || 'Guest');
-        localStorage.setItem('verified', data.verified ? 'true' : 'false');
+      // Keep access token only in memory
+      setAccessToken(data.access_token || null);
 
-        // Force viewport to fully unzoom and reset scaling
-        let viewport = document.querySelector('meta[name=viewport]');
-        if (!viewport) {
-          viewport = document.createElement('meta');
-          viewport.name = 'viewport';
-          document.head.appendChild(viewport);
-        }
-        // This will force the browser to reset zoom and prevent user zoom
-        viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+      // Store non-sensitive user info in localStorage for layout and visuals
+      localStorage.setItem('role', data.role || 'client');
+      localStorage.setItem('username', data.username || 'Guest');
+      localStorage.setItem('verified', data.verified ? 'true' : 'false');
 
-        // Force a reflow to apply the new viewport (helps on some mobile browsers)
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-          document.body.style.zoom = 'reset';
-        }, 50);
+      // After storing tokens/role etc
+      resetViewport();
 
-        navigate('/copelands/home');
+      // Small delay can help some Android devices apply the change
+      setTimeout(() => resetViewport(), 50);
 
-      } catch (err) {
-        setErrorText(err.message || 'Login failed.');
-      } finally {
-        setSubmitting(false);
-      }
+      navigate('/copelands/home');
+
+    } catch (err) {
+      setErrorText(err.message || 'Login failed.');
+    } finally {
+      setSubmitting(false);
     }
+  }
 
   async function handleRegister(e) {
     e.preventDefault();

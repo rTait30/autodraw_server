@@ -22,8 +22,11 @@ function TopBar() {
     justifyContent: 'space-between',
     color: 'white',
     width: '100%',
-    position: 'relative',
-    zIndex: 100,
+    position: 'sticky',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,        // stays above page content
     boxSizing: 'border-box',
   };
 
@@ -55,7 +58,7 @@ function TopBar() {
       display: menuOpen ? 'flex' : 'none',
       flexDirection: 'column',
       padding: '32px 24px',
-      zIndex: 200,
+      zIndex: 2000,
       transition: 'transform 0.2s',
       willChange: 'transform',
     }}>

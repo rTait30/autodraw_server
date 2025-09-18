@@ -6,23 +6,14 @@ import { getBaseUrl } from '../utils/baseUrl';
 import { setAccessToken, apiFetch } from '../services/auth';
 
 function resetViewport() {
-  const existing = document.querySelector('meta[name=viewport]');
-  if (existing) existing.remove();
-
-  const meta = document.createElement('meta');
-  meta.name = 'viewport';
-  // First allow user zoom so we can snap it back
-  meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0';
-  document.head.appendChild(meta);
 
   // Force reflow
   window.scrollTo(0, 0);
 
-  // After a short delay, lock it back to 1.0 (this triggers unzoom)
-  setTimeout(() => {
-    meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
-    window.scrollTo(0, 0);
-  }, 50);
+  document.body.style.transform = "1.0(" + 1.0 + ")";
+  document.body.style.transformOrigin = "top left";
+  document.body.style.width = "100%";
+  document.body.style.height = "100%";
 }
 
 export default function Authentication() {

@@ -1,6 +1,4 @@
-import React, {
-  useImperativeHandle, forwardRef, useEffect, useMemo, useState
-} from 'react';
+import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../services/auth';
 
 /**
@@ -37,10 +35,13 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
     placeholder,
     readOnly,
     disabled,
+    
   };
 
   return (
+
     <div>
+    
       {label && <label className="block text-sm font-medium mb-1">{label}</label>}
 
       {type === 'number'   && <input type="number" {...common} min={min} max={max} step={step} />}

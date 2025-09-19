@@ -130,7 +130,8 @@ function TopBar() {
             color: 'white',
             fontSize: 32,
             cursor: 'pointer',
-            display: 'block'
+            display: 'block',
+            rightMargin: 50
           }}
           className="burger"
           aria-label="Open menu"

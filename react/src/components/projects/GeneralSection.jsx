@@ -5,7 +5,6 @@ import { apiFetch } from '../../services/auth';
 export function GeneralSection({ formData, setField }) {
   const [clients, setClients] = useState([]);
 
-
   const role = localStorage.getItem('role')
   console.log("role", role)
   const clientId = localStorage.getItem('client_id') ?? null;

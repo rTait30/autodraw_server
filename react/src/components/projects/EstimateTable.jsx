@@ -28,8 +28,8 @@ export default function EstimateTable({
   attributes = {},
   calculated = {},
 
-
 }) {
+  
   const [rowState, setRowState] = useState({});
   const [inputState, setInputState] = useState({});
   const [products, setProducts] = useState({});

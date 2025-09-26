@@ -3,6 +3,12 @@ import { useProcessStepper } from '../components/projects/useProcessStepper';
 import ProjectSidebar from '../components/ProjectSidebar';
 import { apiFetch } from '../services/auth';
 
+import FormBase from '../components/projects/FormBase';
+
+import Form from '../components/projects/cover/Form.jsx';
+
+
+
 const projectTypes = [
   { name: 'Covers', id: 'cover' },
   { name: 'Shade Sail', id: 'shadesail' },
@@ -12,9 +18,18 @@ const projectTypes = [
 const GENERAL_KEYS = ['name', 'client_id', 'due_date', 'info'];
 
 export default function NewProject() {
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState(null);
-  const [loadedConfig, setLoadedConfig] = useState(null);
+
+  const [projectType, setProjectType] = useState(null);
+  //const [loadedConfig, setLoadedConfig] = useState(null);
+
+  //const [ActiveForm, setActiveForm] = useState(null);
+
+
+  const [Steps, setSteps] = useState([]);
+  const [Schema, setSchema] = useState([]);
+
   const [result, setResult] = useState({});
   const [stepperKey, setStepperKey] = useState(0);
 
@@ -30,89 +45,49 @@ export default function NewProject() {
     stepOffsetY: 800,
   }), []);
 
-  // Single place to "fully reset" transient state
-  const hardReset = useCallback(() => {
-    // reset diff detector so first scan runs
-    lastStringifiedRef.current = '';
-    setResult({});
-
-    const c = canvasRef.current;
-    if (c) {
-      // Reset transform + bitmap
-      const w = c.width, h = c.height;
-      c.width = w; // resetting width clears canvas+state
-      c.height = h;
-      const ctx = c.getContext('2d');
-      ctx?.setTransform(1, 0, 0, 1, 0, 0);
-      ctx?.clearRect(0, 0, c.width, c.height);
-    }
-  }, []);
-
-  // Token that guarantees new stepper instance + new components when type changes
-  const resetToken = useMemo(
-    () => `${selectedType ?? 'none'}::${stepperKey}`,
-    [selectedType, stepperKey]
-  );
-
+  /*
   const { runAll, getData } = useProcessStepper(
     {
       canvasRef,
-      steps: loadedConfig?.steps || [],
+      steps: steps || [],
       options,
-    },
-    // This token controls when the hook should throw away internal state
-    resetToken
+    }
   );
+  */
 
   // Lazy-load Form + Steps for the selected type
   useEffect(() => {
-    if (!selectedType) return;
+    if (!projectType) return;
 
-    let active = true;
-    // Force full teardown of previous form/stepper/canvas
-    setLoadedConfig(null);
-    setStepperKey(k => k + 1);
-    hardReset();
+    console.log(`[NewProject] Loading form "${projectType}"...`);
 
-    (async () => {
-      try {
-        const [FormModule, StepsModule] = await Promise.all([
-          import(`../components/projects/${selectedType}/Form.jsx`),
-          import(`../components/projects/${selectedType}/Steps.js`),
-        ]);
+    //setForm(null);
 
-        if (!active) return;
+      
+    const LazyForm = React.lazy(() =>
+      import(`../components/projects/${projectType}/Form.jsx`)
+    )
 
-        const steps = StepsModule.Steps ?? StepsModule.steps ?? [];
+    setActiveForm(() => LazyForm)
 
-        setLoadedConfig({
-          FormComponent: FormModule.default,
-          steps,
-          title: projectTypes.find(pt => pt.id === selectedType)?.name || 'Project',
-        });
+    //console.log(`module: ${form}`)
 
-        // Fresh result/view
-        setResult({});
-        lastStringifiedRef.current = '';
-      } catch (err) {
-        if (active) {
-          console.error(`Error loading type "${selectedType}":`, err);
-          setLoadedConfig(null);
-        }
-      }
-    })();
+    console.log(`form fields: ${ActiveForm.fields}`)
+    
 
-    return () => { active = false; };
-  }, [selectedType, hardReset]);
+  }, [projectType]);
 
   // Extra safety: clear canvas any time steps set changes
+  /*
   useEffect(() => {
     hardReset();
   }, [loadedConfig?.steps, hardReset]);
+  */
 
   // Auto-run steps whenever form data changes
+  /*
   useEffect(() => {
-    if (!loadedConfig) return;
+    //if (!loadedConfig) return;
 
     const interval = setInterval(() => {
       const api = formRef.current;
@@ -137,12 +112,14 @@ export default function NewProject() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [loadedConfig, runAll]);
+  }, projectType);
+  */
+ 
 
   const handleSubmit = async () => {
-    if (!formRef.current?.getData) return;
+    if (Form.getData) return;
 
-    if (!selectedType) {
+    if (!projectType) {
       alert('Please select a project type before submitting.');
       return;
     }
@@ -179,7 +156,7 @@ export default function NewProject() {
       // 3) Build payload
       const payload = {
         ...general,
-        type: selectedType, // keep id
+        type: projectType, // keep id
         attributes,
         calculated,
       };
@@ -205,22 +182,22 @@ export default function NewProject() {
       <ProjectSidebar
         open={sidebarOpen}
         setOpen={setSidebarOpen}
-        selectedType={selectedType}
+        projectType={projectType}
         setSelectedType={(t) => {
-          setSelectedType(t);
+          setProjectType(t);
           // any extra per-switch cleanup can go here
         }}
         projectTypes={projectTypes}
       />
 
       <main className="flex-1 p-6">
-        {loadedConfig ? (
+        {Form ? (
           <>
             <div className="flex flex-wrap gap-10">
               <div className="flex-1 min-w-[400px]">
                 {/* Force remount on type/stepper changes */}
-                <loadedConfig.FormComponent
-                  key={`form:${resetToken}`}
+                <FormBase
+                  //key={`form:${resetToken}`}
                   ref={formRef}
                   role={role}
                   project={{}}
@@ -235,7 +212,7 @@ export default function NewProject() {
 
               <div className="flex-1 min-w-[400px] flex flex-col items-center">
                 <canvas
-                  key={`canvas:${resetToken}`}
+                  //key={`canvas:${resetToken}`}
                   ref={canvasRef}
                   width={500}
                   height={2000}

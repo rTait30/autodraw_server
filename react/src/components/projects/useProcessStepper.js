@@ -2,6 +2,12 @@ import { useRef, useEffect } from 'react';
 import ProcessStepper from './ProcessStepper';
 
 export function useProcessStepper({ canvasRef = null, steps = [], options = {} }, key = '') {
+
+  if (steps = []) {
+
+    return {}
+  }
+
   const stepperRef = useRef(null);
 
   useEffect(() => {

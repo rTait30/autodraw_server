@@ -1,5 +1,6 @@
-import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState } from 'react';
+import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState, useRef } from 'react';
 import { apiFetch } from '../../services/auth';
+import { GeneralSection } from './GeneralSection';
 
 /**
  * Field schema item shape:
@@ -75,98 +76,7 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
   );
 }
 
-/* -------------------- Built-in General Section -------------------- */
-function GeneralSection({ config, formData, setField }) {
-  const {
-    clientsEndpoint = '/clients',
-    showClientForRoles, // if omitted: shown for all non-client roles
-  } = config || {};
 
-  const [clients, setClients] = useState([]);
-
-  const role = localStorage.getItem('role')
-
-  const shouldShowClient =
-    role && role !== 'client' &&
-    (Array.isArray(showClientForRoles) ? showClientForRoles.includes(role) : true);
-
-  useEffect(() => {
-    let ignore = false;
-    if (!shouldShowClient) {
-      setClients([]);
-      return;
-    }
-    (async () => {
-      try {
-        const res = await apiFetch(clientsEndpoint);
-        if (!res.ok) throw new Error('Failed to load clients');
-        const data = await res.json();
-        if (!ignore) setClients(Array.isArray(data) ? data : []);
-      } catch {
-        if (!ignore) setClients([]);
-      }
-    })();
-    return () => { ignore = true; };
-  }, [shouldShowClient, clientsEndpoint]);
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <label className="block text-sm font-medium mb-1">Project Name</label>
-        <input
-          type="text"
-          className="inputStyle"
-          value={formData.name ?? ''}
-          onChange={(e) => setField('name', e.target.value)}
-        />
-      </div>
-
-      {shouldShowClient && (
-        <div>
-          <label className="block text-sm font-medium mb-1">Client</label>
-          <select
-            className="inputStyle"
-            value={formData.client_id ?? ''}
-            onChange={(e) => setField('client_id', e.target.value)}
-          >
-            <option value="">Select client</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Due Date</label>
-        <input
-          type="date"
-          className="inputStyle"
-          value={formData.due_date ?? ''}
-          onChange={(e) => setField('due_date', e.target.value)}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Info</label>
-        <input
-          type="text"
-          className="inputStyle"
-          value={formData.info ?? ''}
-          onChange={(e) => setField('info', e.target.value)}
-          placeholder="Notes or special instructions"
-        />
-      </div>
-    </div>
-  );
-}
-
-const GENERAL_DEFAULTS = {
-  name: '',
-  client_id: '',
-  due_date: '',
-  info: '',
-};
 
 const handleSubmit = async (nextAttributes) => {
   // keep UI state in sync
@@ -189,116 +99,56 @@ const handleSubmit = async (nextAttributes) => {
   });
 };
 
-const FormBase = forwardRef(({
-  title = 'Form',
-  role,                  // <-- pass role so General can decide visibility
-  fields = [],
-  defaults = {},
-  general = {},        // optional hydration for General (name/client/due_date/info)
-  attributes = {},
-  calculated = {},
-  showCalculated = true,
-  onSubmit,
-  onReturn,
-  onCheck,
+
+const GENERAL_DEFAULTS = Object.freeze({
+  name: "",
+  client_id: "",
+  due_date: "",
+  info: "",
+});
+
+export default function FormBase({
+  ref,
+  role = 'client',                  // <-- pass role so General can decide visibility
+  generalDataHydrate = {
+    name: '',
+    client_id: '',
+    due_date: '',
+    info: ''
+  },
+  formConfig = {},
+  attributesHydrate = {},
+  calculatedHydrate = {},
+  onReturn = null,
+  onCheck = null,
+  onSubmit = null,                  // function to get calculated data from stepper
+  showCalculated = false,
   debug = false,
-}, ref) => {
-  // Enabled by default unless explicitly disabled
-  const generalEnabled = general?.enabled !== false;
+  }) {
 
-  // derive initial values once from field defaults + provided defaults + attributes
-  const initial = useMemo(() => {
-    const byFieldDefaults = fields.reduce((acc, f) => {
-      if (f?.defaultValue !== undefined) acc[f.name] = f.defaultValue;
-      return acc;
-    }, {});
-    // include built-in general defaults so getData() always has those keys
-    const base = generalEnabled ? { ...GENERAL_DEFAULTS } : {};
-    return { ...base, ...byFieldDefaults, ...defaults, ...general, ...attributes };
-  }, [fields, defaults, general, attributes, generalEnabled]);
+  const generalRef = useRef(null);
 
-  const [formData, setFormData] = useState(initial);
+  const [config, setConfig] = useState(formConfig);
 
-  // Rehydrate when `general` changes (same pattern as attributes)
-  useEffect(() => {
-    if (general && Object.keys(general).length) {
-      setFormData(prev => ({ ...prev, ...general }));
-      if (debug) console.log('[FormBase] general received:', general);
-    }
-  }, [general, debug]);
-
-  useEffect(() => {
-    setFormData((prev) => ({ ...prev, ...attributes }));
-    if (debug) console.log('[FormBase] attributes received:', attributes);
-  }, [attributes, debug]);
-
-  useEffect(() => {
-    if (debug) console.log('[FormBase] calculated received:', calculated);
-  }, [calculated, debug]);
-
-  // getData applies transformOut and also coerces client_id to number if present
-  useImperativeHandle(ref, () => ({
-    getData: () => {
-      const out = { ...formData };
-
-      // Coerce client_id
-      if ('client_id' in out) {
-        const raw = out.client_id;
-        out.client_id =
-          raw === '' || raw == null ? undefined :
-          (Number(raw) || undefined);
-      }
-
-      // Per-field transformOut / number coercion
-      for (const f of fields) {
-        if (!(f.name in out)) continue;
-        const raw = out[f.name];
-        out[f.name] = f.transformOut
-          ? f.transformOut(raw, formData)
-          : (f.type === 'number' ? (Number(raw) || 0) : raw);
-      }
-      
-      return out;
-    },
-    setData: (partial) => setFormData((prev) => ({ ...prev, ...partial })),
-    resetToInitial: () => setFormData(initial),
+  const [generalData, setGeneralData] = useState(() => ({
+    ...GENERAL_DEFAULTS,
+    ...(generalDataHydrate ?? {}),
   }));
+  
+  const [attributes, setAttributes] = useState(attributesHydrate);
+  const [calculated, setCalculated] = useState(calculatedHydrate);
 
-  const visibleFields = fields.filter(f => (typeof f.visible === 'function' ? f.visible(formData) : true));
+  console.log("generalData (FormBase):", generalData);
 
-  const setField = (key, val) =>
-    setFormData(prev => ({ ...prev, [key]: val }));
-
-  const handleCheck = () => {
-    onCheck?.(ref?.current?.getData ? ref.current.getData() : formData);
-  };
-  const handleSubmit = () => {
-    onSubmit?.(ref?.current?.getData ? ref.current.getData() : formData);
-  };
+  useImperativeHandle(ref, () => ({
+    getValues: () => ({ general: generalData }),
+  }), [generalData]);
 
   return (
     <div className="space-y-4 w-100%">
-      <h3 className="headingStyle text-red-400 text-4xl">{title}</h3>
-
-      {generalEnabled && (
-        <>
-          <h4 className="headingStyle">General</h4>
-          <GeneralSection formData={formData} setField={setField} />
-        </>
-      )}
-
-      <h4 className="headingStyle">Attributes</h4>
-
-      {visibleFields.map((field) => (
-        <FieldRenderer
-          key={field.name}
-          field={field}
-          value={formData[field.name]}
-          onChange={(val) => setFormData(prev => ({ ...prev, [field.name]: val }))}
-          formData={formData}
-          setField={setField}
-        />
-      ))}
+    
+      <h4 className="headingStyle text-red-400">General</h4>
+      <GeneralSection data={generalData} setData={setGeneralData} />
 
       {(onReturn || onCheck || onSubmit) && (
         <div className="flex items-center gap-2 pt-2">
@@ -342,6 +192,4 @@ const FormBase = forwardRef(({
       )}
     </div>
   );
-});
-
-export default FormBase;
+};

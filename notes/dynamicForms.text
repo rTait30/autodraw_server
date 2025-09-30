@@ -1,0 +1,10 @@
+requirements:
+
+split general, attrbutes, calculated
+
+getter for all
+
+rehydrating all fields
+
+dynamic configs for attributes
+

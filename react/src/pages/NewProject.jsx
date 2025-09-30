@@ -5,7 +5,7 @@ import { apiFetch } from '../services/auth';
 
 import FormBase from '../components/projects/FormBase';
 
-import Form from '../components/projects/cover/Form.jsx';
+//import Form from '../components/projects/cover/Form.jsx';
 
 
 
@@ -19,12 +19,21 @@ const GENERAL_KEYS = ['name', 'client_id', 'due_date', 'info'];
 
 export default function NewProject() {
 
+  const formRef = useRef(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projectType, setProjectType] = useState(null);
   //const [loadedConfig, setLoadedConfig] = useState(null);
 
-  //const [ActiveForm, setActiveForm] = useState(null);
+  const [ActiveForm, setActiveForm] = useState(null);
+
+  const [generalData, setGeneralData] = useState({
+    name: 'test project',
+    client_id: '',
+    due_date: '',
+    info: '',
+  });
 
 
   const [Steps, setSteps] = useState([]);
@@ -34,7 +43,6 @@ export default function NewProject() {
   const [stepperKey, setStepperKey] = useState(0);
 
   const canvasRef = useRef(null);
-  const formRef = useRef(null);
   const lastStringifiedRef = useRef('');
 
   const role = localStorage.getItem('role') || 'guest';
@@ -61,18 +69,24 @@ export default function NewProject() {
 
     console.log(`[NewProject] Loading form "${projectType}"...`);
 
-    //setForm(null);
+    setActiveForm(null);
 
       
-    const LazyForm = React.lazy(() =>
-      import(`../components/projects/${projectType}/Form.jsx`)
-    )
+    import(`../components/projects/${projectType}/Form.json`)
+      .then((json) => {
+        console.log("Loaded form config:", json);   // ✅ raw object
+        setActiveForm(json);
+      })
+      .catch((err) => {
+        console.error("Failed to load form config:", err);
+        setActiveForm(null);
+      });
 
-    setActiveForm(() => LazyForm)
+    //console.log(`Form: ${ActiveForm}`)
 
-    //console.log(`module: ${form}`)
+    //setActiveForm(() => LazyForm)
 
-    console.log(`form fields: ${ActiveForm.fields}`)
+    //console.log(`form fields: ${ActiveForm.fields}`)
     
 
   }, [projectType]);
@@ -177,6 +191,8 @@ export default function NewProject() {
     }
   };
 
+  console.log("generalData (NewProject):", generalData);
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <ProjectSidebar
@@ -191,24 +207,30 @@ export default function NewProject() {
       />
 
       <main className="flex-1 p-6">
-        {Form ? (
+        {ActiveForm ? (
           <>
             <div className="flex flex-wrap gap-10">
+              
               <div className="flex-1 min-w-[400px]">
                 {/* Force remount on type/stepper changes */}
+
                 <FormBase
-                  //key={`form:${resetToken}`}
                   ref={formRef}
-                  role={role}
-                  project={{}}
-                  general={{ enabled: true, clientsEndpoint: '/clients' }}
+                  generalDataHydrate={generalData}
+                  formConfig={ActiveForm}
                 />
+
+                <button onClick={() => console.log("Values:", formRef.current?.getValues())} className="buttonStyle mt-6">
+                  Print values
+                </button>
+
                 <button onClick={handleSubmit} className="buttonStyle mt-6">
                   {["estimator", "admin", "designer"].includes(role)
                     ? "Make Lead"
                     : "Get Quote"}
                 </button>
               </div>
+              
 
               <div className="flex-1 min-w-[400px] flex flex-col items-center">
                 <canvas

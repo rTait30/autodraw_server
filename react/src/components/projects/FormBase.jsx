@@ -126,7 +126,7 @@ export default function FormBase({
   debug = false,
   }) {
 
-  const generalRef = useRef(null);
+  //const generalRef = useRef(null);
 
   const [config, setConfig] = useState(formConfig);
 
@@ -134,7 +134,7 @@ export default function FormBase({
     ...GENERAL_DEFAULTS,
     ...(generalDataHydrate ?? {}),
   }));
-  
+
   const [attributes, setAttributes] = useState(attributesHydrate);
   const [calculated, setCalculated] = useState(calculatedHydrate);
 

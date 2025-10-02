@@ -15,6 +15,16 @@ function FieldRenderer({ label, type, value, onChange, min, max, step, placehold
     disabled,
   };
 
+  if (type === 'dynamicGroup') {
+    return (
+      <DynamicGroupField
+        field={props}
+        attributes={attributes}
+        setAttributes={setAttributes}
+      />
+    );
+  }
+
   return (
     <div>
       {label && <label className="block text-sm font-medium mb-1">{label}</label>}
@@ -44,6 +54,7 @@ function FieldRenderer({ label, type, value, onChange, min, max, step, placehold
         { name, value, onChange, formData, setField },
         field
       )}
+      
     </div>
   );
 }

@@ -37,7 +37,7 @@ export default function NewProject() {
 
 
   const [Steps, setSteps] = useState([]);
-  const [Schema, setSchema] = useState([]);
+  //const [Schema, setSchema] = useState([]);
 
   const [result, setResult] = useState({});
   const [stepperKey, setStepperKey] = useState(0);

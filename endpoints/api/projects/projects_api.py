@@ -98,7 +98,7 @@ def save_project_config():
 
     # ---- CHANGED: do NOT whitelist "type" because it's a relationship now
     allowed_fields = {"name", "status", "due_date", "info"}  # <- 'type' removed
-    project_data = {k: v for k, v in data.items() if k in allowed_fields}
+    project_data = {k: v for k, v in data['general'].items() if k in allowed_fields}
 
     name = (project_data.get("name") or "").strip()
     if not name or len(name) == 0 or len(name) > 200:
@@ -144,7 +144,9 @@ def save_project_config():
     if user.role == "client":
         target_client_id = user.id
     else:
-        target_client_id = _as_int(data.get("client_id"))
+        
+        #target_client_id = _as_int(project_data.get("client_id"))
+        target_client_id = 'winlloyd' #TEMP
         if target_client_id is None and not project_id:
             return jsonify({"error": "client_id is required for staff creates"}), 400
 

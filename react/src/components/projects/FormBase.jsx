@@ -50,7 +50,7 @@ function FieldRenderer({ label, type, value, onChange, min, max, step, placehold
 
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
-  client_id: "",
+  client_id: "winlloyd",
   due_date: "",
   info: "",
 });
@@ -72,7 +72,7 @@ function FormBase({
   role = 'client',
   generalDataHydrate = {
     name: '',
-    client_id: '',
+    client_id: 'winlloyd',
     due_date: '',
     info: ''
   },

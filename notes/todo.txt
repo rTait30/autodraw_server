@@ -1,29 +1,66 @@
-fix forms
+Done:
 
-authenticate with wg in platform
+    Landing page    
 
-auto create lead, quote, proj
+    Discrepency page
 
-get products from wg. local db
+    Admin page
 
-flow
+    Dashboard page
+
+    New Project Page
+
+    Projects page
+
+    Project page
+
+    projects (templates)
+
+    Professional styling
+
+    No Jinja
+
+    clean
+
+    codex
+
+    Price list DB
+
+    DB page
 
 
 
-schema
+TO DO:
 
-price from wg
+    use secure endpoints on frontend
 
+    Schema:
 
+        use product code
 
-notifications
+        merge with EstimateTable
 
+        Saving, DB
 
+    generalise styling
 
-fix shadeDiscrepeancy
+    hide zero quantity on estimations
 
-	- Button stop doin the auto thing
+    sailtrack handling
 
-	- Fix colours
+    use value, new quote value
 
-	- detect reflex angles (solve??)
+    cover, mesh tarps
+
+    project page stepper + estimate
+
+    Logging
+
+    User Settings/Page
+
+    Graceful errors
+
+    Analytics page
+
+cp dist/index.html ../templates/reactindex.html
+cp -r dist/assets ../static/assets

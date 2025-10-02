@@ -131,7 +131,7 @@ export default function NewProject() {
  
 
   const handleSubmit = async () => {
-    if (Form.getData) return;
+    //if (Form.getData) return;
 
     if (!projectType) {
       alert('Please select a project type before submitting.');
@@ -140,12 +140,14 @@ export default function NewProject() {
 
     try {
       // 1) Gather form data (General + Attributes)
-      const all = formRef.current.getData();
+      const all = formRef.current.getValues();
 
-      if (!all.name) {
+      if (!all.general.name) {
         alert('Please enter a project name.');
         return;
       }
+
+      /*
 
       if (role !== 'client' && !all.client_id) {
         alert('Please select a client.');
@@ -167,12 +169,14 @@ export default function NewProject() {
         Object.entries(stepOut).filter(([k]) => !(k in all))
       );
 
+      */
+
       // 3) Build payload
       const payload = {
-        ...general,
+        general: all.general,
         type: projectType, // keep id
-        attributes,
-        calculated,
+        attributes: all.attributes,
+        calculated: all.calculated,
       };
 
       const response = await apiFetch('/projects/create', {

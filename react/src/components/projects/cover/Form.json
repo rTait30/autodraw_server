@@ -9,19 +9,22 @@
     { "name": "quantity", "label": "Quantity", "type": "number", "min": 1, "step": 1, "default": 1 },
     { "name": "hem", "label": "Hem", "type": "number", "min": 0, "default": 0 },
     { "name": "seam", "label": "Seam", "type": "number", "min": 0, "default": 20 },
+    
+    
+    { "name": "zips", "label": "Include Zips", "type": "checkbox", "default": true },
+    { "name": "stayputs", "label": "Include Stayputs", "type": "checkbox", "default": false },
     {
       "name": "fabricWidth",
       "label": "Fabric Width",
       "type": "number",
       "min": 0,
       "default": 1320
-    }
+    },
+    { "name": "foldType", "label": "Fold Type", "type": "select", "options": [ { "label": "Up and Over", "value": "up" }, { "label": "Individual", "value": "individual" }, { "label": "Sides", "value": "sides" } ], "default": "none" }
   ],
 
   "otherfields":
   [
-    { "name": "zips", "label": "Include Zips", "type": "checkbox", "default": true },
-    { "name": "stayputs", "label": "Include Stayputs", "type": "checkbox", "default": false }
   ] 
 
 }

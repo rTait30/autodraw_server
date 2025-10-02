@@ -1,0 +1,29 @@
+fix forms
+
+authenticate with wg in platform
+
+auto create lead, quote, proj
+
+get products from wg. local db
+
+flow
+
+
+
+schema
+
+price from wg
+
+
+
+notifications
+
+
+
+fix shadeDiscrepeancy
+
+	- Button stop doin the auto thing
+
+	- Fix colours
+
+	- detect reflex angles (solve??)

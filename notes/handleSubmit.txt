@@ -1,0 +1,20 @@
+const handleSubmit = async (nextAttributes) => {
+  // keep UI state in sync
+  setEditedAttributes(nextAttributes);
+
+  // decide which calculated to send
+  let calcs;
+  // staff: recompute synchronously here so payload is fresh
+  calcs = await recalcCalculated(nextAttributes);
+  setEditedCalculated(calcs);
+
+  // now submit the exact snapshot you want
+  await apiFetch(`/projects/edit/${project.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      editedAttributes: nextAttributes, // use the param, not (possibly stale) state
+      editedCalculated: calcs,
+    }),
+  });
+};

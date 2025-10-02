@@ -19,7 +19,7 @@ const GENERAL_KEYS = ['name', 'client_id', 'due_date', 'info'];
 
 export default function NewProject() {
 
-  const formRef = useRef(null);
+  const formRef = useRef();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -191,6 +191,22 @@ export default function NewProject() {
     }
   };
 
+  const arbitraryFunction = () => {
+
+    const values = formRef.current?.getValues() || {};
+
+    console.log("General Data:", values.general);
+
+    console.log("Attributes:", values.attributes);
+
+    console.log("Calculations:", values.calculated);
+
+    alert("General Data:\n" + JSON.stringify(values.general, null, 2) +
+      "\n\nAttributes:\n" + JSON.stringify(values.attributes, null, 2) +
+      "\n\nCalculations:\n" + JSON.stringify(values.calculated, null, 2)
+    );
+  }
+
   console.log("generalData (NewProject):", generalData);
 
   return (
@@ -215,12 +231,12 @@ export default function NewProject() {
                 {/* Force remount on type/stepper changes */}
 
                 <FormBase
-                  ref={formRef}
+                  formRef={formRef}
                   generalDataHydrate={generalData}
                   formConfig={ActiveForm}
                 />
 
-                <button onClick={() => console.log("Values:", formRef.current?.getValues())} className="buttonStyle mt-6">
+                <button onClick={arbitraryFunction} className="buttonStyle mt-6">
                   Print values
                 </button>
 

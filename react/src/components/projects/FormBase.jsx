@@ -1,31 +1,8 @@
-import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useImperativeHandle, useState } from 'react';
 import { apiFetch } from '../../services/auth';
 import { GeneralSection } from './GeneralSection';
 
-/**
- * Field schema item shape:
- * {
- *   name: 'width',
- *   label: 'Width',
- *   type: 'number' | 'text' | 'select' | 'textarea' | 'custom',
- *   options?: [{label, value}],
- *   placeholder?: string,
- *   defaultValue?: any,
- *   visible?: (formData) => boolean,
- *   readOnly?: boolean,
- *   disabled?: boolean,
- *   min?: number, max?: number, step?: number,
- *   transformOut?: (value, formData) => any,
- *   render?: (props, field) => ReactNode, // type === 'custom'
- * }
- */
-
-function FieldRenderer({ field, value, onChange, formData, setField }) {
-  const {
-    name, label, type = 'text', options = [], placeholder,
-    readOnly, disabled, min, max, step, render
-  } = field;
-
+function FieldRenderer({ label, type, value, onChange, min, max, step, placeholder, readOnly, disabled, options, render, field, name, formData, setField }) {
   const common = {
     name,
     value: value ?? '',
@@ -36,21 +13,17 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
     placeholder,
     readOnly,
     disabled,
-    
   };
 
   return (
-
     <div>
-    
       {label && <label className="block text-sm font-medium mb-1">{label}</label>}
-
-      {type === 'number'   && <input type="number" {...common} min={min} max={max} step={step} />}
-      {type === 'text'     && <input type="text" {...common} />}
+      {type === 'number' && <input type="number" {...common} min={min} max={max} step={step} />}
+      {type === 'text' && <input type="text" {...common} />}
       {type === 'textarea' && <textarea {...common} rows={3} />}
-      {type === 'select'   && (
+      {type === 'select' && (
         <select {...common}>
-          {options.map((opt) => (
+          {options?.map((opt) => (
             <option key={opt.value ?? opt.label} value={opt.value ?? opt.label}>
               {opt.label ?? String(opt.value)}
             </option>
@@ -64,7 +37,6 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
           checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
-          // keep styling simple; override if you have a checkbox utility class
           className="h-4 w-4 align-middle"
         />
       )}
@@ -76,30 +48,6 @@ function FieldRenderer({ field, value, onChange, formData, setField }) {
   );
 }
 
-
-
-const handleSubmit = async (nextAttributes) => {
-  // keep UI state in sync
-  setEditedAttributes(nextAttributes);
-
-  // decide which calculated to send
-  let calcs;
-  // staff: recompute synchronously here so payload is fresh
-  calcs = await recalcCalculated(nextAttributes);
-  setEditedCalculated(calcs);
-
-  // now submit the exact snapshot you want
-  await apiFetch(`/projects/edit/${project.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      editedAttributes: nextAttributes, // use the param, not (possibly stale) state
-      editedCalculated: calcs,
-    }),
-  });
-};
-
-
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
   client_id: "",
@@ -107,48 +55,86 @@ const GENERAL_DEFAULTS = Object.freeze({
   info: "",
 });
 
-export default function FormBase({
-  ref,
-  role = 'client',                  // <-- pass role so General can decide visibility
+// helper: build { [name]: default } from schema
+const makeAttrDefaults = (cfg) => {
+  const fields = Array.isArray(cfg?.fields) ? cfg.fields : [];
+  return Object.fromEntries(
+    fields.map(f => {
+      let def = f.default;
+      if (f.type === 'checkbox') def = !!def;
+      return [f.name, def];
+    })
+  );
+};
+
+function FormBase({
+  formRef,
+  role = 'client',
   generalDataHydrate = {
     name: '',
     client_id: '',
     due_date: '',
     info: ''
   },
-  formConfig = {},
+  formConfig = { fields: [] }, // Default to empty fields array
   attributesHydrate = {},
   calculatedHydrate = {},
   onReturn = null,
   onCheck = null,
-  onSubmit = null,                  // function to get calculated data from stepper
+  onSubmit = null,
   showCalculated = false,
   debug = false,
-  }) {
-
-  //const generalRef = useRef(null);
-
+}) {
   const [config, setConfig] = useState(formConfig);
-
   const [generalData, setGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
     ...(generalDataHydrate ?? {}),
   }));
-
-  const [attributes, setAttributes] = useState(attributesHydrate);
+  const [attributes, setAttributes] = useState(() => ({
+    ...makeAttrDefaults(formConfig),
+    ...attributesHydrate,
+  }));
   const [calculated, setCalculated] = useState(calculatedHydrate);
 
-  console.log("generalData (FormBase):", generalData);
+  if (debug) {
+    console.log("generalData (FormBase):", generalData);
+    console.log("attributes (FormBase):", attributes);
+  }
 
-  useImperativeHandle(ref, () => ({
-    getValues: () => ({ general: generalData }),
-  }), [generalData]);
+  useImperativeHandle(formRef, () => ({
+    getValues: () => ({
+      general: generalData,
+      attributes: attributes
+    }),
+  }), [generalData, attributes]);
+
+  const handleCheck = () => {
+    if (onCheck) onCheck();
+  };
+
+  const handleSubmit = () => {
+    if (onSubmit) onSubmit();
+  };
 
   return (
-    <div className="space-y-4 w-100%">
-    
+    <div className="space-y-4 w-full">
       <h4 className="headingStyle text-red-400">General</h4>
       <GeneralSection data={generalData} setData={setGeneralData} />
+
+      {Array.isArray(formConfig.fields) && formConfig.fields.length > 0 ? (
+        formConfig.fields.map((field) => (
+          <FieldRenderer
+            key={field.name}
+            {...field}
+            value={attributes[field.name]}
+            onChange={(val) =>
+              setAttributes((prev) => ({ ...prev, [field.name]: val }))
+            }
+          />
+        ))
+      ) : (
+        <p>No fields defined in form configuration.</p>
+      )}
 
       {(onReturn || onCheck || onSubmit) && (
         <div className="flex items-center gap-2 pt-2">
@@ -192,4 +178,6 @@ export default function FormBase({
       )}
     </div>
   );
-};
+}
+
+export default FormBase;

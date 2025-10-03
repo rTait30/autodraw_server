@@ -1,6 +1,8 @@
+export default form
+
 {
   
-  "fields": 
+  const fields =  
   
   [
     { "name": "length", "label": "Length", "type": "number", "min": 0, "default": 1000 },
@@ -21,7 +23,6 @@
       "default": 1320
     },
     { "name": "foldType", "label": "Fold Type", "type": "select", "options": [ { "label": "Up and Over", "value": "upover" }, { "label": "Individual", "value": "individual" }, { "label": "Sides", "value": "sides" } ], "default": "none" }
-
   
   ]
 

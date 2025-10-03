@@ -15,7 +15,7 @@ function FieldRenderer({ label, type, value, onChange, min, max, step, placehold
     disabled,
   };
 
-  if (type === 'dynamicGroup') {
+  if (type === 'dynamic') {
     return (
       <DynamicGroupField
         field={props}
@@ -87,7 +87,7 @@ function FormBase({
     due_date: '',
     info: ''
   },
-  formConfig = { fields: [] }, // Default to empty fields array
+  formConfig = {}, // Default to empty fields array
   attributesHydrate = {},
   calculatedHydrate = {},
   onReturn = null,
@@ -96,6 +96,15 @@ function FormBase({
   showCalculated = false,
   debug = false,
 }) {
+  
+  console.log("config:", formConfig); // TEMP
+
+  const fields = Array.isArray(formConfig)
+    ? (formConfig[0]?.fields || [])
+    : (formConfig.fields || []);
+
+  console.log("fields:", fields); // TEMP
+
   const [config, setConfig] = useState(formConfig);
   const [generalData, setGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
@@ -132,8 +141,8 @@ function FormBase({
       <h4 className="headingStyle text-red-400">General</h4>
       <GeneralSection data={generalData} setData={setGeneralData} />
 
-      {Array.isArray(formConfig.fields) && formConfig.fields.length > 0 ? (
-        formConfig.fields.map((field) => (
+      {fields.length > 0 ? (
+        fields.map((field) => (
           <FieldRenderer
             key={field.name}
             {...field}
@@ -141,6 +150,8 @@ function FormBase({
             onChange={(val) =>
               setAttributes((prev) => ({ ...prev, [field.name]: val }))
             }
+            attributes={attributes}
+            setAttributes={setAttributes}
           />
         ))
       ) : (

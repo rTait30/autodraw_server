@@ -72,13 +72,13 @@ export default function NewProject() {
     setActiveForm(null);
 
       
-    import(`../components/projects/${projectType}/Form.json`)
-      .then((json) => {
-        console.log("Loaded form config:", json);   // ✅ raw object
-        setActiveForm(json);
+    import(`../components/projects/${projectType}/Form.jsx`)
+      .then((jsx) => {
+        console.log("Loaded form config:", jsx);   // ✅ raw object
+        setActiveForm(jsx);
       })
       .catch((err) => {
-        console.error("Failed to load form config:", err);
+        //console.error("Failed to load form config:", err);
         setActiveForm(null);
       });
 

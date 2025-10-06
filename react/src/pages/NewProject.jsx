@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useProcessStepper } from '../components/projects/useProcessStepper';
+import { useProcessStepper } from '../components/products/useProcessStepper';
 import ProjectSidebar from '../components/ProjectSidebar';
 import { apiFetch } from '../services/auth';
 
-import FormBase from '../components/projects/FormBase';
+import FormBase from '../components/products/FormBase';
 
 //import Form from '../components/projects/cover/Form.jsx';
 
@@ -72,7 +72,7 @@ export default function NewProject() {
     setActiveForm(null);
 
       
-    import(`../components/projects/${projectType}/Form.jsx`)
+    import(`../components/projects/${projectType}/FormAlone.jsx`)
       .then((jsx) => {
         console.log("Loaded form config:", jsx);   // ✅ raw object
         setActiveForm(jsx);

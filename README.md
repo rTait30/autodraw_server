@@ -99,7 +99,7 @@ You can export them in your shell or configure them in your environment manager.
 
 All API routes are prefixed with `/api/`, for example:
 
-- `GET /api/projects`
+- `GET /api/products`
 - `POST /api/login`
 
 ---

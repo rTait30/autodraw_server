@@ -13,7 +13,7 @@ function Projects() {
 
     (async () => {
       try {
-        const res = await apiFetch('/projects/list');
+        const res = await apiFetch('/products/list');
         if (!res.ok) throw new Error('Failed to fetch project list');
         const data = await res.json();
         if (!cancelled) setProjects(data);

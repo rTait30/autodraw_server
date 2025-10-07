@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, useMemo, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import EstimateTable from '../components/projects/EstimateTable';
-import SchemaEditor from '../components/projects/SchemaEditor';
+import EstimateTable from '../components/products/EstimateTable';
+import SchemaEditor from '../components/products/SchemaEditor';
 
 import { apiFetch } from '../services/auth';
-import { useProcessStepper } from '../components/projects/useProcessStepper';
+import { useProcessStepper } from '../components/products/useProcessStepper';
 
 import { useParams } from 'react-router-dom';
 
@@ -15,9 +15,9 @@ import { useParams } from 'react-router-dom';
  * ==========================================================================*/
 async function loadTypeResources(type) {
   const [FormModule, StepsModule, SchemaModule] = await Promise.all([
-    import(`../components/projects/${type}/Form.jsx`),
-    import(`../components/projects/${type}/Steps.js`),
-    import(`../components/projects/${type}/Schema.js`),
+    import(`../components/products/${type}/Form.jsx`),
+    import(`../components/products/${type}/Steps.js`),
+    import(`../components/products/${type}/Schema.js`),
   ]);
 
   return {
@@ -110,7 +110,7 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   const loadProjectFromServer = async () => {
     try {
-      const res = await apiFetch(`/project/${projectId}`);
+      const res = await apiFetch(`/product/${projectId}`);
       if (!res.ok) throw new Error('Failed to fetch project');
 
       const data = await res.json();

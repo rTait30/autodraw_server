@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProcessStepper } from '../components/projects/useProcessStepper';
+import { useProcessStepper } from '../components/products/useProcessStepper';
 
 // Lazy-load the shadesail form (keeps it in a separate chunk)
 const ShadesailForm = React.lazy(() =>
-  import('../components/projects/shadesail/Form.jsx')
+  import('../components/products/shadesail/Form.jsx')
 );
 
 export default function Discrepancy() {
@@ -22,7 +22,7 @@ export default function Discrepancy() {
   // Load steps dynamically so they can be split into their own chunk
   useEffect(() => {
     let alive = true;
-    import('../components/projects/shadesail/Steps.js')
+    import('../components/products/shadesail/Steps.js')
       .then((mod) => {
         const loaded = mod.Steps ?? mod.steps ?? [];
         if (alive) setSteps(loaded);

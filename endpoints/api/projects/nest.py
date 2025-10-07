@@ -1,4 +1,4 @@
-# endpoints/api/projects/nest.py
+# endpoints/api/products/nest.py
 from datetime import datetime
 from typing import Dict, List, Tuple
 

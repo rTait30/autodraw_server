@@ -68,7 +68,7 @@ def resolve_project_type_id(data):
 # -------------------------------
 # Create / update project (auth required)
 # -------------------------------
-@projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
+@projects_api_bp.route("/products/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
 
@@ -246,7 +246,7 @@ from datetime import datetime
 from flask import jsonify, request
 from sqlalchemy.orm.attributes import flag_modified
 
-@projects_api_bp.route("/projects/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
+@projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
 def upsert_project_and_attributes(project_id):
     payload = request.get_json(silent=True) or {}
 
@@ -340,7 +340,7 @@ def upsert_project_and_attributes(project_id):
 # -------------------------------
 # List projects (auth required; client sees own only)
 # -------------------------------
-@projects_api_bp.route("/projects/list", methods=["GET"])
+@projects_api_bp.route("/products/list", methods=["GET"])
 @jwt_required()
 def list_project_configs():
     user = current_user(required=True)

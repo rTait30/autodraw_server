@@ -52,36 +52,45 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
 
   // Single attributes object
   const [attributes, setAttributes] = useState({
-    length: 1000,
+    length: "",
     width: 1000,
     height: 1000,
-    // add more fields here as needed
+    quantity: 1,
+    hem: 0,
+    seam: 0,
+    zips: true,
+    stayputs: false,
+    fabricWidth: 1320,
   });
 
-  // Handy setter for individual fields
+  const [calculations, setCalculations] = useState({
+    volume: 0
+  })
+
   const setAttr = (key) => (value) =>
     setAttributes((prev) => ({ ...prev, [key]: value }));
 
-  useImperativeHandle(formRef, () => ({
+  useImperativeHandle(
+    formRef,
+    () => ({
       getValues: () => ({
         general: generalData,
-        attributes
+        attributes,
       }),
-    }), [generalData, attributes]);
-
-  //<label className="block text-sm font-medium mb-1">Length</label>
-  //<input value={name} className='inputCompact w-full' onChange={(e) => setName(e.target.value)} />
+    }),
+    [generalData, attributes]
+  );
 
   return (
     <div>
       <GeneralSection data={generalData} setData={setGeneralData} />
-      <h3>Attributes</h3>
-      
-
+      <br></br>
+      <h3 className = "headingStyle">Attributes</h3>
 
       <label className="block text-sm font-medium mb-1">Length (mm)</label>
       <input
-        className="inputCompact w-full"
+        className="inputCompact"
+        type="number"
         value={attributes.length}
         onChange={(e) => setAttr("length")(e.target.value)}
         inputMode="numeric"
@@ -89,7 +98,8 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
 
       <label className="block text-sm font-medium mb-1">Width (mm)</label>
       <input
-        className="inputCompact w-full"
+        className="inputCompact"
+        type="number"
         value={attributes.width}
         onChange={(e) => setAttr("width")(e.target.value)}
         inputMode="numeric"
@@ -97,12 +107,70 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
 
       <label className="block text-sm font-medium mb-1">Height (mm)</label>
       <input
-        className="inputCompact w-full"
-        value={attributes.width}
-        onChange={(e) => setAttr("width")(e.target.value)}
+        className="inputCompact"
+        type="number"
+        value={attributes.height}
+        onChange={(e) => setAttr("height")(e.target.value)}
         inputMode="numeric"
       />
 
+      <label className="block text-sm font-medium mb-1">Quantity</label>
+      <input
+        className="inputCompact"
+        type="number"
+        value={attributes.quantity}
+        onChange={(e) => setAttr("quantity")(e.target.value)}
+        inputMode="numeric"
+      />
+
+      <label className="block text-sm font-medium mb-1">Hem (mm)</label>
+      <input
+        className="inputCompact"
+        type="number"
+        value={attributes.hem}
+        onChange={(e) => setAttr("hem")(e.target.value)}
+        inputMode="numeric"
+      />
+
+      <label className="block text-sm font-medium mb-1">Seam (mm)</label>
+      <input
+        className="inputCompact"
+        type="number"
+        value={attributes.seam}
+        onChange={(e) => setAttr("seam")(e.target.value)}
+        inputMode="numeric"
+      />
+      
+      <div className="flex items-center space-x-6 mt-2">
+        <label className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={attributes.zips}
+            onChange={(e) => setAttr("zips")(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm font-medium">Zips</span>
+        </label>
+
+        <label className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={attributes.stayputs}
+            onChange={(e) => setAttr("stayputs")(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm font-medium">Stayputs</span>
+        </label>
+      </div>
+
+      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Width (mm) </label>
+      <input
+        className="inputCompact"
+        type="number"
+        value={attributes.fabricWidth}
+        onChange={(e) => setAttr("fabricWidth")(e.target.value)}
+        inputMode="numeric"
+      />
     </div>
   );
 }

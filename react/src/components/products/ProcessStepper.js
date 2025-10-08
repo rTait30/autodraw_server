@@ -1,4 +1,4 @@
-class ProcessStepper {
+export class ProcessStepper {
   constructor(canvasOrId = null, options = {}) {
     if (canvasOrId) {
       this.canvas =
@@ -119,5 +119,3 @@ class ProcessStepper {
     return this.data || {};
   }
 }
-
-export default ProcessStepper;

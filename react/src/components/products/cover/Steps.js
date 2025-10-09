@@ -6,7 +6,7 @@ export const Steps = [
     calcFunction: (data) => {
       return {}; // No extra calc
     },
-    drawFunction: (ctx, data) => {
+    drawFunction: (ctx, data, scale) => {
       try {
         if (!ctx || !data) throw new Error("Missing ctx or data");
 
@@ -20,7 +20,7 @@ export const Steps = [
           throw new Error(`Invalid numeric inputs: width=${width}, height=${height}, length=${length}, quantity=${quantity}`);
         }
 
-        const padding = 100;
+        const padding = 100 * scale;
         const spacing = width / 4;
         const totalWidthUnits = width + length;
         const totalHeightUnits = height + hem + length;

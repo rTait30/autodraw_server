@@ -52,9 +52,9 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
 
   // Single attributes object
   const [attributes, setAttributes] = useState({
-    length: "",
-    width: 1000,
-    height: 1000,
+    length: 0,
+    width: 0,
+    height: 0,
     quantity: 1,
     hem: 0,
     seam: 0,
@@ -91,27 +91,39 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
       <input
         className="inputCompact"
         type="number"
-        value={attributes.length}
-        onChange={(e) => setAttr("length")(e.target.value)}
         inputMode="numeric"
+        step="any"              // or "1" for integers
+        value={attributes.length ?? ""}          // show blank if null
+        onChange={(e) => {
+          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          setAttr("length")(Number.isNaN(v) ? null : v);
+        }}
       />
 
       <label className="block text-sm font-medium mb-1">Width (mm)</label>
       <input
         className="inputCompact"
         type="number"
-        value={attributes.width}
-        onChange={(e) => setAttr("width")(e.target.value)}
         inputMode="numeric"
+        step="any"              // or "1" for integers
+        value={attributes.width ?? ""}          // show blank if null
+        onChange={(e) => {
+          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          setAttr("width")(Number.isNaN(v) ? null : v);
+        }}
       />
 
       <label className="block text-sm font-medium mb-1">Height (mm)</label>
       <input
         className="inputCompact"
         type="number"
-        value={attributes.height}
-        onChange={(e) => setAttr("height")(e.target.value)}
         inputMode="numeric"
+        step="any"              // or "1" for integers
+        value={attributes.height ?? ""}          // show blank if null
+        onChange={(e) => {
+          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          setAttr("height")(Number.isNaN(v) ? null : v);
+        }}
       />
 
       <label className="block text-sm font-medium mb-1">Quantity</label>

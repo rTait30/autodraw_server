@@ -14,8 +14,8 @@ const FORM_LOADERS = {
 const STEPS_LOADERS = {
 
   cover:      () => import("../components/products/cover/Steps.js"),
-
-}
+  shadesail:  () => import("../components/products/shadesail/Steps.js"),
+};
 
 const projectTypes = [
   { name: "Covers",     id: "cover" },
@@ -69,6 +69,9 @@ export default function NewProject() {
 
   // NEW: Build a new ProcessStepper and load Steps whenever projectType changes
   useEffect(() => {
+
+    canvasRef.current?.getContext("2d")?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
     let cancelled = false;
 
     // if no type or canvas missing, reset
@@ -79,14 +82,47 @@ export default function NewProject() {
     }
 
     // 1) create a fresh instance bound to the canvas
-    stepperRef.current = new ProcessStepper(canvasRef.current, {
-      showData: false,
-      stepOffsetY: 800,
-      draw: true,
-    });
+    stepperRef.current =
+    
+      new ProcessStepper({
+        stepOffsetY: 400,
+        showData: false
+      });
+
+    return () => { cancelled = true; };
+  }, [projectType]);
+
+  
+  useEffect(() => {
+    // (re)attach when the canvas ref is ready or changes
+    if (canvasRef.current && stepperRef.current) {
+      stepperRef.current.addCanvas(canvasRef.current);
+
+      (async () => {
+
+        const loader = STEPS_LOADERS[projectType];
+        if (!loader) { setSteps([]); return; }
+
+        const steps = await loader();
+
+        console.log("steps", steps);
+
+        steps.Steps.forEach((step, i) => {
+          //console.log("step", i);
+          //console.log(step);
+          stepperRef.current.addStep(step)
+        });
+      })();
+      
+      //stepperRef.current.steps = []; // clear any previous
+    }
+
+    //console.log()
 
     // 2) lazy-load & register step configs
+    /*
     (async () => {
+
       const loader = STEPS_LOADERS[projectType];
       if (!loader) { setSteps([]); return; }
 
@@ -96,20 +132,24 @@ export default function NewProject() {
         ? factory({ canvasRef, formRef })
         : (mod?.steps ?? []);
 
-      if (cancelled) return;
+      //if (cancelled) return;
+      
+      console.log("steps", loader)
 
       stepperRef.current.steps = []; // clear any previous
       configs.forEach(cfg => stepperRef.current.addStep(cfg));
       setSteps(configs);
     })();
 
-    return () => { cancelled = true; };
-  }, [projectType]);
+    */
+
+  }, [projectType]); // or [projectType]
 
   // NEW: expose a button handler that calls runAll with current form values
   const runAllNow = async () => {
     const all = formRef.current?.getValues?.() ?? {};
-    await stepperRef.current?.runAll(all);
+    console.log("Running all steps with data:", all.attributes);
+    await stepperRef.current?.runAll( all.attributes);
   };
 
 

@@ -340,7 +340,7 @@ def upsert_project_and_attributes(project_id):
 # -------------------------------
 # List projects (auth required; client sees own only)
 # -------------------------------
-@projects_api_bp.route("/products/list", methods=["GET"])
+@projects_api_bp.route("/projects/list", methods=["GET"])
 @jwt_required()
 def list_project_configs():
     user = current_user(required=True)

@@ -70,11 +70,9 @@ export class ProcessStepper {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
-
     for (let i = 0; i < this.steps.length; i++) {
       await this.executeStep(this.steps[i], initialData, i);
     }
-
     
     const scale = 100;
     // Offset Y in canvas pixels
@@ -113,7 +111,7 @@ export class ProcessStepper {
 
 
         // Draw the step
-        step.drawFunction(this.ctx, data, 1000);
+        step.drawFunction(this.ctx, data);
 
         // Optionally reset transform after drawing
         //this.ctx.setTransform(1, 0, 0, 1, 0, 0);

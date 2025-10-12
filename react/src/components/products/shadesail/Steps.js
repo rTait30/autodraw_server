@@ -1,277 +1,4 @@
-function computeDiscrepancyXY(dimensions) {
-  const lengths = Object.values(dimensions);
 
-  // Naming consistent with your original code
-  const l12xy = lengths[0]; // AB
-  const l13xy = lengths[1]; // AC (diagonal)
-  const l41xy = lengths[2]; // DA
-  const l23xy = lengths[3]; // BC
-  const l24xy = lengths[4]; // BD (diagonal)
-  const l34xy = lengths[5]; // CD
-
-  // --- Utility: Safe acos for numeric stability ---
-  const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
-
-  // --- Step 1: Compute cosines of angles ---
-  const cos123 = (l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy);
-  const cos134 = (l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy);
-
-  // --- Step 2: Get *unsigned* angles ---
-  const angle123_unsigned = safeAcos(cos123);
-  const angle134_unsigned = safeAcos(cos134);
-
-  // --- Step 3: Determine *signed* angles ---
-  // We assume CCW winding, so we flip sign if needed.
-  // For a reflex angle, the "turn" should go beyond π.
-  // Trick: if the quadrilateral is concave, the diagonals will cross differently.
-  // We'll determine sign based on triangle inequality check:
-  let angle123 = angle123_unsigned;
-  let angle134 = angle134_unsigned;
-
-  // OPTIONAL heuristic: detect reflex by checking if sum of opposite edges < diagonal
-  const isReflex123 = (l12xy + l23xy < l13xy + 1e-9);
-  const isReflex134 = (l41xy + l34xy < l13xy + 1e-9);
-
-  if (isReflex123) angle123 = 2 * Math.PI - angle123_unsigned;
-  if (isReflex134) angle134 = 2 * Math.PI - angle134_unsigned;
-
-  // --- Step 4: Place points ---
-  // P1 is at origin
-  const p1x = 0, p1y = 0;
-  // P3 is at (l13xy, 0) - baseline
-  const p3x = l13xy, p3y = 0;
-
-  // P2 is rotated CCW from baseline by angle123
-  const p2x = l12xy * Math.cos(angle123);
-  const p2y = l12xy * Math.sin(angle123);
-
-  // P4 is rotated CW from baseline by angle134 (negative y direction)
-  const p4x = l41xy * Math.cos(-angle134);
-  const p4y = l41xy * Math.sin(-angle134);
-
-  // --- Step 5: Compute theoretical BD distance ---
-  const l24Theoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
-
-  const discrepancy = Math.abs(l24Theoric - l24xy);
-  console.log("discrepancy", discrepancy);
-  return discrepancy;
-}
-
-
-function getPointLabel(i) {
-  return String.fromCharCode(65 + i); // A, B, C...
-}
-
-
-function projectToXY(length, z1, z2) {
-  const dz = z2 - z1;
-  return Math.sqrt(Math.max(0, length ** 2 - dz ** 2));
-}
-
-function lawCosine(a, b, c) {
-  const cos = (a ** 2 + b ** 2 - c ** 2) / (2 * a * b);
-  return Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
-}
-
-function signedAngleDegrees(v1, v2) {
-  const [x1, y1] = v1;
-  const [x2, y2] = v2;
-
-  const dot = x1 * x2 + y1 * y2;         // dot product
-  const det = x1 * y2 - y1 * x2;         // z-component of cross product
-  const angleRad = Math.atan2(det, dot); // returns -π..π
-  let angleDeg = angleRad * (180 / Math.PI);
-
-  // Normalize to 0–360°
-  if (angleDeg < 0) angleDeg += 360;
-  return angleDeg;
-}
-
-function polygonAngle(A, B, C) {
-  // Build vectors BA and BC (from B)
-  const BA = [A.x - B.x, A.y - B.y];
-  const BC = [C.x - B.x, C.y - B.y];
-
-  // Compute full signed angle
-  return signedAngleDegrees(BA, BC);
-}
-
-function generateBoxes(N, dimensions) {
-  const labels = Array.from({ length: N }, (_, i) => getPointLabel(i));
-  const boxes = {};
-
-  const boxCount = Math.floor((N - 2) / 2);
-
-  for (let i = 0; i < boxCount; i++) {
-    const name = getPointLabel(i);
-    const topLeft = labels[i];
-    const topRight = labels[i + 1];
-    const bottomRight = labels[N - 1 - i - 1];
-    const bottomLeft = labels[N - 1 - i];
-    boxes[name] = [topLeft, topRight, bottomRight, bottomLeft];
-  }
-
-  if (N % 2 !== 0) {
-    const name = getPointLabel(boxCount);
-    const mid = Math.floor(N / 2);
-    boxes[name] = [
-      labels[mid - 1],
-      labels[mid],
-      labels[mid + 1]
-    ];
-  }
-
-  // Logging each box and edge dimensions
-  for (const [boxName, pts] of Object.entries(boxes)) {
-    console.log(`\nBox ${boxName}: ${pts.join('-')}`);
-
-    // Get all pairwise distances between points in the box
-    const dims = {};
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i + 1; j < pts.length; j++) {
-        const a = pts[i];
-        const b = pts[j];
-        const key = `${a}${b}`;
-        const revKey = `${b}${a}`;
-        const value = dimensions[key] ?? dimensions[revKey];
-        dims[key] = value;
-      }
-    }
-
-    console.log('Distances:', dims);
-
-    if (pts.length === 4) {
-      console.log("Quadrilateral");
-
-      // Sort points alphabetically to standardize their roles
-      const [TL, TR, BR, BL] = [...pts].sort(); // top-left, top-right, bottom-right, bottom-left
-
-      const top = dimensions[`${TL}${TR}`] ?? dimensions[`${TR}${TL}`];
-      const left = dimensions[`${TL}${BL}`] ?? dimensions[`${BL}${TL}`];
-      const diagLeft = dimensions[`${TR}${BL}`] ?? dimensions[`${BL}${TR}`];
-
-      const right = dimensions[`${TR}${BR}`] ?? dimensions[`${BR}${TR}`];
-      const diagRight = dimensions[`${TL}${BR}`] ?? dimensions[`${BR}${TL}`];
-
-      const angle1 = lawCosine(top, left, diagLeft);   // at TL
-      const angle2 = lawCosine(top, right, diagRight); // at TR
-
-      console.log(`Angle 1 (top-left @ ${TL}): ${angle1.toFixed(2)}°`);
-      console.log(`Angle 2 (top-right @ ${TR}): ${angle2.toFixed(2)}°`);
-    }
-  }
-
-  return boxes;
-}
-
-function rotatePointCounterclockwise(x, y, angleRad) {
-  const cosA = Math.cos(angleRad);
-  const sinA = Math.sin(angleRad);
-
-  return {
-    x: x * cosA - y * sinA,
-    y: x * sinA + y * cosA
-  };
-}
-
-function placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD, rotateAngle = 0) {
-  let boxPositions = {};
-
-  // Place base points
-  boxPositions["A"] = { x: 0, y: 0 };
-  boxPositions["B"] = { x: dAB, y: 0 };
-
-  const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
-  const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
-  boxPositions["C"] = { x: xC, y: yC };
-
-  const dx = xC, dy = yC;
-  const d = Math.sqrt(dx * dx + dy * dy);
-  const a = (dAD ** 2 - dCD ** 2 + d * d) / (2 * d);
-  const h = Math.sqrt(Math.max(0, dAD ** 2 - a * a));
-  const xD = a * dx / d;
-  const yD = a * dy / d;
-  const rx = -dy * (h / d);
-  const ry = dx * (h / d);
-  boxPositions["D"] = { x: xD + rx, y: yD + ry };
-
-  // ✅ Rotate all points clockwise around A if rotateAngle ≠ 0
-  if (rotateAngle !== 0) {
-    for (const key in boxPositions) {
-      const p = boxPositions[key];
-      const rotated = rotatePointCounterclockwise(p.x, p.y, rotateAngle);
-      boxPositions[key] = rotated;
-    }
-  }
-
-  return boxPositions;
-}
-
-function getFourPointCombosWithDims(N, xyDimensions) {
-  const labels = Array.from({ length: N }, (_, i) => String.fromCharCode(65 + i)); // ['A','B',...]
-  
-  // Generate all 4-point combos
-  const combos = [];
-  function helper(start, combo) {
-    if (combo.length === 4) {
-      combos.push([...combo]);
-      return;
-    }
-    for (let i = start; i < labels.length; i++) {
-      combo.push(labels[i]);
-      helper(i + 1, combo);
-      combo.pop();
-    }
-  }
-  helper(0, []);
-
-  return combos.map(combo => {
-    const [a, b, c, d] = combo;
-
-    // These are the edges + diagonals we care about
-    const pairs = [
-      [a, b], [a, c], [a, d], [b, c], [b, d], [c, d]
-    ];
-
-    const dims = {};
-    for (const [p1, p2] of pairs) {
-      const alphaKey = [p1, p2].sort().join(''); // always alphabetical
-      dims[alphaKey] = xyDimensions[alphaKey] ?? null;
-    }
-
-    return { combo: combo.join(''), dims };
-  });
-}
-
-function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
-  // boxPts = ['A','B','C','D']
-  // dimensions has all distances (AB, BC, etc.)
-
-  // Get required distances for quadrilateral placement
-  const dAB = dimensions[`${boxPts[0]}${boxPts[1]}`] ?? dimensions[`${boxPts[1]}${boxPts[0]}`];
-  const dAC = dimensions[`${boxPts[0]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[0]}`];
-  const dAD = dimensions[`${boxPts[0]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[0]}`];
-  const dBC = dimensions[`${boxPts[1]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[1]}`];
-  const dBD = dimensions[`${boxPts[1]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[1]}`];
-  const dCD = dimensions[`${boxPts[2]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[2]}`];
-
-  // Place the box flat (TL = origin)
-  let placed = placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD);
-
-  // Rotate each point CCW by the globalAngleRad
-  for (const key in placed) {
-    const p = placed[key];
-    const rotated = rotatePointCounterclockwise(p.x, p.y, globalAngleRad);
-
-    // Then translate relative to the anchor point
-    placed[key] = {
-      x: rotated.x + anchorPoint.x,
-      y: rotated.y + anchorPoint.y
-    };
-  }
-
-  return placed;
-}
 
 export const Steps = [
   {
@@ -336,11 +63,11 @@ export const Steps = [
 
       */
 
-      const edgeMeter = Object.values(data.dimensions).reduce((sum, value) => sum + value, 0);
+      //const edgeMeter = Object.values(data.dimensions).reduce((sum, value) => sum + value, 0);
 
-      const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+      //const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
 
-      console.log('Total edgeMeter:', edgeMeter);
+      //console.log('Total edgeMeter:', edgeMeter);
 
       const xyDistances = {};
 
@@ -398,7 +125,13 @@ export const Steps = [
               const allInside = [...blameKey].every(char => combo.combo.includes(char));
 
               if (allInside) {
-                blame[blameKey] += discrepancy;
+                if (blameKey.length == 2) {
+                  blame[blameKey] += discrepancy;
+                }
+
+                else {
+                  blame[blameKey] += discrepancy * 0.5;
+                }
               }
             }
           }
@@ -661,6 +394,7 @@ export const Steps = [
         console.log("\n=== FINAL positions ===", positions);
       }
 
+      let edgeMeterCeilMeters = 5
 
       let fabricPrice = getPriceByFabric(edgeMeterCeilMeters, data.fabricType);
 
@@ -696,17 +430,16 @@ export const Steps = [
 
       
 
+      //data.edgeMeter = edgeMeter
+      //data.edgeMeterCeilMeters = edgeMeterCeilMeters,
+      data.positions = positions,
+      data.discrepancies = discrepancies,
+      data.blame = blame
+      data.fabricPrice = fabricPrice,
+      data.discrepancyProblem = discrepancyProblem,
+      data.boxes = boxes
 
-      return {
-        edgeMeter,
-        edgeMeterCeilMeters,
-        positions,
-        discrepancies,
-        blame,
-        fabricPrice,
-        discrepancyProblem,
-        ...(boxes ? { boxes } : {})
-      };
+      return data;
     },
 
 
@@ -1045,4 +778,283 @@ function getPriceByFabric(edgeMeter, fabricName) {
     return null;
   }
   return getPrice(Number(edgeMeter), category);
+}
+
+
+
+
+
+function computeDiscrepancyXY(dimensions) {
+  const lengths = Object.values(dimensions);
+
+  // Naming consistent with your original code
+  const l12xy = lengths[0]; // AB
+  const l13xy = lengths[1]; // AC (diagonal)
+  const l41xy = lengths[2]; // DA
+  const l23xy = lengths[3]; // BC
+  const l24xy = lengths[4]; // BD (diagonal)
+  const l34xy = lengths[5]; // CD
+
+  // --- Utility: Safe acos for numeric stability ---
+  const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
+
+  // --- Step 1: Compute cosines of angles ---
+  const cos123 = (l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy);
+  const cos134 = (l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy);
+
+  // --- Step 2: Get *unsigned* angles ---
+  const angle123_unsigned = safeAcos(cos123);
+  const angle134_unsigned = safeAcos(cos134);
+
+  // --- Step 3: Determine *signed* angles ---
+  // We assume CCW winding, so we flip sign if needed.
+  // For a reflex angle, the "turn" should go beyond π.
+  // Trick: if the quadrilateral is concave, the diagonals will cross differently.
+  // We'll determine sign based on triangle inequality check:
+  let angle123 = angle123_unsigned;
+  let angle134 = angle134_unsigned;
+
+  // OPTIONAL heuristic: detect reflex by checking if sum of opposite edges < diagonal
+  const isReflex123 = (l12xy + l23xy < l13xy + 1e-9);
+  const isReflex134 = (l41xy + l34xy < l13xy + 1e-9);
+
+  if (isReflex123) angle123 = 2 * Math.PI - angle123_unsigned;
+  if (isReflex134) angle134 = 2 * Math.PI - angle134_unsigned;
+
+  // --- Step 4: Place points ---
+  // P1 is at origin
+  const p1x = 0, p1y = 0;
+  // P3 is at (l13xy, 0) - baseline
+  const p3x = l13xy, p3y = 0;
+
+  // P2 is rotated CCW from baseline by angle123
+  const p2x = l12xy * Math.cos(angle123);
+  const p2y = l12xy * Math.sin(angle123);
+
+  // P4 is rotated CW from baseline by angle134 (negative y direction)
+  const p4x = l41xy * Math.cos(-angle134);
+  const p4y = l41xy * Math.sin(-angle134);
+
+  // --- Step 5: Compute theoretical BD distance ---
+  const l24Theoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
+
+  const discrepancy = Math.abs(l24Theoric - l24xy);
+  console.log("discrepancy", discrepancy);
+  return discrepancy;
+}
+
+
+function getPointLabel(i) {
+  return String.fromCharCode(65 + i); // A, B, C...
+}
+
+
+function projectToXY(length, z1, z2) {
+  const dz = z2 - z1;
+  return Math.sqrt(Math.max(0, length ** 2 - dz ** 2));
+}
+
+function lawCosine(a, b, c) {
+  const cos = (a ** 2 + b ** 2 - c ** 2) / (2 * a * b);
+  return Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
+}
+
+function signedAngleDegrees(v1, v2) {
+  const [x1, y1] = v1;
+  const [x2, y2] = v2;
+
+  const dot = x1 * x2 + y1 * y2;         // dot product
+  const det = x1 * y2 - y1 * x2;         // z-component of cross product
+  const angleRad = Math.atan2(det, dot); // returns -π..π
+  let angleDeg = angleRad * (180 / Math.PI);
+
+  // Normalize to 0–360°
+  if (angleDeg < 0) angleDeg += 360;
+  return angleDeg;
+}
+
+function polygonAngle(A, B, C) {
+  // Build vectors BA and BC (from B)
+  const BA = [A.x - B.x, A.y - B.y];
+  const BC = [C.x - B.x, C.y - B.y];
+
+  // Compute full signed angle
+  return signedAngleDegrees(BA, BC);
+}
+
+function generateBoxes(N, dimensions) {
+  const labels = Array.from({ length: N }, (_, i) => getPointLabel(i));
+  const boxes = {};
+
+  const boxCount = Math.floor((N - 2) / 2);
+
+  for (let i = 0; i < boxCount; i++) {
+    const name = getPointLabel(i);
+    const topLeft = labels[i];
+    const topRight = labels[i + 1];
+    const bottomRight = labels[N - 1 - i - 1];
+    const bottomLeft = labels[N - 1 - i];
+    boxes[name] = [topLeft, topRight, bottomRight, bottomLeft];
+  }
+
+  if (N % 2 !== 0) {
+    const name = getPointLabel(boxCount);
+    const mid = Math.floor(N / 2);
+    boxes[name] = [
+      labels[mid - 1],
+      labels[mid],
+      labels[mid + 1]
+    ];
+  }
+
+  // Logging each box and edge dimensions
+  for (const [boxName, pts] of Object.entries(boxes)) {
+    console.log(`\nBox ${boxName}: ${pts.join('-')}`);
+
+    // Get all pairwise distances between points in the box
+    const dims = {};
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i];
+        const b = pts[j];
+        const key = `${a}${b}`;
+        const revKey = `${b}${a}`;
+        const value = dimensions[key] ?? dimensions[revKey];
+        dims[key] = value;
+      }
+    }
+
+    console.log('Distances:', dims);
+
+    if (pts.length === 4) {
+      console.log("Quadrilateral");
+
+      // Sort points alphabetically to standardize their roles
+      const [TL, TR, BR, BL] = [...pts].sort(); // top-left, top-right, bottom-right, bottom-left
+
+      const top = dimensions[`${TL}${TR}`] ?? dimensions[`${TR}${TL}`];
+      const left = dimensions[`${TL}${BL}`] ?? dimensions[`${BL}${TL}`];
+      const diagLeft = dimensions[`${TR}${BL}`] ?? dimensions[`${BL}${TR}`];
+
+      const right = dimensions[`${TR}${BR}`] ?? dimensions[`${BR}${TR}`];
+      const diagRight = dimensions[`${TL}${BR}`] ?? dimensions[`${BR}${TL}`];
+
+      const angle1 = lawCosine(top, left, diagLeft);   // at TL
+      const angle2 = lawCosine(top, right, diagRight); // at TR
+
+      console.log(`Angle 1 (top-left @ ${TL}): ${angle1.toFixed(2)}°`);
+      console.log(`Angle 2 (top-right @ ${TR}): ${angle2.toFixed(2)}°`);
+    }
+  }
+
+  return boxes;
+}
+
+function rotatePointCounterclockwise(x, y, angleRad) {
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
+
+  return {
+    x: x * cosA - y * sinA,
+    y: x * sinA + y * cosA
+  };
+}
+
+function placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD, rotateAngle = 0) {
+  let boxPositions = {};
+
+  // Place base points
+  boxPositions["A"] = { x: 0, y: 0 };
+  boxPositions["B"] = { x: dAB, y: 0 };
+
+  const xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB);
+  const yC = Math.sqrt(Math.max(0, dAC ** 2 - xC ** 2));
+  boxPositions["C"] = { x: xC, y: yC };
+
+  const dx = xC, dy = yC;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const a = (dAD ** 2 - dCD ** 2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, dAD ** 2 - a * a));
+  const xD = a * dx / d;
+  const yD = a * dy / d;
+  const rx = -dy * (h / d);
+  const ry = dx * (h / d);
+  boxPositions["D"] = { x: xD + rx, y: yD + ry };
+
+  // ✅ Rotate all points clockwise around A if rotateAngle ≠ 0
+  if (rotateAngle !== 0) {
+    for (const key in boxPositions) {
+      const p = boxPositions[key];
+      const rotated = rotatePointCounterclockwise(p.x, p.y, rotateAngle);
+      boxPositions[key] = rotated;
+    }
+  }
+
+  return boxPositions;
+}
+
+function getFourPointCombosWithDims(N, xyDimensions) {
+  const labels = Array.from({ length: N }, (_, i) => String.fromCharCode(65 + i)); // ['A','B',...]
+  
+  // Generate all 4-point combos
+  const combos = [];
+  function helper(start, combo) {
+    if (combo.length === 4) {
+      combos.push([...combo]);
+      return;
+    }
+    for (let i = start; i < labels.length; i++) {
+      combo.push(labels[i]);
+      helper(i + 1, combo);
+      combo.pop();
+    }
+  }
+  helper(0, []);
+
+  return combos.map(combo => {
+    const [a, b, c, d] = combo;
+
+    // These are the edges + diagonals we care about
+    const pairs = [
+      [a, b], [a, c], [a, d], [b, c], [b, d], [c, d]
+    ];
+
+    const dims = {};
+    for (const [p1, p2] of pairs) {
+      const alphaKey = [p1, p2].sort().join(''); // always alphabetical
+      dims[alphaKey] = xyDimensions[alphaKey] ?? null;
+    }
+
+    return { combo: combo.join(''), dims };
+  });
+}
+
+function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
+  // boxPts = ['A','B','C','D']
+  // dimensions has all distances (AB, BC, etc.)
+
+  // Get required distances for quadrilateral placement
+  const dAB = dimensions[`${boxPts[0]}${boxPts[1]}`] ?? dimensions[`${boxPts[1]}${boxPts[0]}`];
+  const dAC = dimensions[`${boxPts[0]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[0]}`];
+  const dAD = dimensions[`${boxPts[0]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[0]}`];
+  const dBC = dimensions[`${boxPts[1]}${boxPts[2]}`] ?? dimensions[`${boxPts[2]}${boxPts[1]}`];
+  const dBD = dimensions[`${boxPts[1]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[1]}`];
+  const dCD = dimensions[`${boxPts[2]}${boxPts[3]}`] ?? dimensions[`${boxPts[3]}${boxPts[2]}`];
+
+  // Place the box flat (TL = origin)
+  let placed = placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD);
+
+  // Rotate each point CCW by the globalAngleRad
+  for (const key in placed) {
+    const p = placed[key];
+    const rotated = rotatePointCounterclockwise(p.x, p.y, globalAngleRad);
+
+    // Then translate relative to the anchor point
+    placed[key] = {
+      x: rotated.x + anchorPoint.x,
+      y: rotated.y + anchorPoint.y
+    };
+  }
+
+  return placed;
 }

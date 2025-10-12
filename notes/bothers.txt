@@ -5,3 +5,5 @@ form is overly complex the formbase thing might be a good idea but in any case n
 putting schemas in the db is complex
 
 the whole thing needs to be api first. that part should be made properly before others
+
+all the pdf/dxf generation code is wayyyy overly complex and should be abstracted away maybe multiple times

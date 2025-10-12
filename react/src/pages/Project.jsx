@@ -78,7 +78,7 @@ export default function ProjectDetailsPage() {
    *  - [Extract] a custom hook useStepperRunner(canvasRef, Steps, options)
    * ========================================================================*/
   const canvasRef = useRef(null);
-  const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
+  //const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
 
   // keep latest stepper in a ref, without retriggering consumers by identity change
   const stepperRef = useRef(stepper);

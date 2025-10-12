@@ -2,13 +2,12 @@ import React, { useState, useMemo, useRef, useEffect, Suspense } from "react";
 import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 
-import { useProcessStepper } from '../components/products/useProcessStepper';
 import { ProcessStepper } from '../components/products/ProcessStepper';
 
 // Lazy-load each full form
 const FORM_LOADERS = {
-  cover:     () => import("../components/products/cover/FormAlone.jsx"),
-  shadesail: () => import("../components/products/shadesail/FormAlone.jsx"),
+  cover:     () => import("../components/products/cover/Form.jsx"),
+  shadesail: () => import("../components/products/shadesail/Form.jsx"),
 };
 
 const STEPS_LOADERS = {
@@ -84,10 +83,7 @@ export default function NewProject() {
     // 1) create a fresh instance bound to the canvas
     stepperRef.current =
     
-      new ProcessStepper({
-        stepOffsetY: 400,
-        showData: false
-      });
+      new ProcessStepper(800);
 
     return () => { cancelled = true; };
   }, [projectType]);
@@ -116,32 +112,6 @@ export default function NewProject() {
       
       //stepperRef.current.steps = []; // clear any previous
     }
-
-    //console.log()
-
-    // 2) lazy-load & register step configs
-    /*
-    (async () => {
-
-      const loader = STEPS_LOADERS[projectType];
-      if (!loader) { setSteps([]); return; }
-
-      const mod = await loader();
-      const factory = mod?.default;
-      const configs = typeof factory === "function"
-        ? factory({ canvasRef, formRef })
-        : (mod?.steps ?? []);
-
-      //if (cancelled) return;
-      
-      console.log("steps", loader)
-
-      stepperRef.current.steps = []; // clear any previous
-      configs.forEach(cfg => stepperRef.current.addStep(cfg));
-      setSteps(configs);
-    })();
-
-    */
 
   }, [projectType]); // or [projectType]
 
@@ -217,23 +187,6 @@ export default function NewProject() {
     []
   );
 
-  /*
-  const { runAll, getData } = useProcessStepper(
-    {
-      canvasRef,
-      steps,
-      options,
-    },
-    String(steps.length)
-  );
-
-  const runStepper = () => {
-    const all = formRef.current?.getValues?.() ?? {};
-    // you can pass form data into steps if you like:
-    runAll(all);
-  };
-  */
-
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <ProjectSidebar
@@ -274,8 +227,8 @@ export default function NewProject() {
             <div className="flex-1 min-w-[400px] flex flex-col items-center">
               <canvas
                 ref={canvasRef}
-                width={500}
-                height={2000}
+                width={1000}
+                height={4000}
                 style={{
                   border: "1px solid #ccc",
                   marginTop: "20px",

@@ -10,6 +10,8 @@ export class ProcessStepper {
     this.showData = showData;
     this.steps = [];
     this.stepOffsetY = stepOffsetY;
+
+    this.data = {}
   }
 
   addCanvas(canvas) {
@@ -69,24 +71,45 @@ export class ProcessStepper {
       //this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
+
+    this.data = initialData;
+
+    console.log("intial data: ", initialData)
     
+    const { ctx, stepOffsetY } = this;
+
     for (let i = 0; i < this.steps.length; i++) {
-      await this.executeStep(this.steps[i], initialData, i);
+      // compute data first
+      this.data = await this.steps[i].calcFunction(this.data);
+
+      if (i === 0) {
+        // draw first step with no shift
+        this.steps[i].drawFunction(ctx, this.data);
+        continue;
+      }
+
+      // draw step i shifted by i * stepOffsetY
+
+      console.log("stepOffsetY", stepOffsetY);
+
+      ctx.save();
+      ctx.translate(0, i * stepOffsetY);
+      this.steps[i].drawFunction(ctx, this.data);
+      ctx.restore();
     }
-    
     const scale = 100;
     // Offset Y in canvas pixels
     //const offsetY = index * this.stepOffsetY * scale;
 
     // Reset then apply scale and translation
-    this.ctx.scale(2, 2);
+    //this.ctx.scale(2, 2);
 
     this.data = initialData;
     return initialData;
   }
 
   async executeStep(step, data, index) {
-    console.groupCollapsed(`🧪 Step ${index}: ${step.title}`);
+    //console.groupCollapsed(`🧪 Step ${index}: ${step.title}`);
 
     try {
       console.log('📥 Data before calcFunction:', JSON.parse(JSON.stringify(data)));
@@ -116,8 +139,10 @@ export class ProcessStepper {
         // Optionally reset transform after drawing
         //this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
+
+      return (data);
     } finally {
-      console.groupEnd();
+      //console.groupEnd();
     }
   }
 

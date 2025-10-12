@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProcessStepper } from '../components/products/useProcessStepper';
 
 // Lazy-load the shadesail form (keeps it in a separate chunk)
 const ShadesailForm = React.lazy(() =>

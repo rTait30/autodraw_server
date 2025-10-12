@@ -4,9 +4,9 @@ export const Steps = [
   {
     title: 'Step 0: Visualise Covers',
     calcFunction: (data) => {
-      return {}; // No extra calc
+      return data; // No extra calc
     },
-    drawFunction: (ctx, data, scale) => {
+    drawFunction: (ctx, data) => {
       try {
         if (!ctx || !data) throw new Error("Missing ctx or data");
 
@@ -20,7 +20,7 @@ export const Steps = [
           throw new Error(`Invalid numeric inputs: width=${width}, height=${height}, length=${length}, quantity=${quantity}`);
         }
 
-        const padding = 100 * scale;
+        const padding = 100;
         const spacing = width / 4;
         const totalWidthUnits = width + length;
         const totalHeightUnits = height + hem + length;
@@ -133,7 +133,9 @@ export const Steps = [
           ctx.fillText(`Covers draw error: ${err.message}`, 20, 40);
         }
       }
+      return data;
     }
+
 
   },
 
@@ -153,18 +155,19 @@ export const Steps = [
       const areaSideM2 = (flatSideWidth * flatSideHeight) / 1e6;
       const totalFabricArea = areaMainM2 + 2 * areaSideM2;
 
-      return {
-        flatMainHeight,
-        flatMainWidth,
-        flatSideWidth,
-        flatSideHeight,
-        totalSeamLength,
-        areaMainM2,
-        areaSideM2,
-        totalFabricArea
-      };
+      data.flatMainHeight = flatMainHeight;
+      data.flatMainWidth = flatMainWidth;
+      data.flatSideWidth = flatSideWidth;
+      data.flatSideHeight = flatSideHeight;
+      data.totalSeamLength = totalSeamLength;
+      data.areaMainM2 = areaMainM2;
+      data.areaSideM2 = areaSideM2;
+      data.totalFabricArea = totalFabricArea;
+
+      return data;
     },
     drawFunction: (ctx, data) => {
+
       if (!ctx || !data) return;
 
       // Scaling
@@ -314,14 +317,14 @@ export const Steps = [
         data.flatMainWidth,
         data.flatMainHeight,
         data.fabricWidth,
-        200,
+        200,      //HARD
         data.seam
       );
       const sidePanels = splitPanelIfNeeded(
         data.flatSideWidth,
         data.flatSideHeight,
         data.fabricWidth,
-        200,
+        200,      //HARD 
         data.seam
       );
 
@@ -342,16 +345,19 @@ export const Steps = [
         finalPanels.panels[String(key)] = cleanPanel;
       }
 
-      return {
-        rawPanels,
-        finalPanels,
-        finalArea: Object.values(rawPanels).reduce(
-          (acc, p) => acc + (p.width * p.height),
-          0
-        )
-      };
+      data.rawPanels = rawPanels;
+      data.finalPanels = finalPanels;
+      data.finalArea = Object.values(rawPanels).reduce(
+        (acc, p) => acc + (p.width * p.height),
+        0
+      );
+
+      return data;
     },
     drawFunction: (ctx, data) => {
+
+      const index = 0;
+
       if (!ctx || !data?.rawPanels) return;
       const padding = 100;
 
@@ -370,7 +376,7 @@ export const Steps = [
       );
 
       let cursorX = 100;
-      const originY = (800 - maxHeight * scale) / 2;
+      const originY = index * 1000 + (800 - maxHeight * scale) / 2;
 
       const drawData = [];
       let totalArea = 0;
@@ -456,6 +462,7 @@ export const Steps = [
       return { ...data, nestData };
     },
     drawFunction: (ctx, data) => {
+      const index = 0;
       console.log(`nest draw ${JSON.stringify(data)}`)
       if (!ctx || !data?.nestData) {
         ctx.fillText('Nesting data not available', 800, 800);

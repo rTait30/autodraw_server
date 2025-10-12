@@ -5,7 +5,6 @@ import EstimateTable from '../components/products/EstimateTable';
 import SchemaEditor from '../components/products/SchemaEditor';
 
 import { apiFetch } from '../services/auth';
-import { useProcessStepper } from '../components/products/useProcessStepper';
 
 import { useParams } from 'react-router-dom';
 

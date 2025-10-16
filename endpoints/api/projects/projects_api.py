@@ -68,7 +68,7 @@ def resolve_project_type_id(data):
 # -------------------------------
 # Create / update project (auth required)
 # -------------------------------
-@projects_api_bp.route("/products/create", methods=["POST", "OPTIONS"])
+@projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
 

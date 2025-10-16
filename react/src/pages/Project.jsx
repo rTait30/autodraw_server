@@ -8,6 +8,8 @@ import { apiFetch } from '../services/auth';
 
 import { useParams } from 'react-router-dom';
 
+import { ProcessStepper } from '../components/products/ProcessStepper';
+
 /* ============================================================================
  *  MODULE LOADER (per-project-type)
  *  - [Extract] into services/typeLoader.js later
@@ -81,10 +83,13 @@ export default function ProjectDetailsPage() {
   //const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
 
   // keep latest stepper in a ref, without retriggering consumers by identity change
+
+  /*
   const stepperRef = useRef(stepper);
   useEffect(() => {
     stepperRef.current = stepper;
   }, [stepper]);
+  */
 
   useEffect(() => {
     if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
@@ -109,7 +114,7 @@ export default function ProjectDetailsPage() {
    * ========================================================================*/
   const loadProjectFromServer = async () => {
     try {
-      const res = await apiFetch(`/product/${projectId}`);
+      const res = await apiFetch(`/project/${projectId}`);
       if (!res.ok) throw new Error('Failed to fetch project');
 
       const data = await res.json();

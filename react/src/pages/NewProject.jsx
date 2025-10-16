@@ -120,6 +120,8 @@ export default function NewProject() {
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Running all steps with data:", all.attributes);
     await stepperRef.current?.runAll( all.attributes);
+
+    console.log()
   };
 
 

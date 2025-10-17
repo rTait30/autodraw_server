@@ -454,7 +454,7 @@ export const Steps = [
         ctx.font = '32px Arial';
         ctx.lineWidth = 2;
 
-        let ypos = 1100;
+        let ypos = 100;
 
         ctx.fillStyle = '#b00020';
 
@@ -502,7 +502,7 @@ export const Steps = [
             ctx.fillText(
               `✓ Measurements within allowance`,
               100,
-              1000
+              800
             );
           }
           ctx.fillText(
@@ -541,12 +541,12 @@ export const Steps = [
           }
         }
 
-        ypos += 50;
+        ypos = 100;
 
         if (data.blame) {
           ctx.fillText(
             `Blame:`,
-            100,
+            500,
             ypos
           );
 
@@ -560,7 +560,7 @@ export const Steps = [
             const value = Number(rawValue);
             ctx.fillText(
               `${key}: ${value.toFixed(2)}`,
-              100,
+              500,
               ypos
             );
             ypos += 40;
@@ -604,7 +604,7 @@ export const Steps = [
         for (const [pid, p] of Object.entries(data.positions)) {
           mapped[pid] = {
             x: pad + (p.x - minX) * scale,
-            y: pad + (p.y - minY) * scale
+            y: 1000 + pad + (p.y - minY) * scale
           };
         }
         

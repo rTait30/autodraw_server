@@ -34,7 +34,7 @@ const DEFAULT_ATTRIBUTES = Object.freeze({
   },
 });
 
-export default function SailForm({ formRef, generalDataHydrate = {}, attributesHydrate = {} }) {
+export default function SailForm({ formRef, generalDataHydrate = {}, attributesHydrate = {}, discrepancyChecker = false }) {
   const [generalData, setGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
     ...(generalDataHydrate ?? {}),
@@ -116,7 +116,11 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
 
   return (
     <div className="p-3 space-y-3">
-      <GeneralSection data={generalData} setData={setGeneralData} />
+      {discrepancyChecker === false && (
+      
+        <GeneralSection data={generalData} setData={setGeneralData} />
+
+      )}
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">
@@ -223,55 +227,75 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
         })()}
       </section>
 
-      {/* Minimalist Points */}
-      <section className="space-y-2">
-        <h4 className="headingStyle">Points</h4>
+<section className="space-y-2">
+  <h4 className="headingStyle">Points</h4>
 
-        <div className="grid grid-cols-4 md:grid-cols-5 text-xs font-medium opacity-70">
-          <div>Point</div>
-          <div>Height (m)</div>
-          <div className="col-span-2 md:col-span-2">Fixing Type</div>
-          <div>Tension (mm)</div>
-        </div>
+  {/* Compact header — visible on all screen sizes */}
+  <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">
+    <div className="col-span-2">Pt</div>
+    <div className="col-span-4">Height&nbsp;(m)</div>
+    {!discrepancyChecker && (
+      <>
+        <div className="col-span-3">Fixing</div>
+        <div className="col-span-3">Tension&nbsp;(mm)</div>
+      </>
+    )}
+  </div>
 
-        <div className="space-y-1">
-          {Object.entries(attributes.points).map(([p, vals]) => (
-            <div key={p} className="grid grid-cols-4 md:grid-cols-5 items-center gap-2">
-              <div className="text-sm">{p}</div>
+  <div className="space-y-1">
+    {Object.entries(attributes.points).map(([p, vals]) => (
+      <div
+        key={p}
+        className="grid grid-cols-12 items-center gap-1 text-xs"
+      >
+        {/* Point label */}
+        <div className="col-span-2 text-[11px] opacity-80">{p}</div>
 
-              <input
-                className="inputCompact"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={vals.height}
-                onChange={(e) => setPointField(p, "height", e.target.value)}
-              />
+        {/* Height */}
+        <input
+          className="inputCompact h-8 px-2 text-xs w-full col-span-4"
+          type="number"
+          min={0}
+          step="any"
+          inputMode="numeric"
+          value={vals.height}
+          onChange={(e) => setPointField(p, "height", e.target.value)}
+        />
 
-              <select
-                className="inputCompact col-span-2 md:col-span-2"
-                value={vals.fixingType}
-                onChange={(e) => setPointField(p, "fixingType", e.target.value)}
-              >
-                {FIXING_TYPES.map((ft) => (
-                  <option key={ft} value={ft}>
-                    {ft}
-                  </option>
-                ))}
-              </select>
+        {/* Only show Fixing + Tension if discrepancyChecker === false */}
+        {!discrepancyChecker && (
+          <>
+            <select
+              className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+              value={vals.fixingType}
+              onChange={(e) => setPointField(p, "fixingType", e.target.value)}
+            >
+              {FIXING_TYPES.map((ft) => (
+                <option key={ft} value={ft}>
+                  {ft}
+                </option>
+              ))}
+            </select>
 
-              <input
-                className="inputCompact"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={vals.tensionAllowance}
-                onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
+            <input
+              className="inputCompact h-8 px-2 text-xs w-full col-span-3"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="numeric"
+              value={vals.tensionAllowance}
+              onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+            />
+          </>
+        )}
+      </div>
+    ))}
+  </div>
+</section>
+
+
+
+
     </div>
   );
 }

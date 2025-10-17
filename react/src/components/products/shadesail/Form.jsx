@@ -132,7 +132,6 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
             setAttributes((prev) => ({ ...prev, fabricCategory: e.target.value }))
           }
         >
-          <option value="">Select...</option>
           <option value="PVC">PVC</option>
           <option value="ShadeCloth">ShadeCloth</option>
         </select>
@@ -146,11 +145,11 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
           type="number"
           min={1}
           max={MAX_POINTS}
-          value={attributes.pointCount}
+          value={attributes.pointCount === "" ? "" : attributes.pointCount}
           onChange={(e) => setCount(e.target.value)}
         />
       </section>
-
+      
       {/* Dimensions (Edges first, then Diagonals) */}
       <section className="space-y-3">
         <h4 className="headingStyle">Dimensions</h4>

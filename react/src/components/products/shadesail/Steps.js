@@ -454,7 +454,7 @@ export const Steps = [
         ctx.font = '32px Arial';
         ctx.lineWidth = 2;
 
-        let ypos = 100;
+        let ypos = 200;
 
         ctx.fillStyle = '#b00020';
 
@@ -466,7 +466,7 @@ export const Steps = [
             ctx.fillText(
               `⚠ Discrepancy too high for ${data.fabricCategory} (${data.discrepancyProblem}) ⚠`,
               50,
-              1000
+              100
             );
             ctx.font = '32px Arial';
 
@@ -475,7 +475,7 @@ export const Steps = [
               ctx.fillText(
                 "Maybe check",
                 100,
-                1060
+                100
               )
 
               const sortedBlame = Object.entries(data.blame || {})
@@ -541,12 +541,12 @@ export const Steps = [
           }
         }
 
-        ypos = 100;
+        ypos = 200;
 
         if (data.blame) {
           ctx.fillText(
             `Blame:`,
-            500,
+            600,
             ypos
           );
 
@@ -560,7 +560,7 @@ export const Steps = [
             const value = Number(rawValue);
             ctx.fillText(
               `${key}: ${value.toFixed(2)}`,
-              500,
+              600,
               ypos
             );
             ypos += 40;

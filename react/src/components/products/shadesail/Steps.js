@@ -130,7 +130,9 @@ export const Steps = [
                 }
 
                 else {
-                  blame[blameKey] += discrepancy * 0.5;
+
+                  //it might help to scale down the height blame contribution since heights arent generally as error-prone as lengths
+                  blame[blameKey] += discrepancy;
                 }
               }
             }

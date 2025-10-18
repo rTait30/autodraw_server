@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, Suspense } from "react";
+import React, { useRef, useEffect, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProcessStepper } from "../components/products/ProcessStepper";
 
@@ -13,6 +13,7 @@ export default function Discrepancy() {
   const canvasRef = useRef(null);
   const stepperRef = useRef(null);
   const stepsLoadedRef = useRef(false);
+  const [checkSign, setCheckSign] = useState({ text: "", ok: null });
 
   // Init stepper once and attach canvas when available
   useEffect(() => {
@@ -58,6 +59,8 @@ export default function Discrepancy() {
   }, []);
 
   const onCheck = async () => {
+    // clear sign while checking
+    setCheckSign({ text: "", ok: null });
     const all = formRef.current?.getValues?.();
     if (!all || !all.attributes) return;
 
@@ -67,7 +70,14 @@ export default function Discrepancy() {
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
 
-    await stepperRef.current?.runAll(all.attributes);
+    let message = await stepperRef.current?.runAll(all.attributes);
+
+    console.log("Discrepancy check result:", message);
+    if (message?.discrepancyProblem) {
+      setCheckSign({ text: "Discrepancies found", ok: false });
+    } else {
+      setCheckSign({ text: "Discrepancies within tolerance", ok: true });
+    }
   };
 
   return (
@@ -90,9 +100,20 @@ export default function Discrepancy() {
               <ShadesailForm formRef={formRef} discrepancyChecker = {true} />
             </Suspense>
 
-            <button onClick={onCheck} className="buttonStyle mt-4">
-              Check Discrepancy
-            </button>
+            <div className="flex items-center gap-3 mt-4">
+              <button onClick={onCheck} className="buttonStyle">
+                Check Discrepancy
+              </button>
+              <span className="text-sm" aria-live="polite">
+                {checkSign.ok === null ? (
+                  ""
+                ) : (
+                  <span className={checkSign.ok ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                    {checkSign.text}
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
 
           {/* Right: canvas */}

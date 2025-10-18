@@ -459,12 +459,17 @@ export const Steps = [
         ctx.fillStyle = '#b00020';
 
         if (data.discrepancies) {
+
+// Convert discrepancies object → array of [key, value] pairs and sort by absolute value
+          const sortedDiscrepancies = Object.entries(data.discrepancies)
+          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); // descending by abs diff
+
           if (data.discrepancyProblem) {
 
             ctx.fillStyle = 'red';
             ctx.font = 'bold 40px Arial';
             ctx.fillText(
-              `⚠ Discrepancy too high for ${data.fabricCategory} (${data.discrepancyProblem}) ⚠`,
+              `Discrepancy too high for ${data.fabricCategory} (${data.discrepancyProblem})`,
               50,
               100
             );
@@ -473,10 +478,12 @@ export const Steps = [
             if (data.pointCount > 4) {
 
               ctx.fillText(
-                "Maybe check",
+                "Possible Cause",
                 100,
-                100
-              )
+                200
+              ) 
+
+              ypos += 60;
 
               const sortedBlame = Object.entries(data.blame || {})
               .sort((a, b) => Number(b[1]) - Number(a[1])); // descending by score
@@ -485,9 +492,9 @@ export const Steps = [
                 const value = Number(rawValue);
 
                 if (key.length === 1) {
-                  ctx.fillText(`Height of point ${key}`, 100, ypos);
+                  ctx.fillText(`Height ${key}`, 100, ypos);
                 } else if (key.length === 2) {
-                  ctx.fillText(`Edge: ${key} `, 100, ypos);
+                  ctx.fillText(`Dimension ${key} `, 100, ypos);
                 }
 
                 ypos += 40; // Move down for next entry
@@ -500,7 +507,7 @@ export const Steps = [
 
             ctx.fillStyle = 'green';
             ctx.fillText(
-              `✓ Measurements within allowance`,
+              `Maximum Discrepancy: ${Math.max(...Object.values(data.discrepancies)).toFixed(1)}mm`,
               100,
               800
             );
@@ -513,9 +520,7 @@ export const Steps = [
 
           ypos += 60;
 
-          // Convert discrepancies object → array of [key, value] pairs and sort by absolute value
-          const sortedDiscrepancies = Object.entries(data.discrepancies)
-            .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])); // descending by abs diff
+          
 
           const discrepanciesWithValues = sortedDiscrepancies.filter(([_, value]) => value);
 
@@ -554,9 +559,9 @@ export const Steps = [
           // Convert blame object → array of [key, value] pairs
           
           const sortedBlame = Object.entries(data.blame)
-            .sort((a, b) => Number(b[1]) - Number(a[1])); // descending by score  
-          
-          for (const [key, rawValue] of sortedBlame) {
+            .sort((a, b) => Number(b[1]) - Number(a[1])); // descending by score
+
+          for (const [key, rawValue] of sortedBlame.slice(0, 10)) {
             const value = Number(rawValue);
             ctx.fillText(
               `${key}: ${value.toFixed(2)}`,

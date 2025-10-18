@@ -22,6 +22,12 @@ const projectTypes = [
 ];
 
 export default function NewProject() {
+
+  let devMode = false;
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    devMode = true;
+  }
+
   const formRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -119,9 +125,13 @@ export default function NewProject() {
   const runAllNow = async () => {
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Running all steps with data:", all.attributes);
-    await stepperRef.current?.runAll( all.attributes);
+    let data = await stepperRef.current?.runAll( all.attributes);
 
-    console.log()
+    let calculated = 
+
+    console.log("Calculated:", data);
+
+    alert("Calculated:\n" + JSON.stringify(data, null, 2));
   };
 
 
@@ -216,8 +226,8 @@ export default function NewProject() {
               </Suspense>
 
               <div className="flex gap-3 mt-6">
-                <button onClick={printValues} className="buttonStyle">Print values</button>
-                <button onClick={runAllNow} className="buttonStyle">Run All</button>
+                {devMode && <button onClick={printValues} className="buttonStyle">Print values</button>}
+                <button onClick={runAllNow} className="buttonStyle">Check</button>
                 <button onClick={handleSubmit} className="buttonStyle">
                   {["estimator", "admin", "designer"].includes(role)
                     ? "Make Lead"

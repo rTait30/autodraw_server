@@ -9,15 +9,27 @@ const GENERAL_DEFAULTS = Object.freeze({
 });
 
 const MAX_POINTS = 11;
-const FIXING_TYPES = ["M8 Bowshackle", "M10 Bowshackle", "M12 Bowshackle", "Turnbuckle"];
+const FIXING_TYPES = ["M8 Bowshackle", "M10 Bowshackle", "M12 Bowshackle", "M8 Turnbuckle", "M10 Turnbuckle", "M12 Turnbuckle", "M12 Togglebolt", "Sailtrack Corner"];
+
+const FABRIC_OPTIONS = {
+  ShadeCloth: ["Rainbow Z16", "Poly Fx", "Extreme 32", "Polyfab Xtra", "Tensitech 480", "Monotec 370", "DriZ"],
+  PVC: ["Bochini", "Bochini Blockout", "Mehler FR580", "Ferrari 502S2", "Ferrari 502V3"],
+};
+const FOLD_SIDES = ["Underside", "Topside"];
+
+const COLOUR_OPTIONS = ["Charcoal", "Black", "White"];
+
+const CABLE_SIZE_OPTIONS = [4, 5, 6, 8];
 
 // Default attributes (used as base, then merged with attributesHydrate)
 const DEFAULT_ATTRIBUTES = Object.freeze({
   exitPoint: "A",
   fabricCategory: "ShadeCloth",
   fabricType: "Rainbow Z16",
-  foldSide: "underside",
+  foldSide: "Underside",
+  cableSize: 4,
   pointCount: 4,
+  sailTracks: [],
   dimensions: {
     AB: 1000,
     BC: 1000,
@@ -47,6 +59,8 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
     return {
       ...base,
       ...hyd,
+      // ensure sailTracks merged/preserved if provided
+      sailTracks: hyd.sailTracks ?? base.sailTracks ?? [],
       dimensions: { ...(base.dimensions ?? {}), ...(hyd.dimensions ?? {}) },
       points: { ...(base.points ?? {}), ...(hyd.points ?? {}) },
     };
@@ -73,7 +87,10 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
         };
       });
 
-      return { ...prev, pointCount: n, dimensions, points };
+      // preserve only sailTracks that still exist for this point count
+      const sailTracks = (prev.sailTracks || []).filter((lbl) => allLabels.includes(lbl));
+
+      return { ...prev, pointCount: n, dimensions, points, sailTracks };
     });
   }, [attributes.pointCount]);
 
@@ -114,13 +131,58 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       },
     }));
 
+  // Toggle sailtrack presence for a given edge label
+  const toggleSailTrack = (edgeLabel) =>
+    setAttributes((prev) => {
+      const set = new Set(prev.sailTracks || []);
+      if (set.has(edgeLabel)) set.delete(edgeLabel);
+      else set.add(edgeLabel);
+      return { ...prev, sailTracks: Array.from(set) };
+    });
+
+      useEffect(() => {
+    setAttributes((prev) => {
+      const sail = prev.sailTracks || [];
+      const forced = new Set();
+      for (const lbl of sail) {
+        if (typeof lbl !== "string") continue;
+        // expect labels like "AB"
+        if (lbl.length >= 2) {
+          forced.add(lbl[0]);
+          forced.add(lbl[1]);
+        }
+      }
+
+      let changed = false;
+      const newPoints = { ...(prev.points || {}) };
+
+      for (const p of Object.keys(newPoints)) {
+        if (forced.has(p)) {
+          const cur = newPoints[p] || {};
+          if (cur.fixingType !== "SailtrackCorner" || Number(cur.tensionAllowance) !== 0) {
+            newPoints[p] = { ...cur, fixingType: "Sailtrack Corner", tensionAllowance: 0 };
+            changed = true;
+          }
+        }
+      }
+
+      if (!changed) return prev;
+      return { ...prev, points: newPoints };
+    });
+  }, [attributes.sailTracks]);
+
   return (
     <div className="p-3 space-y-3">
+
+      <h3 className="headingStyle">General</h3>
+
       {discrepancyChecker === false && (
       
         <GeneralSection data={generalData} setData={setGeneralData} />
 
       )}
+
+      <h3 className="headingStyle">Attributes</h3>
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">
@@ -129,11 +191,75 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
           className="inputCompact"
           value={attributes.fabricCategory ?? ""}
           onChange={(e) =>
-            setAttributes((prev) => ({ ...prev, fabricCategory: e.target.value }))
+            setAttributes((prev) => {
+              const nextCat = e.target.value;
+              const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
+              return { ...prev, fabricCategory: nextCat, fabricType: firstType };
+            })
           }
         >
           <option value="PVC">PVC</option>
           <option value="ShadeCloth">ShadeCloth</option>
+        </select>
+
+        {/* Fabric Type (dependent on category) */}
+        <label className="block text-sm font-medium">Fabric Type</label>
+        <select
+          className="inputCompact"
+          value={attributes.fabricType ?? ""}
+          onChange={(e) =>
+            setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
+          }
+        >
+          {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
+            <option key={ft} value={ft}>
+              {ft}
+            </option>
+          ))}
+        </select>
+
+        {/* Colour*/}
+        <label className="block text-sm font-medium">Colour</label>
+        <input
+          list="colourOptions"
+          className="inputCompact"
+          type="text"
+          value={attributes.colour ?? ""}
+          onChange={(e) => setAttributes((prev) => ({ ...prev, colour: e.target.value }))}
+        />
+        <datalist id="colourOptions">
+          {COLOUR_OPTIONS.map((colour) => (
+            <option key={colour} value={colour} />
+          ))}
+        </datalist>
+
+        {/* Fold side */}
+        <label className="block text-sm font-medium">Fold Side</label>
+        <select
+          className="inputCompact"
+          value={attributes.foldSide ?? ""}
+          onChange={(e) => setAttributes((prev) => ({ ...prev, foldSide: e.target.value }))}
+        >
+          {FOLD_SIDES.map((fs) => (
+            <option key={fs} value={fs}>
+              {fs}
+            </option>
+          ))}
+        </select>
+      </section>
+
+      <section className="space-y-2">
+        <label className="block text-sm font-medium">Cable Size (mm)</label>
+        <select
+          className="inputCompact"
+          value={attributes.cableSize ?? ""}
+          onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
+        >
+          {CABLE_SIZE_OPTIONS.map((cs) => (
+            <option key={cs} value={cs}>
+              {cs}
+            </option>
+          ))}
         </select>
       </section>
 
@@ -200,7 +326,6 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
 
       {/* Dimensions (Edges first, then Diagonals) */}
       <section className="space-y-3">
-        <h4 className="headingStyle">Dimensions</h4>
 
         {(() => {
           const dims = attributes.dimensions || {};
@@ -228,25 +353,39 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
           return (
             <>
               {/* Edges - vertical list */}
+              <br></br>
               <div className="space-y-2">
                 <h5 className="text-sm font-medium opacity-70">Edges</h5>
                 {edges.map(([label, value]) => (
-                  <div key={label} className="space-y-1">
-                    <label className="text-sm">{label}</label>
-                    <input
-                      className="inputCompact"
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={value}
-                      onChange={(e) => setDimension(label, e.target.value)}
-                    />
+                  <div key={label} className="flex items-center justify-between gap-2">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-sm">{label}</label>
+                      <input
+                        className="inputCompact"
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={value}
+                        onChange={(e) => setDimension(label, e.target.value)}
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={(attributes.sailTracks || []).includes(label)}
+                        onChange={() => toggleSailTrack(label)}
+                      />
+                      <span>Sailtrack</span>
+                    </label>
                   </div>
                 ))}
                 {edges.length === 0 && (
                   <div className="text-xs opacity-60">No edges for this point count.</div>
                 )}
               </div>
+
+              <br></br>
 
               {/* Diagonals - grid */}
               {diagonals.length > 0 && (
@@ -275,7 +414,8 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       </section>
 
       <section className="space-y-2">
-        <h4 className="headingStyle">Points</h4>
+        <br></br>
+        <h5 className="text-sm font-medium opacity-70">Points</h5>
 
         {/* Compact header — visible on all screen sizes */}
         <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">

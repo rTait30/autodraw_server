@@ -40,7 +40,19 @@ const GENERAL_DEFAULTS = Object.freeze({
   info: "",
 });
 
-export default function CoverForm({ formRef, generalDataHydrate = {}}) {
+const ATTRIBUTE_DEFAULTS = Object.freeze({
+  length: 1000,
+  width: 1000,
+  height: 1000,
+  quantity: 1,
+  hem: 0,
+  seam: 0,
+  zips: true,
+  stayputs: false,
+  fabricWidth: 1320,
+});
+
+export default function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate = {} }) {
 
   const [generalData, setGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
@@ -52,15 +64,8 @@ export default function CoverForm({ formRef, generalDataHydrate = {}}) {
 
   // Single attributes object
   const [attributes, setAttributes] = useState({
-    length: 1000,
-    width: 1000,
-    height: 1000,
-    quantity: 1,
-    hem: 0,
-    seam: 0,
-    zips: true,
-    stayputs: false,
-    fabricWidth: 1320,
+    ...ATTRIBUTE_DEFAULTS,
+    ...(attributesHydrate ?? {}),
   });
 
   const [calculations, setCalculations] = useState({

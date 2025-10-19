@@ -44,6 +44,8 @@ export class ProcessStepper {
     console.log('ProcessStepper.runAll: canvas', this.canvas);
     console.log('ProcessStepper.runAll: ctx', this.ctx);
 
+
+
     if (!this.ctx) {
       console.warn('❗ No canvas context available. Cannot draw.');
     } else {
@@ -54,28 +56,31 @@ export class ProcessStepper {
       this.ctx.fillText(`CANVAS ACTIVE`, 200, 200);
     }
 
-    const initialKeys = Object.keys(initialData);
-    const clone = JSON.parse(JSON.stringify(initialData));
-    const cloneKeys = Object.keys(clone);
+    //const initialKeys = Object.keys(initialData);
+    //const clone = JSON.parse(JSON.stringify(initialData));
+    //const cloneKeys = Object.keys(clone);
 
-    console.log('🧪 initialData keys:', initialKeys);
-    console.log('🧪 cloned keys:', cloneKeys);
+    //console.log('🧪 initialData keys:', initialKeys);
+    //console.log('🧪 cloned keys:', cloneKeys);
 
+    /*
     if (cloneKeys.length !== initialKeys.length) {
       console.warn('❗ DATA MUTATED BEFORE CLONING — keys changed');
     }
 
-    
+    */
+
     if (this.hasCanvas) {
       this.ctx.setLineDash([]);
       //this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    this.data = initialData;
+    this.data = structuredClone(initialData);
+    const originalKeys = Object.keys(initialData);
 
-    console.log("intial data: ", initialData)
-    
+    console.log("initial data: ", initialData)
+
     const { ctx, stepOffsetY } = this;
 
     for (let i = 0; i < this.steps.length; i++) {
@@ -104,8 +109,16 @@ export class ProcessStepper {
     // Reset then apply scale and translation
     //this.ctx.scale(2, 2);
 
-    this.data = initialData;
-    return initialData;
+    // Split final result into original vs new fields
+    const attributes = {};
+    const calculated = {};
+
+    for (const [key, value] of Object.entries(this.data)) {
+      if (originalKeys.includes(key)) attributes[key] = value;
+      else calculated[key] = value;
+    }
+
+    return { calculated };
   }
 
   async executeStep(step, data, index) {

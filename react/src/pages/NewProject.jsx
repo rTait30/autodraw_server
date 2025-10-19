@@ -121,17 +121,28 @@ export default function NewProject() {
 
   }, [projectType]); // or [projectType]
 
+  const printValues = () => {
+    const all = formRef.current?.getValues?.() ?? {};
+    console.log("Form values:", all);
+    alert(
+      "General:\n" +
+      JSON.stringify(all.general ?? {}, null, 2) +
+      "\n\nAttributes:\n" +
+      JSON.stringify(all.attributes ?? {}, null, 2)
+    );
+  };
+
   // NEW: expose a button handler that calls runAll with current form values
   const runAllNow = async () => {
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Running all steps with data:", all.attributes);
-    let data = await stepperRef.current?.runAll( all.attributes);
+    let data = await stepperRef.current?.runAll(all.attributes);
 
-    let calculated = 
+    //let calculated = data?.calculated ?? {};
 
-    console.log("Calculated:", data);
+    console.log("Stepper data:", data);
 
-    alert("Calculated:\n" + JSON.stringify(data, null, 2));
+    alert("stepper data:\n" + JSON.stringify(data, null, 2));
   };
 
 
@@ -141,24 +152,19 @@ export default function NewProject() {
       return;
     }
 
-    const api = formRef.current;
-    if (!api || typeof api.getValues !== "function") {
-      alert("Form not ready yet.");
-      return;
-    }
-
     try {
-      const all = api.getValues();
-      if (!all?.general?.name) {
-        alert("Please enter a project name.");
-        return;
-      }
+
+      const formData = formRef.current?.getValues?.() ?? {};
+
+      //const all = formRef.current?.getValues?.() ?? {};
+      //console.log("Running all steps with data:", all.attributes);
+      let stepperData = await stepperRef.current?.runAll(formData.attributes ?? {});
 
       const payload = {
-        general: all.general ?? {},
+        general: formData.general ?? {},
         type: projectType,
-        attributes: all.attributes ?? {},
-        calculated: all.calculated ?? {},
+        attributes: formData.attributes ?? {},
+        calculated: stepperData?.calculated ?? {},
       };
 
       const response = await apiFetch("/projects/create", {
@@ -177,18 +183,7 @@ export default function NewProject() {
     }
   };
 
-  const printValues = () => {
-    const all = formRef.current?.getValues?.() ?? {};
-    console.log("Form values:", all);
-    alert(
-      "General:\n" +
-      JSON.stringify(all.general ?? {}, null, 2) +
-      "\n\nAttributes:\n" +
-      JSON.stringify(all.attributes ?? {}, null, 2) +
-      "\n\nCalculated:\n" +
-      JSON.stringify(all.calculated ?? {}, null, 2)
-    );
-  };
+
 
   const options = useMemo(
     () => ({

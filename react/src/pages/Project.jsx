@@ -79,19 +79,26 @@ export default function ProjectDetailsPage() {
    *  - keep `stepper` instance stable-ish; reflect via a ref to avoid effect loops
    *  - [Extract] a custom hook useStepperRunner(canvasRef, Steps, options)
    * ========================================================================*/
+  const stepperRef = useRef(null);
   const canvasRef = useRef(null);
+
   //const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
 
-  // keep latest stepper in a ref, without retriggering consumers by identity change
-
-  /*
-  const stepperRef = useRef(stepper);
   useEffect(() => {
-    stepperRef.current = stepper;
-  }, [stepper]);
-  */
 
-  useEffect(() => {
+    stepperRef.current = new ProcessStepper(800);
+
+    if (canvasRef.current && stepperRef.current) {
+
+      stepperRef.current.addCanvas(canvasRef.current);
+
+      Steps.forEach((step, i) => {
+        //console.log("step", i);
+        //console.log(step);
+        stepperRef.current.addStep(step)
+      });
+    }
+
     if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
 
     let cancelled = false;
@@ -121,6 +128,8 @@ export default function ProjectDetailsPage() {
 
       setProject(data);
 
+      console.log("Loaded project data:", data);
+
       // Saved snapshots
       setAttributes(data.attributes || {});
       setCalculated(data.calculated || {});
@@ -128,6 +137,8 @@ export default function ProjectDetailsPage() {
       // Working snapshots start from saved
       setEditedAttributes(data.attributes || {});
       setEditedCalculated(data.calculated || {});
+
+      console.log("fabricPrice:", data.calculated?.fabricPrice || "not found");
 
       // Load type modules
       if (data?.type) {
@@ -256,19 +267,13 @@ export default function ProjectDetailsPage() {
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>
                   <Form
-                    general={{
-                      enabled: true,
+                    generalDataHydrate={{
                       name: project.name,
                       client_id: project.client_id,
                       due_date: project.due_date,
                       info: project.info,
                     }}
-                    attributes={editedAttributes}
-                    calculated={editedCalculated}
-                    showFabricWidth
-                    onReturn={handleReturn}
-                    onCheck={handleCheck}
-                    onSubmit={handleSubmit}
+                    attributesHydrate={editedAttributes}
                   />
                 </Suspense>
               ) : (
@@ -324,32 +329,34 @@ export default function ProjectDetailsPage() {
               )}
 
               <div className="scroll-x" style={{ marginTop: 24 }}>
-                <canvas
-                  ref={canvasRef}
-                  width={500}
-                  height={2000}
-                  style={{
-                    border: '1px solid #ccc',
-                    width: '100%',
-                    maxWidth: '500px',
-                    display: 'block',
-                    background: '#fff',
-                  }}
-                />
+              <canvas
+                ref={canvasRef}
+                width={1000}
+                height={4000}
+                style={{
+                  border: "1px solid #ccc",
+                  marginTop: "20px",
+                  width: "100%",
+                  maxWidth: "500px",
+                  display: "block",
+                  background: "#fff",
+                }}
+              />
               </div>
             </>
           ) : (
             <div className="scroll-x" style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
               <canvas
                 ref={canvasRef}
-                width={500}
-                height={2000}
+                width={1000}
+                height={4000}
                 style={{
-                  border: '1px solid #ccc',
-                  width: '100%',
-                  maxWidth: '500px',
-                  display: 'block',
-                  background: '#fff',
+                  border: "1px solid #ccc",
+                  marginTop: "20px",
+                  width: "100%",
+                  maxWidth: "500px",
+                  display: "block",
+                  background: "#fff",
                 }}
               />
             </div>

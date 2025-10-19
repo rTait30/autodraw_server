@@ -63,9 +63,6 @@ export const Steps = [
 
       */
 
-      //const edgeMeter = Object.values(data.dimensions).reduce((sum, value) => sum + value, 0);
-
-      //const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
 
       //console.log('Total edgeMeter:', edgeMeter);
 
@@ -396,9 +393,22 @@ export const Steps = [
         console.log("\n=== FINAL positions ===", positions);
       }
 
-      let edgeMeterCeilMeters = 5
+      console.log("dimensions:", data.dimensions);
+      
+      const edgeMeter = sumEdges(data.dimensions, data.pointCount);
 
-      let fabricPrice = getPriceByFabric(edgeMeterCeilMeters, data.fabricType);
+      const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+
+      data.edgeMeter = edgeMeter;
+      data.edgeMeterCeilMeters = edgeMeterCeilMeters;
+
+      console.log("fabric type:", data.fabricType, "edgeMeterCeilMeters:", edgeMeterCeilMeters);
+
+      let fabricPrice = getPriceByFabric(data.fabricType, edgeMeterCeilMeters);
+
+      console.log("fabricPrice:", fabricPrice);
+
+      data.fabricPrice = fabricPrice;
 
       let discrepancyProblem = false;
 
@@ -681,114 +691,110 @@ export const Steps = [
 ];
 
 
-const priceList = {
-  1: { // Category 1 - Coolshade / Commercial 95
-    15: 490, 16: 530, 17: 570, 18: 610, 19: 650,
-    20: 690, 21: 730, 22: 770, 23: 810, 24: 850,
-    25: 900, 26: 950, 27: 1005, 28: 1060, 29: 1115,
-    30: 1170, 31: 1230, 32: 1290, 33: 1350, 34: 1410,
-    35: 1475, 36: 1530, 37: 1605, 38: 1650, 39: 1710,
-    40: 1775, 41: 1840, 42: 1910, 43: 1980, 44: 2050,
-    45: 2125, 46: 2195, 47: 2270, 48: 2345, 49: 2420,
-    50: 2505
+const pricelist = {
+  "Rainbow Z16": {
+    15: 585, 16: 615, 17: 660, 18: 700, 19: 740, 20: 780,
+    21: 840, 22: 890, 23: 940, 24: 990, 25: 1040, 26: 1100,
+    27: 1160, 28: 1210, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
+    33: 1520, 34: 1580, 35: 1645, 36: 1710, 37: 1780, 38: 1850,
+    39: 1910, 40: 1980, 41: 2060, 42: 2135, 43: 2210, 44: 2285,
+    45: 2360, 46: 2435, 47: 2510, 48: 2585, 49: 2685, 50: 2770
   },
-  2: { // Category 2 - Rainbow Z16 / Dual Shade / Comm 95FR / Comm Heavy 430
-    15: 565, 16: 605, 17: 645, 18: 685, 19: 725,
-    20: 765, 21: 825, 22: 875, 23: 925, 24: 975,
-    25: 1025, 26: 1085, 27: 1145, 28: 1205, 29: 1265,
-    30: 1325, 31: 1385, 32: 1445, 33: 1505, 34: 1565,
-    35: 1630, 36: 1695, 37: 1765, 38: 1835, 39: 1905,
-    40: 1975, 41: 2050, 42: 2120, 43: 2195, 44: 2270,
-    45: 2350, 46: 2430, 47: 2510, 48: 2590, 49: 2670,
-    50: 2755
+  "Poly Fx": {
+    15: 570, 16: 600, 17: 645, 18: 685, 19: 725, 20: 765,
+    21: 815, 22: 875, 23: 925, 24: 975, 25: 1025, 26: 1085,
+    27: 1145, 28: 1195, 29: 1265, 30: 1325, 31: 1385, 32: 1445,
+    33: 1505, 34: 1565, 35: 1630, 36: 1695, 37: 1765, 38: 1835,
+    39: 1895, 40: 1965, 41: 2045, 42: 2120, 43: 2195, 44: 2270,
+    45: 2345, 46: 2420, 47: 2495, 48: 2570, 49: 2670, 50: 2755
   },
-  3: { // Category 3 - Extreme 32
-    15: 645, 16: 685, 17: 725, 18: 765, 19: 815,
-    20: 870, 21: 925, 22: 985, 23: 1040, 24: 1100,
-    25: 1160, 26: 1225, 27: 1285, 28: 1350, 29: 1415,
-    30: 1485, 31: 1560, 32: 1630, 33: 1700, 34: 1770,
-    35: 1840, 36: 1915, 37: 1980, 38: 2050, 39: 2130,
-    40: 2190, 41: 2270, 42: 2350, 43: 2435, 44: 2520,
-    45: 2605, 46: 2690, 47: 2780, 48: 2870, 49: 2960,
-    50: 3115
+  "Extreme 32": {
+    15: 650, 16: 690, 17: 740, 18: 795, 19: 845, 20: 895,
+    21: 955, 22: 990, 23: 1065, 24: 1120, 25: 1170, 26: 1235,
+    27: 1300, 28: 1350, 29: 1430, 30: 1495, 31: 1575, 32: 1635,
+    33: 1700, 34: 1795, 35: 1895, 36: 1980, 37: 2055, 38: 2135,
+    39: 2210, 40: 2290, 41: 2365, 42: 2450, 43: 2565, 44: 2655,
+    45: 2720, 46: 2810, 47: 2905, 48: 2995, 49: 3085, 50: 3275
   },
-  4: { // Category 4 - Monotec 370 / Comm Heavy 430FR / Polyfab Xtra / Extrablock FR
-    15: 775, 16: 825, 17: 875, 18: 925, 19: 975,
-    20: 1035, 21: 1095, 22: 1145, 23: 1235, 24: 1285,
-    25: 1385, 26: 1435, 27: 1535, 28: 1605, 29: 1675,
-    30: 1735, 31: 1805, 32: 1875, 33: 1945, 34: 2020,
-    35: 2100, 36: 2180, 37: 2250, 38: 2335, 39: 2430,
-    40: 2515, 41: 2605, 42: 2700, 43: 2795, 44: 2885,
-    45: 2960, 46: 3050, 47: 3160, 48: 3250, 49: 3360,
-    50: 3550
+  "Polyfab Xtra": {
+    15: 740, 16: 790, 17: 830, 18: 885, 19: 935, 20: 990,
+    21: 1065, 22: 1135, 23: 1195, 24: 1255, 25: 1325, 26: 1415,
+    27: 1470, 28: 1530, 29: 1615, 30: 1680, 31: 1745, 32: 1810,
+    33: 1875, 34: 1970, 35: 2075, 36: 2165, 37: 2255, 38: 2345,
+    39: 2435, 40: 2520, 41: 2605, 42: 2670, 43: 2755, 44: 2825,
+    45: 2925, 46: 3010, 47: 3105, 48: 3190, 49: 3265, 50: 3490
   },
-  5: { // Category 5 - Weather Resistant Shade Sail (DriZ)
-    15: 890, 16: 960, 17: 1030, 18: 1105, 19: 1180,
-    20: 1255, 21: 1365, 22: 1450, 23: 1535, 24: 1620,
-    25: 1710, 26: 1800, 27: 1890, 28: 1985, 29: 2080,
-    30: 2180, 31: 2280, 32: 2380, 33: 2485, 34: 2595,
-    35: 2705, 36: 2815, 37: 2930, 38: 3045, 39: 3160,
-    40: 3280
+  "Tensitech 480": {
+    15: 670, 16: 720, 17: 785, 18: 835, 19: 885, 20: 940,
+    21: 1015, 22: 1110, 23: 1180, 24: 1235, 25: 1285, 26: 1350,
+    27: 1410, 28: 1470, 29: 1540, 30: 1600, 31: 1660, 32: 1720,
+    33: 1780, 34: 1905, 35: 2010, 36: 2100, 37: 2185, 38: 2280,
+    39: 2340, 40: 2440, 41: 2515, 42: 2595, 43: 2665, 44: 2735,
+    45: 2810, 46: 2890, 47: 2980, 48: 3060, 49: 3245, 50: 3345
+  },
+  "Monotec 370": {
+    15: 790, 16: 890, 17: 940, 18: 990, 19: 1050, 20: 1100,
+    21: 1180, 22: 1220, 23: 1280, 24: 1340, 25: 1400, 26: 1470,
+    27: 1540, 28: 1590, 29: 1670, 30: 1730, 31: 1790, 32: 1850,
+    33: 1920, 34: 2015, 35: 2130, 36: 2200, 37: 2290, 38: 2380,
+    39: 2460, 40: 2560, 41: 2635, 42: 2715, 43: 2790, 44: 2870,
+    45: 2950, 46: 3025, 47: 3120, 48: 3210, 49: 3345, 50: 3645
+  },
+  "DriZ": {
+    15: 890, 16: 960, 17: 1030, 18: 1105, 19: 1180, 20: 1255,
+    21: 1365, 22: 1450, 23: 1535, 24: 1620, 25: 1710, 26: 1800,
+    27: 1890, 28: 1985, 29: 2080, 30: 2180, 31: 2280, 32: 2380,
+    33: 2485, 34: 2595, 35: 2705, 36: 2815, 37: 2930, 38: 3045,
+    39: 3160, 40: 3280
+  },
+  "Bochini": {
+    12: 780, 13: 840, 14: 915, 15: 985, 16: 1070, 17: 1160, 18: 1255, 19: 1460, 20: 1535,
+    21: 1555, 22: 1665, 23: 1775, 24: 1885, 25: 1975, 26: 2085, 27: 2185, 28: 2295, 29: 2490,
+    30: 2585, 31: 2785, 32: 2975, 33: 3160, 34: 3360, 35: 3580, 36: 3760, 37: 4030, 38: 4280,
+    39: 4550, 40: 4815
+  },
+  "Bochini Blockout": {
+    12: 815, 13: 915, 14: 955, 15: 995, 16: 1140, 17: 1255, 18: 1355, 19: 1460, 20: 1555,
+    21: 1670, 22: 1795, 23: 1925, 24: 2065, 25: 2165, 26: 2300, 27: 2445, 28: 2590, 29: 2765,
+    30: 2850, 31: 3040, 32: 3235, 33: 3430, 34: 3660, 35: 3890, 36: 4090, 37: 4375, 38: 4635,
+    39: 4900, 40: 5190
+  },
+  "Mehler FR580": {
+    12: 985, 13: 1075, 14: 1170, 15: 1265, 16: 1390, 17: 1520, 18: 1640, 19: 1780, 20: 1915,
+    21: 2065, 22: 2215, 23: 2365, 24: 2530, 25: 2725, 26: 2915, 27: 3070, 28: 3280, 29: 3475,
+    30: 3665, 31: 3820, 32: 4035, 33: 4220, 34: 4480, 35: 4740, 36: 4950, 37: 5190, 38: 5525,
+    39: 5790, 40: 6040
+  },
+  "Ferrari 5022": {
+    12: 955, 13: 1045, 14: 1135, 15: 1230, 16: 1355, 17: 1490, 18: 1625, 19: 1760, 20: 1910,
+    21: 2045, 22: 2200, 23: 2355, 24: 2535, 25: 2715, 26: 2890, 27: 3045, 28: 3270, 29: 3470,
+    30: 3645, 31: 3810, 32: 4030, 33: 4220, 34: 4475, 35: 4720, 36: 4950, 37: 5230, 38: 5495,
+    39: 5760, 40: 6030
+  },
+  "Ferrari 502V3": {
+    12: 1010, 13: 1115, 14: 1205, 15: 1305, 16: 1460, 17: 1590, 18: 1740, 19: 1905, 20: 2030,
+    21: 2215, 22: 2380, 23: 2575, 24: 2745, 25: 2950, 26: 3145, 27: 3320, 28: 3540, 29: 3775,
+    30: 3975, 31: 4140, 32: 4375, 33: 4580, 34: 4870, 35: 5145, 36: 5405, 37: 5700, 38: 5990,
+    39: 6290, 40: 6575
   }
 };
 
-// Helper function to get price by edge meter & category
-function getPrice(edgeMeter, category) {
-  console.log(`Looking up price for ${edgeMeter}m in category ${category}`);
-  const catPrices = priceList[category];
-  if (!catPrices) {
-    console.warn(`Invalid category: ${category}`);
-    return null;
-  }
+function getPriceByFabric(fabric, edgeMeter) {
 
-  console.log(`catPrices: ${catPrices}`);
-
-  // If exact match, return directly
-  if (catPrices[edgeMeter] !== undefined) {
-    console.log(`Exact match found: $${catPrices[edgeMeter]}`);
-    console.log(catPrices[edgeMeter]);
-    return catPrices[edgeMeter];
-  }
-
-  // If above highest, you can choose:
-  // 1) use the highest value (clamp)
-  // 2) or return null / throw warning
-  // Here we'll just use the highest available
-  if (edgeMeter >= 50) {
-    console.log(`Above max price range, using highest available: $${catPrices[50]}`);
-    return catPrices[50];
-  }
-  
-  console.log(`No exact price for ${edgeMeter}m, returning null`);
+  return pricelist[fabric][edgeMeter] || 0;
 }
 
-const fabricToCategory = {
-  "Coolshade": 1,
-  "Commercial 95": 1,
-  "Rainbow Z16": 2,
-  "Dual Shade": 2,
-  "Comm 95FR": 2,
-  "Comm Heavy 430": 2,
-  "Extreme 32": 3,
-  "Monotec 370": 4,
-  "Comm Heavy 430FR": 4,
-  "Polyfab Xtra": 4,
-  "Extrablock FR": 4,
-  "DriZ": 5 // Weather Resistant Shade Sail
+
+const sumEdges = (dimensions, pointCount) => {
+  let total = 0;
+  for (let i = 0; i < pointCount; i++) {
+    const a = String.fromCharCode(65 + i);                // A, B, C...
+    const b = String.fromCharCode(65 + ((i + 1) % pointCount)); // next point, wraps around
+    const key = `${a}${b}`;
+    total += Number(dimensions[key]) || 0;
+  }
+  return total;
 };
-
-function getPriceByFabric(edgeMeter, fabricName) {
-  console.log(`Getting price for ${edgeMeter}m of ${fabricName}`);
-  const category = fabricToCategory[fabricName];
-  if (!category) {
-    console.warn(`Unknown fabric: ${fabricName}`);
-    return null;
-  }
-  return getPrice(Number(edgeMeter), category);
-}
-
-
-
 
 
 function computeDiscrepancyXY(dimensions) {

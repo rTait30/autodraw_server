@@ -1,16 +1,29 @@
 export const Schema = {
+
   "Materials": [
     {
       "type": "row",
       "description": "Fabric",
       "quantity": "1",
-      "unitCost": "calculated.fabricPrice"
+      "unitCost": "calculated.calculated.fabricPrice"
     },
     {
       "type": "row",
-      "description": "Cable",
-      "quantity": "calculated.edgeMeterCeilMeters",
-      "unitCost": "10"
+      "description": "4mm Cable",
+      "quantity": "attributes.cableSize === 4 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "unitCost": "3"
+    },
+    {
+      "type": "row",
+      "description": "5mm Cable",
+      "quantity": "attributes.cableSize === 5 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "unitCost": "4.5"
+    },
+    {
+      "type": "row",
+      "description": "6mm Cable",
+      "quantity": "attributes.cableSize === 6 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "unitCost": "5.5"
     },
     {
       "type": "sku",

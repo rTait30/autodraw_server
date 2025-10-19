@@ -66,6 +66,11 @@ export default function EstimateTable({
 
   // --- Initialize row + input state whenever inputs/products/schema change ---
   useEffect(() => {
+
+    console.log("schema:", schema);
+    console.log("attributes:", attributes);
+    console.log("calculated:", calculated);
+
     const newRowState = {};
     const newInputState = {};
 

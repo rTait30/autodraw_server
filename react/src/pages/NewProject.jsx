@@ -46,6 +46,14 @@ export default function NewProject() {
     info: "",
   });
 
+  // Mobile-friendly toast (replaces alert)
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, opts = {}) => {
+    setToast({ msg: String(msg), ...opts });
+    // auto-dismiss
+    setTimeout(() => setToast(null), opts.duration || 6000);
+  };
+
   // Load steps dynamically so they can be split into their own chunk
   useEffect(() => {
     let alive = true;
@@ -124,11 +132,12 @@ export default function NewProject() {
   const printValues = () => {
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Form values:", all);
-    alert(
+    showToast(
       "General:\n" +
-      JSON.stringify(all.general ?? {}, null, 2) +
-      "\n\nAttributes:\n" +
-      JSON.stringify(all.attributes ?? {}, null, 2)
+        JSON.stringify(all.general ?? {}, null, 2) +
+        "\n\nAttributes:\n" +
+        JSON.stringify(all.attributes ?? {}, null, 2),
+      { duration: 8000 }
     );
   };
 
@@ -142,13 +151,13 @@ export default function NewProject() {
 
     console.log("Stepper data:", data);
 
-    alert("stepper data:\n" + JSON.stringify(data, null, 2));
+    showToast("stepper data:\n" + JSON.stringify(data, null, 2), { duration: 8000 });
   };
 
 
   const handleSubmit = async () => {
     if (!projectType) {
-      alert("Please select a project type first.");
+      showToast("Please select a project type first.")
       return;
     }
 
@@ -175,11 +184,11 @@ export default function NewProject() {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const res = await response.json();
-      alert("Project submitted successfully!");
+      showToast("Project submitted successfully!");
       console.log("Submitted:", res);
     } catch (err) {
       console.error("Submission error:", err);
-      alert(`Error submitting project: ${err.message}`);
+      showToast(`Error submitting project: ${err.message}`, { duration: 8000 });
     }
   };
 
@@ -204,8 +213,28 @@ export default function NewProject() {
         projectTypes={projectTypes}
       />
 
+      {toast && (
+        <div
+          role="status"
+          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+        >
+          <div className="flex justify-between items-start gap-2">
+            <div className="text-left font-medium">Message</div>
+            <button
+              className="text-xs opacity-70"
+              onClick={() => setToast(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <pre className="mt-2 text-xs overflow-auto max-h-60">{toast.msg}</pre>
+        </div>
+      )}
+
       <main className="flex-1 p-6">
         {projectType ? (
+
           <div className="flex flex-wrap gap-10">
             <div className="flex-1 min-w-[400px]">
               <Suspense fallback={<div className="p-3"></div>}>

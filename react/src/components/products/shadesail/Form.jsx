@@ -9,7 +9,28 @@ const GENERAL_DEFAULTS = Object.freeze({
 });
 
 const MAX_POINTS = 11;
-const FIXING_TYPES = ["M8 Bowshackle", "M10 Bowshackle", "M12 Bowshackle", "M8 Turnbuckle", "M10 Turnbuckle", "M12 Turnbuckle", "M12 Togglebolt", "Sailtrack Corner"];
+
+const TENSION_HARDWARE_OPTIONS = [
+  "M8 Bowshackle",
+  "M10 Bowshackle",
+  "M12 Bowshackle",
+  "M8 Turnbuckle",
+  "M10 Turnbuckle",
+  "M12 Turnbuckle",
+  "M12 Togglebolt",
+  "Sailtrack Corner",
+];
+
+const CORNER_FITTING_OPTIONS = [
+  "Pro-Rig",
+  "Pro-Rig with Small Pipe",
+  "Ezy Slide",
+  "100mm Corner Plate",
+  "100mm Corner Plate with Pipe",
+  "150mm Corner Plate",
+  "150mm Corner Plate with Pipe",
+  "Sailtrack Corner"
+];
 
 const FABRIC_OPTIONS = {
   ShadeCloth: ["Rainbow Z16", "Poly Fx", "Extreme 32", "Polyfab Xtra", "Tensitech 480", "Monotec 370", "DriZ"],
@@ -39,10 +60,10 @@ const DEFAULT_ATTRIBUTES = Object.freeze({
     BD: 1414,
   },
   points: {
-    A: { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 },
-    B: { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 },
-    C: { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 },
-    D: { height: 5, fixingType: "M8 Bowshackle", tensionAllowance: 50 },
+    A: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    B: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    C: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    D: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
   },
 });
 
@@ -82,8 +103,10 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
         const old = prev.points?.[p] ?? {};
         points[p] = {
           height: old.height ?? 5,
-          fixingType: old.fixingType ?? FIXING_TYPES[0],
+          // default tension hardware (was FIXING_TYPES[0])
+          tensionHardware: old.tensionHardware ?? TENSION_HARDWARE_OPTIONS[0],
           tensionAllowance: old.tensionAllowance ?? 50,
+          cornerFitting: old.cornerFitting ?? CORNER_FITTING_OPTIONS[0],
         };
       });
 
@@ -123,13 +146,24 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
     }));
 
   const setPointField = (p, key, value) =>
-    setAttributes((prev) => ({
-      ...prev,
-      points: {
-        ...prev.points,
-        [p]: { ...prev.points[p], [key]: key === "fixingType" ? value : value },
-      },
-    }));
+    setAttributes((prev) => {
+      const newPoints = { ...(prev.points || {}) };
+      const cur = newPoints[p] || {};
+      let next = { ...cur, [key]: value };
+
+      // If customer selects tensionHardware, set a sensible default cornerFitting
+      if (key === "tensionHardware") {
+        const hw = String(value || "").toLowerCase();
+        let defaultCorner = cur.cornerFitting ?? CORNER_FITTING_OPTIONS[0];
+        if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-rig";
+        else if (hw.includes("togglebolt")) defaultCorner = "Pro-Rig with Small Pipe";
+        // apply default (overwrites previous only when different)
+        next.cornerFitting = defaultCorner;
+      }
+
+      newPoints[p] = next;
+      return { ...prev, points: newPoints };
+    });
 
   // Toggle sailtrack presence for a given edge label
   const toggleSailTrack = (edgeLabel) =>
@@ -140,7 +174,7 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       return { ...prev, sailTracks: Array.from(set) };
     });
 
-      useEffect(() => {
+  useEffect(() => {
     setAttributes((prev) => {
       const sail = prev.sailTracks || [];
       const forced = new Set();
@@ -159,8 +193,8 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       for (const p of Object.keys(newPoints)) {
         if (forced.has(p)) {
           const cur = newPoints[p] || {};
-          if (cur.fixingType !== "SailtrackCorner" || Number(cur.tensionAllowance) !== 0) {
-            newPoints[p] = { ...cur, fixingType: "Sailtrack Corner", tensionAllowance: 0 };
+          if (cur.cornerFitting !== "Sailtrack Corner" || Number(cur.tensionAllowance) !== 0) {
+            newPoints[p] = { ...cur, cornerFitting: "Sailtrack Corner", tensionAllowance: 0 };
             changed = true;
           }
         }
@@ -357,27 +391,29 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
               <div className="space-y-2">
                 <h5 className="text-sm font-medium opacity-70">Edges</h5>
                 {edges.map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-2">
+                  <div key={label} className="flex items-start gap-2">
                     <div className="flex-1 space-y-1">
                       <label className="text-sm">{label}</label>
-                      <input
-                        className="inputCompact"
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        value={value}
-                        onChange={(e) => setDimension(label, e.target.value)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="inputCompact"
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={value}
+                          onChange={(e) => setDimension(label, e.target.value)}
+                        />
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={(attributes.sailTracks || []).includes(label)}
+                            onChange={() => toggleSailTrack(label)}
+                            aria-label={`Sailtrack ${label}`}
+                          />
+                          <span>Sailtrack</span>
+                        </label>
+                      </div>
                     </div>
-
-                    <label className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={(attributes.sailTracks || []).includes(label)}
-                        onChange={() => toggleSailTrack(label)}
-                      />
-                      <span>Sailtrack</span>
-                    </label>
                   </div>
                 ))}
                 {edges.length === 0 && (
@@ -417,67 +453,80 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
         <br></br>
         <h5 className="text-sm font-medium opacity-70">Points</h5>
 
-        {/* Compact header — visible on all screen sizes */}
-        <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">
-          <div className="col-span-2">Pt</div>
-          <div className="col-span-4">Height&nbsp;(m)</div>
-          {!discrepancyChecker && (
-            <>
-              <div className="col-span-3">Fixing</div>
-              <div className="col-span-3">Tension&nbsp;(mm)</div>
-            </>
-          )}
-        </div>
+{/* Compact header — visible on all screen sizes */}
+      <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">
+        <div className="col-span-1">Pt</div>
+        <div className="col-span-2">Height&nbsp;(m)</div>
+        <div className="col-span-3">Corner Fitting</div>
+        <div className="col-span-3">Tensioning Hardware</div>
+        <div className="col-span-2">Tension&nbsp;(mm)</div>
+      </div>
 
-        <div className="space-y-1">
-          {Object.entries(attributes.points).map(([p, vals]) => (
-            <div
-              key={p}
-              className="grid grid-cols-12 items-center gap-1 text-xs"
-            >
-              {/* Point label */}
-              <div className="col-span-2 text-[11px] opacity-80">{p}</div>
+      <div className="space-y-1">
+        {Object.entries(attributes.points).map(([p, vals]) => (
+          <div
+            key={p}
+            className="grid grid-cols-12 items-center gap-1 text-xs"
+          >
+            {/* Point label */}
+            <div className="col-span-1 text-[11px] opacity-80">{p}</div>
 
-              {/* Height */}
+            {/* Height */}
+            <input
+              className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="numeric"
+              value={vals.height}
+              onChange={(e) => setPointField(p, "height", e.target.value)}
+            />
+
+            {/* Corner Fitting */}
+            {!discrepancyChecker && (
+              <select
+                className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                value={vals.cornerFitting ?? ""}
+                onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
+              >
+                {CORNER_FITTING_OPTIONS.map((cf) => (
+                  <option key={cf} value={cf}>
+                    {cf}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Tension Hardware */}
+            {!discrepancyChecker && (
+              <select
+                className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                value={vals.tensionHardware ?? ""}
+                onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
+              >
+                {TENSION_HARDWARE_OPTIONS.map((th) => (
+                  <option key={th} value={th}>
+                    {th}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Tension allowance */}
+            {!discrepancyChecker && (
               <input
-                className="inputCompact h-8 px-2 text-xs w-full col-span-4"
+                className="inputCompact h-8 px-2 text-xs w-full col-span-2"
                 type="number"
                 min={0}
                 step="any"
                 inputMode="numeric"
-                value={vals.height}
-                onChange={(e) => setPointField(p, "height", e.target.value)}
+                value={vals.tensionAllowance}
+                onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
               />
-
-              {/* Only show Fixing + Tension if discrepancyChecker === false */}
-              {!discrepancyChecker && (
-                <>
-                  <select
-                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                    value={vals.fixingType}
-                    onChange={(e) => setPointField(p, "fixingType", e.target.value)}
-                  >
-                    {FIXING_TYPES.map((ft) => (
-                      <option key={ft} value={ft}>
-                        {ft}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    className="inputCompact h-8 px-2 text-xs w-full col-span-3"
-                    type="number"
-                    min={0}
-                    step="any"
-                    inputMode="numeric"
-                    value={vals.tensionAllowance}
-                    onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
-                  />
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        ))}
+      </div>
       </section>
 
 

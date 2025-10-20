@@ -410,6 +410,30 @@ export const Steps = [
 
       data.fabricPrice = fabricPrice;
 
+      let fittingCounts = {};
+
+      for (const point of Object.values(data.points)) {
+        const { cornerFitting } = point;
+        if (cornerFitting) {
+          fittingCounts[cornerFitting] = (fittingCounts[cornerFitting] || 0) + 1;
+        }
+      }
+
+      data.fittingCounts = fittingCounts;
+
+      console.log("sailTracks:", data.sailTracks);
+
+      let totalSailLength = 0;
+      for (const sailTrack of data.sailTracks || []) {
+        totalSailLength += data.dimensions[sailTrack] || 0;
+      }
+
+      data.totalSailLength = totalSailLength;
+
+      let totalSailLengthCeilMeters = Math.ceil(totalSailLength / 1000);
+
+      data.totalSailLengthCeilMeters = totalSailLengthCeilMeters;
+
       let discrepancyProblem = false;
 
       console.log("Fabric category:", data.fabricCategory);
@@ -780,6 +804,16 @@ const pricelist = {
 };
 
 function getPriceByFabric(fabric, edgeMeter) {
+
+  let lowestPrice = 0;
+
+  while (!(lowestPrice in pricelist[fabric])) {
+    lowestPrice++;
+  }
+
+  if (edgeMeter < lowestPrice) {
+    return pricelist[fabric][lowestPrice];
+  }
 
   return pricelist[fabric][edgeMeter] || 0;
 }

@@ -187,6 +187,7 @@ export default function EstimateTable({
                 const item = rowState[section]?.[idx] || {};
 
                 if (row.type === 'row' || row.type === 'sku') {
+                  if (Number(item.quantity) === 0) return null;
                   return (
                     <tr key={idx} className="tableRowHover">
                       <td className="tableCell">{item.description}</td>

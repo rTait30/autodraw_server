@@ -3,7 +3,7 @@ export const Schema = {
   "Materials": [
     {
       "type": "row",
-      "description": "Fabric",
+      "description": "Membrane",
       "quantity": "1",
       "unitCost": "calculated.calculated.fabricPrice"
     },
@@ -26,9 +26,34 @@ export const Schema = {
       "unitCost": "5.5"
     },
     {
-      "type": "sku",
-      "sku": "PRO001",
-      "quantity": "attributes.pointCount"
+      "type": "row",
+      "description": "8mm Cable",
+      "quantity": "attributes.cableSize === 8 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "unitCost": "9.5"
+    },
+    {
+      "type": "row",
+      "description": "Sailtrack Corner",
+      "quantity": "calculated.calculated.fittingCounts['Sailtrack Corner'] || 0",
+      "unitCost": "28"
+    },
+    {
+      "type": "row",
+      "description": "Pro-Rig or Ezy Slide",
+      "quantity": "(calculated.calculated.fittingCounts['Pro-Rig'] || 0) + (calculated.calculated.fittingCounts['Ezy Slide'] || 0)",
+      "unitCost": "36"
+    },
+    {
+      "type": "row",
+      "description": "Pro-Rig with Small Pipe",
+      "quantity": "calculated.calculated.fittingCounts['M12 Togglebolt'] || 0",
+      "unitCost": "36"
+    },
+    {
+      "type": "row",
+      "description": "Keder/Rope Edge/Spline per lm",
+      "quantity": "calculated.calculated.totalSailLengthCeilMeters || 0",
+      "unitCost": "36"
     }
   ],
   "Summary": [

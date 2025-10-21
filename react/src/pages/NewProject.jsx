@@ -173,7 +173,7 @@ export default function NewProject() {
         general: formData.general ?? {},
         type: projectType,
         attributes: formData.attributes ?? {},
-        calculated: stepperData?.calculated ?? {},
+        calculated: stepperData ?? {},
       };
 
       const response = await apiFetch("/projects/create", {

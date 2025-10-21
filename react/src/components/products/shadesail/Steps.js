@@ -461,13 +461,11 @@ export const Steps = [
 
       let cablePrice = 0;
 
-      
-
       //data.edgeMeter = edgeMeter
       //data.edgeMeterCeilMeters = edgeMeterCeilMeters,
       data.positions = positions,
       data.discrepancies = discrepancies,
-      data.blame = blame
+      data.blame = blame,
       data.fabricPrice = fabricPrice,
       data.discrepancyProblem = discrepancyProblem,
       data.boxes = boxes
@@ -475,12 +473,7 @@ export const Steps = [
       return data;
     },
 
-
-
-
     drawFunction: (ctx, data) => {
-
-      
 
         ctx.clearRect(0, 0, 1000, 1000);
         ctx.save();

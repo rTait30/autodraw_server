@@ -90,9 +90,7 @@ def save_project_config():
     #dont allow submissions of shadesails with dicrepancy problems TEMP
     '''
     try:
-    
         if data['calculated']['discrepancyProblem']:
-
             return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
     except KeyError:
         pass

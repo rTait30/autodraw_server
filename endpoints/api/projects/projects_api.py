@@ -101,7 +101,7 @@ def save_project_config():
     project_id = data.get("id")  # Optional update/upsert
 
     # ---- CHANGED: do NOT whitelist "type" because it's a relationship now
-    allowed_fields = {"name", "status", "due_date", "info"}  # <- 'type' removed
+    allowed_fields = {"name", "status", "due_date", "info", "client_id"}  # <- 'type' removed
     project_data = {k: v for k, v in data['general'].items() if k in allowed_fields}
 
     name = (project_data.get("name") or "").strip()
@@ -148,6 +148,8 @@ def save_project_config():
     if user.role == "client":
         target_client_id = user.id
     else:
+
+        print (project_data)
         
         target_client_id = _as_int(project_data.get("client_id"))
         

@@ -558,7 +558,14 @@ export const Steps = [
           const discrepanciesWithValues = sortedDiscrepancies.filter(([_, value]) => value);
 
           if (discrepanciesWithValues.length === 0) {
-            ctx.fillText("Provide all dimensions and heights to calculate discrepancy", 100, ypos);
+            if (data.pointCount <= 3) {
+              ctx.fillText("Cannot calculate discrepencies", 100, ypos);
+              ypos += 40;
+              ctx.fillText("with 3 or less points", 100, ypos);
+            }
+            else {
+              ctx.fillText("Provide all dimensions and heights", 80, ypos);
+            }
           } else {
             discrepanciesWithValues.forEach(([key, value]) => {
               const [a, b, c, d] = key.split('');

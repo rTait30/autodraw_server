@@ -431,8 +431,8 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
                   <h5 className="text-sm font-medium opacity-70">Diagonals</h5>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-x-0 gap-y-3">
                     {diagonals.map(([label, value]) => (
-                      <div key={label} className="space-y-1">
-                        <label className="text-sm">{label}</label>
+                      <div key={label} className="space-y-3">
+                        <label className="text-sm block mb-2">{label}</label>
                         <input
                           className="inputCompact w-28"
                           type="number"

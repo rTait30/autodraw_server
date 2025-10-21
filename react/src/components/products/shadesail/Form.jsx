@@ -155,7 +155,7 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       if (key === "tensionHardware") {
         const hw = String(value || "").toLowerCase();
         let defaultCorner = cur.cornerFitting ?? CORNER_FITTING_OPTIONS[0];
-        if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-rig";
+        if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-Rig";
         else if (hw.includes("togglebolt")) defaultCorner = "Pro-Rig with Small Pipe";
         // apply default (overwrites previous only when different)
         next.cornerFitting = defaultCorner;

@@ -86,6 +86,9 @@ def save_project_config():
 
         add_cover(name, description)
 
+
+    #dont allow submissions of shadesails with dicrepancy problems TEMP
+    '''
     try:
     
         if data['calculated']['discrepancyProblem']:
@@ -93,7 +96,8 @@ def save_project_config():
             return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
     except KeyError:
         pass
-    
+    '''
+        
     project_id = data.get("id")  # Optional update/upsert
 
     # ---- CHANGED: do NOT whitelist "type" because it's a relationship now

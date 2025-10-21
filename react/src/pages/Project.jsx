@@ -79,12 +79,16 @@ export default function ProjectDetailsPage() {
    *  - keep `stepper` instance stable-ish; reflect via a ref to avoid effect loops
    *  - [Extract] a custom hook useStepperRunner(canvasRef, Steps, options)
    * ========================================================================*/
+  const formRef = useRef(null);
+
   const stepperRef = useRef(null);
   const canvasRef = useRef(null);
 
   //const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
 
   useEffect(() => {
+
+    console.log("editAttributes changed")
 
     stepperRef.current = new ProcessStepper(800);
 
@@ -111,7 +115,7 @@ export default function ProjectDetailsPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [editedAttributes, Steps]);
+  }, [editedAttributes]);
 
   /* ==========================================================================
    *  DATA FETCHING: loadProjectFromServer
@@ -119,6 +123,7 @@ export default function ProjectDetailsPage() {
    *  - loads type modules after project fetched
    *  - [Extract] into services/projects.getProject(projectId)
    * ========================================================================*/
+  
   const loadProjectFromServer = async () => {
     try {
       const res = await apiFetch(`/project/${projectId}`);
@@ -175,11 +180,18 @@ export default function ProjectDetailsPage() {
     setEditedCalculated(calculated);
   };
 
-  const handleCheck = async (nextAttributes) => {
-    // trigger recompute via effect by updating editedAttributes
-    setEditedAttributes(nextAttributes);
+  const handleCheck = () => {
+    console.log("handleCheck called");
+    console.log("formRef current:", formRef.current);
+    
+    if (formRef.current?.getValues) {
+      const values = formRef.current.getValues();
+      console.log("Form values:", values);
+      setEditedAttributes(values.attributes);
+    } else {
+      console.log("No getValues method found on formRef");
+    }
   };
-
   // small helper to compute calcs from attrs using your stepper
   const recalcCalculated = async (attrs) => {
     if (!Steps.length) return {};
@@ -267,6 +279,7 @@ export default function ProjectDetailsPage() {
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>
                   <Form
+                    formRef={formRef}  
                     generalDataHydrate={{
                       name: project.name,
                       client_id: project.client_id,
@@ -275,6 +288,13 @@ export default function ProjectDetailsPage() {
                     }}
                     attributesHydrate={editedAttributes}
                   />
+                  <button 
+                    onClick={handleCheck}
+                    className="buttonStyle"
+                    style={{ marginTop: '20px' }}
+                  >
+                    Check Values
+                  </button>
                 </Suspense>
               ) : (
                 <div style={{ color: '#888' }}>Form not available for this project type.</div>

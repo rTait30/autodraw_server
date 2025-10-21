@@ -1,5 +1,4 @@
 export const Schema = {
-
   "Materials": [
     {
       "type": "row",
@@ -10,25 +9,25 @@ export const Schema = {
     {
       "type": "row",
       "description": "4mm Cable",
-      "quantity": "attributes.cableSize === 4 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "quantity": "attributes.cableSize === 4 ? calculated.calculated.edgeMeterCeilMeters - calculated.calculated.totalSailLengthCeilMeters : 0",
       "unitCost": "3"
     },
     {
       "type": "row",
       "description": "5mm Cable",
-      "quantity": "attributes.cableSize === 5 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "quantity": "attributes.cableSize === 5 ? calculated.calculated.edgeMeterCeilMeters - calculated.calculated.totalSailLengthCeilMeters : 0",
       "unitCost": "4.5"
     },
     {
       "type": "row",
       "description": "6mm Cable",
-      "quantity": "attributes.cableSize === 6 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "quantity": "attributes.cableSize === 6 ? calculated.calculated.edgeMeterCeilMeters - calculated.calculated.totalSailLengthCeilMeters : 0",
       "unitCost": "5.5"
     },
     {
       "type": "row",
       "description": "8mm Cable",
-      "quantity": "attributes.cableSize === 8 ? calculated.calculated.edgeMeterCeilMeters : 0",
+      "quantity": "attributes.cableSize === 8 ? calculated.calculated.edgeMeterCeilMeters - calculated.calculated.totalSailLengthCeilMeters : 0",
       "unitCost": "9.5"
     },
     {
@@ -46,8 +45,8 @@ export const Schema = {
     {
       "type": "row",
       "description": "Pro-Rig with Small Pipe",
-      "quantity": "calculated.calculated.fittingCounts['M12 Togglebolt'] || 0",
-      "unitCost": "36"
+      "quantity": "(calculated.calculated.fittingCounts['Pro-Rig with Small Pipe'] || 0)",
+      "unitCost": "50"
     },
     {
       "type": "row",

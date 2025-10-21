@@ -63,7 +63,6 @@ export const Steps = [
 
       */
 
-
       //console.log('Total edgeMeter:', edgeMeter);
 
       const xyDistances = {};
@@ -139,9 +138,7 @@ export const Steps = [
         console.log(discrepancies);
 
         console.log(blame);
-      }
-
-      
+      } 
       
       let boxes = null;
 
@@ -789,7 +786,7 @@ const pricelist = {
     30: 3665, 31: 3820, 32: 4035, 33: 4220, 34: 4480, 35: 4740, 36: 4950, 37: 5190, 38: 5525,
     39: 5790, 40: 6040
   },
-  "Ferrari 5022": {
+  "Ferrari 502S2": {
     12: 955, 13: 1045, 14: 1135, 15: 1230, 16: 1355, 17: 1490, 18: 1625, 19: 1760, 20: 1910,
     21: 2045, 22: 2200, 23: 2355, 24: 2535, 25: 2715, 26: 2890, 27: 3045, 28: 3270, 29: 3470,
     30: 3645, 31: 3810, 32: 4030, 33: 4220, 34: 4475, 35: 4720, 36: 4950, 37: 5230, 38: 5495,
@@ -805,14 +802,8 @@ const pricelist = {
 
 function getPriceByFabric(fabric, edgeMeter) {
 
-  let lowestPrice = 0;
-
-  while (!(lowestPrice in pricelist[fabric])) {
-    lowestPrice++;
-  }
-
-  if (edgeMeter < lowestPrice) {
-    return pricelist[fabric][lowestPrice];
+  if (edgeMeter < 15) {
+    return pricelist[fabric][15];
   }
 
   return pricelist[fabric][edgeMeter] || 0;

@@ -1,5 +1,7 @@
 import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState, useRef, setField } from 'react';
 
+import { apiFetch } from '../../services/auth.js';
+
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
   client_id: "",
@@ -8,6 +10,24 @@ const GENERAL_DEFAULTS = Object.freeze({
 });
 
 export function GeneralSection({ data, setData = () => {} }) {
+
+  const [clients, setClients] = useState([]);
+  const [clientsError, setClientsError] = useState(null);
+
+  // Fetch clients on mount if user is estimator/admin
+  useEffect(() => {
+    const role = localStorage.getItem('role');
+    if (role === 'estimator' || role === 'admin' || role === 'designer') {
+      apiFetch('/clients')
+        .then(res => res.json())
+        .then(data => setClients(data))
+        .catch(err => {
+          console.error('Failed to fetch clients:', err);
+          setClientsError(err.message);
+        });
+    }
+  }, []);
+
   // Never read directly from possibly-null `data`
   const safe = data ?? GENERAL_DEFAULTS;
 
@@ -23,7 +43,9 @@ export function GeneralSection({ data, setData = () => {} }) {
     }));
   };
 
-  const shouldShowClient = false; // TEMP DISABLE CLIENT SELECT
+  const shouldShowClient = (localStorage.getItem('role') === "estimator" || 
+                          localStorage.getItem('role') === "admin" || 
+                          localStorage.getItem('role') === "designer");
 
   return (
     <div className="space-y-2">
@@ -48,8 +70,17 @@ export function GeneralSection({ data, setData = () => {} }) {
             onChange={handleChange}
           >
             <option value="">Select client</option>
-            {/* map clients here if/when you enable them */}
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
           </select>
+          {clientsError && (
+            <div className="text-red-500 text-sm mt-1">
+              Error loading clients: {clientsError}
+            </div>
+          )}
         </div>
       )}
 

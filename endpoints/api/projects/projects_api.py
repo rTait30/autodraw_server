@@ -149,8 +149,8 @@ def save_project_config():
         target_client_id = user.id
     else:
         
-        #target_client_id = _as_int(project_data.get("client_id"))
-        target_client_id = 'winlloyd' #TEMP
+        target_client_id = _as_int(project_data.get("client_id"))
+        
         if target_client_id is None and not project_id:
             return jsonify({"error": "client_id is required for staff creates"}), 400
 

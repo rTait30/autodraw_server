@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { GeneralSection } from "../GeneralSection";
 
+
+
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
   client_id: "winlloyd",
@@ -34,7 +36,7 @@ const CORNER_FITTING_OPTIONS = [
 
 const FABRIC_OPTIONS = {
   ShadeCloth: ["Rainbow Z16", "Poly Fx", "Extreme 32", "Polyfab Xtra", "Tensitech 480", "Monotec 370", "DriZ"],
-  PVC: ["Bochini", "Bochini Blockout", "Mehler FR580", "Ferrari 502S2", "Ferrari 502V3"],
+  PVC: ["Bochini", "Bochini Blockout", "Mehler FR580", "Ferrari 502S2", "Ferrari 502V3"]
 };
 const FOLD_SIDES = ["Underside", "Topside"];
 

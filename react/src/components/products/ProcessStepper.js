@@ -118,7 +118,7 @@ export class ProcessStepper {
       else calculated[key] = value;
     }
 
-    return { calculated };
+    return calculated;
   }
 
   async executeStep(step, data, index) {

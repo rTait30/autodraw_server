@@ -90,20 +90,26 @@ export default function ProjectDetailsPage() {
 
     console.log("editAttributes changed")
 
-    stepperRef.current = new ProcessStepper(800);
-
-    if (canvasRef.current && stepperRef.current) {
-
-      stepperRef.current.addCanvas(canvasRef.current);
-
-      Steps.forEach((step, i) => {
-        //console.log("step", i);
-        //console.log(step);
-        stepperRef.current.addStep(step)
-      });
+// Ensure stepper is created only once
+    if (!stepperRef.current) {
+      stepperRef.current = new ProcessStepper(800);
     }
 
-    if (!Steps.length || !Object.keys(editedAttributes || {}).length) return;
+    // If we have steps and a canvas already, ensure they're attached
+    if (canvasRef.current) {
+      stepperRef.current.addCanvas(canvasRef.current);
+    }
+
+    // If we already loaded Steps, ensure they are registered (idempotent)
+    if (Steps && Steps.length) {
+      // avoid duplicate step registrations by clearing existing list first
+      stepperRef.current.steps = [];
+      Steps.forEach((step) => stepperRef.current.addStep(step));
+    }
+
+    // Run calculations when editedAttributes change (only if stepper ready)
+    if (!stepperRef.current) return;
+    if (!Object.keys(editedAttributes || {}).length) return;
 
     let cancelled = false;
     (async () => {
@@ -116,6 +122,15 @@ export default function ProjectDetailsPage() {
 
     return () => { cancelled = true; };
   }, [editedAttributes]);
+  
+  useEffect(() => {
+    if (!stepperRef.current) stepperRef.current = new ProcessStepper(800);
+    if (canvasRef.current) stepperRef.current.addCanvas(canvasRef.current);
+    if (Steps && Steps.length) {
+      stepperRef.current.steps = [];
+      Steps.forEach((step) => stepperRef.current.addStep(step));
+    }
+  }, [Steps, canvasRef.current]);
 
   /* ==========================================================================
    *  DATA FETCHING: loadProjectFromServer
@@ -162,6 +177,8 @@ export default function ProjectDetailsPage() {
       console.error('Failed to fetch project:', err);
       setError('Unable to load project. Please try again later.'); // store error
     }
+
+    handleCheck();
   };
 
   // initial fetch / refetch when projectId changes

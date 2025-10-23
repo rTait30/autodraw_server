@@ -371,21 +371,22 @@ const handleSubmit = async () => {
                     }}
                     attributesHydrate={editedAttributes}
                   />
-                  <button 
-                    onClick={handleCheck}
-                    className="buttonStyle"
-                    style={{ marginTop: '20px' }}
-                  >
-                    Check Values
-                  </button>
-                  <br />
-                  <button 
-                    onClick={handleSubmit}
-                    className="buttonStyle"
-                    style={{ marginTop: '20px' }}
-                  >
-                    Submit changes
-                  </button>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                    <button
+                      onClick={handleCheck}
+                      className="buttonStyle"
+                    >
+                      Check Values
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      className="buttonStyle"
+                      style={{ marginLeft: '8px' }}
+                    >
+                      Submit changes
+                    </button>
+                  </div>
                 </Suspense>
               ) : (
                 <div style={{ color: '#888' }}>Form not available for this project type.</div>

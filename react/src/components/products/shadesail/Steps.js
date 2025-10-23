@@ -630,7 +630,7 @@ export const Steps = [
             if (p.y > maxY) maxY = p.y;
         }
 
-        const pad = 40;
+        const pad = 150;
         const drawW = 1000 - 2 * pad;
         const drawH = 1000 - 2 * pad;
         const shapeW = maxX - minX || 1;
@@ -685,27 +685,34 @@ export const Steps = [
 
         // Draw points and height labels
         for (const pid of orderedIds) {
-            const p = mapped[pid];
-            if (!p) continue;
+          const p = mapped[pid];
+          if (!p) continue;
 
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-            ctx.fillStyle = '#1976d2';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#1976d2';
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
 
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 18px Arial';
-            ctx.fillText(pid, p.x + 12, p.y - 12);
+          ctx.fillStyle = '#222';
+          ctx.font = 'bold 50px Arial';
+          ctx.fillText(pid, p.x + 12, p.y - 12);
 
-            const h = data[`H${pid}`];
-            if (typeof h === 'number' && !isNaN(h)) {
-                ctx.font = '14px Arial';
-                ctx.fillStyle = '#555';
-                ctx.fillText(`H${pid}: ${h}`, p.x + 12, p.y + 16);
-            }
+          const h = data.points[pid].height;
+          if (typeof h === 'number' && !isNaN(h)) {
+            ctx.font = 'bold 30px Arial';
+            ctx.fillStyle = '#555';
+            ctx.fillText(`H: ${h}`, p.x + 50, p.y);
+          }
+
+          //const cf = data.points[pid].cornerFitting;
+
+          ctx.fillText(`Fitting: ${data.points[pid].cornerFitting}`, p.x + 50, p.y + 30);
+          ctx.fillText(`Hardware: ${data.points[pid].tensionHardware}`, p.x + 50, p.y + 60);
+          ctx.fillText(`Allowance: ${data.points[pid].tensionAllowance}`, p.x + 50, p.y + 90);
+          
         }
     }
   }

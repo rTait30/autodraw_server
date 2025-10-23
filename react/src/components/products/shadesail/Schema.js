@@ -52,7 +52,7 @@ export const Schema = {
       "type": "row",
       "description": "Keder/Rope Edge/Spline per lm",
       "quantity": "calculated.totalSailLengthCeilMeters || 0",
-      "unitCost": "36"
+      "unitCost": "10"
     }
   ],
   "Summary": [

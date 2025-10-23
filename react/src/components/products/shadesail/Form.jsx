@@ -44,6 +44,17 @@ const COLOUR_OPTIONS = ["Charcoal", "Black", "White"];
 
 const CABLE_SIZE_OPTIONS = [4, 5, 6, 8];
 
+const TENSION_HARDWARE_DEFAULTS = {
+  "M8 Bowshackle": 50,
+  "M10 Bowshackle": 50,
+  "M12 Bowshackle": 50,
+  "M8 Turnbuckle": 300,
+  "M10 Turnbuckle": 350,
+  "M12 Turnbuckle": 450,
+  "M12 Togglebolt": 150,
+  "Sailtrack Corner": 0
+};
+
 // Default attributes (used as base, then merged with attributesHydrate)
 const DEFAULT_ATTRIBUTES = Object.freeze({
   exitPoint: "A",
@@ -147,25 +158,29 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       dimensions: { ...prev.dimensions, [label]: value },
     }));
 
-  const setPointField = (p, key, value) =>
-    setAttributes((prev) => {
-      const newPoints = { ...(prev.points || {}) };
-      const cur = newPoints[p] || {};
-      let next = { ...cur, [key]: value };
+// Modify the setPointField function:
+const setPointField = (p, key, value) =>
+  setAttributes((prev) => {
+    const newPoints = { ...(prev.points || {}) };
+    const cur = newPoints[p] || {};
+    let next = { ...cur, [key]: value };
 
-      // If customer selects tensionHardware, set a sensible default cornerFitting
-      if (key === "tensionHardware") {
-        const hw = String(value || "").toLowerCase();
-        let defaultCorner = cur.cornerFitting ?? CORNER_FITTING_OPTIONS[0];
-        if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-Rig";
-        else if (hw.includes("togglebolt")) defaultCorner = "Pro-Rig with Small Pipe";
-        // apply default (overwrites previous only when different)
-        next.cornerFitting = defaultCorner;
-      }
+    // If customer selects tensionHardware, set defaults for both cornerFitting and tensionAllowance
+    if (key === "tensionHardware") {
+      const hw = String(value || "").toLowerCase();
+      let defaultCorner = cur.cornerFitting ?? CORNER_FITTING_OPTIONS[0];
+      if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-Rig";
+      else if (hw.includes("togglebolt")) defaultCorner = "Pro-Rig with Small Pipe";
+      
+      // Set default tension allowance based on hardware type
+      next.tensionAllowance = TENSION_HARDWARE_DEFAULTS[value] ?? 50;
+      // Apply default corner fitting
+      next.cornerFitting = defaultCorner;
+    }
 
-      newPoints[p] = next;
-      return { ...prev, points: newPoints };
-    });
+    newPoints[p] = next;
+    return { ...prev, points: newPoints };
+  });
 
   // Toggle sailtrack presence for a given edge label
   const toggleSailTrack = (edgeLabel) =>
@@ -304,20 +319,7 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
         <label className="block text-sm font-medium">Points</label>
 
         <div className="flex items-center gap-2 max-w-[260px]">
-          {/* Mobile +/- buttons (hide on md+) */}
-          <button
-            type="button"
-            className="md:hidden px-3 h-9 rounded border text-lg leading-none"
-            onClick={() => {
-              const cur = attributes.pointCount;
-              if (cur === "" || cur == null) return; // keep empty on minus
-              const next = Math.max(3, Number(cur) - 1);
-              setCount(next);
-            }}
-            aria-label="Decrease points"
-          >
-            −
-          </button>
+
 
           <input
             className="inputCompact h-9 text-center w-full"
@@ -343,10 +345,23 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
               setCount(Math.min(MAX_POINTS, Math.max(1, n)));
             }}
           />
-
+          {/* Mobile +/- buttons (hide on md+) */}
           <button
             type="button"
-            className="md:hidden px-3 h-9 rounded border text-lg leading-none"
+            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors"
+            onClick={() => {
+              const cur = attributes.pointCount;
+              if (cur === "" || cur == null) return; // keep empty on minus
+              const next = Math.max(3, Number(cur) - 1);
+              setCount(next);
+            }}
+            aria-label="Decrease points"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors"
             onClick={() => {
               const cur = attributes.pointCount;
               const base = cur === "" || cur == null ? 0 : Number(cur);
@@ -380,6 +395,19 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
 
           // Edges: show in ring order; allow input even if not yet in dims
           const edges = expectedEdges.map((lbl) => [lbl, dims[lbl] ?? ""]);
+
+          // Perimeter (sum of edges, in mm) and meters rounded by rule:
+          // roundedMeters = floor(mm/1000) + (remainder > 100 ? 1 : 0)
+          const perimeterMM = edges.reduce((sum, [, v]) => {
+            const n = Number(v);
+            return sum + (Number.isFinite(n) ? n : 0);
+          }, 0);
+          const perimeterMetersRounded = (() => {
+            const base = Math.floor(perimeterMM / 1000);
+            const rem = perimeterMM % 1000;
+            return base + (rem > 100 ? 1 : 0);
+          })();
+
 
           // Diagonals: anything else present in dims
           const diagonals = Object.entries(dims)
@@ -420,6 +448,13 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
                 ))}
                 {edges.length === 0 && (
                   <div className="text-xs opacity-60">No edges for this point count.</div>
+                )}
+                
+                {/* Perimeter display */}
+                {edges.length > 0 && (
+                  <div className="text-sm opacity-80 mt-2">
+                    Edge meter: {perimeterMM}mm ({perimeterMetersRounded}m)
+                  </div>
                 )}
               </div>
 

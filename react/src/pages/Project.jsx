@@ -139,47 +139,68 @@ export default function ProjectDetailsPage() {
    *  - [Extract] into services/projects.getProject(projectId)
    * ========================================================================*/
   
-  const loadProjectFromServer = async () => {
-    try {
-      const res = await apiFetch(`/project/${projectId}`);
-      if (!res.ok) throw new Error('Failed to fetch project');
+/* Then modify the loadProjectFromServer function to ensure proper ordering */
+const loadProjectFromServer = async () => {
+  try {
+    const res = await apiFetch(`/project/${projectId}`);
+    if (!res.ok) throw new Error('Failed to fetch project');
 
-      const data = await res.json();
+    const data = await res.json();
+    console.log("Loaded project data:", data);
 
+    // Initialize stepper first if needed
+    if (!stepperRef.current) {
+      stepperRef.current = new ProcessStepper(800);
+    }
+
+    // Load type modules first
+    if (data?.type) {
+      const modules = await loadTypeResources(data.type);
+      
+      // Set Steps first so they're available for calculations
+      setSteps(modules.Steps || []);
+      
+      // Register steps with stepper immediately
+      if (stepperRef.current && modules.Steps) {
+        stepperRef.current.steps = [];
+        modules.Steps.forEach(step => stepperRef.current.addStep(step));
+      }
+
+      // Set other module resources
+      setForm(() => modules.Form);
+      setSchema(modules.Schema);
+      setEditedSchema(modules.Schema);
+      
+      // Now set project data
       setProject(data);
-
-      console.log("Loaded project data:", data);
-
-      // Saved snapshots
       setAttributes(data.attributes || {});
       setCalculated(data.calculated || {});
 
-      // Working snapshots start from saved
-      setEditedAttributes(data.attributes || {});
-      setEditedCalculated(data.calculated || {});
+      // Set edited attributes and trigger calculations
+      const attrs = data.attributes || {};
+      setEditedAttributes(attrs);
 
-      console.log("fabricPrice:", data.calculated?.fabricPrice || "not found");
-
-      // Load type modules
-      if (data?.type) {
-        const modules = await loadTypeResources(data.type);
-        setForm(() => modules.Form);
-        setSteps(modules.Steps || []);
-        setSchema(modules.Schema);
-        setEditedSchema(modules.Schema); // working copy starts as saved
-      } else {
-        setForm(null);
-        setSteps([]);
-        setSchema(null);
-        setEditedSchema(null);
-      }
-    } catch (err) {
-      console.error('Failed to fetch project:', err);
-      setError('Unable to load project. Please try again later.'); // store error
+      // Run initial calculations now that everything is set up
+      const calcs = await recalcCalculated(attrs);
+      console.log("Initial calculations:", calcs);
+      setEditedCalculated(calcs);
+    } else {
+      setForm(null);
+      setSteps([]);
+      setSchema(null);
+      setEditedSchema(null);
+      setProject(data);
     }
+  } catch (err) {
+    console.error('Failed to fetch project:', err);
+    setError('Unable to load project. Please try again later.');
+  }
+};
 
-    handleCheck();
-  };
+/* Add an effect to monitor calculated values */
+useEffect(() => {
+  console.log("editedCalculated changed:", editedCalculated);
+}, [editedCalculated]);
 
   // initial fetch / refetch when projectId changes
   useEffect(() => {
@@ -209,44 +230,89 @@ export default function ProjectDetailsPage() {
       console.log("No getValues method found on formRef");
     }
   };
-  // small helper to compute calcs from attrs using your stepper
+  /* First, let's modify the recalcCalculated helper to include more validation */
   const recalcCalculated = async (attrs) => {
-    if (!Steps.length) return {};
-    const result = await stepperRef.current.runAll({ ...attrs });
-    return Object.fromEntries(
-      Object.entries(result || {}).filter(([k]) => !(k in attrs))
-    );
+    // Add debug logging
+    console.log("recalcCalculated called with:", { attrs, stepsLength: Steps.length, stepperReady: !!stepperRef.current });
+
+    if (!Steps.length) {
+      console.log("No steps available yet");
+      return {};
+    }
+    
+    if (!stepperRef.current) {
+      console.log("Stepper not initialized");
+      return {};
+    }
+
+    try {
+      const result = await stepperRef.current.runAll({ ...attrs });
+      console.log("Calculation result:", result);
+      return Object.fromEntries(
+        Object.entries(result || {}).filter(([k]) => !(k in attrs))
+      );
+    } catch (err) {
+      console.error("Error in recalcCalculated:", err);
+      return {};
+    }
   };
 
-  const handleSubmit = async (nextAttributes) => {
-    // keep UI state in sync
-    setEditedAttributes(nextAttributes);
+  // Submit with values from formRef (no nextAttributes)
+const handleSubmit = async () => {
+  try {
+    // 1) Get the freshest form values from the ref
+    const values = formRef.current?.getValues?.();
+    if (!values) {
+      console.warn("handleSubmit: formRef.getValues() returned nothing.");
+      alert("Can't submit: form values are unavailable.");
+      return;
+    }
 
-    // decide which calculated to send
-    let calcs;
-    // staff: recompute synchronously here so payload is fresh
-    calcs = await recalcCalculated(nextAttributes);
+    const attrs = values.attributes ?? {};
+    // Fallback to existing project fields if general is not provided by the form
+    const general = values.general ?? {
+      name: project?.name ?? "",
+      client_id: project?.client_id ?? null,
+      due_date: project?.due_date ?? null,
+      info: project?.info ?? "",
+    };
+
+    // 2) Recalculate calculated fields (async)
+    const calcs = await recalcCalculated(attrs);
+
+    // 3) Keep UI state in sync with the exact payload we're about to send
+    setEditedAttributes(attrs);
     setEditedCalculated(calcs);
 
-
-    // now submit the exact snapshot you want
-    await apiFetch(`/projects/edit/${project.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    // 4) Send to your upsert endpoint (note: /products/edit/)
+    const res = await apiFetch(`/products/edit/${project.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-          general:{
-            name: project.name,
-            client_id: project.client_id,
-            due_date: project.due_date,
-            info: project.info,
-          },
-        editedAttributes: nextAttributes, // use the param, not (possibly stale) state
+        general,
+        editedAttributes: attrs,
         editedCalculated: calcs,
       }),
     });
 
-    alert('Project updated successfully.');
-  };
+    // Optional: read response, update state from server echo if desired
+    const json = await res.json();
+    if (!res.ok || json?.error) {
+      console.error("Submit failed:", json?.error || res.statusText);
+      alert(`Update failed: ${json?.error || res.statusText}`);
+      return;
+    }
+
+    // If server returns canonical attributes/calculated, you can sync them:
+    if (json?.attributes?.data) setEditedAttributes(json.attributes.data);
+    if (json?.attributes?.calculated) setEditedCalculated(json.attributes.calculated);
+
+    alert("Project updated successfully.");
+  } catch (err) {
+    console.error("handleSubmit error:", err);
+    alert("Something went wrong while updating the project.");
+  }
+};
 
   // handlers
   const handleSchemaCheck = (next) => setEditedSchema(next);
@@ -312,6 +378,14 @@ export default function ProjectDetailsPage() {
                   >
                     Check Values
                   </button>
+                  <br />
+                  <button 
+                    onClick={handleSubmit}
+                    className="buttonStyle"
+                    style={{ marginTop: '20px' }}
+                  >
+                    Submit changes
+                  </button>
                 </Suspense>
               ) : (
                 <div style={{ color: '#888' }}>Form not available for this project type.</div>
@@ -332,68 +406,55 @@ export default function ProjectDetailsPage() {
             gap: '24px',
           }}
         >
-          {(project.type == "cover") ? (
+          {/* Buttons: only for staff, and only when it's a cover */}
+          {(role === 'estimator'|| role === 'designer' || role === 'admin') && project?.type === 'cover' && (
             <div>
-              <button onClick={() => fetchDXF(project.id) } className = "buttonStyle" >
+              <button onClick={() => fetchDXF(project.id)} className="buttonStyle">
                 Download DXF
               </button>
-              <button onClick={() => fetchPDF(project.id) } className = "buttonStyle" >
+              <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
                 Download PDF
               </button>
-              <button onClick={() => fetchPDF(project.id, true) } className = "buttonStyle" >
+              <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
                 Download PDF with BOM
               </button>
             </div>
-          ) : null}
-          
-          {(role === 'estimator' || role === 'admin') ? (
-            <>
-              {Schema ? (
-                <div className="scroll-x">
-                  <EstimateTable
-                    key={estimateVersion}
-                    schema={editedSchema}
-                    editedSchema={editedSchema}
-                    onCheck={handleSchemaCheck}
-                    onReturn={handleSchemaReturn}
-                    onSubmit={handleSchemaSubmit}
-                    attributes={editedAttributes}
-                    calculated={editedCalculated}
-                  />
-                </div>
-              ) : (
-                <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
-              )}
+          )}
 
-              <div className="scroll-x" style={{ marginTop: 24 }}>
-              <canvas
-                ref={canvasRef}
-                width={1000}
-                height={4000}
-                style={{
-                  border: "1px solid #ccc",
-                  marginTop: "20px",
-                  width: "100%",
-                  maxWidth: "500px",
-                  display: "block",
-                  background: "#fff",
-                }}
-              />
+          {/* Estimate table: only admin + estimator */}
+          {(role === 'estimator'|| role === 'admin') ? (
+            Schema ? (
+              <div className="scroll-x">
+                <EstimateTable
+                  key={estimateVersion}
+                  schema={editedSchema}
+                  editedSchema={editedSchema}
+                  onCheck={handleSchemaCheck}
+                  onReturn={handleSchemaReturn}
+                  onSubmit={handleSchemaSubmit}
+                  attributes={editedAttributes}
+                  calculated={editedCalculated}
+                />
               </div>
-            </>
-          ) : (
-            <div className="scroll-x" style={{ alignSelf: 'flex-end', width: '100%', maxWidth: 500 }}>
+            ) : (
+              <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
+            )
+          ) : null}
+
+          {/* Canvas: all staff (designer, admin, estimator) */}
+          {(role === 'estimator'|| role === 'designer' || role === 'admin' || role === 'client') && (
+            <div className="scroll-x" style={{ marginTop: 24 }}>
               <canvas
                 ref={canvasRef}
                 width={1000}
                 height={4000}
                 style={{
-                  border: "1px solid #ccc",
-                  marginTop: "20px",
-                  width: "100%",
-                  maxWidth: "500px",
-                  display: "block",
-                  background: "#fff",
+                  border: '1px solid #ccc',
+                  marginTop: '20px',
+                  width: '100%',
+                  maxWidth: '500px',
+                  display: 'block',
+                  background: '#fff',
                 }}
               />
             </div>

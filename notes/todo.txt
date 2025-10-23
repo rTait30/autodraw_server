@@ -32,6 +32,12 @@ Done:
 
 TO DO:
 
+    Work on project load
+
+    Edge meter auto thing
+
+    editing submit    
+
     use secure endpoints on frontend
 
     Schema:

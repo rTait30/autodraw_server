@@ -116,7 +116,7 @@ export default function Authentication() {
                 value={loginForm.username}
                 onChange={(e) => setLoginForm((s) => ({ ...s, username: e.target.value }))}
                 required
-                className="inputStyle"
+                className="inputStyle w-full"
                 autoComplete="username"
               />
               <input
@@ -128,8 +128,10 @@ export default function Authentication() {
                 className="inputStyle"
                 autoComplete="current-password"
               />
+               
+              <br />
 
-              <button type="submit" className="buttonStyle" disabled={submitting}>
+              <button type="submit" className="buttonStyle w-full" disabled={submitting}>
                 {submitting ? 'Logging in…' : 'Login'}
               </button>
 

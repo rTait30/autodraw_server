@@ -697,21 +697,21 @@ export const Steps = [
           ctx.stroke();
 
           ctx.fillStyle = '#222';
-          ctx.font = 'bold 50px Arial';
+          ctx.font = 'bold 40px Arial';
           ctx.fillText(pid, p.x + 12, p.y - 12);
 
           const h = data.points[pid].height;
           if (typeof h === 'number' && !isNaN(h)) {
-            ctx.font = 'bold 30px Arial';
+            ctx.font = 'bold 20px Arial';
             ctx.fillStyle = '#555';
             ctx.fillText(`H: ${h}`, p.x + 50, p.y);
           }
 
           //const cf = data.points[pid].cornerFitting;
 
-          ctx.fillText(`Fitting: ${data.points[pid].cornerFitting}`, p.x + 50, p.y + 30);
-          ctx.fillText(`Hardware: ${data.points[pid].tensionHardware}`, p.x + 50, p.y + 60);
-          ctx.fillText(`Allowance: ${data.points[pid].tensionAllowance}`, p.x + 50, p.y + 90);
+          ctx.fillText(`Fitting: ${data.points[pid].cornerFitting}`, p.x - 30, p.y + 50);
+          ctx.fillText(`Hardware: ${data.points[pid].tensionHardware}`, p.x - 30, p.y + 80);
+          ctx.fillText(`Allowance: ${data.points[pid].tensionAllowance}`, p.x - 30, p.y + 110);
           
         }
     }

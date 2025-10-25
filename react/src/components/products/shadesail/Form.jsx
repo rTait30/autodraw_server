@@ -57,14 +57,13 @@ const TENSION_HARDWARE_DEFAULTS = {
 
 // Default attributes (used as base, then merged with attributesHydrate)
 const DEFAULT_ATTRIBUTES = Object.freeze({
-  exitPoint: "A",
   fabricCategory: "ShadeCloth",
   fabricType: "Rainbow Z16",
   foldSide: "Underside",
+  exitPoint: "A",
+  logoPoint: "",
   cableSize: 4,
   pointCount: 4,
-  sailTracks: [],
-  traceCables: [],
   dimensions: {
     AB: 1000,
     BC: 1000,
@@ -79,6 +78,9 @@ const DEFAULT_ATTRIBUTES = Object.freeze({
     C: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
     D: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
   },
+  sailTracks: [],
+  traceCables: [],
+  ufcs: [],
 });
 
 export default function SailForm({ formRef, generalDataHydrate = {}, attributesHydrate = {}, discrepancyChecker = false }) {
@@ -93,6 +95,9 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
 
   // pending trace input (choose point + length)
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
+
+  // pending UFC input (choose diagonal + optional size)
+  const [pendingUfc, setPendingUfc] = useState({ diagonal: "", size: "" });
 
   // Add a trace cable entry { point, length }
   const addTraceCable = () => {
@@ -123,6 +128,38 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       if (idx < 0 || idx >= tc.length) return prev;
       tc.splice(idx, 1);
       return { ...prev, traceCables: tc };
+    });
+  };
+
+  // Add a UFC entry { diagonal, size? }
+  const addUfc = () => {
+    const diagonal = String(pendingUfc.diagonal || "").trim();
+    if (!diagonal) return;
+    const size = Number(pendingUfc.size) || undefined;
+    setAttributes((prev) => {
+      const a = (prev.ufcs || []).slice();
+      a.push(size ? { diagonal, size } : { diagonal });
+      return { ...prev, ufcs: a };
+    });
+    setPendingUfc((s) => ({ ...s, size: "" }));
+  };
+
+  const updateUfcSize = (idx, raw) => {
+    const size = Number(raw) || undefined;
+    setAttributes((prev) => {
+      const a = (prev.ufcs || []).slice();
+      if (!a[idx]) return prev;
+      a[idx] = size ? { ...a[idx], size } : { diagonal: a[idx].diagonal };
+      return { ...prev, ufcs: a };
+    });
+  };
+
+  const removeUfc = (idx) => {
+    setAttributes((prev) => {
+      const a = (prev.ufcs || []).slice();
+      if (idx < 0 || idx >= a.length) return prev;
+      a.splice(idx, 1);
+      return { ...prev, ufcs: a };
     });
   };
 
@@ -198,6 +235,13 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       ...prev,
       dimensions: { ...prev.dimensions, [label]: value },
     }));
+
+  // Set exit and logo points (labels like 'A','B',... or empty string)
+  const setExitPoint = (pt) =>
+    setAttributes((prev) => ({ ...prev, exitPoint: pt }));
+
+  const setLogoPoint = (pt) =>
+    setAttributes((prev) => ({ ...prev, logoPoint: pt }));
 
 // Modify the setPointField function:
 const setPointField = (p, key, value) =>
@@ -352,6 +396,9 @@ const setPointField = (p, key, value) =>
         <GeneralSection data={generalData} setData={setGeneralData} />
 
       )}
+
+      <br></br>
+      <h3 className="headingStyle">Shade Sail</h3>
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">
@@ -510,6 +557,54 @@ const setPointField = (p, key, value) =>
           </button>
         </div>
       </section>
+
+{/* Exit Point and Logo Point side by side, compact layout */}
+<section className="flex items-end gap-4">
+  {/* Exit Point */}
+  <div className="flex flex-col items-center">
+    <label className="text-sm font-medium mb-1">Exit Point</label>
+    {(() => {
+      const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
+      const allowBlankExit = (attributes.sailTracks || []).length > 0;
+      return (
+        <select
+          className="inputCompact h-9 text-center"
+          value={attributes.exitPoint ?? ""}
+          onChange={(e) => setExitPoint(e.target.value)}
+        >
+          {allowBlankExit ? <option value="">-</option> : null}
+          {verts.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      );
+    })()}
+  </div>
+
+  {/* Logo Point */}
+  <div className="flex flex-col items-center">
+    <label className="text-sm font-medium mb-1">Logo</label>
+    {(() => {
+      const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
+      return (
+        <select
+          className="inputCompact h-9 text-center"
+          value={attributes.logoPoint ?? ""}
+          onChange={(e) => setLogoPoint(e.target.value)}
+        >
+          <option value="">-</option>
+          {verts.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      );
+    })()}
+  </div>
+</section>
 
       {/* Dimensions (Edges first, then Diagonals) */}
       <section className="space-y-3">
@@ -821,6 +916,72 @@ const setPointField = (p, key, value) =>
                   />
                   <div className="opacity-70">mm</div>
                   <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeTraceCable(i)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* UFCs - similar to Trace Cables: diagonal + optional size (5 or 6) */}
+      {!discrepancyChecker && (
+        <section className="space-y-2">
+          <h5 className="text-sm font-medium opacity-70">UFCs</h5>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs opacity-70">Diagonal</label>
+            <select
+              className="inputCompact h-8 text-xs"
+              value={pendingUfc.diagonal}
+              onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
+            >
+              <option value="">—</option>
+              {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+
+            <label className="text-xs opacity-70">Size</label>
+            <select
+              className="inputCompact h-8 w-24 text-xs"
+              value={pendingUfc.size}
+              onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
+            >
+              <option value="">(auto)</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+
+            <button
+              type="button"
+              className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+              onClick={addUfc}
+              aria-label={`Add ufc ${pendingUfc.diagonal}`}
+            >
+              Add
+            </button>
+          </div>
+
+          {(attributes.ufcs || []).length > 0 && (
+            <div className="space-y-2 mt-2 text-xs">
+              {(attributes.ufcs || []).map((u, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-10 opacity-80">{u.diagonal}</div>
+                  <select
+                    className="inputCompact h-8 w-24 text-xs"
+                    value={u.size ?? ""}
+                    onChange={(e) => updateUfcSize(i, e.target.value)}
+                  >
+                    <option value="">(auto)</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                  </select>
+                  <div className="opacity-70">mm</div>
+                  <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeUfc(i)}>
                     Remove
                   </button>
                 </div>

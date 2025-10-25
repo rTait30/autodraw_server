@@ -671,21 +671,93 @@ export const Steps = [
             const pa = mapped[a], pb = mapped[b];
             if (!pa || !pb) continue;
 
-            ctx.beginPath();
-            ctx.strokeStyle = getLineColor(a, b);
-            ctx.moveTo(pa.x, pa.y);
-            ctx.lineTo(pb.x, pb.y);
-            ctx.stroke();
-
+            // Determine keys and values
             const mx = (pa.x + pb.x) / 2;
             const my = (pa.y + pb.y) / 2;
             const key1 = `${a}${b}`, key2 = `${b}${a}`;
             let val = data.dimensions?.[key1] ?? data.dimensions?.[key2];
-            if (typeof val === 'number' && !isNaN(val)) {
+
+            // Check for sailtrack presence (explicit labels in data.sailTracks)
+            const sailTracks = data.sailTracks || [];
+            const isSail = sailTracks.includes(key1) || sailTracks.includes(key2);
+
+            // Check for UFC presence (array of { diagonal, size })
+            const ufcs = data.ufcs || [];
+            const ufcObj = ufcs.find(u => u && (u.diagonal === key1 || u.diagonal === key2));
+
+            // Base color (may be highlighted by getLineColor)
+            const baseColor = getLineColor(a, b) || '#333';
+
+            if (isSail) {
+              // Draw as a "box" (two parallel lines) with periodic perpendicular ticks
+              const dx = pb.x - pa.x;
+              const dy = pb.y - pa.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const ux = dx / len;
+              const uy = dy / len;
+              const perpX = -uy;
+              const perpY = ux;
+              const offset = 8; // pixels offset for box edges
+
+              ctx.lineWidth = 2;
+              ctx.strokeStyle = baseColor;
+
+              // outer parallel lines
+              ctx.beginPath();
+              ctx.moveTo(pa.x + perpX * offset, pa.y + perpY * offset);
+              ctx.lineTo(pb.x + perpX * offset, pb.y + perpY * offset);
+              ctx.moveTo(pa.x - perpX * offset, pa.y - perpY * offset);
+              ctx.lineTo(pb.x - perpX * offset, pb.y - perpY * offset);
+              ctx.stroke();
+
+              // periodic perpendicular ticks along center line
+              const tickSpacing = 24;
+              const tickLen = 6;
+              for (let t = 0; t <= len; t += tickSpacing) {
+                const cx = pa.x + ux * t;
+                const cy = pa.y + uy * t;
+                ctx.beginPath();
+                ctx.moveTo(cx - perpX * tickLen, cy - perpY * tickLen);
+                ctx.lineTo(cx + perpX * tickLen, cy + perpY * tickLen);
+                ctx.stroke();
+              }
+
+              // Label as Sailtrack (show dimension if present)
+              ctx.save();
+              ctx.fillStyle = baseColor;
+              const label = `${a}${b}: Sailtrack${typeof val === 'number' && !isNaN(val) ? `: ${val.toFixed(1)}` : ''}`;
+              ctx.fillText(label, mx + perpX * (offset + 6), my + perpY * (offset + 6));
+              ctx.restore();
+
+            } else if (ufcObj) {
+              // Draw UFC as a highlighted red line with label 'UFC' and optional size
+              ctx.beginPath();
+              ctx.strokeStyle = 'red';
+              ctx.lineWidth = 3;
+              ctx.moveTo(pa.x, pa.y);
+              ctx.lineTo(pb.x, pb.y);
+              ctx.stroke();
+
+              ctx.save();
+              ctx.fillStyle = 'red';
+              const sizeLabel = ufcObj.size ? ` ${ufcObj.size}mm` : '';
+              ctx.fillText(`UFC${sizeLabel}`, mx + 5, my - 5);
+              ctx.restore();
+
+            } else {
+              // Default: regular line with label (if dimension present)
+              ctx.beginPath();
+              ctx.strokeStyle = baseColor;
+              ctx.moveTo(pa.x, pa.y);
+              ctx.lineTo(pb.x, pb.y);
+              ctx.stroke();
+
+              if (typeof val === 'number' && !isNaN(val)) {
                 ctx.save();
-                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fillStyle = baseColor;
                 ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
                 ctx.restore();
+              }
             }
           }
         }
@@ -719,6 +791,19 @@ export const Steps = [
           }
           
           ctx.fillText(`Height: ${data.points[pid].height}`, p.x - 30, p.y + 20);
+
+          ctx.fillStyle = '#F00';
+
+          let y = 140;
+
+          if (data.exitPoint === pid) {
+            ctx.fillText(`Exit Point`, p.x - 30, p.y + y);
+            y += 30;
+          }
+
+          if (data.logoPoint === pid) {
+            ctx.fillText(`Logo`, p.x - 30, p.y + y);
+          }
 
         }
     }

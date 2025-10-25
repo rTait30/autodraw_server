@@ -137,7 +137,7 @@ export default function NewProject() {
         JSON.stringify(all.general ?? {}, null, 2) +
         "\n\nAttributes:\n" +
         JSON.stringify(all.attributes ?? {}, null, 2),
-      { duration: 8000 }
+      { duration: 30000 }
     );
   };
 

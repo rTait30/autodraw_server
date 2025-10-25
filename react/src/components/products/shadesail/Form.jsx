@@ -97,8 +97,12 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
 
   // pending UFC input (choose diagonal + optional size)
-  const [pendingUfc, setPendingUfc] = useState({ diagonal: "", size: "" });
-
+const [pendingUfc, setPendingUfc] = useState({
+  diagonal: "",
+  size: "",
+  internalPocket: "no",
+  coatedCable: "no",
+});
   // Add a trace cable entry { point, length }
   const addTraceCable = () => {
     const point = String(pendingTrace.point || "").trim() || "A";
@@ -131,18 +135,27 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
     });
   };
 
-  // Add a UFC entry { diagonal, size? }
-  const addUfc = () => {
-    const diagonal = String(pendingUfc.diagonal || "").trim();
-    if (!diagonal) return;
-    const size = Number(pendingUfc.size) || undefined;
-    setAttributes((prev) => {
-      const a = (prev.ufcs || []).slice();
-      a.push(size ? { diagonal, size } : { diagonal });
-      return { ...prev, ufcs: a };
+const addUfc = () => {
+  const d = String(pendingUfc.diagonal || "").trim();
+  if (!d) return;
+
+  const sizeNum = Number(pendingUfc.size) || undefined;
+
+  setAttributes((prev) => {
+    const a = (prev.ufcs || []).slice();
+    a.push({
+      diagonal: d,
+      ...(sizeNum ? { size: sizeNum } : {}),
+      internalPocket: (pendingUfc.internalPocket || "no") === "yes",
+      coatedCable: (pendingUfc.coatedCable || "no") === "yes",
     });
-    setPendingUfc((s) => ({ ...s, size: "" }));
-  };
+    return { ...prev, ufcs: a };
+  });
+
+  // Reset pending line
+  setPendingUfc({ diagonal: "", size: "", internalPocket: "no", coatedCable: "no" });
+};
+
 
   const updateUfcSize = (idx, raw) => {
     const size = Number(raw) || undefined;
@@ -150,6 +163,15 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
       const a = (prev.ufcs || []).slice();
       if (!a[idx]) return prev;
       a[idx] = size ? { ...a[idx], size } : { diagonal: a[idx].diagonal };
+      return { ...prev, ufcs: a };
+    });
+  };
+
+  const updateUfcField = (idx, key, value) => {
+    setAttributes((prev) => {
+      const a = (prev.ufcs || []).slice();
+      if (!a[idx]) return prev;
+      a[idx] = { ...a[idx], [key]: value };
       return { ...prev, ufcs: a };
     });
   };
@@ -930,64 +952,119 @@ const setPointField = (p, key, value) =>
         <section className="space-y-2">
           <h5 className="text-sm font-medium opacity-70">UFCs</h5>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs opacity-70">Diagonal</label>
-            <select
-              className="inputCompact h-8 text-xs"
-              value={pendingUfc.diagonal}
-              onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
-            >
-              <option value="">—</option>
-              {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+<div className="flex flex-wrap items-center gap-2">
+  <label className="text-xs opacity-70">Diagonal</label>
+  <select
+    className="inputCompact h-8 text-xs"
+    value={pendingUfc.diagonal}
+    onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
+  >
+    <option value="">—</option>
+    {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
+      <option key={d} value={d}>{d}</option>
+    ))}
+  </select>
 
-            <label className="text-xs opacity-70">Size</label>
-            <select
-              className="inputCompact h-8 w-24 text-xs"
-              value={pendingUfc.size}
-              onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
-            >
-              <option value="">(auto)</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-            </select>
+  <label className="text-xs opacity-70">Size</label>
+  <select
+    className="inputCompact h-8 w-24 text-xs"
+    value={pendingUfc.size}
+    onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
+  >
+    <option value="">(auto)</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+  </select>
 
-            <button
-              type="button"
-              className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              onClick={addUfc}
-              aria-label={`Add ufc ${pendingUfc.diagonal}`}
-            >
-              Add
-            </button>
-          </div>
+  {/* Internal Pocket */}
+  <label className="text-xs opacity-70">Pocket</label>
+  <select
+    className="inputCompact h-8 w-24 text-xs"
+    value={pendingUfc.internalPocket ?? "no"}
+    onChange={(e) => setPendingUfc((s) => ({ ...s, internalPocket: e.target.value }))}
+  >
+    <option value="no">No Pocket</option>
+    <option value="yes">Pocket</option>
+  </select>
+
+  {/* Coated Cable */}
+  <label className="text-xs opacity-70">Coated</label>
+  <select
+    className="inputCompact h-8 w-24 text-xs"
+    value={pendingUfc.coatedCable ?? "no"}
+    onChange={(e) => setPendingUfc((s) => ({ ...s, coatedCable: e.target.value }))}
+  >
+    <option value="no">Uncoated</option>
+    <option value="yes">Coated</option>
+  </select>
+
+  <button
+    type="button"
+    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+    onClick={addUfc}
+    aria-label={`Add ufc ${pendingUfc.diagonal}`}
+  >
+    Add
+  </button>
+</div>
 
           {(attributes.ufcs || []).length > 0 && (
             <div className="space-y-2 mt-2 text-xs">
               {(attributes.ufcs || []).map((u, i) => (
                 <div key={i} className="flex items-center gap-2">
+                  {/* Diagonal label */}
                   <div className="w-10 opacity-80">{u.diagonal}</div>
+
+                  {/* Size selector */}
                   <select
-                    className="inputCompact h-8 w-24 text-xs"
+                    className="inputCompact h-8 w-20 text-xs"
                     value={u.size ?? ""}
                     onChange={(e) => updateUfcSize(i, e.target.value)}
                   >
                     <option value="">(auto)</option>
+                    <option value="4">4</option>
                     <option value="5">5</option>
                     <option value="6">6</option>
                   </select>
                   <div className="opacity-70">mm</div>
-                  <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeUfc(i)}>
+
+                  {/* Internal Pocket selector */}
+                  <select
+                    className="inputCompact h-8 w-20 text-xs"
+                    value={u.internalPocket ? "yes" : "no"}
+                    onChange={(e) =>
+                      updateUfcField(i, "internalPocket", e.target.value === "yes")
+                    }
+                  >
+                    <option value="no">No Pocket</option>
+                    <option value="yes">Pocket</option>
+                  </select>
+
+                  {/* Coated Cable selector */}
+                  <select
+                    className="inputCompact h-8 w-20 text-xs"
+                    value={u.coatedCable ? "yes" : "no"}
+                    onChange={(e) =>
+                      updateUfcField(i, "coatedCable", e.target.value === "yes")
+                    }
+                  >
+                    <option value="no">Uncoated</option>
+                    <option value="yes">Coated</option>
+                  </select>
+
+                  {/* Remove button */}
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 ml-2"
+                    onClick={() => removeUfc(i)}
+                  >
                     Remove
                   </button>
                 </div>
               ))}
             </div>
           )}
+
         </section>
       )}
 

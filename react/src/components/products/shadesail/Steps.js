@@ -590,7 +590,7 @@ export const Steps = [
 
         if (data.blame) {
           ctx.fillText(
-            `Cause score:`,
+            `Blame score:`,
             600,
             ypos
           );
@@ -663,6 +663,8 @@ export const Steps = [
             }
             return '#333';
         }
+
+        ctx.font = 'bold 20px Arial';
 
         // Draw all edges and diagonals with labels
         for (let i = 0; i < pointIds.length; i++) {
@@ -741,7 +743,10 @@ export const Steps = [
               ctx.save();
               ctx.fillStyle = 'red';
               const sizeLabel = ufcObj.size ? ` ${ufcObj.size}mm` : '';
-              ctx.fillText(`UFC${sizeLabel}`, mx + 5, my - 5);
+              if (typeof val === 'number' && !isNaN(val)) {ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
+                ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
+              }
+              ctx.fillText(`UFC${sizeLabel}`, mx + 5, my + 15);
               ctx.restore();
 
             } else {

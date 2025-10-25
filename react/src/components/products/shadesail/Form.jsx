@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { GeneralSection } from "../GeneralSection";
 
 
@@ -64,6 +64,7 @@ const DEFAULT_ATTRIBUTES = Object.freeze({
   cableSize: 4,
   pointCount: 4,
   sailTracks: [],
+  traceCables: [],
   dimensions: {
     AB: 1000,
     BC: 1000,
@@ -85,6 +86,46 @@ export default function SailForm({ formRef, generalDataHydrate = {}, attributesH
     ...GENERAL_DEFAULTS,
     ...(generalDataHydrate ?? {}),
   }));
+
+  const heightRefs = useRef({});
+  const edgeRefs = useRef({});
+  const diagRefs = useRef({});
+
+  // pending trace input (choose point + length)
+  const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
+
+  // Add a trace cable entry { point, length }
+  const addTraceCable = () => {
+    const point = String(pendingTrace.point || "").trim() || "A";
+    const length = Number(pendingTrace.length) || 0;
+    setAttributes((prev) => {
+      const tc = (prev.traceCables || []).slice();
+      tc.push({ point, length });
+      return { ...prev, traceCables: tc };
+    });
+    setPendingTrace((s) => ({ ...s, length: "" }));
+  };
+
+  // Update an existing trace cable length (by index)
+  const updateTraceCableLength = (idx, raw) => {
+    const length = Number(raw) || 0;
+    setAttributes((prev) => {
+      const tc = (prev.traceCables || []).slice();
+      if (!tc[idx]) return prev;
+      tc[idx] = { ...tc[idx], length };
+      return { ...prev, traceCables: tc };
+    });
+  };
+
+  const removeTraceCable = (idx) => {
+    setAttributes((prev) => {
+      const tc = (prev.traceCables || []).slice();
+      if (idx < 0 || idx >= tc.length) return prev;
+      tc.splice(idx, 1);
+      return { ...prev, traceCables: tc };
+    });
+  };
+
 
   // --- Attributes (now hydratable) ---
   const [attributes, setAttributes] = useState(() => {
@@ -222,18 +263,95 @@ const setPointField = (p, key, value) =>
     });
   }, [attributes.sailTracks]);
 
+   // Handler to move focus to the next height input when Enter is pressed.
+  // Uses the vertex order from makeVertexLabels so it wraps naturally.
+  // Generic Enter navigation: cycles through heights -> edges -> diagonals, wraps.
+  const handleEnterFocus = (e, type, label) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+
+    const count = Math.max(0, Number(attributes.pointCount) || 0);
+    const heights = makeVertexLabels(count);
+    const edges = makeEdgeLabels(count);
+
+    // For diagonals we want to mirror the same logic used in rendering:
+    // - only include diagonal labels that exist in attributes.dimensions
+    // - split into mandatory (required) diagonals first, then optional ones
+    const edgeSet = new Set(edges);
+    const dims = attributes.dimensions || {};
+    // All diagonal labels present in the dimensions object (and not edges)
+    const diagonals = Object.keys(dims || {}).filter((lbl) => !edgeSet.has(lbl)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+    // Determine mandatory diagonals using the same "boxes" algorithm as render
+    const verts = makeVertexLabels(count);
+    const mandatorySet = new Set();
+    if (count >= 4) {
+      const maxK = Math.floor((count - 4) / 2);
+      for (let k = 0; k <= maxK; k++) {
+        const a = verts[k];
+        const b = verts[k + 1];
+        const c = verts[count - k - 2];
+        const d = verts[count - k - 1];
+        const mk = (x, y) => (x < y ? `${x}${y}` : `${y}${x}`);
+        mandatorySet.add(mk(a, c)); // diagonal 1 of box
+        mandatorySet.add(mk(b, d)); // diagonal 2 of box
+        mandatorySet.add(mk(b, c)); // connecting side between boxes
+      }
+    }
+
+    const mandatoryDiagonals = diagonals.filter((lbl) => mandatorySet.has(lbl));
+    const optionalDiagonals = diagonals.filter((lbl) => !mandatorySet.has(lbl));
+
+    const orderedDiagonals = [...mandatoryDiagonals, ...optionalDiagonals];
+
+    // Build ordered list of {type, label, ref}
+    const order = [
+      ...heights.map((l) => ({ type: "height", label: l, ref: heightRefs.current[l] })),
+      ...edges.map((l) => ({ type: "edge", label: l, ref: edgeRefs.current[l] })),
+      ...orderedDiagonals.map((l) => ({ type: "diag", label: l, ref: diagRefs.current[l] })),
+    ];
+
+    const startIndex = order.findIndex((it) => it.type === type && it.label === label);
+
+    // If we couldn't find the current element in the order, start from the beginning
+    const begin = startIndex === -1 ? 0 : startIndex + 1;
+
+    // Walk forward from the next item, wrapping around, and focus the first
+    // rendered/focusable element we find. This ensures Enter always moves to
+    // the next input even if some refs are missing or some inputs already
+    // contain values.
+    for (let i = 0; i < order.length; i++) {
+      const idx = (begin + i) % order.length;
+      const candidate = order[idx];
+      const el = candidate?.ref;
+      if (!el) continue; // not rendered / ref not set
+      try {
+        if (typeof el.focus === "function") {
+          el.focus();
+          // If it's an <input> we can also try to select its contents.
+          try {
+            if (typeof el.select === "function") el.select();
+            else if (el.setSelectionRange) el.setSelectionRange(0, el.value?.length ?? 0);
+          } catch (selErr) {
+            // ignore selection errors
+          }
+          break;
+        }
+      } catch (err) {
+        // ignore any focus errors and continue searching
+      }
+    }
+  };
+
+
   return (
     <div className="p-3 space-y-3">
-
-      <h3 className="headingStyle">General</h3>
 
       {discrepancyChecker === false && (
       
         <GeneralSection data={generalData} setData={setGeneralData} />
 
       )}
-
-      <h3 className="headingStyle">Attributes</h3>
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">
@@ -253,6 +371,8 @@ const setPointField = (p, key, value) =>
           <option value="ShadeCloth">ShadeCloth</option>
         </select>
 
+
+
         {/* Fabric Type (dependent on category) */}
         <label className="block text-sm font-medium">Fabric Type</label>
         <select
@@ -269,22 +389,32 @@ const setPointField = (p, key, value) =>
           ))}
         </select>
 
+
+
         {/* Colour*/}
-        <label className="block text-sm font-medium">Colour</label>
-        <input
-          list="colourOptions"
-          className="inputCompact"
-          type="text"
+        {!discrepancyChecker && (
+          <>
+            <label className="block text-sm font-medium">Colour</label>
+            <input
+              list="colourOptions"
+              className="inputCompact"
+              type="text"
           value={attributes.colour ?? ""}
           onChange={(e) => setAttributes((prev) => ({ ...prev, colour: e.target.value }))}
-        />
-        <datalist id="colourOptions">
-          {COLOUR_OPTIONS.map((colour) => (
-            <option key={colour} value={colour} />
-          ))}
-        </datalist>
+          />
+          <datalist id="colourOptions">
+            {COLOUR_OPTIONS.map((colour) => (
+              <option key={colour} value={colour} />
+            ))}
+          </datalist>
+
+          </>
+        )}
 
         {/* Fold side */}
+        {!discrepancyChecker && (
+          <>
+        
         <label className="block text-sm font-medium">Fold Side</label>
         <select
           className="inputCompact"
@@ -297,22 +427,28 @@ const setPointField = (p, key, value) =>
             </option>
           ))}
         </select>
+        
+          </>
+        )}
       </section>
 
-      <section className="space-y-2">
-        <label className="block text-sm font-medium">Cable Size (mm)</label>
-        <select
-          className="inputCompact"
-          value={attributes.cableSize ?? ""}
-          onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
-        >
-          {CABLE_SIZE_OPTIONS.map((cs) => (
-            <option key={cs} value={cs}>
-              {cs}
-            </option>
-          ))}
-        </select>
-      </section>
+        {/* Fold side */}
+        {!discrepancyChecker && (
+          <section className="space-y-2">
+            <label className="block text-sm font-medium">Cable Size (mm)</label>
+            <select
+              className="inputCompact"
+              value={attributes.cableSize ?? ""}
+              onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
+            >
+              {CABLE_SIZE_OPTIONS.map((cs) => (
+                <option key={cs} value={cs}>
+                  {cs}
+                </option>
+              ))}
+            </select>
+          </section>
+        )}
 
       {/* Point count */}
       <section className="space-y-2">
@@ -405,7 +541,7 @@ const setPointField = (p, key, value) =>
           const perimeterMetersRounded = (() => {
             const base = Math.floor(perimeterMM / 1000);
             const rem = perimeterMM % 1000;
-            return base + (rem > 100 ? 1 : 0);
+            return base + (rem > 199 ? 1 : 0);
           })();
 
 
@@ -413,6 +549,30 @@ const setPointField = (p, key, value) =>
           const diagonals = Object.entries(dims)
             .filter(([lbl]) => !edgeSet.has(lbl))
             .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+
+          // Determine mandatory diagonals by splitting polygon into "boxes".
+          // Boxes are: for k = 0..floor((n-4)/2) take verts [k, k+1, n-k-2, n-k-1].
+          // For each box the required dimensions are the two box-diagonals (a-c, b-d)
+          // and the connecting side between the inner vertices (b-c). Remaining diagonals are optional.
+          const verts = makeVertexLabels(count);
+          const mandatorySet = new Set();
+          if (count >= 4) {
+            const maxK = Math.floor((count - 4) / 2);
+            for (let k = 0; k <= maxK; k++) {
+              const a = verts[k];
+              const b = verts[k + 1];
+              const c = verts[count - k - 2];
+              const d = verts[count - k - 1];
+              const mk = (x, y) => (x < y ? `${x}${y}` : `${y}${x}`);
+              mandatorySet.add(mk(a, c)); // diagonal 1 of box
+              mandatorySet.add(mk(b, d)); // diagonal 2 of box
+              mandatorySet.add(mk(b, c)); // connecting side between boxes (may be an edge or diag)
+            }
+          }
+
+          const mandatoryDiagonals = diagonals.filter(([lbl]) => mandatorySet.has(lbl));
+          const optionalDiagonals = diagonals.filter(([lbl]) => !mandatorySet.has(lbl));
+ 
 
           return (
             <>
@@ -426,13 +586,18 @@ const setPointField = (p, key, value) =>
                       <label className="text-sm">{label}</label>
                       <div className="flex items-center gap-2">
                         <input
+                          ref={(el) => (edgeRefs.current[label] = el)}
                           className="inputCompact"
                           type="number"
                           min={0}
                           inputMode="numeric"
                           value={value}
                           onChange={(e) => setDimension(label, e.target.value)}
+                         onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
                         />
+
+                        {!discrepancyChecker && (
+
                         <label className="flex items-center gap-2 text-xs">
                           <input
                             type="checkbox"
@@ -442,6 +607,7 @@ const setPointField = (p, key, value) =>
                           />
                           <span>Sailtrack</span>
                         </label>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -452,7 +618,7 @@ const setPointField = (p, key, value) =>
                 
                 {/* Perimeter display */}
                 {edges.length > 0 && (
-                  <div className="text-sm opacity-80 mt-2">
+                  <div className="text-xl opacity-80 mt-2">
                     Edge meter: {perimeterMM}mm ({perimeterMetersRounded}m)
                   </div>
                 )}
@@ -460,21 +626,46 @@ const setPointField = (p, key, value) =>
 
               <br></br>
 
-              {/* Diagonals - grid */}
-              {diagonals.length > 0 && (
+              {/* Diagonals - split into mandatory (required) and optional */}
+              {mandatoryDiagonals.length > 0 && (
                 <div className="space-y-2">
-                  <h5 className="text-sm font-medium opacity-70">Diagonals</h5>
+                  <h5 className="text-sm font-medium opacity-70">Required diagonals</h5>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-x-0 gap-y-3">
-                    {diagonals.map(([label, value]) => (
+                    {mandatoryDiagonals.map(([label, value]) => (
                       <div key={label} className="space-y-3">
-                        <label className="text-sm block mb-2">{label}</label>
+                        <label className="text-sm block mb-2">{label} <span className="text-xs opacity-60">(required)</span></label>
                         <input
+                          ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28"
                           type="number"
                           min={0}
                           inputMode="numeric"
                           value={value}
                           onChange={(e) => setDimension(label, e.target.value)}
+                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {optionalDiagonals.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-sm font-medium opacity-70">Optional diagonals (Please provide as many as possible)</h5>
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-x-0 gap-y-3">
+                    {optionalDiagonals.map(([label, value]) => (
+                      <div key={label} className="space-y-3">
+                        <label className="text-sm block mb-2">{label}</label>
+                        <input
+                          ref={(el) => (diagRefs.current[label] = el)}
+                          className="inputCompact w-28"
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={value}
+                          onChange={(e) => setDimension(label, e.target.value)}
+                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
                         />
                       </div>
                     ))}
@@ -490,13 +681,19 @@ const setPointField = (p, key, value) =>
         <br></br>
         <h5 className="text-sm font-medium opacity-70">Points</h5>
 
-{/* Compact header — visible on all screen sizes */}
+      {/* Compact header — visible on all screen sizes */}
       <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">
         <div className="col-span-1">Pt</div>
         <div className="col-span-2">Height&nbsp;(m)</div>
-        <div className="col-span-3">Corner Fitting</div>
-        <div className="col-span-3">Tensioning Hardware</div>
-        <div className="col-span-2">Tension&nbsp;(mm)</div>
+
+          {!discrepancyChecker && (
+            <>
+              <div className="col-span-3">Corner Fitting</div>
+              <div className="col-span-3">Tensioning Hardware</div>
+              <div className="col-span-2">Tension&nbsp;(mm)</div>
+            </>
+          )}
+
       </div>
 
       <div className="space-y-1">
@@ -510,13 +707,15 @@ const setPointField = (p, key, value) =>
 
             {/* Height */}
             <input
-              className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+              ref={(el) => (heightRefs.current[p] = el)}
+              className="inputCompact col-span-2"
               type="number"
               min={0}
               step="any"
               inputMode="numeric"
               value={vals.height}
               onChange={(e) => setPointField(p, "height", e.target.value)}
+              onKeyDown={(e) => handleEnterFocus(e, "height", p)}
             />
 
             {/* Corner Fitting */}
@@ -566,6 +765,70 @@ const setPointField = (p, key, value) =>
       </div>
       </section>
 
+        {/* Trace cables - separate section (keeps points compact on mobile) */}
+      {!discrepancyChecker && (
+        <section className="space-y-2">
+          <h5 className="text-sm font-medium opacity-70">Trace Cables</h5>
+
+          {/* Single add control: select a point + enter length */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs opacity-70">From</label>
+            <select
+              className="inputCompact h-8 text-xs"
+              value={pendingTrace.point}
+              onChange={(e) => setPendingTrace((s) => ({ ...s, point: e.target.value }))}
+            >
+              {makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((pt) => (
+                <option key={pt} value={pt}>
+                  {pt}
+                </option>
+              ))}
+            </select>
+
+            <label className="text-xs opacity-70">Length</label>
+            <input
+              className="inputCompact h-8 w-28 text-xs"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="mm"
+              value={pendingTrace.length}
+              onChange={(e) => setPendingTrace((s) => ({ ...s, length: e.target.value }))}
+            />
+            <button
+              type="button"
+              className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+              onClick={addTraceCable}
+              aria-label={`Add trace from ${pendingTrace.point}`}
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Existing trace cables list */}
+          {(attributes.traceCables || []).length > 0 && (
+            <div className="space-y-2 mt-2 text-xs">
+              {(attributes.traceCables || []).map((tc, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-6 opacity-80">{tc.point}</div>
+                  <input
+                    className="inputCompact h-8 w-28 text-xs"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={tc.length}
+                    onChange={(e) => updateTraceCableLength(i, e.target.value)}
+                  />
+                  <div className="opacity-70">mm</div>
+                  <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeTraceCable(i)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
 
 

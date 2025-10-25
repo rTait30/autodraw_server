@@ -70,7 +70,11 @@ export default function Discrepancy() {
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
 
-    let message = await stepperRef.current?.runAll(all.attributes);
+    // Ensure runAll knows this is a discrepancy check
+    let message = await stepperRef.current?.runAll({
+      ...(all.attributes || {}),
+      discrepancyChecker: true,
+    });
 
     console.log("Discrepancy check result:", message);
     if (message?.discrepancyProblem) {

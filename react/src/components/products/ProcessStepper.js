@@ -1,6 +1,6 @@
 export class ProcessStepper {
 
-  constructor(stepOffsetY = 1000, showData = false) {
+  constructor(stepOffsetY = 1000, showData = false) { // the discrepancyChecker param is dumb make it a better way
 
     this.canvas = null;
     this.ctx = null;

@@ -151,7 +151,7 @@ export default function NewProject() {
 
     console.log("Stepper data:", data);
 
-    showToast("stepper data:\n" + JSON.stringify(data, null, 2), { duration: 8000 });
+    //showToast("stepper data:\n" + JSON.stringify(data, null, 2), { duration: 8000 });
   };
 
 

@@ -394,7 +394,14 @@ export const Steps = [
       
       const edgeMeter = sumEdges(data.dimensions, data.pointCount);
 
-      const edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+      let edgeMeterCeilMeters = 0;
+
+      if (edgeMeter % 1000 > 199) {
+
+        edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+      } else {
+        edgeMeterCeilMeters = Math.floor(edgeMeter / 1000);
+      }
 
       data.edgeMeter = edgeMeter;
       data.edgeMeterCeilMeters = edgeMeterCeilMeters;
@@ -583,7 +590,7 @@ export const Steps = [
 
         if (data.blame) {
           ctx.fillText(
-            `Blame:`,
+            `Cause score:`,
             600,
             ypos
           );
@@ -659,28 +666,28 @@ export const Steps = [
 
         // Draw all edges and diagonals with labels
         for (let i = 0; i < pointIds.length; i++) {
-            for (let j = i + 1; j < pointIds.length; j++) {
-                const a = pointIds[i], b = pointIds[j];
-                const pa = mapped[a], pb = mapped[b];
-                if (!pa || !pb) continue;
+          for (let j = i + 1; j < pointIds.length; j++) {
+            const a = pointIds[i], b = pointIds[j];
+            const pa = mapped[a], pb = mapped[b];
+            if (!pa || !pb) continue;
 
-                ctx.beginPath();
-                ctx.strokeStyle = getLineColor(a, b);
-                ctx.moveTo(pa.x, pa.y);
-                ctx.lineTo(pb.x, pb.y);
-                ctx.stroke();
+            ctx.beginPath();
+            ctx.strokeStyle = getLineColor(a, b);
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
 
-                const mx = (pa.x + pb.x) / 2;
-                const my = (pa.y + pb.y) / 2;
-                const key1 = `${a}${b}`, key2 = `${b}${a}`;
-                let val = data.dimensions?.[key1] ?? data.dimensions?.[key2];
-                if (typeof val === 'number' && !isNaN(val)) {
-                    ctx.save();
-                    ctx.fillStyle = ctx.strokeStyle;
-                    ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
-                    ctx.restore();
-                }
+            const mx = (pa.x + pb.x) / 2;
+            const my = (pa.y + pb.y) / 2;
+            const key1 = `${a}${b}`, key2 = `${b}${a}`;
+            let val = data.dimensions?.[key1] ?? data.dimensions?.[key2];
+            if (typeof val === 'number' && !isNaN(val)) {
+                ctx.save();
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
+                ctx.restore();
             }
+          }
         }
 
         // Draw points and height labels
@@ -700,19 +707,19 @@ export const Steps = [
           ctx.font = 'bold 40px Arial';
           ctx.fillText(pid, p.x + 12, p.y - 12);
 
-          const h = data.points[pid].height;
-          if (typeof h === 'number' && !isNaN(h)) {
-            ctx.font = 'bold 20px Arial';
-            ctx.fillStyle = '#555';
-            ctx.fillText(`H: ${h}`, p.x + 50, p.y);
-          }
-
           //const cf = data.points[pid].cornerFitting;
 
-          ctx.fillText(`Fitting: ${data.points[pid].cornerFitting}`, p.x - 30, p.y + 50);
-          ctx.fillText(`Hardware: ${data.points[pid].tensionHardware}`, p.x - 30, p.y + 80);
-          ctx.fillText(`Allowance: ${data.points[pid].tensionAllowance}`, p.x - 30, p.y + 110);
+          ctx.font = 'bold 30px Arial';
+
+          if (!data.discrepancyChecker) {
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(`Fitting: ${data.points[pid].cornerFitting}`, p.x - 30, p.y + 50);
+            ctx.fillText(`Hardware: ${data.points[pid].tensionHardware}`, p.x - 30, p.y + 80);
+            ctx.fillText(`Allowance: ${data.points[pid].tensionAllowance}`, p.x - 30, p.y + 110);
+          }
           
+          ctx.fillText(`Height: ${data.points[pid].height}`, p.x - 30, p.y + 20);
+
         }
     }
   }
@@ -831,6 +838,11 @@ const sumEdges = (dimensions, pointCount) => {
 
 function computeDiscrepancyXY(dimensions) {
   const lengths = Object.values(dimensions);
+
+  if (!lengths[0] || !lengths[1] || !lengths[2] || !lengths[3] || !lengths[4] || !lengths[5]) {
+
+    return 0
+  }
 
   // Naming consistent with your original code
   const l12xy = lengths[0]; // AB

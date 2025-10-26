@@ -728,7 +728,7 @@ export const Steps = [
               ctx.save();
               ctx.fillStyle = baseColor;
               const label = `${a}${b}: Sailtrack${typeof val === 'number' && !isNaN(val) ? `: ${val.toFixed(1)}` : ''}`;
-              ctx.fillText(label, mx + perpX * (offset + 6), my + perpY * (offset + 6));
+              drawLabelAlong(ctx, pa, pb, label, { offset: offset + 10, stroke: true });
               ctx.restore();
 
             } else if (ufcObj) {
@@ -742,11 +742,13 @@ export const Steps = [
 
               ctx.save();
               ctx.fillStyle = 'red';
-              const sizeLabel = ufcObj.size ? ` ${ufcObj.size}mm` : '';
-              if (typeof val === 'number' && !isNaN(val)) {ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
-                ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
+              // Value along the line (slightly above)
+              if (typeof val === 'number' && !isNaN(val)) {
+                drawLabelAlong(ctx, pa, pb, `${a}${b}: ${val.toFixed(1)}`, { offset: 8, stroke: true });
               }
-              ctx.fillText(`UFC${sizeLabel}`, mx + 5, my + 15);
+              // "UFC 5mm" a bit further out
+              const sizeLabel = ufcObj.size ? ` ${ufcObj.size}mm` : '';
+              drawLabelAlong(ctx, pa, pb, `UFC${sizeLabel}`, { offset: 22, stroke: true });
               ctx.restore();
 
             } else {
@@ -757,11 +759,10 @@ export const Steps = [
               ctx.lineTo(pb.x, pb.y);
               ctx.stroke();
 
+              ctx.fillStyle = 'black';
+
               if (typeof val === 'number' && !isNaN(val)) {
-                ctx.save();
-                ctx.fillStyle = baseColor;
-                ctx.fillText(`${a}${b}: ${val.toFixed(1)}`, mx + 5, my - 5);
-                ctx.restore();
+                drawLabelAlong(ctx, pa, pb, `${a}${b}: ${val.toFixed(1)}`, { offset: 8, stroke: true });
               }
             }
           }
@@ -1204,4 +1205,52 @@ function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
   }
 
   return placed;
+}
+
+function drawLabelAlong(ctx, pa, pb, text, {
+  offset = 0,          // perpendicular offset in px (positive = to the left side looking from A->B)
+  keepUpright = true,  // flip 180° if text would be upside-down
+  align = 'center',    // 'start' | 'center' | 'end'
+  stroke = false,      // outline for readability
+} = {}) {
+  if (!text) return;
+
+  const dx = pb.x - pa.x;
+  const dy = pb.y - pa.y;
+  const len = Math.hypot(dx, dy) || 1;
+
+  // unit vectors
+  const ux = dx / len, uy = dy / len;
+  const px = -uy,      py = ux; // perpendicular (left-hand)
+
+  // label anchor (midpoint + perpendicular offset)
+  const mx = (pa.x + pb.x) / 2 + px * offset;
+  const my = (pa.y + pb.y) / 2 + py * offset;
+
+  let angle = Math.atan2(dy, dx);
+  if (keepUpright && (angle > Math.PI / 2 || angle < -Math.PI / 2)) {
+    angle += Math.PI; // flip to keep upright
+  }
+
+  ctx.save();
+  ctx.translate(mx, my);
+  ctx.rotate(angle);
+  ctx.textBaseline = 'middle';
+
+  // compute horizontal start based on measured width
+  const w = ctx.measureText(text).width;
+  let tx = 0;
+  if (align === 'center') tx = -w / 2;
+  else if (align === 'end') tx = -w;
+
+  if (stroke) {
+    const old = { lw: ctx.lineWidth, ss: ctx.strokeStyle };
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText(text, tx, 0);
+    ctx.lineWidth = old.lw; ctx.strokeStyle = old.ss;
+  }
+
+  ctx.fillText(text, tx, 0);
+  ctx.restore();
 }

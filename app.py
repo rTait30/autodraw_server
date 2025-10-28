@@ -13,6 +13,7 @@ from endpoints.api.auth.routes import auth_bp
 from endpoints.api.projects.nest import nest_bp
 from endpoints.api.projects.projects_api import projects_api_bp
 from endpoints.api.database import database_api_bp
+from endpoints.api.workguru import workguru_api_bp
 
 
 # --- Env & app ---
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(projects_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(nest_bp, url_prefix="/copelands/api")
     app.register_blueprint(database_api_bp, url_prefix="/copelands/api")
+    app.register_blueprint(workguru_api_bp, url_prefix="/copelands/api")
 
     # --- One-time DB create ---
     with app.app_context():

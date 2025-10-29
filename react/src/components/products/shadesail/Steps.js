@@ -466,6 +466,76 @@ export const Steps = [
         }
       }
 
+      let materials = [];
+
+      if (data.fabricType === "Rainbow Z16") {
+
+        materials.push({ "sku": "2-CP-151-" + data.colour, name: "Z16 - Full Roll - " + data.colour, quantity: 50});
+      }
+
+      else if (data.fabricType === "Monotec 370") {
+
+        materials.push({ "sku": "2-CP-068-" + data.colour, name: "Monotec x 3.25m STD - " + data.colour, quantity: 50});
+      }
+
+      else if (data.fabricType === "Dri-Z") {
+
+        materials.push({ "sku": "2-CP-025-" + data.colour, name: "DRI Z - 300cm - " + data.colour + " - Cut", quantity: 50});
+      }
+
+      else if (data.fabricType === "Extreme 32") {
+
+        materials.push({ "sku": "2-CP-031-" + data.colour, name: "Extreme 32 - 3m - Full Roll - " + data.colour, quantity: 50});
+      }
+
+      if (data.cableSize === 4) {
+      
+        materials.push({ "sku": "2-CP-124", name: "4mm Stainless Wire Rope 7x19 SS316 305m", quantity: edgeMeterCeilMeters });
+        materials.push({ "sku": "2-CP-120", name: "Wire Rope Grips 4mm SS316", quantity: 2 });
+      }
+
+      else if (data.cableSize === 5) {
+
+        materials.push({ "sku": "2-CP-125", name: "5mm Stainless Wire Rope 7x19 SS316 305m", quantity: edgeMeterCeilMeters });
+        materials.push({ "sku": "2-CP-121", name: "Wire Rope Grips 5mm SS316", quantity: 2 });
+      }
+
+      else if (data.cableSize === 6) {
+
+        materials.push({ "sku": "2-CP-126", name: "6mm Stainless Wire Rope 7x19 SS316 305m", quantity: edgeMeterCeilMeters });
+        materials.push({ "sku": "2-CP-122", name: "Wire Rope Grips 6mm SS316", quantity: 2 });
+      }
+
+      if ("Pro-Rig" in fittingCounts) {
+
+        materials.push({ "sku": "2-CP-108", name: "Cast Double Dee 8 x 50mm", quantity: fittingCounts["Pro-Rig"] });
+      }
+
+      if ("Ezy Slide" in fittingCounts) {
+
+        materials.push({ "sku": "2-CP-103", name: "SS D'Ring Thimble 8 x 50mm", quantity: fittingCounts["Ezy Slide"] });
+      }
+
+      materials.push({ "sku": "2-CP-138", name: "10525 - 25mm Seatbelt Webbing", quantity: fittingCounts["Pro-Rig"] });
+      materials.push({ "sku": "2-CP-139", name: "10550 - 50mm Seat Belt Webbing", quantity: fittingCounts["Pro-Rig"] });
+
+      if (data.totalSailLengthCeilMeters > 0) {
+        materials.push({ "sku": "2-CP-065", name: "Keder 7.5mm Single", quantity: data.totalSailLengthCeilMeters });
+        if (data.cableSize === 4) {
+
+          materials.push({ "sku": "2-CP-114", name: "4mm Thimble SS", quantity: 2 });
+        }
+        if (data.cableSize === 5) {
+
+          materials.push({ "sku": "2-CP-115", name: "5mm Thimble SS", quantity: 2 });
+        }
+        if (data.cableSize === 6) {
+
+          materials.push({ "sku": "2-CP-116", name: "6mm Thimble SS", quantity: 2 });
+        }
+      
+      }
+
       let cablePrice = 0;
 
       //data.edgeMeter = edgeMeter
@@ -475,7 +545,8 @@ export const Steps = [
       data.blame = blame,
       data.fabricPrice = fabricPrice,
       data.discrepancyProblem = discrepancyProblem,
-      data.boxes = boxes
+      data.boxes = boxes,
+      data.materials = materials;
 
       return data;
     },

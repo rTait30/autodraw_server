@@ -258,7 +258,7 @@ useEffect(() => {
   };
 
   // Submit with values from formRef (no nextAttributes)
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
   try {
     // 1) Get the freshest form values from the ref
     const values = formRef.current?.getValues?.();
@@ -313,6 +313,10 @@ const handleSubmit = async () => {
     alert("Something went wrong while updating the project.");
   }
 };
+
+  const handleMaterials = () => {
+    alert(editedCalculated?.materials ? JSON.stringify(editedCalculated.materials, null, 2) : "No materials data available.");
+  }
 
   // handlers
   const handleSchemaCheck = (next) => setEditedSchema(next);
@@ -385,6 +389,12 @@ const handleSubmit = async () => {
                       style={{ marginLeft: '8px' }}
                     >
                       Submit changes
+                    </button>
+                    <button
+                      onClick={handleMaterials}
+                      className="buttonStyle"
+                    >
+                      Check Materials
                     </button>
                   </div>
                 </Suspense>

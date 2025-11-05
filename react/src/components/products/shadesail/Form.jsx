@@ -1,14 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { GeneralSection } from "../GeneralSection";
 
-
-
-const GENERAL_DEFAULTS = Object.freeze({
-  name: "",
-  client_id: "winlloyd",
-  due_date: "",
-  info: "",
-});
+import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
 const MAX_POINTS = 11;
 
@@ -55,39 +48,26 @@ const TENSION_HARDWARE_DEFAULTS = {
   "Sailtrack Corner": 0
 };
 
-// Default attributes (used as base, then merged with attributesHydrate)
-const DEFAULT_ATTRIBUTES = Object.freeze({
-  fabricCategory: "ShadeCloth",
-  fabricType: "Rainbow Z16",
-  foldSide: "Underside",
-  exitPoint: "A",
-  logoPoint: "",
-  cableSize: 4,
-  pointCount: 4,
-  dimensions: {
-    AB: 1000,
-    BC: 1000,
-    CD: 1000,
-    DA: 1000,
-    AC: 1414,
-    BD: 1414,
-  },
-  points: {
-    A: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    B: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    C: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    D: { height: 5, cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-  },
-  sailTracks: [],
-  traceCables: [],
-  ufcs: [],
-});
-
-export default function SailForm({ formRef, generalDataHydrate = {}, attributesHydrate = {}, discrepancyChecker = false }) {
-  const [generalData, setGeneralData] = useState(() => ({
+export default function SailForm({
+  formRef,
+  generalDataHydrate = {},
+  attributesHydrate = {},
+  discrepancyChecker = false,
+  generalData: generalDataProp,
+  onGeneralDataChange,
+  hideGeneralSection = false,
+}) {
+  const [internalGeneralData, setInternalGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
     ...(generalDataHydrate ?? {}),
   }));
+
+  const generalData = generalDataProp ?? internalGeneralData;
+  const setGeneralData = onGeneralDataChange
+    ? onGeneralDataChange
+    : generalDataProp
+      ? () => {}
+      : setInternalGeneralData;
 
   const heightRefs = useRef({});
   const edgeRefs = useRef({});
@@ -413,7 +393,7 @@ const setPointField = (p, key, value) =>
   return (
     <div className="p-3 space-y-3">
 
-      {discrepancyChecker === false && (
+      {!hideGeneralSection && discrepancyChecker === false && (
       
         <GeneralSection data={generalData} setData={setGeneralData} />
 

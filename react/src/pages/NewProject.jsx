@@ -8,17 +8,20 @@ import { ProcessStepper } from '../components/products/ProcessStepper';
 const FORM_LOADERS = {
   cover:     () => import("../components/products/cover/Form.jsx"),
   shadesail: () => import("../components/products/shadesail/Form.jsx"),
+  multishadesail: () => import("../components/products/multishadesail/Form.jsx"),
 };
 
 const STEPS_LOADERS = {
 
   cover:      () => import("../components/products/cover/Steps.js"),
   shadesail:  () => import("../components/products/shadesail/Steps.js"),
+  multishadesail: () => import("../components/products/multishadesail/Steps.js"),
 };
 
 const projectTypes = [
   { name: "Covers",     id: "cover" },
   { name: "Shade Sail", id: "shadesail" },
+  { name: "Multiple Shade Sail", id: "multishadesail" },
 ];
 
 export default function NewProject() {

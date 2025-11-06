@@ -44,6 +44,7 @@ export const Steps = [
 
       sails.forEach((sail, idx) => {
         const positions = sail.positions || {};
+        const points = sail.points || {};
         const ids = Object.keys(positions);
         if (!ids.length) return;
 
@@ -86,7 +87,40 @@ export const Steps = [
         ctx.beginPath();
         ordered.forEach((id, i) => {
           const p = mapped[id];
+
+
           if (!p) return;
+          
+          ctx.fillText(id, p.x, p.y);
+
+
+          ctx.font = 'bold 30px Arial';
+
+          if (!data.discrepancyChecker) {
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 30, p.y + 50);
+            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 30, p.y + 80);
+            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 30, p.y + 110);
+          }
+
+          ctx.fillText(`Height: ${points[id].height}`, p.x - 30, p.y + 20);
+
+          ctx.fillStyle = '#F00';
+
+          let y = 140;
+
+          if (data.exitPoint === id) {
+            ctx.fillText(`Exit Point`, p.x - 30, p.y + y);
+            y += 30;
+          }
+
+          if (data.logoPoint === id) {
+            ctx.fillText(`Logo`, p.x - 30, p.y + y);
+          }
+
+
+
+
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });

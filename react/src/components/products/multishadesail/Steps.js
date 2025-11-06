@@ -40,7 +40,7 @@ export const Steps = [
 
       // half the old 500-high per sail
       const slotHeight = 1000;
-      const pad = 40;
+      const pad = 100;
 
       sails.forEach((sail, idx) => {
         const positions = sail.positions || {};
@@ -91,6 +91,8 @@ export const Steps = [
 
           if (!p) return;
           
+          ctx.fillStyle = '#000';
+
           ctx.fillText(id, p.x, p.y);
 
 
@@ -98,24 +100,24 @@ export const Steps = [
 
           if (!data.discrepancyChecker) {
             ctx.font = 'bold 20px Arial';
-            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 30, p.y + 50);
-            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 30, p.y + 80);
-            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 30, p.y + 110);
+            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 100, p.y + 50);
+            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 100, p.y + 80);
+            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 100, p.y + 110);
           }
 
-          ctx.fillText(`Height: ${points[id].height}`, p.x - 30, p.y + 20);
-
-          ctx.fillStyle = '#F00';
+          ctx.fillText(`Height: ${points[id].height}`, p.x - 100, p.y + 20);
 
           let y = 140;
 
-          if (data.exitPoint === id) {
-            ctx.fillText(`Exit Point`, p.x - 30, p.y + y);
+          ctx.fillStyle = '#F00';
+
+          if (sail.exitPoint === id) {
+            ctx.fillText(`Exit Point`, p.x - 100, p.y + y);
             y += 30;
           }
 
-          if (data.logoPoint === id) {
-            ctx.fillText(`Logo`, p.x - 30, p.y + y);
+          if (sail.logoPoint === id) {
+            ctx.fillText(`Logo`, p.x - 100, p.y + y);
           }
 
 

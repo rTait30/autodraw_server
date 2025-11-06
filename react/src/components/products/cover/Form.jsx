@@ -46,7 +46,7 @@ const ATTRIBUTE_DEFAULTS = Object.freeze({
   height: 1000,
   quantity: 1,
   hem: 0,
-  seam: 0,
+  seam: 20,
   zips: true,
   stayputs: false,
   fabricWidth: 1320,

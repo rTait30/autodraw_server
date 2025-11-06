@@ -1,14 +1,36 @@
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SailForm from "../shadesail/Form";
 import { GENERAL_DEFAULTS } from "../shadesail/constants";
 import { GeneralSection } from "../GeneralSection";
 
+// Accepts either:
+// - attributesHydrate = { sails: [ {...}, {...} ] }  (new shape, preferred)
+// - attributesHydrate = [ {...}, {...} ]             (legacy shape)
+// - attributesHydrate = { ... }                      (single sail object)
 function normalizeAttributes(attributesHydrate) {
-  if (Array.isArray(attributesHydrate)) return attributesHydrate;
-  if (attributesHydrate && typeof attributesHydrate === "object" && Object.keys(attributesHydrate).length > 0) {
+  if (!attributesHydrate) return [];
+
+  // New shape: { sails: [...] }
+  if (
+    typeof attributesHydrate === "object" &&
+    Array.isArray(attributesHydrate.sails)
+  ) {
+    return attributesHydrate.sails;
+  }
+
+  // Legacy: already an array of attributes
+  if (Array.isArray(attributesHydrate)) {
+    return attributesHydrate;
+  }
+
+  // Legacy: single object of attributes
+  if (
+    typeof attributesHydrate === "object" &&
+    Object.keys(attributesHydrate).length > 0
+  ) {
     return [attributesHydrate];
   }
+
   return [];
 }
 
@@ -18,7 +40,10 @@ export default function MultiShadeSailForm({
   attributesHydrate = [],
   discrepancyChecker = false,
 }) {
-  const normalizedAttributes = useMemo(() => normalizeAttributes(attributesHydrate), [attributesHydrate]);
+  const normalizedAttributes = useMemo(
+    () => normalizeAttributes(attributesHydrate),
+    [attributesHydrate]
+  );
 
   const [generalData, setGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
@@ -36,8 +61,11 @@ export default function MultiShadeSailForm({
     const base = normalizedAttributes.length > 0 ? normalizedAttributes : [undefined];
     initialSailsRef.current = base.map((attrs) => makeSailEntry(attrs));
   }
+
   const [sails, setSails] = useState(() => initialSailsRef.current);
-  const [activeSailId, setActiveSailId] = useState(() => initialSailsRef.current?.[0]?.id ?? null);
+  const [activeSailId, setActiveSailId] = useState(
+    () => initialSailsRef.current?.[0]?.id ?? null
+  );
 
   const sailRefs = useRef(new Map());
   const getSailRef = useCallback((id) => {
@@ -70,18 +98,28 @@ export default function MultiShadeSailForm({
 
   useEffect(() => {
     if (!formRef) return;
+
     formRef.current = {
       getValues: () => {
-        const sailsPayload = sails.map((sail) => {
-          const sailRef = sailRefs.current.get(sail.id);
-          if (!sailRef?.current?.getValues) return null;
-          return sailRef.current.getValues();
-        }).filter(Boolean);
+        const sailsPayload = sails
+          .map((sail) => {
+            const sailRef = sailRefs.current.get(sail.id);
+            if (!sailRef?.current?.getValues) return null;
+            return sailRef.current.getValues(); // { general, attributes, calculated }
+          })
+          .filter(Boolean);
 
+        // NEW SHAPE HERE:
+        // attributes: { sails: [ attributesForSail1, attributesForSail2, ... ] }
+        // calculated: { sails: [ calculatedForSail1, calculatedForSail2, ... ] }
         return {
           general: generalData,
-          attributes: sailsPayload.map((payload) => payload.attributes ?? {}),
-          calculated: sailsPayload.map((payload) => payload.calculated ?? {}),
+          attributes: {
+            sails: sailsPayload.map((payload) => payload.attributes ?? {}),
+          },
+          calculated: {
+            sails: sailsPayload.map((payload) => payload.calculated ?? {}),
+          },
         };
       },
     };
@@ -93,18 +131,21 @@ export default function MultiShadeSailForm({
 
   return (
     <div className="p-3 space-y-4">
-      {discrepancyChecker === false && (   
+      {discrepancyChecker === false && (
         <GeneralSection data={generalData} setData={setGeneralData} />
       )}
 
       <section className="space-y-3">
+        {/* Tab buttons for each sail + add */}
         <div className="flex flex-wrap items-center gap-2">
           {sails.map((sail, index) => (
             <button
               key={sail.id}
               type="button"
               className={`px-3 py-1 rounded border text-sm ${
-                sail.id === activeSailId ? "border-blue-500 bg-blue-500 text-white" : "border-neutral-300 bg-white"
+                sail.id === activeSailId
+                  ? "border-blue-500 bg-blue-500 text-white"
+                  : "border-neutral-300 bg-white"
               }`}
               onClick={() => setActiveSailId(sail.id)}
             >
@@ -119,11 +160,16 @@ export default function MultiShadeSailForm({
             + Add sail
           </button>
         </div>
-        <div className="space-y-6">
+
+        {/* Only render the active sail */}
+        <div className="space-y-2">
           {sails.map((sail, index) => {
             const sailRef = getSailRef(sail.id);
             return (
-              <div key={sail.id} style={{ display: sail.id === activeSailId ? "block" : "none" }}>
+              <div
+                key={sail.id}
+                style={{ display: sail.id === activeSailId ? "block" : "none" }}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="headingStyle">Sail {index + 1}</h3>
                   {sails.length > 1 && (
@@ -149,6 +195,6 @@ export default function MultiShadeSailForm({
           })}
         </div>
       </section>
-     </div>
-   );
- }
+    </div>
+  );
+}

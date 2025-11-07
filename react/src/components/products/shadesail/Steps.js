@@ -65,6 +65,8 @@ export const Steps = [
 
       //console.log('Total edgeMeter:', edgeMeter);
 
+      //XY DISTANCES
+
       const xyDistances = {};
 
       // Normalize keys (e.g., "BA" -> "AB") and project to 2D
@@ -142,7 +144,13 @@ export const Steps = [
       
       let boxes = null;
 
-      // Triangle layout using normalized XY-projected distances
+
+
+      
+      
+      //POSITIONS
+
+      // TRIANGLE
       if (N === 3) {
         positions["A"] = { x: 0, y: 0 };
         positions["B"] = { x: xyDistances["AB"], y: 0 };
@@ -155,7 +163,8 @@ export const Steps = [
         const Cy = Math.sqrt(Math.max(0, CA ** 2 - Cx ** 2));
 
         positions["C"] = { x: Cx, y: Cy };
-      
+
+      //SQUARE
       } else if (N === 4) {
         const quadPositions = placeQuadrilateral(
           xyDistances["AB"],
@@ -170,6 +179,7 @@ export const Steps = [
         Object.assign(positions, quadPositions);
       }
         
+      //POLYGON N>4
       else {
         // For N >= 5
         boxes = generateBoxes(N, xyDistances);
@@ -202,22 +212,10 @@ export const Steps = [
             const diagRight = xyDistances[`${TL}${BR}`] ?? xyDistances[`${BR}${TL}`];
             const bottom = xyDistances[`${BR}${BL}`] ?? xyDistances[`${BL}${BR}`];
 
-            console.log(`Distances for Box ${boxName}:`);
-            console.log(`  top(${TL}-${TR}): ${top}`);
-            console.log(`  left(${TL}-${BL}): ${left}`);
-            console.log(`  right(${TR}-${BR}): ${right}`);
-            console.log(`  bottom(${BR}-${BL}): ${bottom}`);
-            console.log(`  diagLeft(${TR}-${BL}): ${diagLeft}`);
-            console.log(`  diagRight(${TL}-${BR}): ${diagRight}`);
-
             const angleTL = lawCosine(top, left, diagLeft);
             const angleTR = lawCosine(top, right, diagRight);
 
-            console.log(`  angleTL @${TL}: ${angleTL.toFixed(2)}°`);
-            console.log(`  angleTR @${TR}: ${angleTR.toFixed(2)}°`);
-
             if (!firstBoxPlaced) {
-              console.log("Placing FIRST box flat at origin");
 
               // Place first box flat
               const quadPositions = placeQuadrilateral(
@@ -237,7 +235,6 @@ export const Steps = [
                 [BL]: quadPositions["D"]
               };
 
-              console.log("\nMapped FIRST box positions:");
               for (const key in mappedPositions) {
                 const pos = mappedPositions[key];
                 console.log(`  ${key}: (x=${pos.x.toFixed(3)}, y=${pos.y.toFixed(3)})`);
@@ -264,18 +261,14 @@ export const Steps = [
               // kOffset adjustment for first box
               const diffFrom45 = (Math.PI / 4) - (angleTR * Math.PI/180);
               kOffset += diffFrom45;
-              console.log(`First box TR angle diff from 45°: ${(diffFrom45 * 180 / Math.PI).toFixed(2)}°, cumulative kOffset now ${(kOffset * 180 / Math.PI).toFixed(2)}°`);
-              console.log(`First box TR(${TR}) becomes anchor:`, currentAnchor);
 
             } else {
               // Compute hinge angle: 180° - (prev TR + current TL)
               const hingeDeg = 180 - (prevTRangle + angleTL);
               const hingeRad = (hingeDeg * Math.PI) / 180;
-              console.log(`Hinge angle = 180 - (${prevTRangle.toFixed(2)} + ${angleTL.toFixed(2)}) = ${hingeDeg.toFixed(2)}°`);
 
               // Accumulate global rotation
               globalAngleRad += hingeRad;
-              console.log(`Global rotation now: ${(globalAngleRad * 180 / Math.PI).toFixed(2)}°`);
 
               // Place this box relative to current anchor
               const genericPlaced = drawBoxAt(pts, xyDistances, currentAnchor, globalAngleRad);
@@ -288,7 +281,6 @@ export const Steps = [
                 [BL]: genericPlaced["D"]
               };
 
-              console.log(`Placed box ${boxName} mapped:`);
               for (const key in mappedPositions) {
                 const pos = mappedPositions[key];
                 console.log(`  ${key}: (x=${pos.x.toFixed(3)}, y=${pos.y.toFixed(3)})`);
@@ -310,23 +302,18 @@ export const Steps = [
               // Update anchor + prev TR angle
               currentAnchor = mappedPositions[TR];
               prevTRangle = angleTR;
-              console.log(`Box ${boxName} TR(${TR}) becomes new anchor:`, currentAnchor);
 
               // ✅ For subsequent boxes add TL angle to kOffset
               kOffset += angleTL * Math.PI/180;
-              console.log(`Added TL angle ${(angleTL).toFixed(2)}°, cumulative kOffset now ${(kOffset * 180 / Math.PI).toFixed(2)}°`);
             }
           }
 
           if (pts.length === 3) {
-            console.log(`Box ${boxName} is a TRIANGLE`);
 
             const [A, B, C] = pts;
             const AB = xyDistances[`${A}${B}`] ?? xyDistances[`${B}${A}`];
             const BC = xyDistances[`${B}${C}`] ?? xyDistances[`${C}${B}`];
             const AC = xyDistances[`${A}${C}`] ?? xyDistances[`${C}${A}`];
-
-            console.log(`Triangle distances: AB=${AB}, BC=${BC}, AC=${AC}`);
 
             // Place triangle flat
             let tri = {};
@@ -338,19 +325,14 @@ export const Steps = [
 
             // Calculate internal angle at A
             const triAngleA = lawCosine(AB, AC, BC);
-            console.log(`Triangle internal angle @${A}: ${triAngleA.toFixed(2)}°`);
 
             // ✅ Compute hinge relative to prevTRangle, same as quads
             const hingeDeg = 180 - (prevTRangle + triAngleA);
             const hingeRad = (hingeDeg * Math.PI) / 180;
             globalAngleRad += hingeRad;
-            console.log(`Triangle hinge rotates by ${hingeDeg.toFixed(2)}°, global rotation now ${(globalAngleRad*180/Math.PI).toFixed(2)}°`);
 
             // You can still track kOffset if needed
             kOffset += triAngleA * Math.PI/180;
-            console.log(`Triangle added ${triAngleA.toFixed(2)}° to kOffset, cumulative ${(kOffset*180/Math.PI).toFixed(2)}°`);
-
-            console.log(`Triangle local coords: A=(0,0), B=(${AB},0), C=(${Cx.toFixed(2)},${Cy.toFixed(2)})`);
 
             // Rotate + translate triangle into place relative to current anchor
             const mappedTri = {};
@@ -363,8 +345,6 @@ export const Steps = [
                 y: rotated.y + currentAnchor.y
               };
             }
-
-            console.log(`Triangle ${boxName} placed at:`, mappedTri);
 
             // Merge with conflict check
             for (const key in mappedTri) {
@@ -385,12 +365,7 @@ export const Steps = [
           }
 
         });
-
-        console.log(`\n=== FINAL cumulative kOffset: ${(kOffset * 180 / Math.PI).toFixed(2)}° ===`);
-        console.log("\n=== FINAL positions ===", positions);
       }
-
-      console.log("dimensions:", data.dimensions);
       
       const edgeMeter = sumEdges(data.dimensions, data.pointCount);
 
@@ -406,11 +381,7 @@ export const Steps = [
       data.edgeMeter = edgeMeter;
       data.edgeMeterCeilMeters = edgeMeterCeilMeters;
 
-      console.log("fabric type:", data.fabricType, "edgeMeterCeilMeters:", edgeMeterCeilMeters);
-
       let fabricPrice = getPriceByFabric(data.fabricType, edgeMeterCeilMeters);
-
-      console.log("fabricPrice:", fabricPrice);
 
       data.fabricPrice = fabricPrice;
 
@@ -425,8 +396,6 @@ export const Steps = [
 
       data.fittingCounts = fittingCounts;
 
-      console.log("sailTracks:", data.sailTracks);
-
       let totalSailLength = 0;
       for (const sailTrack of data.sailTracks || []) {
         totalSailLength += data.dimensions[sailTrack] || 0;
@@ -440,8 +409,6 @@ export const Steps = [
 
       let discrepancyProblem = false;
 
-      console.log("Fabric category:", data.fabricCategory);
-
       let allowance = 40;
 
       if (data.fabricCategory === "ShadeCloth") {
@@ -454,17 +421,19 @@ export const Steps = [
         console.warn("Unknown fabric category, cannot set discrepancy allowance");
       }
 
-      console.log(discrepancies)
-
       for (const key in discrepancies) {
-
-        console.log(`Checking discrepancy ${key}: ${discrepancies[key]} against allowance ${allowance}`);
 
         if (discrepancies[key] > allowance) {
           discrepancyProblem = key;
           break;
         }
       }
+
+
+
+
+
+      // MATERIALS TEMP ABST
 
       let materials = [];
 
@@ -536,10 +505,6 @@ export const Steps = [
       
       }
 
-      let cablePrice = 0;
-
-      //data.edgeMeter = edgeMeter
-      //data.edgeMeterCeilMeters = edgeMeterCeilMeters,
       data.positions = positions,
       data.discrepancies = discrepancies,
       data.blame = blame,

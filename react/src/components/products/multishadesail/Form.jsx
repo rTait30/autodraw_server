@@ -145,7 +145,7 @@ export default function MultiShadeSailForm({
               className={`px-3 py-1 rounded border text-sm ${
                 sail.id === activeSailId
                   ? "border-blue-500 bg-blue-500 text-white"
-                  : "border-neutral-300 bg-white"
+                  : "border-neutral-300 bg-gray-200 text-black"
               }`}
               onClick={() => setActiveSailId(sail.id)}
             >
@@ -154,7 +154,7 @@ export default function MultiShadeSailForm({
           ))}
           <button
             type="button"
-            className="px-3 py-1 rounded border border-dashed text-sm"
+            className="px-3 py-1 rounded border text-sm font-bold"
             onClick={addSail}
           >
             + Add sail
@@ -171,11 +171,11 @@ export default function MultiShadeSailForm({
                 style={{ display: sail.id === activeSailId ? "block" : "none" }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="headingStyle">Sail {index + 1}</h3>
+                  <div className="headingStyle">Sail {index + 1}</div>
                   {sails.length > 1 && (
                     <button
                       type="button"
-                      className="text-sm text-red-600 hover:underline"
+                      className="buttonStyle bg-[#AA0000]"
                       onClick={() => removeSail(sail.id)}
                     >
                       Remove sail

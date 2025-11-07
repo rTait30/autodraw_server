@@ -34,6 +34,8 @@ export default function EstimateTable({
   const [inputState, setInputState] = useState({});
   const [products, setProducts] = useState({});
 
+  const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
+
   // --- Fetch SKUs from schema, then load products from API ---
   useEffect(() => {
     const allSkus = [];
@@ -278,16 +280,28 @@ export default function EstimateTable({
         </tbody>
       </table>
 
-      <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
-        Use Suggested Price
-      </button>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
 
-      <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
-        Use price: todo
-      </button>
+        <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
+          Use Suggested Price
+        </button>
+
+        <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
+          Use price: todo
+        </button>
+
+      </div>
 
       <div>
 
+        <button
+          className="mt-4 underline text-sm text-blue-600"
+          onClick={() => setToggleSchemaEditor(!toggleSchemaEditor)}
+        >
+          {toggleSchemaEditor ? 'Close Schema Editor' : 'Edit Estimate Schema'}
+        </button>
+
+        {toggleSchemaEditor && (
           <SchemaEditor
             schema={schema}
             editedSchema={editedSchema}
@@ -295,6 +309,7 @@ export default function EstimateTable({
             onReturn={onReturn}
             onSubmit={onSubmit}
           />
+        )}
       </div>
    </div>
   );

@@ -74,6 +74,8 @@ export default function ProjectDetailsPage() {
 
   const [estimateVersion, setEstimateVersion] = useState(0);
 
+  const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
+
   /* ==========================================================================
    *  CANVAS / STEPPER
    *  - keep `stepper` instance stable-ish; reflect via a ref to avoid effect loops
@@ -386,13 +388,12 @@ useEffect(() => {
                     <button
                       onClick={handleSubmit}
                       className="buttonStyle"
-                      style={{ marginLeft: '8px' }}
                     >
                       Submit changes
                     </button>
                     <button
                       onClick={handleMaterials}
-                      className="buttonStyle"
+                      className="buttonStyle" 
                     >
                       Check Materials
                     </button>
@@ -435,6 +436,7 @@ useEffect(() => {
           {/* Estimate table: only admin + estimator */}
           {(role === 'estimator'|| role === 'admin') ? (
             Schema ? (
+              
               <div className="scroll-x">
                 <EstimateTable
                   key={estimateVersion}

@@ -398,9 +398,7 @@ const setPointField = (p, key, value) =>
         <GeneralSection data={generalData} setData={setGeneralData} />
 
       )}
-
-      <br></br>
-      <h3 className="headingStyle">Shade Sail</h3>
+      { /*<h3 className="headingStyle">Shade Sail</h3> */ }
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">

@@ -6,25 +6,89 @@ export const Steps = [
     isLive: false,
     isAsync: false,
 
+
+
+    // ------------------------------------------------------------------ CALCULATION ------------------------------------------------------------------------
+
+
+
+
+
     calcFunction: (data) => {
       if (!Array.isArray(data.sails)) return data;
-
+      
       data.sails = data.sails.map((sail) => {
         const pointCount = Number(sail.pointCount) || 0;
         const xyDistances = buildXYDistances(sail.dimensions || {}, sail.points || {});
         const positions = computeSailPositionsFromXY(pointCount, xyDistances);
         const edgeMeter = sumEdges(sail.dimensions || {}, pointCount);
 
+        let edgeMeterCeilMeters = 0;
+
+        if (edgeMeter % 1000 < 200) {
+          edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
+        } else {
+          edgeMeterCeilMeters = Math.floor(edgeMeter / 1000);
+        }
+
         return {
           ...sail,
           xyDistances,
           positions,
           edgeMeter,
+          edgeMeterCeilMeters,
         };
       });
 
+      let sailCalcs = [];
+
+      for (const sail of data.sails) {
+
+        let fabricPrice = getPriceByFabric("Rainbow Z16", sail.edgeMeterCeilMeters);
+
+        const { discrepancies, blame } = computeDiscrepanciesAndBlame(
+          sail.pointCount,
+          sail.xyDistances,
+          sail.points || {}
+        );
+
+        let maxDiscrepancy = 0;
+        for (const key in discrepancies) {
+          if (discrepancies[key] > maxDiscrepancy) {
+            maxDiscrepancy = discrepancies[key];
+          }
+        }
+
+        let discrepancyProblem = false;
+
+        if (sail.fabricCategory === "ShadeCloth" && maxDiscrepancy > 70) { discrepancyProblem = true; }
+        if (sail.fabricCategory === "PVC" && maxDiscrepancy > 20) { discrepancyProblem = true; }
+
+        sailCalcs.push({
+          edgeMeter: sail.edgeMeter || 0,
+          edgeMeterCeilMeters: sail.edgeMeterCeilMeters || 0,
+          fabricPrice: fabricPrice,
+          discrepancies,
+          blame,
+          maxDiscrepancy,
+          discrepancyProblem
+        });
+      }
+
+      data.sailCalcs = sailCalcs;
+
       return data;
     },
+
+
+
+
+
+    // ------------------------------------------------------------------ DRAWING ------------------------------------------------------------------------
+
+
+
+
 
     drawFunction: (ctx, data) => {
       const sails = data.sails || [];
@@ -120,9 +184,6 @@ export const Steps = [
             ctx.fillText(`Logo`, p.x - 100, p.y + y);
           }
 
-
-
-
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
@@ -131,6 +192,9 @@ export const Steps = [
           ctx.lineTo(first.x, first.y);
         }
         ctx.stroke();
+
+        ctx.fillText("Max Discrepancy: " + (sail.sailCalcs[id].maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
+        ctx.fillText("Discrepancy Problem: " + (sail.sailCalcs[id].discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
       });
 
       ctx.restore();
@@ -138,9 +202,15 @@ export const Steps = [
   },
 ];
 
+
+
 //
-// ---------- helpers ----------
+// ------------------------------------------------------------------ HELPERS ------------------------------------------------------------------------
 //
+
+
+
+
 
 const sumEdges = (dimensions, pointCount) => {
   let total = 0;
@@ -341,6 +411,163 @@ function computePositionsForManySided(N, xyDistances) {
   return positions;
 }
 
+
+
+function computeDiscrepanciesAndBlame(N, xyDistances, data) {
+  const discrepancies = {};
+  const blame = {};
+
+  // Initialize blame for all dimensions as 0
+  for (const key in xyDistances) {
+    blame[key] = 0;
+  }
+
+  // Initialize blame for all point labels as 0
+  for (const key in data.points) {
+    blame[`${key}`] = 0;
+  }
+
+  if (N >= 4) {
+    const combos = getFourPointCombosWithDims(N, xyDistances);
+
+    combos.forEach((combo) => {
+      console.log(combo.combo);
+      console.log(combo.dims);
+
+      const discrepancy = computeDiscrepancyXY(combo.dims);
+
+      console.log(discrepancy);
+
+      discrepancies[combo.combo] = discrepancy;
+
+      if (discrepancy !== null && !isNaN(discrepancy)) {
+        // For each blame key, check if it shares ALL characters with combo
+        for (const blameKey in blame) {
+          const allInside = [...blameKey].every((char) =>
+            combo.combo.includes(char)
+          );
+
+          if (allInside) {
+            if (blameKey.length === 2) {
+              // edge/diagonal
+              blame[blameKey] += discrepancy;
+            } else {
+              // point / height
+              // TODO: could scale down height contribution if desired
+              blame[blameKey] += discrepancy;
+            }
+          }
+        }
+      }
+    });
+
+    console.log(discrepancies);
+    console.log(blame);
+  }
+
+  return { discrepancies, blame };
+}
+
+function getFourPointCombosWithDims(N, xyDimensions) {
+  const labels = Array.from({ length: N }, (_, i) => String.fromCharCode(65 + i)); // ['A','B',...]
+  
+  // Generate all 4-point combos
+  const combos = [];
+  function helper(start, combo) {
+    if (combo.length === 4) {
+      combos.push([...combo]);
+      return;
+    }
+    for (let i = start; i < labels.length; i++) {
+      combo.push(labels[i]);
+      helper(i + 1, combo);
+      combo.pop();
+    }
+  }
+  helper(0, []);
+
+  return combos.map(combo => {
+    const [a, b, c, d] = combo;
+
+    // These are the edges + diagonals we care about
+    const pairs = [
+      [a, b], [a, c], [a, d], [b, c], [b, d], [c, d]
+    ];
+
+    const dims = {};
+    for (const [p1, p2] of pairs) {
+      const alphaKey = [p1, p2].sort().join(''); // always alphabetical
+      dims[alphaKey] = xyDimensions[alphaKey] ?? null;
+    }
+
+    return { combo: combo.join(''), dims };
+  });
+}
+
+function computeDiscrepancyXY(dimensions) {
+  const lengths = Object.values(dimensions);
+
+  if (!lengths[0] || !lengths[1] || !lengths[2] || !lengths[3] || !lengths[4] || !lengths[5]) {
+
+    return 0
+  }
+
+  // Naming consistent with your original code
+  const l12xy = lengths[0]; // AB
+  const l13xy = lengths[1]; // AC (diagonal)
+  const l41xy = lengths[2]; // DA
+  const l23xy = lengths[3]; // BC
+  const l24xy = lengths[4]; // BD (diagonal)
+  const l34xy = lengths[5]; // CD
+
+  // --- Utility: Safe acos for numeric stability ---
+  const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
+
+  // --- Step 1: Compute cosines of angles ---
+  const cos123 = (l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy);
+  const cos134 = (l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy);
+
+  // --- Step 2: Get *unsigned* angles ---
+  const angle123_unsigned = safeAcos(cos123);
+  const angle134_unsigned = safeAcos(cos134);
+
+  // --- Step 3: Determine *signed* angles ---
+  // We assume CCW winding, so we flip sign if needed.
+  // For a reflex angle, the "turn" should go beyond π.
+  // Trick: if the quadrilateral is concave, the diagonals will cross differently.
+  // We'll determine sign based on triangle inequality check:
+  let angle123 = angle123_unsigned;
+  let angle134 = angle134_unsigned;
+
+  // OPTIONAL heuristic: detect reflex by checking if sum of opposite edges < diagonal
+  const isReflex123 = (l12xy + l23xy < l13xy + 1e-9);
+  const isReflex134 = (l41xy + l34xy < l13xy + 1e-9);
+
+  if (isReflex123) angle123 = 2 * Math.PI - angle123_unsigned;
+  if (isReflex134) angle134 = 2 * Math.PI - angle134_unsigned;
+
+  // --- Step 4: Place points ---
+  // P1 is at origin
+  const p1x = 0, p1y = 0;
+  // P3 is at (l13xy, 0) - baseline
+  const p3x = l13xy, p3y = 0;
+
+  // P2 is rotated CCW from baseline by angle123
+  const p2x = l12xy * Math.cos(angle123);
+  const p2y = l12xy * Math.sin(angle123);
+
+  // P4 is rotated CW from baseline by angle134 (negative y direction)
+  const p4x = l41xy * Math.cos(-angle134);
+  const p4y = l41xy * Math.sin(-angle134);
+
+  // --- Step 5: Compute theoretical BD distance ---
+  const l24Theoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
+
+  const discrepancy = Math.abs(l24Theoric - l24xy);
+  console.log("discrepancy", discrepancy);
+  return discrepancy;
+}
+
 function getDistXY(a, b, xyDistances) {
   const k = [a, b].sort().join("");
   return xyDistances[k] || 0;
@@ -450,3 +677,26 @@ function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
 
   return placed;
 }
+
+
+
+function getPriceByFabric(fabric, edgeMeter) {
+
+  if (edgeMeter < 15) {
+    return pricelist[fabric][15];
+  }
+
+  return pricelist[fabric][edgeMeter] || 0;
+}
+
+
+const pricelist = {
+  "Rainbow Z16": {
+    15: 585, 16: 615, 17: 660, 18: 700, 19: 740, 20: 780,
+    21: 840, 22: 890, 23: 940, 24: 990, 25: 1040, 26: 1100,
+    27: 1160, 28: 1210, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
+    33: 1520, 34: 1580, 35: 1645, 36: 1710, 37: 1780, 38: 1850,
+    39: 1910, 40: 1980, 41: 2060, 42: 2135, 43: 2210, 44: 2285,
+    45: 2360, 46: 2435, 47: 2510, 48: 2585, 49: 2685, 50: 2770
+  }
+};

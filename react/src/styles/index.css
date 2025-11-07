@@ -12,13 +12,22 @@
 @layer components {
 
   .headingStyle {
-    @apply text-2xl font-bold text-red-500 mb-4;
+    @apply text-2xl font-bold text-black mb-4 text-left;
   }
 
 
   .buttonStyle {
     @apply p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1;
   }
+
+  .buttonArray {
+    @apply p-2 bg-[#2f2f6f] text-white text-sm font-medium rounded-lg cursor-pointer mt-1;
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+
   .inputStyle {
     @apply p-3 border border-blue-300 rounded-lg text-sm;
   }

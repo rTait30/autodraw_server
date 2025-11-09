@@ -76,6 +76,12 @@ export class ProcessStepper {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
+    try {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    } catch (e) {
+      console.warn('❗ Unable to clear canvas context:', e);
+    }
+
     this.data = structuredClone(initialData);
     const originalKeys = Object.keys(initialData);
 
@@ -114,8 +120,7 @@ export class ProcessStepper {
     const calculated = {};
 
     for (const [key, value] of Object.entries(this.data)) {
-      if (originalKeys.includes(key)) attributes[key] = value;
-      else calculated[key] = value;
+       calculated[key] = value;
     }
 
     return calculated;

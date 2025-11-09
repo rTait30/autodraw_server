@@ -30,8 +30,43 @@ export default {
 */
 
 
-import React, { useEffect, useImperativeHandle, useState } from "react";
+import React, { useImperativeHandle, useState } from "react";
 
+
+
+export const PROJECT_DEFAULTS = Object.freeze({
+  medical: false,
+});
+
+export function ProjectForm({ formRef, projectDataHydrate = {} }) {
+  const [projectData, setProjectData] = useState({
+    ...PROJECT_DEFAULTS,
+    ...(projectDataHydrate ?? {}),
+  });
+
+  useImperativeHandle(
+    formRef,
+    () => ({
+      getValues: () => ({
+        project: projectData,
+      }),
+    }),
+    [projectData]
+  );
+
+  return (
+    <div className="mb-4 p-2 border rounded bg-gray-50">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={projectData.medical}
+          onChange={e => setProjectData(prev => ({ ...prev, medical: e.target.checked }))}
+        />
+        <span className="text-sm font-medium">Medical Cover</span>
+      </label>
+    </div>
+  );
+}
 
 export const ATTRIBUTE_DEFAULTS = Object.freeze({
   label: "",
@@ -46,8 +81,7 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   fabricWidth: 1320,
 });
 
-export function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate = {} }) {
-
+export function ProductForm({ formRef, attributesHydrate = {} }) {
   // Single attributes object
   const [attributes, setAttributes] = useState({
     ...ATTRIBUTE_DEFAULTS,
@@ -69,7 +103,6 @@ export function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate 
 
   return (
     <div>
-
       <label className="block text-sm font-medium mb-1">Length (mm)</label>
       <input
         className="inputCompact"
@@ -182,4 +215,4 @@ export function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate 
   );
 }
 
-export default CoverForm;
+export default ProductForm;

@@ -4,7 +4,28 @@ export const Steps = [
   {
     title: 'Step 0: Visualise Covers',
     calcFunction: (data) => {
-      return data; // No extra calc
+
+      let totalCovers = 0;
+      for (const product of data.products) {
+        try {
+          if (!product) throw new Error("Missing product");
+          const attributes = product.attributes || {};
+
+          attributes.volume =
+            (Number(attributes.length) || 0) *
+            (Number(attributes.width) || 0) *
+            (Number(attributes.height) || 0);
+
+          totalCovers += attributes.quantity || 0;
+        } catch (err) {
+          console.error(`[Covers Step 0] calcFunction error:`, err);
+        }
+      }
+
+      return {
+        ...data,
+        totalCovers
+      }; // No extra calc
     },
     drawFunction: (ctx, data) => {
 

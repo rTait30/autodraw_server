@@ -29,7 +29,7 @@ export default function NewProject() {
 
   const role = localStorage.getItem("role") || "guest";
 
-  const [ProductFormComponent, setProductFormComponent] = useState(null);
+  // No longer needed: ProductFormComponent
 
   // Mobile-friendly toast (replaces alert)
   const [toast, setToast] = useState(null);
@@ -44,32 +44,21 @@ export default function NewProject() {
 
   useEffect(() => {
     if (!projectType || !canvasRef.current) {
-
-      setProductFormComponent(null);
       return;
     }
     let alive = true;
 
-    // Dynamically import both steps and form in parallel
-    Promise.all([
-      import(`../components/products/${projectType}/Steps.js`),
-      import(`../components/products/${projectType}/Form.jsx`)
-    ])
-      .then(([stepsMod, formMod]) => {
+    // Dynamically import steps only
+    import(`../components/products/${projectType}/Steps.js`)
+      .then((stepsMod) => {
         const loadedSteps = stepsMod.Steps ?? stepsMod.steps ?? [];
-        if (alive) {
-          setProductFormComponent(() => React.lazy(() => Promise.resolve(formMod)));
-          if (stepperRef.current) {
-            stepperRef.current.addCanvas(canvasRef.current);
-            loadedSteps.forEach((step) => stepperRef.current.addStep(step));
-          }
+        if (alive && stepperRef.current) {
+          stepperRef.current.addCanvas(canvasRef.current);
+          loadedSteps.forEach((step) => stepperRef.current.addStep(step));
         }
       })
       .catch((e) => {
-        console.error(`[Discrepancy] Failed to load steps or form for ${projectType}:`, e);
-        if (alive) {
-          setProductFormComponent(() => () => <div className="text-red-600">Error loading form.</div>);
-        }
+        console.error(`[Discrepancy] Failed to load steps for ${projectType}:`, e);
       });
 
     return () => {
@@ -139,13 +128,11 @@ export default function NewProject() {
 
       //const all = formRef.current?.getValues?.() ?? {};
       //console.log("Running all steps with data:", all.attributes);
-      let stepperData = await stepperRef.current?.runAll(formData.attributes ?? {});
+      let stepperData = await stepperRef.current?.runAll(formData ?? {});
 
       const payload = {
-        general: formData.general ?? {},
-        type: projectType,
-        attributes: formData.attributes ?? {},
-        calculated: stepperData ?? {},
+        formData: formData ?? {},
+        type: projectType
       };
 
       const response = await apiFetch("/projects/create", {
@@ -200,7 +187,7 @@ export default function NewProject() {
               <Suspense fallback={<div className="p-3"></div>}>
                 <ProjectForm
                   key={projectType}
-                  ProductForm={ProductFormComponent}
+                  productType={projectType}
                   formRef={formRef}
                 />
               </Suspense>

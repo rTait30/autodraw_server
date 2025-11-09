@@ -1,3 +1,6 @@
+
+import { Suspense } from "react";
+
 // Default general values
 const DEFAULT_GENERAL = {
   name: "",
@@ -30,10 +33,38 @@ function normalizeAttributes(productsHydrate) {
 
 export default function ProjectForm({
   formRef,
-  ProductForm, // React component for an individual item
+  productType,
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
 }) {
+  // Dynamically import the correct product and project forms
+  const [ProductForm, setProductForm] = useState(null);
+  const [ProjectFormComponent, setProjectFormComponent] = useState(null);
+  useEffect(() => {
+    if (!productType) {
+      setProductForm(null);
+      setProjectFormComponent(null);
+      return;
+    }
+    let alive = true;
+    import(`../components/products/${productType}/Form.jsx`)
+      .then((mod) => {
+        if (alive) {
+          setProductForm(() => React.lazy(() => Promise.resolve({ default: mod.ProductForm })));
+          setProjectFormComponent(() => React.lazy(() => Promise.resolve({ default: mod.ProjectForm })));
+        }
+      })
+      .catch((e) => {
+        if (alive) {
+          setProductForm(() => () => <div className="text-red-600">Error loading form.</div>);
+          setProjectFormComponent(() => () => <div className="text-red-600">Error loading project form.</div>);
+        }
+      });
+    return () => { alive = false; };
+  }, [productType]);
+  // Ref and state for global project attributes
+  const projectFormRef = useRef();
+  const [projectData, setProjectData] = useState({});
   // Rehydrate logic
   const [rehydrate, setRehydrate] = useState(initialRehydrate);
   // Used to force remount on rehydrate
@@ -108,6 +139,12 @@ export default function ProjectForm({
     if (!formRef) return;
     formRef.current = {
       getValues: () => {
+        // Get global project attributes
+        let projectAttrs = {};
+        if (projectFormRef.current?.getValues) {
+          const val = projectFormRef.current.getValues();
+          projectAttrs = val?.project ?? {};
+        }
         const products = Array.isArray(items) && items.length > 0
           ? items
               .map((it) => {
@@ -128,6 +165,7 @@ export default function ProjectForm({
         // Always return a general object with all default fields
         return {
           general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
+          project_attributes: projectAttrs,
           products,
         };
       },
@@ -193,6 +231,15 @@ export default function ProjectForm({
       )}
 
       <section className="space-y-3">
+        {/* Global project form above item selector */}
+        {ProjectFormComponent && (
+          <Suspense fallback={<div className="p-3"></div>}>
+            <ProjectFormComponent
+              formRef={projectFormRef}
+              projectDataHydrate={projectData}
+            />
+          </Suspense>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           {items.map((it, index) => (
             <div key={it.productIndex} className="flex items-center gap-1">
@@ -243,13 +290,15 @@ export default function ProjectForm({
                   )}
                 </div>
                 {ProductForm ? (
-                  <ProductForm
-                    formRef={ref}
-                    generalData={generalData}
-                    onGeneralDataChange={setGeneralData}
-                    attributesHydrate={it.attributesHydrate}
-                    hideGeneralSection={true}
-                  />
+                  <Suspense fallback={<div className="p-3"></div>}>
+                    <ProductForm
+                      formRef={ref}
+                      generalData={generalData}
+                      onGeneralDataChange={setGeneralData}
+                      attributesHydrate={it.attributesHydrate}
+                      hideGeneralSection={true}
+                    />
+                  </Suspense>
                 ) : (
                   <div className="text-sm text-red-600">No ProductForm provided</div>
                 )}

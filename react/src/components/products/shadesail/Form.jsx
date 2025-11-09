@@ -1,4 +1,31 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useImperativeHandle } from "react";
+// Generic ProjectForm for global attributes (location)
+export function ProjectForm({ formRef, projectDataHydrate = {} }) {
+  const [projectData, setProjectData] = useState({
+    location: projectDataHydrate.location ?? ""
+  });
+
+  useImperativeHandle(
+    formRef,
+    () => ({
+      getValues: () => ({ project: projectData }),
+    }),
+    [projectData]
+  );
+
+  return (
+    <div className="mb-4 p-2 border rounded bg-gray-50">
+      <label className="block text-sm font-medium mb-1">Location</label>
+      <input
+        className="inputCompact"
+        type="text"
+        value={projectData.location}
+        onChange={e => setProjectData(prev => ({ ...prev, location: e.target.value }))}
+        placeholder="Enter location..."
+      />
+    </div>
+  );
+}
 import { GeneralSection } from "../../GeneralSection";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
@@ -48,7 +75,7 @@ const TENSION_HARDWARE_DEFAULTS = {
   "Sailtrack Corner": 0
 };
 
-export default function SailForm({
+function SailForm({
   formRef,
   generalDataHydrate = {},
   attributesHydrate = {},
@@ -1094,3 +1121,10 @@ function deepNumberify(obj) {
   if (typeof obj === "string" && obj.trim() !== "" && !isNaN(obj)) return Number(obj);
   return obj;
 }
+
+// Generic ProductForm for per-item attributes
+export function ProductForm(props) {
+  return <SailForm {...props} />;
+}
+
+export default ProductForm;

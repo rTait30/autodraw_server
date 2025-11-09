@@ -943,6 +943,8 @@ const pricelist = {
 
 function getPriceByFabric(fabric, edgeMeter) {
 
+  if (!pricelist[fabric]) return 0;
+
   if (edgeMeter < 15) {
     return pricelist[fabric][15];
   }

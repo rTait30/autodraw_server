@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { GeneralSection } from "../GeneralSection";
+import { GeneralSection } from "../../GeneralSection";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 

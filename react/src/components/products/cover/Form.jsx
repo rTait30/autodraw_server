@@ -29,18 +29,12 @@ export default {
 }
 */
 
+
 import React, { useEffect, useImperativeHandle, useState } from "react";
 
-import { GeneralSection } from "../GeneralSection";
 
-const GENERAL_DEFAULTS = Object.freeze({
-  name: "",
-  client_id: "winlloyd",
-  due_date: "",
-  info: "",
-});
-
-const ATTRIBUTE_DEFAULTS = Object.freeze({
+export const ATTRIBUTE_DEFAULTS = Object.freeze({
+  label: "",
   length: 1000,
   width: 1000,
   height: 1000,
@@ -52,25 +46,13 @@ const ATTRIBUTE_DEFAULTS = Object.freeze({
   fabricWidth: 1320,
 });
 
-export default function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate = {} }) {
-
-  const [generalData, setGeneralData] = useState(() => ({
-    ...GENERAL_DEFAULTS,
-    ...(generalDataHydrate ?? {}),
-  }));
-
-
-  const [name, setName] = useState("");
+export function CoverForm({ formRef, generalDataHydrate = {}, attributesHydrate = {} }) {
 
   // Single attributes object
   const [attributes, setAttributes] = useState({
     ...ATTRIBUTE_DEFAULTS,
     ...(attributesHydrate ?? {}),
   });
-
-  const [calculations, setCalculations] = useState({
-    volume: 0
-  })
 
   const setAttr = (key) => (value) =>
     setAttributes((prev) => ({ ...prev, [key]: value }));
@@ -79,28 +61,24 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
     formRef,
     () => ({
       getValues: () => ({
-        general: generalData,
         attributes,
       }),
     }),
-    [generalData, attributes]
+    [attributes]
   );
 
   return (
     <div>
-      <GeneralSection data={generalData} setData={setGeneralData} />
-      <br></br>
-      <h3 className = "headingStyle">Attributes</h3>
 
       <label className="block text-sm font-medium mb-1">Length (mm)</label>
       <input
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.length ?? ""}          // show blank if null
+        step="any"
+        value={attributes.length ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("length")(Number.isNaN(v) ? null : v);
         }}
       />
@@ -110,10 +88,10 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.width ?? ""}          // show blank if null
+        step="any"
+        value={attributes.width ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("width")(Number.isNaN(v) ? null : v);
         }}
       />
@@ -123,10 +101,10 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.height ?? ""}          // show blank if null
+        step="any"
+        value={attributes.height ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("height")(Number.isNaN(v) ? null : v);
         }}
       />
@@ -136,10 +114,10 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.quantity ?? ""}          // show blank if null
+        step="any"
+        value={attributes.quantity ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("quantity")(Number.isNaN(v) ? null : v);
         }}
       />
@@ -149,10 +127,10 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.hem ?? ""}          // show blank if null
+        step="any"
+        value={attributes.hem ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("hem")(Number.isNaN(v) ? null : v);
         }}
       />
@@ -162,14 +140,14 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
         className="inputCompact"
         type="number"
         inputMode="numeric"
-        step="any"              // or "1" for integers
-        value={attributes.seam ?? ""}          // show blank if null
+        step="any"
+        value={attributes.seam ?? ""}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber; // NaN when empty/invalid
+          const v = e.currentTarget.valueAsNumber;
           setAttr("seam")(Number.isNaN(v) ? null : v);
         }}
       />
-      
+
       <div className="flex items-center space-x-6 mt-2">
         <label className="flex items-center space-x-2">
           <input
@@ -203,3 +181,5 @@ export default function CoverForm({ formRef, generalDataHydrate = {}, attributes
     </div>
   );
 }
+
+export default CoverForm;

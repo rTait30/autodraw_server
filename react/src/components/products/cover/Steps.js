@@ -7,469 +7,139 @@ export const Steps = [
       return data; // No extra calc
     },
     drawFunction: (ctx, data) => {
-      try {
-        if (!ctx || !data) throw new Error("Missing ctx or data");
 
-        const quantity = Math.max(1, Number(data.quantity) || 1);
-        const width = Number(data.width) || 1;
-        const height = Number(data.height) || 1;
-        const length = Number(data.length) || 1;
-        const hem = Number(data.hem) || 0;
+      for (const product of data.products) {
+        try {
+          if (!ctx || !product) throw new Error("Missing ctx or product");
 
-        if ([width, height, length, quantity].some(isNaN)) {
-          throw new Error(`Invalid numeric inputs: width=${width}, height=${height}, length=${length}, quantity=${quantity}`);
-        }
+          let attributes = product.attributes || {};
 
-        const padding = 100;
-        const spacing = width / 4;
-        const totalWidthUnits = width + length;
-        const totalHeightUnits = height + hem + length;
+          const quantity = Math.max(1, Number(attributes.quantity) || 1);
+          const width = Number(attributes.width) || 1;
+          const height = Number(attributes.height) || 1;
+          const length = Number(attributes.length) || 1;
+          const hem = Number(attributes.hem) || 0;
 
-        const maxDrawWidth = 1000 - 2 * padding;
-        const maxDrawHeight = 1000 - 2 * padding;
+          if ([width, height, length, quantity].some(isNaN)) {
+            throw new Error(`Invalid numeric inputs: width=${width}, height=${height}, length=${length}, quantity=${quantity}`);
+          }
 
-        const scale = Math.min(
-          maxDrawWidth / totalWidthUnits,
-          maxDrawHeight / totalHeightUnits
-        );
+          const padding = 100;
+          const spacing = width / 4;
+          const totalWidthUnits = width + length;
+          const totalHeightUnits = height + hem + length;
 
-        const boxW = width * scale;
-        const boxH = height * scale;
-        const boxD = length * scale;
-        const boxHem = hem * scale;
-        const unitSpacing = spacing * scale;
+          const maxDrawWidth = 1000 - 2 * padding;
+          const maxDrawHeight = 1000 - 2 * padding;
 
-        const startX = 100;
-        const startY = 500;
-        const x = startX;
-        const y = startY;
+          const scale = Math.min(
+            maxDrawWidth / totalWidthUnits,
+            maxDrawHeight / totalHeightUnits
+          );
 
-        // === Sanity check dimensions ===
-        if ([boxW, boxH, boxD].some(v => v <= 0 || isNaN(v))) {
-          throw new Error(`Invalid scaled dimensions: boxW=${boxW}, boxH=${boxH}, boxD=${boxD}`);
-        }
+          const boxW = width * scale;
+          const boxH = height * scale;
+          const boxD = length * scale;
+          const boxHem = hem * scale;
+          const unitSpacing = spacing * scale;
 
-        ctx.font = "18px sans-serif";
-        ctx.fillStyle = '#000';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
+          const startX = 100;
+          const startY = 500 + 1000 * data.products.indexOf(product); // Stack products vertically
+          const x = startX;
+          const y = startY;
 
-        ctx.strokeRect(x, y, boxW, boxH);
+          // === Sanity check dimensions ===
+          if ([boxW, boxH, boxD].some(v => v <= 0 || isNaN(v))) {
+            throw new Error(`Invalid scaled dimensions: boxW=${boxW}, boxH=${boxH}, boxD=${boxD}`);
+          }
 
-        if (hem > 0) {
-          ctx.fillStyle = '#ccc';
-          ctx.fillRect(x, y + boxH, boxW, boxHem);
-          ctx.strokeRect(x, y + boxH, boxW, boxHem);
+          ctx.font = "18px sans-serif";
           ctx.fillStyle = '#000';
-          ctx.font = "14px sans-serif";
-          ctx.fillText(`${hem} mm hem`, x + boxW / 2 - 30, y + boxH + boxHem / 2 + 5);
-        }
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
 
-        // Projection
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + boxD, y - boxD);
-        ctx.moveTo(x + boxW, y);
-        ctx.lineTo(x + boxW + boxD, y - boxD);
-        ctx.moveTo(x + boxW, y + boxH);
-        ctx.lineTo(x + boxW + boxD, y + boxH - boxD);
-        ctx.moveTo(x, y + boxH);
-        ctx.lineTo(x + boxD, y + boxH - boxD);
-        ctx.stroke();
+          ctx.strokeRect(x, y, boxW, boxH);
 
-        // Back panel
-        ctx.beginPath();
-        ctx.moveTo(x + boxD, y - boxD);
-        ctx.lineTo(x + boxW + boxD, y - boxD);
-        ctx.lineTo(x + boxW + boxD, y + boxH - boxD);
-        ctx.lineTo(x + boxD, y + boxH - boxD);
-        ctx.closePath();
-        ctx.stroke();
+          if (hem > 0) {
+            ctx.fillStyle = '#ccc';
+            ctx.fillRect(x, y + boxH, boxW, boxHem);
+            ctx.strokeRect(x, y + boxH, boxW, boxHem);
+            ctx.fillStyle = '#000';
+            ctx.font = "14px sans-serif";
+            ctx.fillText(`${hem} mm hem`, x + boxW / 2 - 30, y + boxH + boxHem / 2 + 5);
+          }
 
-        // Projected hem
-        if (hem > 0) {
+          // Projection
           ctx.beginPath();
-          ctx.moveTo(x, y + boxH + boxHem);
-          ctx.lineTo(x + boxD, y + boxH + boxHem - boxD);
-          ctx.moveTo(x + boxW, y + boxH + boxHem);
-          ctx.lineTo(x + boxW + boxD, y + boxH + boxHem - boxD);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + boxD, y - boxD);
+          ctx.moveTo(x + boxW, y);
+          ctx.lineTo(x + boxW + boxD, y - boxD);
+          ctx.moveTo(x + boxW, y + boxH);
+          ctx.lineTo(x + boxW + boxD, y + boxH - boxD);
+          ctx.moveTo(x, y + boxH);
+          ctx.lineTo(x + boxD, y + boxH - boxD);
           ctx.stroke();
-        }
 
-        // Dimensions
-        ctx.fillStyle = '#000';
-        ctx.font = "18px sans-serif";
-        ctx.fillText(`${width} mm`, x + boxW / 2 - 30, y + boxH + boxHem + 20);
-
-        ctx.save();
-        ctx.translate(x - 20, y + boxH / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${height} mm`, -30, 0);
-        ctx.restore();
-
-        ctx.save();
-        ctx.translate(x - 50, y + (boxH + boxHem) / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${height + hem} mm total`, -40, 0);
-        ctx.restore();
-
-        ctx.save();
-        ctx.translate(x + boxW + boxD + 10, y - boxD - 10);
-        ctx.rotate(-Math.PI / 4);
-        ctx.fillText(`${length} mm`, 0, 0);
-        ctx.restore();
-
-        ctx.font = 'bold 48px Arial';
-        ctx.fillStyle = 'black';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`x ${quantity}`, 800, 800);
-      } catch (err) {
-        console.error(`[Covers Step 0] drawFunction error:`, err);
-        if (ctx) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.fillStyle = 'red';
-          ctx.font = '18px sans-serif';
-          ctx.fillText(`Covers draw error: ${err.message}`, 20, 40);
-        }
-      }
-      return data;
-    }
-
-
-  },
-
-  {
-    title: 'Step 1: Flatten Panels',
-    calcFunction: (data) => {
-      const flatMainHeight = data.width + 2 * data.seam;
-      const flatMainWidth = 2 * data.hem + data.height * 2 + data.length;
-      const flatSideWidth = data.height + data.seam;
-      const flatSideHeight = data.length + data.seam * 2;
-      const totalSeamLength =
-        2 * flatMainWidth +
-        2 * flatSideWidth +
-        4 * flatSideHeight;
-
-      const areaMainM2 = (flatMainWidth * flatMainHeight) / 1e6;
-      const areaSideM2 = (flatSideWidth * flatSideHeight) / 1e6;
-      const totalFabricArea = areaMainM2 + 2 * areaSideM2;
-
-      data.flatMainHeight = flatMainHeight;
-      data.flatMainWidth = flatMainWidth;
-      data.flatSideWidth = flatSideWidth;
-      data.flatSideHeight = flatSideHeight;
-      data.totalSeamLength = totalSeamLength;
-      data.areaMainM2 = areaMainM2;
-      data.areaSideM2 = areaSideM2;
-      data.totalFabricArea = totalFabricArea;
-
-      return data;
-    },
-    drawFunction: (ctx, data) => {
-
-      if (!ctx || !data) return;
-
-      // Scaling
-      const padding = 100;
-      const availableWidth = 1000 - 2 * padding;
-      const availableHeight = 1000 - 2 * padding;
-      const layoutWidth = Math.max(data.flatMainWidth, data.flatSideWidth * 2 + 50);
-      const layoutHeight = data.flatMainHeight + data.flatSideHeight + 50;
-      const scale = Math.min(availableWidth / layoutWidth, availableHeight / layoutHeight);
-
-      const mainW = data.flatMainWidth * scale;
-      const mainH = data.flatMainHeight * scale;
-      const sideW = data.flatSideWidth * scale;
-      const sideH = data.flatSideHeight * scale;
-
-      const originX = (1000 - layoutWidth * scale) / 2;
-      const originY = (1000 - layoutHeight * scale) / 2;
-  
-      const mainX = originX + (layoutWidth * scale - mainW) / 2;
-      const mainY = originY;
-      const sideY = mainY + mainH + 50;
-      const side1X = originX;
-      const side2X = originX + sideW + 50;
-  
-      const seamOffset = data.seam * scale;
-  
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-  
-      // Main Panel
-      ctx.strokeRect(mainX, mainY, mainW, mainH);
-  
-      // Hem lines (dotted) on left and right
-      ctx.setLineDash([3, 5]);
-      let hemW = data.hem * scale;
-      ctx.beginPath();
-      ctx.moveTo(mainX + hemW, mainY);
-      ctx.lineTo(mainX + hemW, mainY + mainH);
-      ctx.moveTo(mainX + mainW - hemW, mainY);
-      ctx.lineTo(mainX + mainW - hemW, mainY + mainH);
-      ctx.stroke();
-  
-      // Side lines (seam) in dashed style
-      ctx.setLineDash([8, 6]);
-      let seamLeft = hemW + data.height * scale;
-      let seamRight = hemW + (data.height + data.length) * scale;
-      ctx.beginPath();
-      ctx.moveTo(mainX + seamLeft, mainY);
-      ctx.lineTo(mainX + seamLeft, mainY + mainH);
-      ctx.moveTo(mainX + seamRight, mainY);
-      ctx.lineTo(mainX + seamRight, mainY + mainH);
-      ctx.stroke();
-      ctx.setLineDash([]);
-  
-      // Side panels
-      ctx.strokeRect(side1X, sideY, sideW, sideH);
-      ctx.strokeRect(side2X, sideY, sideW, sideH);
-  
-      // Dotted seam lines (accurate seam position)
-      ctx.setLineDash([2, 4]);
-      ctx.strokeStyle = '#00f';
-  
-      // Main panel: seam lines inside top and bottom edges
-      ctx.beginPath();
-      ctx.moveTo(mainX, mainY + seamOffset);
-      ctx.lineTo(mainX + mainW, mainY + seamOffset);
-      ctx.moveTo(mainX, mainY + mainH - seamOffset);
-      ctx.lineTo(mainX + mainW, mainY + mainH - seamOffset);
-      ctx.stroke();
-  
-      // Side panels: all seam lines
-      ctx.beginPath();
-      const seamXOffset = data.seam * scale;
-  
-      // First side panel
-      ctx.moveTo(side1X, sideY + seamOffset);
-      ctx.lineTo(side1X + sideW, sideY + seamOffset);
-      ctx.moveTo(side1X + seamXOffset, sideY);
-      ctx.lineTo(side1X + seamXOffset, sideY + sideH);
-      ctx.moveTo(side1X + sideW - seamXOffset, sideY);
-      ctx.lineTo(side1X + sideW - seamXOffset, sideY + sideH);
-  
-      // Second side panel
-      ctx.moveTo(side2X, sideY + seamOffset);
-      ctx.lineTo(side2X + sideW, sideY + seamOffset);
-      ctx.moveTo(side2X + seamXOffset, sideY);
-      ctx.lineTo(side2X + seamXOffset, sideY + sideH);
-      ctx.moveTo(side2X + sideW - seamXOffset, sideY);
-      ctx.lineTo(side2X + sideW - seamXOffset, sideY + sideH);
-      ctx.stroke();
-  
-      ctx.setLineDash([]);
-  
-      // Hem bottom on side panels (dotted)
-      ctx.setLineDash([3, 5]);
-      let hemH = data.hem * scale;
-      ctx.beginPath();
-      ctx.moveTo(side1X, sideY + sideH - hemH);
-      ctx.lineTo(side1X + sideW, sideY + sideH - hemH);
-      ctx.moveTo(side2X, sideY + sideH - hemH);
-      ctx.lineTo(side2X + sideW, sideY + sideH - hemH);
-      ctx.stroke();
-  
-      // Dimension labels
-      ctx.font = "16px sans-serif";
-      ctx.fillStyle = '#000';
-  
-      ctx.fillText(`${data.flatMainWidth} mm`, mainX + mainW / 2 - 40, mainY - 10);
-      ctx.save();
-      ctx.translate(mainX - 10, mainY + mainH / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(`${data.flatMainHeight} mm`, -40, 0);
-      ctx.restore();
-
-      ctx.fillText(`${data.flatSideWidth} mm`, side1X + sideW / 2 - 30, sideY - 10);
-      ctx.save();
-      ctx.translate(side1X - 10, sideY + sideH / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(`${data.flatSideHeight} mm`, -35, 0);
-      ctx.restore();
-  
-      ctx.save();
-      ctx.translate(side2X - 10, sideY + sideH / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(`${data.flatSideHeight} mm`, -35, 0);
-      ctx.restore();
-
-      const areaMainMM = data.flatMainWidth * data.flatMainHeight;
-      const areaSideMM = data.flatSideWidth * data.flatSideHeight;
-      const areaMainM2 = areaMainMM / 1e6;
-      const areaSideM2 = areaSideMM / 1e6;
-      const totalFabricArea = areaMainM2 + 2 * areaSideM2;
-  
-      ctx.font = "16px sans-serif";
-      ctx.fillText(`Main Area: ${areaMainM2.toFixed(3)} m²`, mainX + mainW / 2 - 80, mainY + mainH / 2);
-      ctx.fillText(`Side Area: ${areaSideM2.toFixed(3)} m²`, side1X + sideW / 2 - 80, sideY + sideH / 2);
-      ctx.fillText(`Side Area: ${areaSideM2.toFixed(3)} m²`, side2X + sideW / 2 - 80, sideY + sideH / 2);
-  
-      ctx.fillText(`totalFabricArea: ${totalFabricArea} m²`, 800, 900);
-    }
-  },
-
-  {
-    title: 'Step 2: Extra Panels (Seam Split)',
-    calcFunction: (data) => {
-      const mainPanels = splitPanelIfNeeded(
-        data.flatMainWidth,
-        data.flatMainHeight,
-        data.fabricWidth,
-        200,      //HARD
-        data.seam
-      );
-      const sidePanels = splitPanelIfNeeded(
-        data.flatSideWidth,
-        data.flatSideHeight,
-        data.fabricWidth,
-        200,      //HARD 
-        data.seam
-      );
-
-      const rawPanels = {};
-      mainPanels.forEach((panel, i) => rawPanels[`main${i + 1}`] = { ...panel });
-      sidePanels.forEach((panel, i) => {
-        rawPanels[`Rside${i + 1}`] = { ...panel };
-        rawPanels[`Lside${i + 1}`] = { ...panel };
-      });
-
-      const finalPanels = {
-        quantity: Number(data.quantity),
-        panels: {}
-      };
-
-      for (const [key, panel] of Object.entries(rawPanels)) {
-        const { hasSeam, rotated, ...cleanPanel } = panel;
-        finalPanels.panels[String(key)] = cleanPanel;
-      }
-
-      data.rawPanels = rawPanels;
-      data.finalPanels = finalPanels;
-      data.finalArea = Object.values(rawPanels).reduce(
-        (acc, p) => acc + (p.width * p.height),
-        0
-      );
-
-      return data;
-    },
-    drawFunction: (ctx, data) => {
-
-      const index = 0;
-
-      if (!ctx || !data?.rawPanels) return;
-      const padding = 100;
-
-      let totalWidth = 0;
-      let maxHeight = 0;
-      for (const [, panel] of Object.entries(data.rawPanels)) {
-        totalWidth += panel.width;
-        maxHeight = Math.max(maxHeight, panel.height);
-      }
-
-      const availableWidth = 600;
-      const availableHeight = 800 - 2 * padding;
-      const scale = Math.min(
-        availableWidth / totalWidth,
-        availableHeight / maxHeight
-      );
-
-      let cursorX = 100;
-      const originY = index * 1000 + (800 - maxHeight * scale) / 2;
-
-      const drawData = [];
-      let totalArea = 0;
-
-      for (const [name, panel] of Object.entries(data.rawPanels)) {
-        const w = panel.width * scale;
-        const h = panel.height * scale;
-        const x = cursorX;
-        const y = originY;
-
-        const area = (panel.width * panel.height) / 1e6;
-        totalArea += area;
-
-        drawData.push({
-          name,
-          x,
-          y,
-          w,
-          h,
-          panel,
-          area,
-          seamY: panel.hasSeam === "top"
-            ? y + (data.seam || 0) * scale
-            : panel.hasSeam === "bottom"
-            ? y + h - (data.seam || 0) * scale
-            : null
-        });
-
-        cursorX += w + 50;
-      }
-
-      ctx.save();
-      ctx.lineWidth = 2;
-      ctx.font = "14px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      for (const item of drawData) {
-        const { name, x, y, w, h, panel, area, seamY } = item;
-
-        ctx.strokeStyle = "#000";
-        ctx.setLineDash([]);
-        ctx.strokeRect(x, y, w, h);
-
-        if (seamY !== null) {
-          ctx.strokeStyle = "#00f";
-          ctx.setLineDash([4, 4]);
+          // Back panel
           ctx.beginPath();
-          ctx.moveTo(x, seamY);
-          ctx.lineTo(x + w, seamY);
+          ctx.moveTo(x + boxD, y - boxD);
+          ctx.lineTo(x + boxW + boxD, y - boxD);
+          ctx.lineTo(x + boxW + boxD, y + boxH - boxD);
+          ctx.lineTo(x + boxD, y + boxH - boxD);
+          ctx.closePath();
           ctx.stroke();
+
+          // Projected hem
+          if (hem > 0) {
+            ctx.beginPath();
+            ctx.moveTo(x, y + boxH + boxHem);
+            ctx.lineTo(x + boxD, y + boxH + boxHem - boxD);
+            ctx.moveTo(x + boxW, y + boxH + boxHem);
+            ctx.lineTo(x + boxW + boxD, y + boxH + boxHem - boxD);
+            ctx.stroke();
+          }
+
+          // Dimensions
+          ctx.fillStyle = '#000';
+          ctx.font = "18px sans-serif";
+          ctx.fillText(`${width} mm`, x + boxW / 2 - 30, y + boxH + boxHem + 20);
+
+          ctx.save();
+          ctx.translate(x - 20, y + boxH / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(`${height} mm`, -30, 0);
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(x - 50, y + (boxH + boxHem) / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(`${height + hem} mm total`, -40, 0);
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(x + boxW + boxD + 10, y - boxD - 10);
+          ctx.rotate(-Math.PI / 4);
+          ctx.fillText(`${length} mm`, 0, 0);
+          ctx.restore();
+
+          ctx.font = 'bold 48px Arial';
+          ctx.fillStyle = 'black';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`x ${quantity}`, 800, 800 + 1000 * data.products.indexOf(product));
+        } catch (err) {
+          console.error(`[Covers Step 0] drawFunction error:`, err);
+          if (ctx) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = 'red';
+            ctx.font = '18px sans-serif';
+            ctx.fillText(`Covers draw error: ${err.message}`, 20, 40);
+          }
         }
-
-        ctx.setLineDash([]);
-        ctx.strokeStyle = "#000";
-
-        ctx.fillText(name, x + w / 2, y + h / 2 - 18);
-        ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
-        ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
-
-        ctx.save();
-        ctx.translate(x - 12, y + h / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText(`${panel.height} mm`, 0, 0);
-        ctx.restore();
       }
-
-      ctx.restore();
     }
-  },
 
-  {
-    title: 'Step 3: Nest Panels',
-    isAsync: true,
-    calcFunction: async (data) => {
-      if (!data.finalPanels || !data.fabricWidth) return {};
-      const payload = {
-        ...data.finalPanels,
-        quantity: data.quantity || 1,
-      };
-      const nestData = await sendPanelData(payload, data.fabricWidth);
-      console.log(nestData)
-      return { ...data, nestData };
-    },
-    drawFunction: (ctx, data) => {
-      const index = 0;
-      console.log(`nest draw ${JSON.stringify(data)}`)
-      if (!ctx || !data?.nestData) {
-        ctx.fillText('Nesting data not available', 800, 800);
-        return;
-      }
-      drawNest(ctx, data.nestData, data.finalPanels.panels, data.fabricWidth);
-    }
   }
 ];
 

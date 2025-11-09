@@ -1,16 +1,17 @@
 import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState, useRef, setField } from 'react';
 
-import { apiFetch } from '../../services/auth.js';
+import { apiFetch } from '../services/auth.js';
 
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
-  client_id: "",
+  client_id: 0,
   due_date: "",
   info: "",
+  // Add other default fields as needed
 });
 
-export function GeneralSection({ data, setData = () => {} }) {
 
+export function GeneralSection({ data, setData = () => {} }) {
   const [clients, setClients] = useState([]);
   const [clientsError, setClientsError] = useState(null);
 
@@ -28,19 +29,25 @@ export function GeneralSection({ data, setData = () => {} }) {
     }
   }, []);
 
-  // Never read directly from possibly-null `data`
-  const safe = data ?? GENERAL_DEFAULTS;
-
-  //console.log("Pretty JSON:\n", JSON.stringify(safe, null, 2));
+  // Always return all general fields, defaulting to empty string if not present
+  const safe = useMemo(() => {
+    const base = { ...GENERAL_DEFAULTS };
+    if (data && typeof data === 'object') {
+      Object.keys(base).forEach((key) => {
+        // Use type from default if missing
+        base[key] = data[key] !== undefined ? data[key] : GENERAL_DEFAULTS[key];
+      });
+    }
+    return base;
+  }, [data]);
 
   const handleChange = (e) => {
     const { name, type, value: val, checked } = e.target;
     const next = type === "checkbox" ? checked : val;
-
-    setData((prev) => ({
-      ...(prev ?? GENERAL_DEFAULTS), // <-- null-safe base
-      [name]: next,
-    }));
+    setData((prev) => {
+      const base = { ...GENERAL_DEFAULTS, ...(prev ?? {}) };
+      return { ...base, [name]: next };
+    });
   };
 
   const shouldShowClient = (localStorage.getItem('role') === "estimator" || 
@@ -55,7 +62,7 @@ export function GeneralSection({ data, setData = () => {} }) {
           name="name"
           type="text"
           className="inputStyle"
-          value={safe.name ?? ""}
+          value={safe.name}
           onChange={handleChange}
         />
       </div>
@@ -66,7 +73,7 @@ export function GeneralSection({ data, setData = () => {} }) {
           <select
             name="client_id"
             className="inputStyle"
-            value={safe.client_id ?? ""}
+            value={safe.client_id}
             onChange={handleChange}
           >
             <option value="">Select client</option>
@@ -90,7 +97,7 @@ export function GeneralSection({ data, setData = () => {} }) {
           name="due_date"
           type="date"
           className="inputStyle"
-          value={safe.due_date ?? ""}
+          value={safe.due_date}
           onChange={handleChange}
         />
       </div>
@@ -101,7 +108,7 @@ export function GeneralSection({ data, setData = () => {} }) {
           name="info"
           type="text"
           className="inputStyle"
-          value={safe.info ?? ""}
+          value={safe.info}
           onChange={handleChange}
           placeholder="Notes or special instructions"
         />

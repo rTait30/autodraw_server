@@ -1,22 +1,15 @@
+
 import React, { useState, useMemo, useRef, useEffect, Suspense } from "react";
+
+import { useSelector } from 'react-redux';
+
+
 import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
-
 import { ProcessStepper } from '../components/products/ProcessStepper';
+import ProjectForm from "../components/ProjectForm";
 
-// Lazy-load each full form
-const FORM_LOADERS = {
-  cover:     () => import("../components/products/cover/Form.jsx"),
-  shadesail: () => import("../components/products/shadesail/Form.jsx"),
-  multishadesail: () => import("../components/products/multishadesail/Form.jsx"),
-};
 
-const STEPS_LOADERS = {
-
-  cover:      () => import("../components/products/cover/Steps.js"),
-  shadesail:  () => import("../components/products/shadesail/Steps.js"),
-  multishadesail: () => import("../components/products/multishadesail/Steps.js"),
-};
 
 const projectTypes = [
   { name: "Covers",     id: "cover" },
@@ -26,62 +19,66 @@ const projectTypes = [
 
 export default function NewProject() {
 
-  let devMode = false;
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    devMode = true;
-  }
-
   const formRef = useRef(null);
   const canvasRef = useRef(null);
-
   const stepperRef = useRef(null);
+
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectType, setProjectType] = useState(null);
 
-  const [steps, setSteps] = useState([]);
+  const role = localStorage.getItem("role") || "guest";
 
-  const [result, setResult] = useState({});
-  const [generalData, setGeneralData] = useState({
-    name: "test project",
-    client_id: "",
-    due_date: "",
-    info: "",
-  });
+  const [ProductFormComponent, setProductFormComponent] = useState(null);
 
   // Mobile-friendly toast (replaces alert)
   const [toast, setToast] = useState(null);
+  const toastTimeoutRef = useRef();
   const showToast = (msg, opts = {}) => {
     setToast({ msg: String(msg), ...opts });
-    // auto-dismiss
-    setTimeout(() => setToast(null), opts.duration || 6000);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), opts.duration || 30000);
   };
 
-  // Load steps dynamically so they can be split into their own chunk
+  const devMode = useSelector(state => state.toggles.devMode);
+
   useEffect(() => {
+    if (!projectType || !canvasRef.current) {
+
+      setProductFormComponent(null);
+      return;
+    }
     let alive = true;
-    import('../components/products/cover/Steps.js')
-      .then((mod) => {
-        const loaded = mod.Steps ?? mod.steps ?? [];
-        if (alive) setSteps(loaded);
+
+    // Dynamically import both steps and form in parallel
+    Promise.all([
+      import(`../components/products/${projectType}/Steps.js`),
+      import(`../components/products/${projectType}/Form.jsx`)
+    ])
+      .then(([stepsMod, formMod]) => {
+        const loadedSteps = stepsMod.Steps ?? stepsMod.steps ?? [];
+        if (alive) {
+          setProductFormComponent(() => React.lazy(() => Promise.resolve(formMod)));
+          if (stepperRef.current) {
+            stepperRef.current.addCanvas(canvasRef.current);
+            loadedSteps.forEach((step) => stepperRef.current.addStep(step));
+          }
+        }
       })
-      .catch((e) => console.error('[Discrepancy] Failed to load steps:', e));
+      .catch((e) => {
+        console.error(`[Discrepancy] Failed to load steps or form for ${projectType}:`, e);
+        if (alive) {
+          setProductFormComponent(() => () => <div className="text-red-600">Error loading form.</div>);
+        }
+      });
+
     return () => {
       alive = false;
     };
-  }, []);
+  }, [projectType, canvasRef.current]);
 
-  const role = localStorage.getItem("role") || "guest";
-
-  // Pick the current form lazily
-  const SelectedForm = useMemo(() => {
-    if (!projectType) return null;
-    const loader = FORM_LOADERS[projectType];
-    return loader ? React.lazy(loader) : null;
-  }, [projectType]);
-
-// Reset formRef when switching types (unchanged)
-  useEffect(() => { formRef.current = null; }, [projectType]);
+  // Reset formRef when switching types
+  // Do not reset formRef here; let ProjectForm manage the ref lifecycle
 
   // NEW: Build a new ProcessStepper and load Steps whenever projectType changes
   useEffect(() => {
@@ -93,7 +90,6 @@ export default function NewProject() {
     // if no type or canvas missing, reset
     if (!projectType || !canvasRef.current) {
       stepperRef.current = null;
-      setSteps([]);
       return;
     }
 
@@ -106,49 +102,22 @@ export default function NewProject() {
   }, [projectType]);
 
   
-  useEffect(() => {
-    // (re)attach when the canvas ref is ready or changes
-    if (canvasRef.current && stepperRef.current) {
-      stepperRef.current.addCanvas(canvasRef.current);
 
-      (async () => {
-
-        const loader = STEPS_LOADERS[projectType];
-        if (!loader) { setSteps([]); return; }
-
-        const steps = await loader();
-
-        console.log("steps", steps);
-
-        steps.Steps.forEach((step, i) => {
-          //console.log("step", i);
-          //console.log(step);
-          stepperRef.current.addStep(step)
-        });
-      })();
-      
-      //stepperRef.current.steps = []; // clear any previous
-    }
-
-  }, [projectType]); // or [projectType]
 
   const printValues = () => {
+    console.log("Printing form values...");
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Form values:", all);
     showToast(
-      "General:\n" +
-        JSON.stringify(all.general ?? {}, null, 2) +
-        "\n\nAttributes:\n" +
-        JSON.stringify(all.attributes ?? {}, null, 2),
-      { duration: 30000 }
+        JSON.stringify(all ?? {}, null, 2)
     );
   };
 
   // NEW: expose a button handler that calls runAll with current form values
   const runAllNow = async () => {
     const all = formRef.current?.getValues?.() ?? {};
-    console.log("Running all steps with data:", all.attributes);
-    let data = await stepperRef.current?.runAll(all.attributes);
+    console.log("Running all steps with data:", all);
+    let data = await stepperRef.current?.runAll(all);
 
     //let calculated = data?.calculated ?? {};
 
@@ -195,17 +164,6 @@ export default function NewProject() {
     }
   };
 
-
-
-  const options = useMemo(
-    () => ({
-      showData: false,
-      scaleFactor: 1,
-      stepOffsetY: 800,
-    }),
-    []
-  );
-
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <ProjectSidebar
@@ -237,32 +195,25 @@ export default function NewProject() {
 
       <main className="flex-1 p-6">
         {projectType ? (
-
           <div className="flex flex-wrap gap-10">
             <div className="flex-1 min-w-[400px]">
               <Suspense fallback={<div className="p-3"></div>}>
-                {SelectedForm ? (
-                  <SelectedForm
-                    key={projectType}
-                    formRef={formRef}                 // ✅ form exposes getValues()
-                    onGeneralChange={setGeneralData}
-                  />
-                ) : (
-                  <div className="text-red-600">Unknown form type.</div>
-                )}
+                <ProjectForm
+                  key={projectType}
+                  ProductForm={ProductFormComponent}
+                  formRef={formRef}
+                />
               </Suspense>
-
+              {devMode && <button onClick={printValues} className="devStyle">Print values</button>}
               <div className="flex gap-3 mt-6">
-                {devMode && <button onClick={printValues} className="buttonStyle">Print values</button>}
                 <button onClick={runAllNow} className="buttonStyle">Check</button>
                 <button onClick={handleSubmit} className="buttonStyle">
-                  {["estimator", "admin", "designer"].includes(role)
-                    ? "Make Lead"
-                    : "Get Quote"}
+                  {['estimator', 'admin', 'designer'].includes(role)
+                    ? 'Make Lead'
+                    : 'Get Quote'}
                 </button>
               </div>
             </div>
-
             <div className="flex-1 min-w-[400px] flex flex-col items-center">
               <canvas
                 ref={canvasRef}
@@ -278,8 +229,6 @@ export default function NewProject() {
                 }}
               />
               <div className="mt-6 text-center">
-                <p className="font-semibold text-lg">{result.discrepancy}</p>
-                <p className="text-gray-600">{result.errorBD}</p>
               </div>
             </div>
           </div>

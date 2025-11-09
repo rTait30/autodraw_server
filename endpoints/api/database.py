@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import text
-from models import db, Project, ProjectAttribute, User, Product
+from models import db, Project, ProjectProduct, User, Product
 from datetime import datetime, timezone, date
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials

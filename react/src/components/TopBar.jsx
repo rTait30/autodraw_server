@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
 
@@ -8,9 +10,25 @@ function TopBar() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Logout function: clears localStorage and navigates
   const handleLogout = () => {
     localStorage.clear();
     navigate('/copelands');
+  };
+
+  // Redux toggles
+  const darkMode = useSelector(state => state.toggles.darkMode);
+  const devMode = useSelector(state => state.toggles.devMode);
+  const dispatch = useDispatch();
+
+  const handleDarkModeToggle = () => {
+    dispatch(toggleDarkMode());
+    // TODO: Implement dark mode logic
+  };
+
+  const handleDevModeToggle = () => {
+    dispatch(toggleDevMode());
+    // TODO: Implement dev mode logic
   };
 
   const headerStyle = {
@@ -43,18 +61,32 @@ function TopBar() {
     </>
   );
 
+  const toggleBtnStyle = (active) => ({
+    background: active ? '#eeeeee' : '#23244a',
+    color: active ? 'black' : 'white',
+    border: '1px solid white',
+    fontSize: 13,
+    padding: '6px 10px',
+    borderRadius: 5,
+    marginRight: 8,
+    cursor: 'pointer',
+    minWidth: 70,
+    fontWeight: 500,
+    transition: 'background 0.2s',
+  });
+
   const mobileMenu = (
     <div style={{
       position: 'fixed',
       top: 0,
       right: 0,
       width: 'min(75vw, 320px)',
-      height: '100dvh',              // better on iOS Safari
+      height: '100dvh',
       background: '#23244a',
       boxShadow: '-2px 0 8px rgba(0,0,0,0.2)',
       display: menuOpen ? 'flex' : 'none',
       flexDirection: 'column',
-      padding: '32px 24px',
+      padding: '24px 18px',
       zIndex: 200,
       transition: 'transform 0.2s',
       willChange: 'transform',
@@ -67,16 +99,38 @@ function TopBar() {
           color: 'white',
           fontSize: 28,
           alignSelf: 'flex-end',
-          marginBottom: 24,
+          marginBottom: 16,
           cursor: 'pointer'
         }}
         aria-label="Close menu"
       >×</button>
+      {/* Toggle buttons row */}
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 0, marginBottom: 18, justifyContent: 'flex-start' }}>
+        <button
+          onClick={handleDarkModeToggle}
+          style={toggleBtnStyle(darkMode)}
+        >🌙 Dark</button>
+        <button
+          onClick={handleDevModeToggle}
+          style={toggleBtnStyle(devMode)}
+        >Dev</button>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {navLinks}
-        <span style={roleStyle}>{name}</span>
-        <span style={roleStyle}>{role}</span>
-        <a href="#" onClick={handleLogout} style={linkStyle}>Logout</a>
+        {/* ...existing code... */}
+        <button
+          onClick={handleLogout}
+          style={{
+            background: 'none',
+            border: '1px solid white',
+            color: 'white',
+            fontSize: 16,
+            padding: '8px 12px',
+            borderRadius: 6,
+            marginBottom: 8,
+            cursor: 'pointer',
+            textAlign: 'left'
+          }}
+        >Logout</button>
       </div>
     </div>
   );
@@ -103,7 +157,7 @@ function TopBar() {
   return (
     <>
       <header style={headerStyle} className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
             alt="Logo"
@@ -114,30 +168,34 @@ function TopBar() {
           </div>
         </div>
 
-        <div className="topbar-user" style={{ display: 'none', alignItems: 'center', gap: '24px' }}>
-          {unverified}
+        {/* Right side: name, role, burger icon */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           <span style={roleStyle}>{name}</span>
           <span style={roleStyle}>{role}</span>
-          <a href="#" onClick={handleLogout} style={linkStyle}>Logout</a>
+          <button
+            onClick={() => setMenuOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: 32,
+              cursor: 'pointer',
+              display: 'block',
+              marginRight: 0,
+              padding: 0,
+              lineHeight: 1
+            }}
+            className="burger"
+            aria-label="Open menu"
+          >
+            {/* SVG burger icon for crisp white look */}
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect y="7" width="32" height="3" rx="1.5" fill="white" />
+              <rect y="14" width="32" height="3" rx="1.5" fill="white" />
+              <rect y="21" width="32" height="3" rx="1.5" fill="white" />
+            </svg>
+          </button>
         </div>
-
-        {/* Burger menu icon */}
-        <button
-          onClick={() => setMenuOpen(true)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'white',
-            fontSize: 32,
-            cursor: 'pointer',
-            display: 'block',
-            rightMargin: 50
-          }}
-          className="burger"
-          aria-label="Open menu"
-        >
-          ☰
-        </button>
       </header>
 
       {mobileMenu}
@@ -152,9 +210,7 @@ function TopBar() {
             .topbar-links, .topbar-user {
               display: flex !important;
             }
-            .burger {
-              display: none !important;
-            }
+            /* .burger { display: none !important; } Burger always visible */
           }
 
           /* Mobile hardening for Safari/Firefox */

@@ -23,7 +23,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
 
-from models import db, Project, ProjectAttribute, User, Product, ProjectType, EstimatingSchema, ProjectStatus
+from models import db, Project, ProjectProduct, User, Product, ProjectType, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 from WG.workGuru import get_leads

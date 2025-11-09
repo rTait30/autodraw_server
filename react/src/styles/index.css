@@ -11,6 +11,10 @@
 
 @layer components {
 
+  .devStyle {
+    @apply text-blue-500 underline font-mono;
+  }
+
   .headingStyle {
     @apply text-2xl font-bold text-black mb-4 text-left;
   }

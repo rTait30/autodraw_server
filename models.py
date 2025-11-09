@@ -44,18 +44,74 @@ class ProjectStatus(enum.Enum):
 
 class Project(db.Model):
     __tablename__ = 'projects'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+
+    # This is your "productType" in JSON
     type_id = db.Column(db.Integer, db.ForeignKey('project_types.id'), nullable=False)
     type = db.relationship('ProjectType', backref='projects')
+
     status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
-    due_date = db.Column(db.Date, nullable=True)
-    info = db.Column(db.Text, nullable=True)
+
+    # Top-level, applies to whole project
+    due_date = db.Column(db.Date, nullable=True)      # maps from JSON "dueDate"
+    info = db.Column(db.Text, nullable=True)          # good place for global notes
+
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
     client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    attributes = db.relationship('ProjectAttribute', backref='project', lazy='dynamic')
-    schemas = db.relationship('EstimatingSchema', backref='project', lazy='dynamic', foreign_keys='EstimatingSchema.project_id')
+
+    # NEW: each project can have 1..N products (sails/covers/etc)
+    products = db.relationship(
+        'ProjectProduct',
+        backref='project',
+        lazy='dynamic',
+        order_by='ProjectProduct.item_index',
+        cascade='all, delete-orphan',
+    )
+
+    # unchanged
+    schemas = db.relationship(
+        'EstimatingSchema',
+        backref='project',
+        lazy='dynamic',
+        foreign_keys='EstimatingSchema.project_id'
+    )
+
+class ProjectProduct(db.Model):
+    """
+    One 'thing' under a project: e.g. a single shade sail or a single PVC cover.
+
+    Reuses the existing 'project_attributes' table so you don't lose data,
+    but adds item_index/label and renames 'data' → 'attributes' at the ORM level.
+    """
+    __tablename__ = 'project_attributes'  # reuse existing table
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey('projects.id'),
+        nullable=False,
+        index=True
+    )
+
+    # Order of this product within the project (1,2,3,...)
+    item_index = db.Column(db.Integer, nullable=False, default=1)
+
+    # Human label like "Sail 1", "Cover A" (optional but useful)
+    label = db.Column(db.String(120), nullable=True)
+
+    # Previously called `data`; we keep the column name but expose as `attributes`
+    attributes = db.Column('data', db.JSON)
+    calculated = db.Column(db.JSON)
+
+    # Optional: timestamps if you want (requires migration)
+    # created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    # updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
 
 class Quote(db.Model):
     __tablename__ = 'quotes'
@@ -71,13 +127,6 @@ class Quote(db.Model):
     #provenance = db.Column(db.JSON)     # schema, inputs, price list version, etc.
     #created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     #created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-
-class ProjectAttribute(db.Model):
-    __tablename__ = 'project_attributes'
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
-    data = db.Column(db.JSON)
-    calculated = db.Column(db.JSON)
 
 class Log(db.Model):
     __tablename__ = 'logs'

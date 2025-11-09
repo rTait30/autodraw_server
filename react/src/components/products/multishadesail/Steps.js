@@ -73,6 +73,8 @@ export const Steps = [
           maxDiscrepancy,
           discrepancyProblem
         });
+
+
       }
 
       data.sailCalcs = sailCalcs;
@@ -193,8 +195,8 @@ export const Steps = [
         }
         ctx.stroke();
 
-        ctx.fillText("Max Discrepancy: " + (sail.sailCalcs[id].maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
-        ctx.fillText("Discrepancy Problem: " + (sail.sailCalcs[id].discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
+        ctx.fillText("Max Discrepancy: " + (data.sailCalcs[idx].maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
+        ctx.fillText("Discrepancy Problem: " + (data.sailCalcs[idx].discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
       });
 
       ctx.restore();

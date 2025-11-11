@@ -203,13 +203,29 @@ export const Steps = [
         let attributes = cover.attributes || {};
         const fabricWidth = attributes.fabricWidth || 1500; // default fabric width
         const minAllowance = 200; // minimum allowance for small panel
-        const panels = splitPanelIfNeeded(
+
+        const panels = []
+
+        panels.push(...
+          splitPanelIfNeeded(
           attributes.flatMainWidth,
           attributes.flatMainHeight,
           fabricWidth,
           200,
           attributes.seam
+          )
         );
+
+        panels.push(...
+          splitPanelIfNeeded(
+          attributes.flatSideWidth,
+          attributes.flatSideHeight,
+          fabricWidth,
+          200,
+          attributes.seam,
+          2 // quantity = 2 side panels
+        ));
+
         attributes.panels = panels;
       }
       return data;
@@ -223,7 +239,7 @@ export const Steps = [
         index += 1;
       }
     }
-  },
+  }
 ];
 
 
@@ -387,11 +403,6 @@ function drawCoverLayout(ctx, data, index) {
   //#ctx.fillText(`totalFabricArea: ${totalFabricArea} m²`, 800, 900);
 }
 
-
-
-
-
-
 // helpers/splitPanelIfNeeded.js — used in Step 2
 export function drawRawPanelsLayout(ctx, data, index = 0) {
   if (!ctx || !data?.rawPanels) return 0;
@@ -481,7 +492,7 @@ export function drawRawPanelsLayout(ctx, data, index = 0) {
 }
 
 
-function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
+function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam, quantity = 1) {
   console.log("==== SPLITTING PANEL ====");
   console.log(`Input: width=${width}, height=${height}, fabricWidth=${fabricWidth}, minAllowance=${minAllowance}, seam=${seam}`);
 
@@ -505,6 +516,7 @@ function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
       height,
       hasSeam: "no",
       rotated,
+      quantity,
     };
     console.log("Returning panel:", panel);
     return [panel];

@@ -44,11 +44,17 @@ export default function Landing() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          gap: '16px',
         }}
       >
         <Link to="/copelands/discrepancy">
           <button className="buttonStyle">
             Open Discrepancy Calculator
+          </button>
+        </Link>
+        <Link to="/copelands/rectangles">
+          <button className="buttonStyle">
+            Open Rectangle Nesting Tool
           </button>
         </Link>
       </div>

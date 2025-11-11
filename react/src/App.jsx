@@ -5,6 +5,7 @@ import { getBaseUrl } from './utils/baseUrl';
 
 import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
+import Rectangles from './pages/Rectangles';
 
 import Home from './pages/Home';
 
@@ -33,6 +34,7 @@ function App() {
       <Routes>
         <Route path="/copelands" element={<Landing />} />
         <Route path="/copelands/discrepancy" element={<Discrepancy />} />
+        <Route path="/copelands/rectangles" element={<Rectangles />} />
         <Route element={<TopBar />}>
           <Route path="/copelands/home" element={<Home />} />
           <Route path="/copelands/newproject" element={<NewProject />} />

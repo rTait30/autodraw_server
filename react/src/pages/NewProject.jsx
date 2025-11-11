@@ -8,20 +8,13 @@ import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 import { ProcessStepper } from '../components/products/ProcessStepper';
 import ProjectForm from "../components/ProjectForm";
-
-
-
-const projectTypes = [
-  { name: "Covers",     id: "COVER" },
-  { name: "Shade Sail", id: "SHADE_SAIL" }
-];
+import { PRODUCT_TYPES } from "../config/productRegistry";
 
 export default function NewProject() {
 
   const formRef = useRef(null);
   const canvasRef = useRef(null);
   const stepperRef = useRef(null);
-
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectType, setProjectType] = useState(null);
@@ -157,7 +150,7 @@ export default function NewProject() {
         setOpen={setSidebarOpen}
         projectType={projectType}
         setSelectedType={setProjectType}
-        projectTypes={projectTypes}
+        projectTypes={PRODUCT_TYPES}
       />
 
       {toast && (

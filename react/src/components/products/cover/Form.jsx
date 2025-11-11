@@ -50,7 +50,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
       getValues: () => ({
         project: projectData,
       }),
-    }),
+    }), 
     [projectData]
   );
 

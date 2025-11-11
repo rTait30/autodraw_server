@@ -51,14 +51,26 @@ export default function ProjectForm({
     import(`../components/products/${productType}/Form.jsx`)
       .then((mod) => {
         if (alive) {
-          setProductForm(() => React.lazy(() => Promise.resolve({ default: mod.ProductForm })));
-          setProjectFormComponent(() => React.lazy(() => Promise.resolve({ default: mod.ProjectForm })));
+          // Only set ProductForm if it exists in the module
+          if (mod.ProductForm) {
+            setProductForm(() => React.lazy(() => Promise.resolve({ default: mod.ProductForm })));
+          } else {
+            setProductForm(null);
+          }
+          
+          // Only set ProjectForm if it exists in the module
+          if (mod.ProjectForm) {
+            setProjectFormComponent(() => React.lazy(() => Promise.resolve({ default: mod.ProjectForm })));
+          } else {
+            setProjectFormComponent(null);
+          }
         }
       })
       .catch((e) => {
         if (alive) {
-          setProductForm(() => () => <div className="text-red-600">Error loading form.</div>);
-          setProjectFormComponent(() => () => <div className="text-red-600">Error loading project form.</div>);
+          console.error("Error loading product form:", e);
+          setProductForm(null);
+          setProjectFormComponent(null);
         }
       });
     return () => { alive = false; };
@@ -249,72 +261,74 @@ export default function ProjectForm({
             />
           </Suspense>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          {items.map((it, index) => (
-            <div key={it.productIndex} className="flex items-center gap-1">
-              {it.productIndex === activeIndex ? (
-                <input
-                  type="text"
-                  value={it.name ?? ""}
-                  onChange={e => handleTabNameChange(it.productIndex, e.target.value)}
-                  onBlur={handleTabNameBlur}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") e.target.blur();
-                  }}
-                  className={`px-3 py-1 rounded border text-sm inputCompact w-24 ${
-                    "border-blue-500 bg-blue-500 text-white"
-                  }`}
-                  style={{ fontSize: '0.95em', padding: '2px 6px', textAlign: 'center' }}
-                  onFocus={e => e.target.select()}
-                />
-              ) : (
-                <button
-                  type="button"
-                  className={`px-3 py-1 rounded border text-sm ${
-                    "border-neutral-300 bg-gray-200 text-black"
-                  }`}
-                  onClick={() => setActiveIndex(it.productIndex)}
-                >
-                  {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
-                </button>
-              )}
-            </div>
-          ))}
-          <button type="button" className="px-3 py-1 rounded border text-sm font-bold" onClick={addItem}>
-            + Add Item
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {items.map((it, index) => {
-            const ref = getItemRef(it.productIndex);
-            return (
-              <div key={it.productIndex} style={{ display: it.productIndex === activeIndex ? "block" : "none" }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="headingStyle">{it.name || `Item ${index + 1}`}</div>
-                  {items.length > 1 && (
-                    <button type="button" className="buttonStyle bg-[#AA0000]" onClick={() => removeItem(it.productIndex)}>
-                      Remove Item
+        
+        {/* Only show item selector if ProductForm is provided */}
+        {ProductForm && (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              {items.map((it, index) => (
+                <div key={it.productIndex} className="flex items-center gap-1">
+                  {it.productIndex === activeIndex ? (
+                    <input
+                      type="text"
+                      value={it.name ?? ""}
+                      onChange={e => handleTabNameChange(it.productIndex, e.target.value)}
+                      onBlur={handleTabNameBlur}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") e.target.blur();
+                      }}
+                      className={`px-3 py-1 rounded border text-sm inputCompact w-24 ${
+                        "border-blue-500 bg-blue-500 text-white"
+                      }`}
+                      style={{ fontSize: '0.95em', padding: '2px 6px', textAlign: 'center' }}
+                      onFocus={e => e.target.select()}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={`px-3 py-1 rounded border text-sm ${
+                        "border-neutral-300 bg-gray-200 text-black"
+                      }`}
+                      onClick={() => setActiveIndex(it.productIndex)}
+                    >
+                      {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
                     </button>
                   )}
                 </div>
-                {ProductForm ? (
-                  <Suspense fallback={<div className="p-3"></div>}>
-                    <ProductForm
-                      formRef={ref}
-                      generalData={generalData}
-                      onGeneralDataChange={setGeneralData}
-                      attributesHydrate={it.attributesHydrate}
-                      hideGeneralSection={true}
-                    />
-                  </Suspense>
-                ) : (
-                  <div className="text-sm text-red-600">No ProductForm provided</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              ))}
+              <button type="button" className="px-3 py-1 rounded border text-sm font-bold" onClick={addItem}>
+                + Add Item
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {items.map((it, index) => {
+                const ref = getItemRef(it.productIndex);
+                return (
+                  <div key={it.productIndex} style={{ display: it.productIndex === activeIndex ? "block" : "none" }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="headingStyle">{it.name || `Item ${index + 1}`}</div>
+                      {items.length > 1 && (
+                        <button type="button" className="buttonStyle bg-[#AA0000]" onClick={() => removeItem(it.productIndex)}>
+                          Remove Item
+                        </button>
+                      )}
+                    </div>
+                    <Suspense fallback={<div className="p-3"></div>}>
+                      <ProductForm
+                        formRef={ref}
+                        generalData={generalData}
+                        onGeneralDataChange={setGeneralData}
+                        attributesHydrate={it.attributesHydrate}
+                        hideGeneralSection={true}
+                      />
+                    </Suspense>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Rehydrate box UI only if devMode is true */}
         {devMode && (

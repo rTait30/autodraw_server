@@ -11,6 +11,7 @@ const DEFAULT_GENERAL = {
 };
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from 'react-redux';
+
 import { GeneralSection } from "./GeneralSection";
 
 
@@ -179,11 +180,19 @@ export default function ProjectForm({
   // When rehydrate changes, update generalData and items
   useEffect(() => {
     if (!rehydrate) return;
+    // General data
     if (rehydrate.general && typeof rehydrate.general === 'object' && Object.keys(rehydrate.general).length > 0) {
       setGeneralData({ ...rehydrate.general });
     } else {
       setGeneralData({});
     }
+    // Project-level attributes
+    if (rehydrate.project_attributes && typeof rehydrate.project_attributes === 'object' && Object.keys(rehydrate.project_attributes).length > 0) {
+      setProjectData({ ...rehydrate.project_attributes });
+    } else {
+      setProjectData({});
+    }
+    // Items
     const base = normalizeAttributes(rehydrate.products);
     const newItems = base.length > 0
       ? base.map((prod, idx) => {
@@ -340,6 +349,12 @@ export default function ProjectForm({
                             setGeneralData({ ...obj.general });
                           } else {
                             setGeneralData({});
+                          }
+                          // Project-level attributes
+                          if (obj.project_attributes && typeof obj.project_attributes === 'object' && Object.keys(obj.project_attributes).length > 0) {
+                            setProjectData({ ...obj.project_attributes });
+                          } else {
+                            setProjectData({});
                           }
                           // Items
                           const base = normalizeAttributes(obj.products);

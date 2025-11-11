@@ -40,7 +40,8 @@ function TopBar() {
     justifyContent: 'space-between',
     color: 'white',
     width: '100%',
-    position: 'relative',
+    position: 'sticky',
+    top: 0,
     zIndex: 100,
     boxSizing: 'border-box',
   };
@@ -206,6 +207,19 @@ function TopBar() {
 
       <style>
         {`
+          /* Make topbar sticky on all screen sizes */
+          .topbar-header {
+            position: sticky;
+            top: 0;
+            inset-inline: 0;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            contain: paint;
+            z-index: 100;
+          }
+
           @media (min-width: 800px) {
             .topbar-links, .topbar-user {
               display: flex !important;
@@ -213,7 +227,6 @@ function TopBar() {
             /* .burger { display: none !important; } Burger always visible */
           }
 
-          /* Mobile hardening for Safari/Firefox */
           @media (max-width: 799px) {
             /* Prevent page-level horizontal nudge */
             html, body { overflow-x: hidden; }
@@ -221,24 +234,13 @@ function TopBar() {
               html, body { overflow-x: clip; }
             }
 
-            .topbar {
-              position: sticky;
-              top: 0;
-              inset-inline: 0;      /* logical left/right = 0 (FF-friendly) */
-              width: 100%;
-              max-width: 100%;
-              min-width: 0;
-              box-sizing: border-box;
-              contain: paint;       /* isolate paints, reduce fractional overflow */
-            }
-
             /* Make sure children don't force overflow */
-            .topbar > * {
+            .topbar-header > * {
               min-width: 0;
               flex-shrink: 1;
             }
 
-            .topbar img {
+            .topbar-header img {
               max-width: 100%;
               height: auto;
               display: block;

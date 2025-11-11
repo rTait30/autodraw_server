@@ -53,19 +53,50 @@
 
 
   .tableBase {
-    @apply border border-gray-300 bg-white w-200;
+    /* Converted from Tailwind @apply to plain CSS for lint compatibility */
+    border: 1px solid #D1D5DB; /* gray-300 */
+    background-color: #ffffff;
+    width: 100%;
+    border-collapse: collapse;
   }
   .tableBase th {
-    @apply text-left text-lg;
+    text-align: left;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1E3A8A; /* blue-900 */
+    letter-spacing: 0.5px;
+    background-color: #DBEAFE; /* blue-100 */
+    border-bottom: 1px solid #BFDBFE; /* blue-200 */
+    padding: 0.5rem 0.75rem;
   }
   .tableSection {
-    @apply text-red-900 text-2xl border-b border-gray-200 py-3;
+    color: #7F1D1D; /* red-900 */
+    font-size: 1.5rem;
+    border-bottom: 1px solid #E5E7EB; /* gray-200 */
+    padding: 0.75rem 0;
+    font-weight: 600;
   }
   .tableHeader {
-    @apply bg-gray-100 text-left;
+    background-color: #DBEAFE; /* blue-100 */
+    text-align: left;
+    border-bottom: 1px solid #BFDBFE; /* blue-200 */
   }
   .tableCalc {
-    @apply bg-gray-100;
+    background-color: #F3F4F6; /* gray-100 */
+  }
+
+  /* Zebra striping for table rows */
+  .tableBase tbody tr:nth-child(even) {
+    background-color: #F9FAFB; /* gray-50 */
+  }
+  .tableBase tbody tr:nth-child(odd) {
+    background-color: #FFFFFF;
+  }
+  /* Optional hover to improve readability */
+  .tableBase tbody tr:hover {
+    background-color: #EFF6FF; /* blue-50 */
+    transition: background-color .15s ease-in-out;
   }
 
 

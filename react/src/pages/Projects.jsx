@@ -31,7 +31,6 @@ function Projects() {
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h1>Projects</h1>
 
       {/* Horizontal scroll wrapper */}
       <div className="table-scroll">
@@ -39,12 +38,10 @@ function Projects() {
           <thead>
             <tr>
               <th>ID</th>
+              <th>Client</th>
               <th>Name</th>
               <th>Type</th>
               <th>Status</th>
-              <th>Client</th>
-              <th>Created</th>
-              <th>Updated</th>
             </tr>
           </thead>
           <tbody>
@@ -55,12 +52,10 @@ function Projects() {
                 onClick={() => navigate(`/copelands/projects/${project.id}`)}
               >
                 <td style={td}>{project.id}</td>
+                <td style={td}>{project.client}</td>
                 <td style={td}>{project.name}</td>
                 <td style={td}>{project.type}</td>
                 <td style={td}>{project.status}</td>
-                <td style={td}>{project.client}</td>
-                <td style={td}>{formatDate(project.created_at)}</td>
-                <td style={td}>{formatDate(project.updated_at)}</td>
               </tr>
             ))}
           </tbody>

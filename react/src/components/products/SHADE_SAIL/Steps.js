@@ -1,99 +1,37 @@
+
+
 export const Steps = [
   {
-    title: "Step 0: Multi-sail Top View",
-    id: "multi-discrepancy",
-    dependencies: [],
-    isLive: false,
-    isAsync: false,
-
-
-
-    // ------------------------------------------------------------------ CALCULATION ------------------------------------------------------------------------
-
-
-
-
-
+    title: 'Step 0: Discrepancy & Top View',
     calcFunction: (data) => {
-      if (!Array.isArray(data.sails)) return data;
-      
-      data.sails = data.sails.map((sail) => {
-        const pointCount = Number(sail.pointCount) || 0;
-        const xyDistances = buildXYDistances(sail.dimensions || {}, sail.points || {});
-        const positions = computeSailPositionsFromXY(pointCount, xyDistances);
-        const edgeMeter = sumEdges(sail.dimensions || {}, pointCount);
+      // Placeholder: No calculations in this step
 
-        let edgeMeterCeilMeters = 0;
+      for (const sail of data.products || []) {
 
-        if (edgeMeter % 1000 < 200) {
-          edgeMeterCeilMeters = Math.ceil(edgeMeter / 1000);
-        } else {
-          edgeMeterCeilMeters = Math.floor(edgeMeter / 1000);
-        }
+        let attributes = sail.attributes || {};
 
-        return {
-          ...sail,
-          xyDistances,
-          positions,
-          edgeMeter,
-          edgeMeterCeilMeters,
-        };
-      });
-
-      let sailCalcs = [];
-
-      for (const sail of data.sails) {
-
-        let fabricPrice = getPriceByFabric("Rainbow Z16", sail.edgeMeterCeilMeters);
-
-        const { discrepancies, blame } = computeDiscrepanciesAndBlame(
-          sail.pointCount,
-          sail.xyDistances,
-          sail.points || {}
-        );
-
-        let maxDiscrepancy = 0;
-        for (const key in discrepancies) {
-          if (discrepancies[key] > maxDiscrepancy) {
-            maxDiscrepancy = discrepancies[key];
+        let perimeter = 0;
+        const dims = (attributes?.dimensions) || {};
+        for (const [edge, value] of Object.entries(dims)) {
+          if (typeof edge === 'string' && edge.length === 2) {
+            perimeter += Number(value) || 0;
           }
         }
+        // keep original key if you rely on it elsewhere; also store corrected spelling
+        attributes.perimeter = perimeter;
 
-        let discrepancyProblem = false;
+        attributes.xyDistances = buildXYDistances(attributes.dimensions, attributes.points || {});
 
-        if (sail.fabricCategory === "ShadeCloth" && maxDiscrepancy > 70) { discrepancyProblem = true; }
-        if (sail.fabricCategory === "PVC" && maxDiscrepancy > 20) { discrepancyProblem = true; }
-
-        sailCalcs.push({
-          edgeMeter: sail.edgeMeter || 0,
-          edgeMeterCeilMeters: sail.edgeMeterCeilMeters || 0,
-          fabricPrice: fabricPrice,
-          discrepancies,
-          blame,
-          maxDiscrepancy,
-          discrepancyProblem
-        });
+        attributes.positions = computeSailPositionsFromXY(attributes.pointCount, attributes.xyDistances);
 
 
       }
 
-      data.sailCalcs = sailCalcs;
+      return {...data};
 
-      return data;
     },
-
-
-
-
-
-    // ------------------------------------------------------------------ DRAWING ------------------------------------------------------------------------
-
-
-
-
-
     drawFunction: (ctx, data) => {
-      const sails = data.sails || [];
+      const sails = data.products || [];
       if (!sails.length) return;
 
       const canvasWidth = ctx.canvas.width || 1000;
@@ -109,8 +47,11 @@ export const Steps = [
       const pad = 100;
 
       sails.forEach((sail, idx) => {
-        const positions = sail.positions || {};
-        const points = sail.points || {};
+
+        let attributes = sail.attributes || {};
+
+        const positions = attributes.positions || {};
+        const points = attributes.points || {};
         const ids = Object.keys(positions);
         if (!ids.length) return;
 
@@ -177,12 +118,12 @@ export const Steps = [
 
           ctx.fillStyle = '#F00';
 
-          if (sail.exitPoint === id) {
+          if (attributes.exitPoint === id) {
             ctx.fillText(`Exit Point`, p.x - 100, p.y + y);
             y += 30;
           }
 
-          if (sail.logoPoint === id) {
+          if (attributes.logoPoint === id) {
             ctx.fillText(`Logo`, p.x - 100, p.y + y);
           }
 
@@ -195,24 +136,103 @@ export const Steps = [
         }
         ctx.stroke();
 
-        ctx.fillText("Max Discrepancy: " + (data.sailCalcs[idx].maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
-        ctx.fillText("Discrepancy Problem: " + (data.sailCalcs[idx].discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
+        //ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
+        //ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
       });
 
       ctx.restore();
     },
-  },
+  }
 ];
 
 
-
-//
-// ------------------------------------------------------------------ HELPERS ------------------------------------------------------------------------
-//
-
-
-
-
+const pricelist = {
+  "Rainbow Z16": {
+    15: 585, 16: 615, 17: 660, 18: 700, 19: 740, 20: 780,
+    21: 840, 22: 890, 23: 940, 24: 990, 25: 1040, 26: 1100,
+    27: 1160, 28: 1210, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
+    33: 1520, 34: 1580, 35: 1645, 36: 1710, 37: 1780, 38: 1850,
+    39: 1910, 40: 1980, 41: 2060, 42: 2135, 43: 2210, 44: 2285,
+    45: 2360, 46: 2435, 47: 2510, 48: 2585, 49: 2685, 50: 2770
+  },
+  "Poly Fx": {
+    15: 570, 16: 600, 17: 645, 18: 685, 19: 725, 20: 765,
+    21: 815, 22: 875, 23: 925, 24: 975, 25: 1025, 26: 1085,
+    27: 1145, 28: 1195, 29: 1265, 30: 1325, 31: 1385, 32: 1445,
+    33: 1505, 34: 1565, 35: 1630, 36: 1695, 37: 1765, 38: 1835,
+    39: 1895, 40: 1965, 41: 2045, 42: 2120, 43: 2195, 44: 2270,
+    45: 2345, 46: 2420, 47: 2495, 48: 2570, 49: 2670, 50: 2755
+  },
+  "Extreme 32": {
+    15: 650, 16: 690, 17: 740, 18: 795, 19: 845, 20: 895,
+    21: 955, 22: 990, 23: 1065, 24: 1120, 25: 1170, 26: 1235,
+    27: 1300, 28: 1350, 29: 1430, 30: 1495, 31: 1575, 32: 1635,
+    33: 1700, 34: 1795, 35: 1895, 36: 1980, 37: 2055, 38: 2135,
+    39: 2210, 40: 2290, 41: 2365, 42: 2450, 43: 2565, 44: 2655,
+    45: 2720, 46: 2810, 47: 2905, 48: 2995, 49: 3085, 50: 3275
+  },
+  "Polyfab Xtra": {
+    15: 740, 16: 790, 17: 830, 18: 885, 19: 935, 20: 990,
+    21: 1065, 22: 1135, 23: 1195, 24: 1255, 25: 1325, 26: 1415,
+    27: 1470, 28: 1530, 29: 1615, 30: 1680, 31: 1745, 32: 1810,
+    33: 1875, 34: 1970, 35: 2075, 36: 2165, 37: 2255, 38: 2345,
+    39: 2435, 40: 2520, 41: 2605, 42: 2670, 43: 2755, 44: 2825,
+    45: 2925, 46: 3010, 47: 3105, 48: 3190, 49: 3265, 50: 3490
+  },
+  "Tensitech 480": {
+    15: 670, 16: 720, 17: 785, 18: 835, 19: 885, 20: 940,
+    21: 1015, 22: 1110, 23: 1180, 24: 1235, 25: 1285, 26: 1350,
+    27: 1410, 28: 1470, 29: 1540, 30: 1600, 31: 1660, 32: 1720,
+    33: 1780, 34: 1905, 35: 2010, 36: 2100, 37: 2185, 38: 2280,
+    39: 2340, 40: 2440, 41: 2515, 42: 2595, 43: 2665, 44: 2735,
+    45: 2810, 46: 2890, 47: 2980, 48: 3060, 49: 3245, 50: 3345
+  },
+  "Monotec 370": {
+    15: 790, 16: 890, 17: 940, 18: 990, 19: 1050, 20: 1100,
+    21: 1180, 22: 1220, 23: 1280, 24: 1340, 25: 1400, 26: 1470,
+    27: 1540, 28: 1590, 29: 1670, 30: 1730, 31: 1790, 32: 1850,
+    33: 1920, 34: 2015, 35: 2130, 36: 2200, 37: 2290, 38: 2380,
+    39: 2460, 40: 2560, 41: 2635, 42: 2715, 43: 2790, 44: 2870,
+    45: 2950, 46: 3025, 47: 3120, 48: 3210, 49: 3345, 50: 3645
+  },
+  "DriZ": {
+    15: 890, 16: 960, 17: 1030, 18: 1150, 19: 1180, 20: 1255,
+    21: 1365, 22: 1450, 23: 1535, 24: 1620, 25: 1710, 26: 1800,
+    27: 1890, 28: 1985, 29: 2080, 30: 2180, 31: 2280, 32: 2380,
+    33: 2485, 34: 2595, 35: 2705, 36: 2815, 37: 2930, 38: 3045,
+    39: 3160, 40: 3280
+  },
+  "Bochini": {
+    12: 780, 13: 840, 14: 915, 15: 985, 16: 1070, 17: 1160, 18: 1255, 19: 1460, 20: 1535,
+    21: 1555, 22: 1665, 23: 1775, 24: 1885, 25: 1975, 26: 2085, 27: 2185, 28: 2295, 29: 2490,
+    30: 2585, 31: 2785, 32: 2975, 33: 3160, 34: 3360, 35: 3580, 36: 3760, 37: 4030, 38: 4280,
+    39: 4550, 40: 4815
+  },
+  "Bochini Blockout": {
+    12: 815, 13: 915, 14: 955, 15: 995, 16: 1140, 17: 1255, 18: 1355, 19: 1460, 20: 1555,
+    21: 1670, 22: 1795, 23: 1925, 24: 2065, 25: 2165, 26: 2300, 27: 2445, 28: 2590, 29: 2765,
+    30: 2850, 31: 3040, 32: 3235, 33: 3430, 34: 3660, 35: 3890, 36: 4090, 37: 4375, 38: 4635,
+    39: 4900, 40: 5190
+  },
+  "Mehler FR580": {
+    12: 985, 13: 1075, 14: 1170, 15: 1265, 16: 1390, 17: 1520, 18: 1640, 19: 1780, 20: 1915,
+    21: 2065, 22: 2215, 23: 2365, 24: 2530, 25: 2725, 26: 2915, 27: 3070, 28: 3280, 29: 3475,
+    30: 3665, 31: 3820, 32: 4035, 33: 4220, 34: 4480, 35: 4740, 36: 4950, 37: 5190, 38: 5525,
+    39: 5790, 40: 6040
+  },
+  "Ferrari 502S2": {
+    12: 955, 13: 1045, 14: 1135, 15: 1230, 16: 1355, 17: 1490, 18: 1625, 19: 1760, 20: 1910,
+    21: 2045, 22: 2200, 23: 2355, 24: 2535, 25: 2715, 26: 2890, 27: 3045, 28: 3270, 29: 3470,
+    30: 3645, 31: 3810, 32: 4030, 33: 4220, 34: 4475, 35: 4720, 36: 4950, 37: 5230, 38: 5495,
+    39: 5760, 40: 6030
+  },
+  "Ferrari 502V3": {
+    12: 1010, 13: 1115, 14: 1205, 15: 1305, 16: 1460, 17: 1590, 18: 1740, 19: 1905, 20: 2030,
+    21: 2215, 22: 2380, 23: 2575, 24: 2745, 25: 2950, 26: 3145, 27: 3320, 28: 3540, 29: 3775,
+    30: 3975, 31: 4140, 32: 4375, 33: 4580, 34: 4870, 35: 5145, 36: 5405, 37: 5700, 38: 5990,
+    39: 6290, 40: 6575
+  }
+};
 
 const sumEdges = (dimensions, pointCount) => {
   let total = 0;
@@ -690,15 +710,3 @@ function getPriceByFabric(fabric, edgeMeter) {
 
   return pricelist[fabric][edgeMeter] || 0;
 }
-
-
-const pricelist = {
-  "Rainbow Z16": {
-    15: 585, 16: 615, 17: 660, 18: 700, 19: 740, 20: 780,
-    21: 840, 22: 890, 23: 940, 24: 990, 25: 1040, 26: 1100,
-    27: 1160, 28: 1210, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
-    33: 1520, 34: 1580, 35: 1645, 36: 1710, 37: 1780, 38: 1850,
-    39: 1910, 40: 1980, 41: 2060, 42: 2135, 43: 2210, 44: 2285,
-    45: 2360, 46: 2435, 47: 2510, 48: 2585, 49: 2685, 50: 2770
-  }
-};

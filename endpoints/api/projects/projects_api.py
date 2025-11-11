@@ -71,44 +71,49 @@ def resolve_project_type_id(data):
 @projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
-
     user = current_user(required=True)
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     data = request.get_json() or {}
 
-    if (data.get("type") == "cover" and False):
+    # Payload shape we expect:
+    # {
+    #   "general": {...},
+    #   "project_attributes": {...},
+    #   "project_calculated": {...},   # optional
+    #   "products": [...],
+    #   "type": "cover" | "shade_sail" | ...
+    # }
 
-        name = (data.get("name") or "").strip()
+    general = data.get("general") or {}
+    if not isinstance(general, dict):
+        return jsonify({"error": "general must be an object"}), 400
 
-        description = (f"{data.get('attributes').get('quantity')} x PVC Cover\n{data.get('attributes').get('length')}x{data.get('attributes').get('width')}x{data.get('attributes').get('length')}mm")
+    project_attributes = data.get("project_attributes") or {}
+    project_calculated = data.get("project_calculated") or {}
+    products_payload = data.get("products") or []
 
-        add_cover(name, description)
+    if not isinstance(project_attributes, dict):
+        return jsonify({"error": "project_attributes must be an object"}), 400
+    if not isinstance(project_calculated, dict):
+        return jsonify({"error": "project_calculated must be an object"}), 400
+    if not isinstance(products_payload, list):
+        return jsonify({"error": "products must be an array"}), 400
 
+    project_id = data.get("id")  # optional for update
 
-    #dont allow submissions of shadesails with dicrepancy problems TEMP
-    '''
-    try:
-        if data['calculated']['discrepancyProblem']:
-            return jsonify({"error": "Please resolve discrepancies before submitting"}), 400
-    except KeyError:
-        pass
-    '''
-        
-    project_id = data.get("id")  # Optional update/upsert
+    # Only allow these fields from "general" to map directly to Project
+    allowed_fields = {"name", "status", "due_date", "info", "client_id"}
+    project_data = {k: v for k, v in general.items() if k in allowed_fields}
 
-    # ---- CHANGED: do NOT whitelist "type" because it's a relationship now
-    allowed_fields = {"name", "status", "due_date", "info", "client_id"}  # <- 'type' removed
-    project_data = {k: v for k, v in data['general'].items() if k in allowed_fields}
-
+    # ---- validate & normalize name ----
     name = (project_data.get("name") or "").strip()
     if not name or len(name) == 0 or len(name) > 200:
         return jsonify({"error": "name is required and must be between 1 and 200 characters"}), 400
     project_data["name"] = name
 
-
-    # Normalize due_date
+    # ---- normalize due_date (string -> date or None) ----
     due_date = project_data.get("due_date")
     if due_date:
         try:
@@ -118,7 +123,7 @@ def save_project_config():
     else:
         project_data["due_date"] = None
 
-    # Coerce status if you're using SqlEnum(ProjectStatus)
+    # ---- coerce status into ProjectStatus enum if present ----
     if "status" in project_data and project_data["status"] is not None:
         st = project_data["status"]
         if not isinstance(st, ProjectStatus):
@@ -130,30 +135,21 @@ def save_project_config():
                 except Exception:
                     return jsonify({"error": f"Invalid status: {st}"}), 400
 
-    attributes = data.get("attributes") or {}
-    calculated = data.get("calculated") or {}
-    if not isinstance(attributes, dict) or not isinstance(calculated, dict):
-        return jsonify({"error": "attributes and calculated must be objects"}), 400
-
-    # ---- NEW: resolve type_id from either type_id or type name
+    # ---- resolve type_id from 'type' in payload (e.g. "cover") ----
     type_id, type_err = resolve_project_type_id(data)
     if type_err and not project_id:
         # On CREATE, type is required
         return jsonify({"error": type_err}), 400
 
-    # Determine target client_id
-    target_client_id = None
+    # ---- determine client_id ----
     if user.role == "client":
         target_client_id = user.id
     else:
-
-        print (project_data)
-        
         target_client_id = _as_int(project_data.get("client_id"))
-        
         if target_client_id is None and not project_id:
             return jsonify({"error": "client_id is required for staff creates"}), 400
 
+    # ---------- CREATE or UPDATE ----------
     if project_id:
         # --- UPDATE ---
         project = Project.query.get(project_id)
@@ -167,110 +163,118 @@ def save_project_config():
         else:
             # Staff can reassign client if provided
             if target_client_id is not None and target_client_id != project.client_id:
-                project.client_id = target_client_id  # ✅ set FK, not relationship
+                project.client_id = target_client_id
 
         # Staff can change type if provided
         if user.role != "client" and type_id is not None and type_id != project.type_id:
-            project.type_id = type_id  # ✅ set FK, not relationship
+            project.type_id = type_id
 
-        # Apply scalar fields only (name/status/due_date/info)
+        # Apply scalar fields (name/status/due_date/info)
         for field, value in project_data.items():
             setattr(project, field, value)
 
-        project.updated_at = datetime.now(timezone.utc)
+        #project.updated_at = datetime.now(timezone.utc)
 
     else:
         # --- CREATE ---
         project = Project(
-            name=(project_data.get("name") or "").strip(),
+            name=project_data["name"],
             status=project_data.get("status") or ProjectStatus.quoting,
             due_date=project_data.get("due_date"),
             info=project_data.get("info"),
-            client_id=target_client_id,  # ✅ FK
-            type_id=type_id,             # ✅ FK (resolved above)
+            client_id=target_client_id,
+            type_id=type_id,
+            project_attributes=project_attributes,
+            project_calculated=project_calculated,
         )
         db.session.add(project)
-        db.session.flush()  # get project.id
+        db.session.flush()  # get project.id for products
 
-    # Upsert attributes/calculated
-    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    changes = {
-        "attributes_updated": [],
-        "attributes_added": [],
-        "calculated_updated": [],
-        "calculated_added": [],
-    }
+    # ---------- UPDATE project-level JSON on both create & update ----------
+    # (On create we already initialised; on update we overwrite with new payload)
+    project.project_attributes = project_attributes
+    project.project_calculated = project_calculated
 
-    if attr:
-        if attr.data is None:
-            attr.data = {}
-        for k, v in attributes.items():
-            if k not in attr.data:
-                changes["attributes_added"].append(k)
-            elif attr.data[k] != v:
-                changes["attributes_updated"].append(k)
-            attr.data[k] = v
-        flag_modified(attr, "data")
+    # ---------- Replace products from payload ----------
+    # Simple approach: delete existing and recreate from the sent list
+    ProjectProduct.query.filter_by(project_id=project.id).delete(synchronize_session=False)
 
-        if attr.calculated is None:
-            attr.calculated = {}
-        for k, v in calculated.items():
-            if k not in attr.calculated:
-                changes["calculated_added"].append(k)
-            elif attr.calculated[k] != v:
-                changes["calculated_updated"].append(k)
-            attr.calculated[k] = v
-        flag_modified(attr, "calculated")
-    else:
-        attr = ProjectAttribute(project_id=project.id, data=attributes, calculated=calculated)
-        db.session.add(attr)
-        if attributes:
-            changes["attributes_added"].extend(list(attributes.keys()))
-        if calculated:
-            changes["calculated_added"].extend(list(calculated.keys()))
+    for idx, p in enumerate(products_payload):
+        if not isinstance(p, dict):
+            return jsonify({"error": "each product must be an object"}, 400)
+
+        attrs = p.get("attributes") or {}
+        if not isinstance(attrs, dict):
+            return jsonify({"error": "product.attributes must be an object"}, 400)
+
+        item_index = p.get("productIndex", idx)
+        label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
+        calc = p.get("calculated") or {}
+
+        pp = ProjectProduct(
+            project_id=project.id,
+            item_index=item_index,
+            label=label,
+            attributes=attrs,
+            calculated=calc,
+        )
+        db.session.add(pp)
 
     db.session.commit()
 
-    # Nice response: include type info now that it's a relationship
     resp_type = {"id": project.type.id, "name": project.type.name} if project.type else None
     resp_status = project.status.name if hasattr(project.status, "name") else project.status
+
+    # Optionally, serialize products back
+    products_out = [
+        {
+            "id": pp.id,
+            "itemIndex": pp.item_index,
+            "label": pp.label,
+            "attributes": pp.attributes,
+            "calculated": pp.calculated,
+        }
+        for pp in ProjectProduct.query.filter_by(project_id=project.id)
+        #.order_by(ProjectProduct.item_index).all()
+    ]
 
     return jsonify({
         "id": project.id,
         "client_id": project.client_id,
         "type": resp_type,
         "status": resp_status,
-        "changes": changes
+        "project_attributes": project.project_attributes,
+        "project_calculated": project.project_calculated,
+        "products": products_out,
     }), 200
 
-# -------------------------------
-# Edit existing project (auth + role aware)
-# -------------------------------
-from datetime import datetime
-from flask import jsonify, request
-from sqlalchemy.orm.attributes import flag_modified
 
 @projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
 def upsert_project_and_attributes(project_id):
     payload = request.get_json(silent=True) or {}
 
     general = payload.get("general") or {}
-    edited_attrs = payload.get("editedAttributes") or {}
-    edited_calc = payload.get("editedCalculated") or {}
+    project_attributes = payload.get("project_attributes")
+    project_calculated = payload.get("project_calculated")
+    products_payload = payload.get("products")
 
     if not isinstance(general, dict):
         return jsonify({"error": "general must be an object"}), 400
-    if not isinstance(edited_attrs, dict) or not isinstance(edited_calc, dict):
-        return jsonify({"error": "editedAttributes and editedCalculated must be objects"}), 400
+    if project_attributes is not None and not isinstance(project_attributes, dict):
+        return jsonify({"error": "project_attributes must be an object if provided"}), 400
+    if project_calculated is not None and not isinstance(project_calculated, dict):
+        return jsonify({"error": "project_calculated must be an object if provided"}), 400
+    if products_payload is not None and not isinstance(products_payload, list):
+        return jsonify({"error": "products must be an array if provided"}), 400
 
     # Ensure project exists
     project = Project.query.get_or_404(project_id)
 
     # ---------- Update general (Project) fields ----------
-    # Skip if explicitly disabled; default is enabled
+    # Optional "enabled" flag as you had before
     if general.get("enabled", True):
         if "name" in general:
-            project.name = general["name"]
+            project.name = (general["name"] or "").strip()
 
         if "client_id" in general:
             cid = general["client_id"]
@@ -284,45 +288,66 @@ def upsert_project_and_attributes(project_id):
 
         if "due_date" in general:
             dd = general["due_date"]
-            # Accept None/blank to clear; accept ISO date/datetime; else store raw
             if dd in (None, "", "null"):
                 project.due_date = None
             elif isinstance(dd, str):
+                # Accept ISO or YYYY-MM-DD; convert to date
                 try:
-                    # Try full ISO first (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-                    project.due_date = datetime.fromisoformat(dd)
-                except ValueError:
-                    try:
-                        project.due_date = datetime.strptime(dd, "%Y-%m-%d")
-                    except ValueError:
-                        # Fallback: store raw string if your model allows it
-                        project.due_date = dd
+                    project.due_date = parse_date(dd)
+                except Exception:
+                    return jsonify({"error": f"Invalid due_date format: {dd}"}), 400
             else:
-                project.due_date = dd  # if already a datetime/date
+                project.due_date = dd
 
         if "info" in general:
             project.info = general["info"]
 
-    # ---------- Upsert attributes ----------
-    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    if not attr:
-        attr = ProjectAttribute(
-            project_id=project.id,
-            data=edited_attrs,
-            calculated=edited_calc,
-        )
-        db.session.add(attr)
-    else:
-        attr.data = edited_attrs
-        attr.calculated = edited_calc
-        # Mark JSON columns as modified (if needed by your SQLAlchemy setup)
-        try:
-            flag_modified(attr, "data")
-            flag_modified(attr, "calculated")
-        except Exception:
-            pass
+    # ---------- Update project-level JSON if provided ----------
+    if project_attributes is not None:
+        project.project_attributes = project_attributes
+
+    if project_calculated is not None:
+        project.project_calculated = project_calculated
+
+    # ---------- Update products if provided ----------
+    if products_payload is not None:
+        # Simple semantics: replace all products with the new list
+        ProjectProduct.query.filter_by(project_id=project.id).delete(synchronize_session=False)
+
+        for idx, p in enumerate(products_payload):
+            if not isinstance(p, dict):
+                return jsonify({"error": "each product must be an object"}, 400)
+
+            attrs = p.get("attributes") or {}
+            if not isinstance(attrs, dict):
+                return jsonify({"error": "product.attributes must be an object"}, 400)
+
+            item_index = p.get("productIndex", idx)
+            label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
+            calc = p.get("calculated") or {}
+
+            pp = ProjectProduct(
+                project_id=project.id,
+                item_index=item_index,
+                label=label,
+                attributes=attrs,
+                calculated=calc,
+            )
+            db.session.add(pp)
 
     db.session.commit()
+
+    # Serialize for response
+    products_out = [
+        {
+            "id": pp.id,
+            "itemIndex": pp.item_index,
+            "label": pp.label,
+            "attributes": pp.attributes,
+            "calculated": pp.calculated,
+        }
+        for pp in ProjectProduct.query.filter_by(project_id=project.id).order_by(ProjectProduct.item_index).all()
+    ]
 
     return jsonify({
         "ok": True,
@@ -330,14 +355,12 @@ def upsert_project_and_attributes(project_id):
             "id": project.id,
             "name": project.name,
             "client_id": project.client_id,
-            # If you store datetime, you may want to format this before returning
             "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
             "info": project.info,
         },
-        "attributes": {
-            "data": attr.data,
-            "calculated": attr.calculated,
-        },
+        "project_attributes": project.project_attributes,
+        "project_calculated": project.project_calculated,
+        "products": products_out,
     }), 200
 
 
@@ -372,8 +395,8 @@ def list_project_configs():
             "status": project.status.name if hasattr(project.status, "name") else project.status,
             "due_date": project.due_date.isoformat() if project.due_date else None,
             "info": project.info,
-            "created_at": project.created_at.isoformat() if project.created_at else None,
-            "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+            #"created_at": project.created_at.isoformat() if project.created_at else None,
+            #"updated_at": project.updated_at.isoformat() if project.updated_at else None,
             "client": client_user.username if client_user else None,
         })
     return jsonify(result), 200
@@ -387,28 +410,56 @@ def get_project_config(project_id):
     user = current_user(required=True)
     project = Project.query.get_or_404(project_id)
 
-    # Authorization: clients can only access their own projects
+    # --- Authorization ---
     if user.role == "client" and project.client_id != user.id:
         return jsonify({"error": "Unauthorized"}), 403
 
-    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    data = {
+    # --- Basic project info (general) ---
+    general = {
         "id": project.id,
         "name": project.name,
-        "type": project.type.name if hasattr(project.type, "name") else project.type,
-        "status": project.status.name if hasattr(project.status, "name") else project.status,
+        "client_id": project.client_id,
         "due_date": project.due_date.isoformat() if project.due_date else None,
         "info": project.info,
-        "created_at": project.created_at.isoformat() if project.created_at else None,
-        "updated_at": project.updated_at.isoformat() if project.updated_at else None,
-        "client_id": project.client_id,
+        "status": project.status.name if hasattr(project.status, "name") else project.status,
+        #"created_at": project.created_at.isoformat() if project.created_at else None,
+        #"updated_at": project.updated_at.isoformat() if project.updated_at else None,
     }
-    if attr:
-        if attr.data:
-            data["attributes"] = attr.data
-        if attr.calculated:
-            data["calculated"] = attr.calculated
+
+    # --- Project type info ---
+    project_type = {
+        "id": project.type.id if project.type else None,
+        "name": project.type.name if project.type else None,
+    }
+
+    # --- Project-level attributes + calculated JSON ---
+    project_attributes = project.project_attributes or {}
+    project_calculated = project.project_calculated or {}
+
+    # --- Products (one per sail/cover/panel) ---
+    products = []
+    for p in project.products:
+        #.order_by(ProjectProduct.item_index).all()
+        products.append({
+            "id": p.id,
+            "name": p.label,
+            "productIndex": p.item_index,
+            "attributes": p.attributes or {},
+            "calculated": p.calculated or {},
+        })
+
+    # --- Response payload ---
+    data = {
+        "id": project.id,
+        "type": project_type,
+        "general": general,
+        "project_attributes": project_attributes,
+        "project_calculated": project_calculated,
+        "products": products,
+    }
+
     return jsonify(data), 200
+
 
 # -------------------------------
 # Price list (auth required — all roles)
@@ -416,7 +467,8 @@ def get_project_config(project_id):
 @projects_api_bp.route("/pricelist", methods=["GET"])
 @jwt_required()
 def get_pricelist():
-    products = Product.query.order_by(Product.name).all()
+    products = Product.query
+    #.order_by(Product.name).all()
     return jsonify([{
         "id": p.id,
         "sku": p.sku,
@@ -425,8 +477,8 @@ def get_pricelist():
         "price": p.price,
         "unit": p.unit,
         "active": p.active,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+        #"created_at": p.created_at.isoformat() if p.created_at else None,
+        #"updated_at": p.updated_at.isoformat() if p.updated_at else None,
     } for p in products]), 200
 
 # -------------------------------
@@ -435,7 +487,8 @@ def get_pricelist():
 @projects_api_bp.route("/clients", methods=["GET"])
 @role_required("admin", "estimator", "designer")
 def get_clients():
-    clients = User.query.filter_by(role="client").order_by(User.username).all()
+    clients = User.query.filter_by(role="client")
+    #.order_by(User.username).all()
     return jsonify([{"id": c.id, "name": c.username} for c in clients]), 200
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from models import db, User  # noqa: E402
+from models import db, User, ProjectType  # noqa: E402
 
 def bootstrap_admin():
     from passlib.hash import bcrypt
@@ -34,6 +34,41 @@ def bootstrap_admin():
     print(f"✅ Bootstrapped admin user '{username}' successfully (id={user.id}).")
 
 
+def bootstrap_project_types():
+    """Bootstrap default ProjectType records."""
+    types_to_create = [
+        {
+            "id": 0,
+            "name": "COVER",
+            "description": "Covers for various products",
+            "default_schema_id": 0
+        },
+        {
+            "id": 1,
+            "name": "SHADE_SAIL",
+            "description": "Shadesail in mesh or PVC",
+            "default_schema_id": 1
+        }
+    ]
+
+    for type_data in types_to_create:
+        existing = ProjectType.query.filter_by(id=type_data["id"]).first()
+        if existing:
+            print(f"ProjectType '{type_data['name']}' already exists (id={existing.id}).")
+            continue
+
+        project_type = ProjectType(
+            id=type_data["id"],
+            name=type_data["name"],
+            description=type_data["description"],
+            default_schema_id=type_data["default_schema_id"]
+        )
+        db.session.add(project_type)
+        print(f"Bootstrapped ProjectType '{type_data['name']}' (id={type_data['id']}).")
+
+    db.session.commit()
+
+
 if __name__ == "__main__":
     
     from flask import Flask
@@ -54,3 +89,4 @@ if __name__ == "__main__":
         # Ensure tables exist, then insert admin if needed
         db.create_all()
         bootstrap_admin()
+        bootstrap_project_types()

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ProcessStepper } from "../components/products/ProcessStepper";
 
 const ShadesailForm = React.lazy(() =>
-  import("../components/products/shadesail/Form.jsx")
+  import("../components/products/SHADE_SAIL/Form.jsx")
 );
 
 export default function Discrepancy() {
@@ -42,7 +42,7 @@ export default function Discrepancy() {
     let alive = true;
     if (stepsLoadedRef.current) return;
 
-    import("../components/products/shadesail/Steps.js")
+    import("../components/products/SHADE_SAIL/Steps.js")
       .then((mod) => {
         if (!alive || !stepperRef.current) return;
         const loaded = mod.Steps ?? mod.steps ?? [];

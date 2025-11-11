@@ -43,75 +43,41 @@ class ProjectStatus(enum.Enum):
     # Add more statuses as needed
 
 class Project(db.Model):
-    __tablename__ = 'projects'
+    __tablename__ = "projects"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-
-    # This is your "productType" in JSON
-    type_id = db.Column(db.Integer, db.ForeignKey('project_types.id'), nullable=False)
-    type = db.relationship('ProjectType', backref='projects')
+    type_id = db.Column(db.Integer, db.ForeignKey("project_types.id"), nullable=False)
+    type = db.relationship("ProjectType", backref="projects")
 
     status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
+    due_date = db.Column(db.Date)
+    info = db.Column(db.Text)
+    client_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
-    # Top-level, applies to whole project
-    due_date = db.Column(db.Date, nullable=True)      # maps from JSON "dueDate"
-    info = db.Column(db.Text, nullable=True)          # good place for global notes
+    project_attributes = db.Column(db.JSON, default=dict)
+    project_calculated = db.Column(db.JSON, default=dict)
 
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
-
-    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-
-    # NEW: each project can have 1..N products (sails/covers/etc)
     products = db.relationship(
-        'ProjectProduct',
-        backref='project',
-        lazy='dynamic',
-        order_by='ProjectProduct.item_index',
-        cascade='all, delete-orphan',
+        "ProjectProduct",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        #order_by="ProjectProduct.item_index"
     )
 
-    # unchanged
-    schemas = db.relationship(
-        'EstimatingSchema',
-        backref='project',
-        lazy='dynamic',
-        foreign_keys='EstimatingSchema.project_id'
-    )
 
 class ProjectProduct(db.Model):
-    """
-    One 'thing' under a project: e.g. a single shade sail or a single PVC cover.
-
-    Reuses the existing 'project_attributes' table so you don't lose data,
-    but adds item_index/label and renames 'data' → 'attributes' at the ORM level.
-    """
-    __tablename__ = 'project_attributes'  # reuse existing table
+    __tablename__ = "project_products"
 
     id = db.Column(db.Integer, primary_key=True)
-
-    project_id = db.Column(
-        db.Integer,
-        db.ForeignKey('projects.id'),
-        nullable=False,
-        index=True
-    )
-
-    # Order of this product within the project (1,2,3,...)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False, index=True)
     item_index = db.Column(db.Integer, nullable=False, default=1)
+    label = db.Column(db.String(120))
 
-    # Human label like "Sail 1", "Cover A" (optional but useful)
-    label = db.Column(db.String(120), nullable=True)
+    attributes = db.Column(db.JSON, default=dict)
+    calculated = db.Column(db.JSON, default=dict)
 
-    # Previously called `data`; we keep the column name but expose as `attributes`
-    attributes = db.Column('data', db.JSON)
-    calculated = db.Column(db.JSON)
-
-    # Optional: timestamps if you want (requires migration)
-    # created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    # updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
-
+    project = db.relationship("Project", back_populates="products")
 
 class Quote(db.Model):
     __tablename__ = 'quotes'
@@ -142,8 +108,8 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     unit = db.Column(db.String(32), nullable=True)
     active = db.Column(db.Boolean, default=True, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    #created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    #updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
 class EstimatingSchema(db.Model):
     __tablename__ = "estimating_schemas"
@@ -154,5 +120,5 @@ class EstimatingSchema(db.Model):
     data = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     version = db.Column(db.Integer, nullable=False, default=1)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    #created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    #updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())

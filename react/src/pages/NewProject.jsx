@@ -12,9 +12,8 @@ import ProjectForm from "../components/ProjectForm";
 
 
 const projectTypes = [
-  { name: "Covers",     id: "cover" },
-  { name: "Shade Sail", id: "shadesail" },
-  { name: "Multiple Shade Sail", id: "multishadesail" },
+  { name: "Covers",     id: "COVER" },
+  { name: "Shade Sail", id: "SHADE_SAIL" }
 ];
 
 export default function NewProject() {
@@ -131,7 +130,7 @@ export default function NewProject() {
       let stepperData = await stepperRef.current?.runAll(formData ?? {});
 
       const payload = {
-        formData: formData ?? {},
+        ...stepperData ?? {},
         type: projectType
       };
 

@@ -53,7 +53,7 @@ export const Steps = [
           const maxDrawWidth = 1000 - 2 * padding;
           const maxDrawHeight = 1000 - 2 * padding;
 
-          const scale = Math.min(
+          const scale = 0.5 * Math.min(
             maxDrawWidth / totalWidthUnits,
             maxDrawHeight / totalHeightUnits
           );
@@ -64,8 +64,8 @@ export const Steps = [
           const boxHem = hem * scale;
           const unitSpacing = spacing * scale;
 
-          const startX = 100;
-          const startY = 500 + 1000 * data.products.indexOf(product); // Stack products vertically
+          const startX = 100 + 500 * data.products.indexOf(product);
+          const startY = 500; // Stack products vertically
           const x = startX;
           const y = startY;
 
@@ -148,7 +148,7 @@ export const Steps = [
           ctx.fillStyle = 'black';
           ctx.textAlign = 'right';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`x ${quantity}`, 800, 800 + 1000 * data.products.indexOf(product));
+          ctx.fillText(`x ${quantity}`, 400 + 500 * data.products.indexOf(product), 800);
         } catch (err) {
           console.error(`[Covers Step 0] drawFunction error:`, err);
           if (ctx) {
@@ -160,11 +160,327 @@ export const Steps = [
         }
       }
     }
+  },
+  {
+    title: 'Step 1: Flatten Panels',
+    calcFunction: (data) => {
+      // No extra calc
 
-  }
+      for (const cover of data.products) {
+        let attributes = cover.attributes || {};
+        
+        attributes.flatMainHeight = attributes.width + 2 * attributes.seam;
+        attributes.flatMainWidth = 2 * attributes.hem + attributes.height * 2 + attributes.length;
+        attributes.flatSideWidth = attributes.height + attributes.seam;
+        attributes.flatSideHeight = attributes.length + attributes.seam * 2;
+        attributes.totalSeamLength =
+          2 * attributes.flatMainWidth +
+          2 * attributes.flatSideWidth +
+          4 * attributes.flatSideHeight;
+
+        attributes.areaMainM2 = (attributes.flatMainWidth * attributes.flatMainHeight) / 1e6;
+        attributes.areaSideM2 = (attributes.flatSideWidth * attributes.flatSideHeight) / 1e6;
+        attributes.totalFabricArea = attributes.areaMainM2 + 2 * attributes.areaSideM2;
+        }
+
+      return data;
+    },
+    drawFunction: (ctx, data) => {
+      // Simple text indication
+      let index = 0;
+      for (const cover of data.products) {
+        let attributes = cover.attributes || {};
+        drawCoverLayout(ctx, attributes, index);
+        index += 1;
+      }
+    }
+  },
+  {
+    title: 'Step 2: Split Panels if Needed',
+    calcFunction: (data) => {
+      // Split panels as needed
+      for (const cover of data.products) {
+        let attributes = cover.attributes || {};
+        const fabricWidth = attributes.fabricWidth || 1500; // default fabric width
+        const minAllowance = 200; // minimum allowance for small panel
+        const panels = splitPanelIfNeeded(
+          attributes.flatMainWidth,
+          attributes.flatMainHeight,
+          fabricWidth,
+          200,
+          attributes.seam
+        );
+        attributes.panels = panels;
+      }
+      return data;
+    },
+    drawFunction: (ctx, data) => {
+      // Simple text indication
+      let index = 0;
+      for (const cover of data.products) {
+        let attributes = cover.attributes || {};
+        drawRawPanelsLayout(ctx, attributes, index);
+        index += 1;
+      }
+    }
+  },
 ];
 
+
+
+
+
+function drawCoverLayout(ctx, data, index) {
+  if (!ctx || !data) return;
+
+  // ---- scaling + layout ----
+  const canvasSize = 800;
+  const padding = 100;
+  const gap = 50;
+
+  const availableWidth = canvasSize - 2 * padding;
+  const availableHeight = canvasSize - 2 * padding;
+
+  const layoutWidth = Math.max(data.flatMainWidth, data.flatSideWidth * 2 + gap);
+  const layoutHeight = data.flatMainHeight + data.flatSideHeight + gap;
+
+  const scale = Math.min(availableWidth / layoutWidth, availableHeight / layoutHeight);
+
+  const mainW = data.flatMainWidth * scale;
+  const mainH = data.flatMainHeight * scale;
+  const sideW = data.flatSideWidth * scale;
+  const sideH = data.flatSideHeight * scale;
+
+  const originX = (canvasSize - layoutWidth * scale) / 2;
+  const originY = (canvasSize - layoutHeight * scale) / 2 + index * (canvasSize); // Stack vertically per cover
+
+  const mainX = originX + (layoutWidth * scale - mainW) / 2;
+  const mainY = originY;
+
+  const sideY = mainY + mainH + gap;
+  const side1X = originX;
+  const side2X = originX + sideW + gap;
+
+  const seamOffset = data.seam * scale;
+  const seamXOffset = seamOffset; // same value
+  const hemOffset = data.hem * scale;
+
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 2;
+
+  // ---- main panel ----
+  ctx.strokeRect(mainX, mainY, mainW, mainH);
+
+  // vertical hems (dotted)
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  ctx.moveTo(mainX + hemOffset, mainY);
+  ctx.lineTo(mainX + hemOffset, mainY + mainH);
+  ctx.moveTo(mainX + mainW - hemOffset, mainY);
+  ctx.lineTo(mainX + mainW - hemOffset, mainY + mainH);
+  ctx.stroke();
+
+  // vertical side lines (height/length) dashed
+  ctx.setLineDash([8, 6]);
+  const seamLeft = hemOffset + data.height * scale;
+  const seamRight = hemOffset + (data.height + data.length) * scale;
+  ctx.beginPath();
+  ctx.moveTo(mainX + seamLeft, mainY);
+  ctx.lineTo(mainX + seamLeft, mainY + mainH);
+  ctx.moveTo(mainX + seamRight, mainY);
+  ctx.lineTo(mainX + seamRight, mainY + mainH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ---- side panels (both) ----
+  const sides = [
+    { x: side1X, y: sideY },
+    { x: side2X, y: sideY },
+  ];
+
+  sides.forEach(({ x, y }) => {
+    ctx.strokeRect(x, y, sideW, sideH);
+  });
+
+  // dotted seam grid (blue)
+  ctx.setLineDash([2, 4]);
+  ctx.strokeStyle = "#00f";
+
+  ctx.beginPath();
+
+  // main: horizontal seams
+  ctx.moveTo(mainX, mainY + seamOffset);
+  ctx.lineTo(mainX + mainW, mainY + seamOffset);
+  ctx.moveTo(mainX, mainY + mainH - seamOffset);
+  ctx.lineTo(mainX + mainW, mainY + mainH - seamOffset);
+
+  // side panels: horizontal + vertical seams
+  sides.forEach(({ x, y }) => {
+    // horizontal
+    ctx.moveTo(x, y + seamOffset);
+    ctx.lineTo(x + sideW, y + seamOffset);
+    // verticals
+    ctx.moveTo(x + seamXOffset, y);
+    ctx.lineTo(x + seamXOffset, y + sideH);
+    ctx.moveTo(x + sideW - seamXOffset, y);
+    ctx.lineTo(x + sideW - seamXOffset, y + sideH);
+  });
+
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "#000";
+
+  // side panel bottom hems (dotted)
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  sides.forEach(({ x, y }) => {
+    ctx.moveTo(x, y + sideH - hemOffset);
+    ctx.lineTo(x + sideW, y + sideH - hemOffset);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ---- labels ----
+  ctx.font = "16px sans-serif";
+  ctx.fillStyle = "#000";
+
+  // main dims
+  ctx.fillText(`${data.flatMainWidth} mm`, mainX + mainW / 2 - 40, mainY - 10);
+
+  ctx.save();
+  ctx.translate(mainX - 10, mainY + mainH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(`${data.flatMainHeight} mm`, -40, 0);
+  ctx.restore();
+
+  // side dims (same width/height both sides)
+  sides.forEach(({ x, y }) => {
+    ctx.fillText(`${data.flatSideWidth} mm`, x + sideW / 2 - 30, y - 10);
+
+    ctx.save();
+    ctx.translate(x - 10, y + sideH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(`${data.flatSideHeight} mm`, -35, 0);
+    ctx.restore();
+  });
+
+  // ---- areas ----
+  const areaMainM2 = (data.flatMainWidth * data.flatMainHeight) / 1e6;
+  const areaSideM2 = (data.flatSideWidth * data.flatSideHeight) / 1e6;
+  const totalFabricArea = areaMainM2 + 2 * areaSideM2;
+
+  /*
+  ctx.fillText(
+    `Main Area: ${areaMainM2.toFixed(3)} m²`,
+    mainX + mainW / 2 - 80,
+    mainY + mainH / 2
+  );
+
+  sides.forEach(({ x, y }) => {
+    ctx.fillText(
+      `Side Area: ${areaSideM2.toFixed(3)} m²`,
+      x + sideW / 2 - 80,
+      y + sideH / 2
+    );
+  });
+  */
+  //#ctx.fillText(`totalFabricArea: ${totalFabricArea} m²`, 800, 900);
+}
+
+
+
+
+
+
 // helpers/splitPanelIfNeeded.js — used in Step 2
+export function drawRawPanelsLayout(ctx, data, index = 0) {
+  if (!ctx || !data?.rawPanels) return 0;
+
+  const padding = 100;
+  const availableWidth = 600;
+  const canvasHeight = 800;
+  const gapX = 50;
+
+  const panelsArray = Object.values(data.rawPanels);
+  if (panelsArray.length === 0) return 0;
+
+  // Compute total width & max height (unscaled)
+  let totalWidth = 0;
+  let maxHeight = 0;
+  for (const panel of panelsArray) {
+    totalWidth += panel.width;
+    if (panel.height > maxHeight) maxHeight = panel.height;
+  }
+
+  const availableHeight = canvasHeight - 2 * padding;
+  const scale = Math.min(
+    availableWidth / totalWidth,
+    availableHeight / maxHeight
+  );
+
+  let cursorX = 100;
+  const originY = index * 1000 + (canvasHeight - maxHeight * scale) / 2;
+  const seam = data.seam || 0;
+
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.font = "14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  let totalArea = 0;
+
+  for (const [name, panel] of Object.entries(data.rawPanels)) {
+    const w = panel.width * scale;
+    const h = panel.height * scale;
+    const x = cursorX;
+    const y = originY;
+
+    const area = (panel.width * panel.height) / 1e6;
+    totalArea += area;
+
+    // Outer rect
+    ctx.strokeStyle = "#000";
+    ctx.setLineDash([]);
+    ctx.strokeRect(x, y, w, h);
+
+    // Seam line (if any)
+    if (panel.hasSeam === "top" || panel.hasSeam === "bottom") {
+      const seamY =
+        panel.hasSeam === "top"
+          ? y + seam * scale
+          : y + h - seam * scale;
+
+      ctx.strokeStyle = "#00f";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, seamY);
+      ctx.lineTo(x + w, seamY);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#000";
+    }
+
+    // Labels
+    ctx.fillText(name, x + w / 2, y + h / 2 - 18);
+    ctx.fillText(`${area.toFixed(3)} m²`, x + w / 2, y + h / 2 + 2);
+    ctx.fillText(`${panel.width} mm`, x + w / 2, y - 12);
+
+    ctx.save();
+    ctx.translate(x - 12, y + h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(`${panel.height} mm`, 0, 0);
+    ctx.restore();
+
+    cursorX += w + gapX;
+  }
+
+  ctx.restore();
+  return totalArea;
+}
+
+
 function splitPanelIfNeeded(width, height, fabricWidth, minAllowance, seam) {
   console.log("==== SPLITTING PANEL ====");
   console.log(`Input: width=${width}, height=${height}, fabricWidth=${fabricWidth}, minAllowance=${minAllowance}, seam=${seam}`);

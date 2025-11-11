@@ -1,6 +1,6 @@
 # endpoints/api/products/nest.py
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
@@ -142,6 +142,108 @@ def run_rectpack_with_fixed_height(
     }
 
 
+# ---------- Generic helpers ----------
+def prepare_arbitrary_rectangles(data: dict) -> List[Tuple[int, int, str]]:
+    """
+    Accepts an object like:
+    {
+      "rectangles": [
+        {"width": 100, "height": 200, "label": "A", "quantity": 2},
+        {"width": 150, "height": 150}  # label auto-assigned, quantity default 1
+      ],
+      "group_small": false,            # optional
+      "small_side_max": 500,           # optional if grouping
+      "group_row_max": 2000            # optional if grouping
+    }
+
+    Returns a list of (w, h, label) tuples. If grouping is enabled, small panels are grouped heuristically
+    into rows similar to prepare_rectangles.
+    """
+    rects = data.get("rectangles")
+    if not isinstance(rects, list) or not rects:
+        raise ValueError("rectangles must be a non-empty array")
+
+    tuples: List[Tuple[int, int, str]] = []
+    auto_index = 1
+    for item in rects:
+        if not isinstance(item, dict):
+            raise ValueError("Each rectangle must be an object")
+        try:
+            w = int(round(float(item["width"])))
+            h = int(round(float(item["height"])))
+        except Exception:
+            raise ValueError("Rectangle width/height must be numeric")
+        if w <= 0 or h <= 0:
+            raise ValueError("Rectangle width/height must be > 0")
+        qty = int(item.get("quantity", 1))
+        if qty <= 0:
+            raise ValueError("quantity must be positive")
+        label_base = str(item.get("label") or f"R{auto_index}")
+        for i in range(1, qty + 1):
+            label = label_base if qty == 1 else f"{label_base}_{i}"
+            tuples.append((w, h, label))
+        auto_index += 1
+
+    # Optional heuristic grouping, if requested
+    if bool(data.get("group_small", False)):
+        small_side_max = int(data.get("small_side_max", 500))
+        group_row_max = int(data.get("group_row_max", 2000))
+        tuples.sort(key=lambda r: max(r[0], r[1]), reverse=True)
+        small_panels = [r for r in tuples if r[0] < small_side_max and r[1] < small_side_max]
+        large_panels = [r for r in tuples if r not in small_panels]
+        grouped: List[Tuple[int, int, str]] = []
+        while small_panels:
+            row_w = 0
+            row_h = 0
+            row = []
+            while small_panels and row_w + small_panels[0][0] <= group_row_max:
+                w, h, lbl = small_panels.pop(0)
+                row_w += w
+                row_h = max(row_h, h)
+                row.append((w, h, lbl))
+            if row:
+                grouped.append((row_w, row_h, f"group_{len(grouped)}"))
+        grouped.extend(large_panels)
+        return grouped
+
+    return tuples
+
+
+def pack_into_fixed_bin(
+    rectangles: List[Tuple[int, int, str]],
+    bin_width: int,
+    bin_height: int,
+    allow_rotation: bool = True,
+):
+    """
+    Pack rectangles into a single fixed-size bin. Raises ValueError if they cannot all fit.
+    Returns placements and used dimensions.
+    """
+    if bin_width <= 0 or bin_height <= 0:
+        raise ValueError("bin_width and bin_height must be positive integers")
+
+    fits, packer = can_fit(rectangles, bin_width, bin_height, allow_rotation)
+    if not fits:
+        raise ValueError("Cannot fit rectangles into the fixed bin size")
+
+    placements: Dict[str, Dict[str, int | bool]] = {}
+    used_w = 0
+    used_h = 0
+    for (bin_idx, x, y, w, h, rid) in packer.rect_list():
+        placements[rid] = {"x": x, "y": y, "rotated": (w, h) != next(r[:2] for r in rectangles if r[2] == rid)}
+        used_w = max(used_w, x + w)
+        used_h = max(used_h, y + h)
+
+    return {
+        "panels": placements,
+        "used_width": int(used_w),
+        "used_height": int(used_h),
+        "bin_width": int(bin_width),
+        "bin_height": int(bin_height),
+        "rotation": bool(allow_rotation),
+    }
+
+
 # ---------- Route ----------
 @nest_bp.route("/nest_panels", methods=["POST"])
 @role_required("estimator", "designer", "client")
@@ -187,6 +289,86 @@ def nest_panels():
         return jsonify(result), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
-    except Exception as e:
+    except Exception:
         # Don’t leak internals in prod; log e if you have a logger
+        return jsonify({"error": "Nesting failed"}), 500
+
+
+@nest_bp.route("/nest_rectangles", methods=["POST"])
+@role_required("estimator", "designer", "client")
+def nest_rectangles():
+    """
+    Generic rectangle nesting.
+
+    Body (two modes):
+
+    1) Fixed height, minimize width (like fabric roll):
+       {
+         "rectangles": [ {"width": 100, "height": 200, "label": "A", "quantity": 2}, ... ],
+         "fabricHeight": 3200,        # required in this mode (alias: fabric_height, bin_height)
+         "allowRotation": true,       # optional
+         "group_small": false,        # optional
+         "small_side_max": 500,
+         "group_row_max": 2000
+       }
+
+       Returns { panels, total_width, required_width, bin_height, rotation }
+
+    2) Fixed-size bin:
+       {
+         "rectangles": [ ... ],
+         "bin": { "width": 2000, "height": 3200 },
+         "allowRotation": true
+       }
+
+       Returns { panels, used_width, used_height, bin_width, bin_height, rotation }
+    """
+    user = current_user(required=True)
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        data = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    allow_rotation = bool(data.get("allowRotation", True))
+
+    try:
+        rectangles = prepare_arbitrary_rectangles(data)
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+
+    # Mode detection
+    bin_obj = data.get("bin") if isinstance(data.get("bin"), dict) else None
+    if bin_obj and ("width" in bin_obj and "height" in bin_obj):
+        # Fixed bin mode
+        try:
+            bw = int(round(float(bin_obj["width"])))
+            bh = int(round(float(bin_obj["height"])))
+        except Exception:
+            return jsonify({"error": "bin width/height must be numeric"}), 400
+        try:
+            result = pack_into_fixed_bin(rectangles, bw, bh, allow_rotation)
+            return jsonify(result), 200
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+        except Exception:
+            return jsonify({"error": "Nesting failed"}), 500
+
+    # Otherwise treat as fixed-height minimize width
+    fabric_height = data.get("fabricHeight") or data.get("fabric_height") or data.get("bin_height")
+    try:
+        fabric_height = int(round(float(fabric_height)))
+        if fabric_height <= 0:
+            raise ValueError
+    except Exception:
+        return jsonify({"error": "fabricHeight must be a positive number"}), 400
+
+    try:
+        result = run_rectpack_with_fixed_height(rectangles, fabric_height, allow_rotation)
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception:
         return jsonify({"error": "Nesting failed"}), 500

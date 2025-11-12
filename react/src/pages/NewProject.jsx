@@ -197,7 +197,7 @@ export default function NewProject() {
               <canvas
                 ref={canvasRef}
                 width={1000}
-                height={4000}
+                height={5000}
                 style={{
                   border: "1px solid #ccc",
                   marginTop: "20px",

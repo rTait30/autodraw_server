@@ -4,7 +4,6 @@ export const Steps = [
   {
     title: 'Step 0: Visualise Covers',
     calcFunction: (data) => {
-
       let totalCovers = 0;
       for (const product of data.products) {
         try {
@@ -196,50 +195,157 @@ export const Steps = [
     }
   },
   {
-    title: 'Step 2: Split Panels if Needed',
-    calcFunction: (data) => {
-      // Split panels as needed
-      for (const cover of data.products) {
-        let attributes = cover.attributes || {};
-        const fabricWidth = attributes.fabricWidth || 1500; // default fabric width
-        const minAllowance = 200; // minimum allowance for small panel
-
-        const panels = []
-
-        panels.push(...
-          splitPanelIfNeeded(
-          attributes.flatMainWidth,
-          attributes.flatMainHeight,
-          fabricWidth,
-          200,
-          attributes.seam
-          )
-        );
-
-        panels.push(...
-          splitPanelIfNeeded(
-          attributes.flatSideWidth,
-          attributes.flatSideHeight,
-          fabricWidth,
-          200,
-          attributes.seam,
-          2 // quantity = 2 side panels
-        ));
-
-        attributes.panels = panels;
+    title: 'Step 2: Nest Panels',
+    calcFunction: async (data) => {
+      // Aggregate all rectangles for ALL products into one nest
+      const allRectangles = [];
+      const metaMap = {}; // label -> {width,height,base,productIndex}
+      for (let i = 0; i < data.products.length; i++) {
+        const cover = data.products[i];
+        if (!cover) continue;
+        const a = cover.attributes || {};
+        const seam = Number(a.seam) || 0;
+        const fabricWidth = Number(a.fabricWidth) || 1500;
+        const minAllowance = 200;
+        const quantity = Math.max(1, Number(a.quantity) || 1); // how many copies of this cover
+        const panels = [
+          { id: 'MAIN', w: Number(a.flatMainWidth) || 0, h: Number(a.flatMainHeight) || 0 },
+          { id: 'SIDE_L', w: Number(a.flatSideWidth) || 0, h: Number(a.flatSideHeight) || 0 },
+          { id: 'SIDE_R', w: Number(a.flatSideWidth) || 0, h: Number(a.flatSideHeight) || 0 },
+        ];
+        for (const p of panels) {
+          if (!(p.w > 0 && p.h > 0)) continue;
+          if (p.h > fabricWidth) {
+            const parts = splitPanelIfNeeded(p.w, p.h, fabricWidth, minAllowance, seam, 1);
+            parts.forEach(part => {
+              const suffix = part.hasSeam === 'top' ? 'TOP' : (part.hasSeam === 'bottom' ? 'BOTTOM' : 'PART');
+              for (let q = 1; q <= quantity; q++) {
+                const label = `P${i + 1}_${p.id}_${suffix}_Q${q}`;
+                allRectangles.push({ width: part.width, height: part.height, label, quantity: 1 });
+                metaMap[label] = { width: part.width, height: part.height, base: p.id, productIndex: i };
+              }
+            });
+          } else {
+            for (let q = 1; q <= quantity; q++) {
+              const label = `P${i + 1}_${p.id}_Q${q}`;
+              allRectangles.push({ width: p.w, height: p.h, label, quantity: 1 });
+              metaMap[label] = { width: p.w, height: p.h, base: p.id, productIndex: i };
+            }
+          }
+        }
+      }
+      if (allRectangles.length === 0) return data;
+      const maxFabricWidth = Math.max(...data.products.map(p => Number(p.attributes?.fabricWidth) || 1500));
+      try {
+        const response = await apiFetch('/nest_rectangles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rectangles: allRectangles, fabricHeight: maxFabricWidth, allowRotation: true })
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(()=>({}));
+          throw new Error(err.error || 'Nesting failed');
+        }
+        const nest = await response.json();
+        // distribute back
+        for (const [label, placement] of Object.entries(nest.panels || {})) {
+          const mm = metaMap[label];
+          if (!mm) continue;
+          const prod = data.products[mm.productIndex];
+          if (!prod) continue;
+          const attr = prod.attributes || (prod.attributes = {});
+          if (!attr.panels) attr.panels = {};
+            attr.panels[label] = { width: mm.width, height: mm.height, base: mm.base, x: placement.x, y: placement.y, rotated: !!placement.rotated };
+        }
+        // Store for whole project (project-level result)
+        if (!data.project_attributes) data.project_attributes = {};
+        data.project_attributes.nest = nest;
+        data.project_attributes.nested_panels = metaMap; // raw meta if needed later
+      } catch (e) {
+        console.error('[Covers Step 2] nest error', e);
+        if (!data.project_attributes) data.project_attributes = {};
+        data.project_attributes.nestError = String(e?.message || e);
       }
       return data;
     },
     drawFunction: (ctx, data) => {
-      // Simple text indication
-      let index = 0;
-      for (const cover of data.products) {
-        let attributes = cover.attributes || {};
-        drawRawPanelsLayout(ctx, attributes, index);
-        index += 1;
+
+            if (!ctx) return;
+      const nest = data.project_attributes?.nest;
+      if (!nest || !nest.required_width || !nest.bin_height) return;
+      // don't clear previous drawings
+      const padding = 60;
+      //const offsetY = 2000; // push below previous steps
+      const offsetY = 0;
+      const canvasW = ctx.canvas.width;
+      const canvasH = ctx.canvas.height;
+      const availableW = canvasW - 2 * padding;
+      const availableH = canvasH - offsetY - padding - 40;
+      const scale = Math.min(availableW / nest.required_width, availableH / nest.bin_height);
+      const binX = padding;
+      const binY = offsetY;
+      const binW = Math.round(nest.required_width * scale);
+      const binH = Math.round(nest.bin_height * scale);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(binX, binY, binW, binH);
+      // Fixed-size dimension annotation directly beneath fabric box (independent of scale)
+      const dimY = binY + binH + 20; // vertical position for dimension line
+      const tickSize = 10; // fixed pixel size for ticks
+      ctx.save();
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 2;
+      // Horizontal dimension line
+      ctx.beginPath();
+      ctx.moveTo(binX, dimY);
+      ctx.lineTo(binX + binW, dimY);
+      ctx.stroke();
+      // End ticks
+      ctx.beginPath();
+      ctx.moveTo(binX, dimY - tickSize);
+      ctx.lineTo(binX, dimY + tickSize);
+      ctx.moveTo(binX + binW, dimY - tickSize);
+      ctx.lineTo(binX + binW, dimY + tickSize);
+      ctx.stroke();
+      // Label (centered, constant font size)
+      ctx.fillStyle = '#000';
+      ctx.font = '24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${nest.required_width} mm`, binX + binW / 2, dimY + 6);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(binX - 30, binY + binH / 2);
+      ctx.rotate(-Math.PI/2);
+      ctx.textAlign = 'center';
+      
+      ctx.font = '20px sans-serif';
+      ctx.fillText(`Fabric Width: ${nest.bin_height}mm`, 0, 0);
+      ctx.restore();
+      const colors = { MAIN:'#FF6B6B', SIDE_L:'#4ECDC4', SIDE_R:'#45B7D1', DEFAULT:'#98D8C8' };
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      for (const [label, placement] of Object.entries(nest.panels||{})) {
+        let meta=null;
+        for (const prod of data.products) {
+          const attr=prod.attributes||{};
+          if (attr.panels && attr.panels[label]) { meta=attr.panels[label]; break; }
+        }
+        if(!meta) continue;
+        const color = colors[meta.base] || colors.DEFAULT;
+        const w = Math.round((placement.rotated? meta.height: meta.width)*scale);
+        const h = Math.round((placement.rotated? meta.width: meta.height)*scale);
+        const x = Math.round(binX + placement.x*scale);
+        const y = Math.round(binY + placement.y*scale);
+        ctx.globalAlpha=0.65; ctx.fillStyle=color; ctx.fillRect(x,y,w,h);
+        ctx.globalAlpha=1; ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
+        ctx.fillStyle='#000'; ctx.font='12px sans-serif'; ctx.fillText(label, x+w/2, y+h/2-6);
+        ctx.font='10px sans-serif'; ctx.fillText(`${meta.width}×${meta.height}${placement.rotated?' ↻':''}`, x+w/2, y+h/2+8);
       }
-    }
-  }
+      
+    },
+    drawTop: true
+  },
 ];
 
 
@@ -260,15 +366,15 @@ function drawCoverLayout(ctx, data, index) {
   const layoutWidth = Math.max(data.flatMainWidth, data.flatSideWidth * 2 + gap);
   const layoutHeight = data.flatMainHeight + data.flatSideHeight + gap;
 
-  const scale = Math.min(availableWidth / layoutWidth, availableHeight / layoutHeight);
+  const scale = Math.min(availableWidth / layoutWidth, availableHeight / layoutHeight) / 2;
 
   const mainW = data.flatMainWidth * scale;
   const mainH = data.flatMainHeight * scale;
   const sideW = data.flatSideWidth * scale;
   const sideH = data.flatSideHeight * scale;
 
-  const originX = (canvasSize - layoutWidth * scale) / 2;
-  const originY = (canvasSize - layoutHeight * scale) / 2 + index * (canvasSize); // Stack vertically per cover
+  const originX = 100 + index * (canvasSize / 2);
+  const originY = (canvasSize - layoutHeight * scale) / 2; // Stack vertically per cover
 
   const mainX = originX + (layoutWidth * scale - mainW) / 2;
   const mainY = originY;

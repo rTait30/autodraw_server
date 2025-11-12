@@ -90,6 +90,8 @@ export class ProcessStepper {
     const { ctx, stepOffsetY } = this;
 
     for (let i = 0; i < this.steps.length; i++) {
+
+
       // compute data first
       this.data = await this.steps[i].calcFunction(this.data);
 

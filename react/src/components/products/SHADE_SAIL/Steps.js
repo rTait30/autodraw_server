@@ -24,6 +24,32 @@ export const Steps = [
 
         attributes.positions = computeSailPositionsFromXY(attributes.pointCount, attributes.xyDistances);
 
+        // Calculate discrepancies if we have enough points
+        if (data.discrepancyChecker && attributes.pointCount >= 4) {
+          const { discrepancies, blame } = computeDiscrepanciesAndBlame(
+            attributes.pointCount,
+            attributes.xyDistances,
+            attributes
+          );
+          
+          attributes.discrepancies = discrepancies;
+          attributes.blame = blame;
+          
+          // Find max discrepancy
+          const discrepancyValues = Object.values(discrepancies).filter(v => v !== null && !isNaN(v));
+          const maxDiscrepancy = discrepancyValues.length > 0 ? Math.max(...discrepancyValues) : 0;
+          attributes.maxDiscrepancy = maxDiscrepancy;
+          
+          // Set problem flag if max discrepancy exceeds tolerance (e.g., 10mm)
+          const tolerance = 10; // mm
+          attributes.discrepancyProblem = maxDiscrepancy > tolerance;
+          
+          console.log("Discrepancy calculation:", {
+            maxDiscrepancy,
+            discrepancyProblem: attributes.discrepancyProblem,
+            discrepancies
+          });
+        }
 
       }
 
@@ -136,8 +162,29 @@ export const Steps = [
         }
         ctx.stroke();
 
-        //ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
-        //ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
+        // Display discrepancy information
+        if (data.discrepancyChecker && attributes.maxDiscrepancy !== undefined) {
+          ctx.font = 'bold 24px Arial';
+          ctx.fillStyle = attributes.discrepancyProblem ? '#D00' : '#0A0';
+          ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 150);
+          ctx.fillText("Status: " + (attributes.discrepancyProblem ? "PROBLEM" : "OK"), pad, topOffset + slotHeight - 110);
+          
+          // Show individual discrepancies for debugging
+          if (attributes.discrepancies) {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#666';
+            let yPos = topOffset + slotHeight - 70;
+            let count = 0;
+            for (const [combo, disc] of Object.entries(attributes.discrepancies)) {
+              if (disc !== null && !isNaN(disc) && disc > 0.1) {
+                ctx.fillText(`${combo}: ${disc.toFixed(2)}mm`, pad, yPos);
+                yPos += 20;
+                count++;
+                if (count >= 5) break; // Show only first 5
+              }
+            }
+          }
+        }
       });
 
       ctx.restore();

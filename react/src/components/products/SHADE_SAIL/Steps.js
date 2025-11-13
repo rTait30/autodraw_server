@@ -24,6 +24,26 @@ export const Steps = [
 
         attributes.positions = computeSailPositionsFromXY(attributes.pointCount, attributes.xyDistances);
 
+        const { discrepancies, blame } = computeDiscrepanciesAndBlame(attributes.pointCount, attributes.xyDistances, sail);
+        attributes.discrepancies = discrepancies;
+        attributes.blame = blame;
+
+        attributes.maxDiscrepancy = Math.max(...Object.values(discrepancies || {}).map(v => Math.abs(v))) || 0;
+
+        let discrepancyThreshold = 100;
+
+        if (attributes.fabricCategory === "PVC") {
+          discrepancyThreshold = 20;
+        }
+
+        if (attributes.fabricCategory === "ShadeCloth") {
+          discrepancyThreshold = 70;
+        }
+
+
+
+        attributes.discrepancyProblem = attributes.maxDiscrepancy > (discrepancyThreshold);
+        
 
       }
 
@@ -136,8 +156,8 @@ export const Steps = [
         }
         ctx.stroke();
 
-        //ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
-        //ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
+        ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
+        ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
       });
 
       ctx.restore();

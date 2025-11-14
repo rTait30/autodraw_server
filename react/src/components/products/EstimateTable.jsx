@@ -198,13 +198,22 @@ export default function EstimateTable({
 
   return (
     <div>
+
+      <table className="tableBase">
+      <tr className="tableHeader">
+        <th>Description</th>
+        <th>Quantity</th>
+        <th>Unit Cost</th>
+        <th>Total</th>
+      </tr></table>
+
       {productTotals.map((productData) => {
         const { productIndex, name, attributes, inputs, rows, context } = productData;
 
         return (
-          <div key={productIndex} style={{ marginBottom: '40px' }}>
+          <div key={productIndex}>
             {/* Product Header */}
-            <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>
+            <h3 className = "headingStyle mt-5 text-red-800">
               {name}
             </h3>
 
@@ -212,17 +221,12 @@ export default function EstimateTable({
               <tbody>
                 {Object.entries(schema).map(([section, schemaRows]) => (
                   <React.Fragment key={section}>
-                    {/* Column Headings */}
-                    <tr className="tableHeader">
-                      <th>Description</th>
-                      <th>Quantity</th>
-                      <th>Unit Cost</th>
-                      <th>Total</th>
-                    </tr>
+                    {/* Column Headings  */}
+
 
                     {/* Section Header */}
                     <tr>
-                      <td colSpan={4} className="tableSection">
+                      <td colSpan={4} style={{ fontSize: '18px', fontWeight: 'bold'}}>
                         {section}
                       </td>
                     </tr>

@@ -1,10 +1,8 @@
-import React, { useRef, useEffect, Suspense, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProcessStepper } from "../components/products/ProcessStepper";
-
-const ShadesailForm = React.lazy(() =>
-  import("../components/products/SHADE_SAIL/Form.jsx")
-);
+import ProductForm from "../components/products/SHADE_SAIL/Form.jsx";
+import { Steps } from "../components/products/SHADE_SAIL/Steps.js";
 
 export default function Discrepancy() {
   const navigate = useNavigate();
@@ -12,75 +10,65 @@ export default function Discrepancy() {
   const formRef = useRef(null);
   const canvasRef = useRef(null);
   const stepperRef = useRef(null);
-  const stepsLoadedRef = useRef(false);
   const [checkSign, setCheckSign] = useState({ text: "", ok: null });
 
-  // Init stepper once and attach canvas when available
+  // Initialize stepper and load steps - same pattern as NewProject
   useEffect(() => {
-    // fresh stepper (800px vertical spacing like your NewProject page)
-    stepperRef.current = new ProcessStepper(800);
-
-    // if canvas already mounted, attach immediately
-    if (canvasRef.current) {
-      stepperRef.current.addCanvas(canvasRef.current);
-    }
-
-    return () => {
-      stepperRef.current = null;
-    };
-  }, []);
-
-  // Attach canvas whenever it mounts/changes
-  useEffect(() => {
-    if (canvasRef.current && stepperRef.current) {
-      stepperRef.current.addCanvas(canvasRef.current);
-    }
-  }, [canvasRef.current]);
-
-  // Lazy-load Steps only once and register them on the stepper
-  useEffect(() => {
+    if (!canvasRef.current) return;
+    
     let alive = true;
-    if (stepsLoadedRef.current) return;
 
-    import("../components/products/SHADE_SAIL/Steps.js")
-      .then((mod) => {
-        if (!alive || !stepperRef.current) return;
-        const loaded = mod.Steps ?? mod.steps ?? [];
-        // Clear just in case, then add
-        stepperRef.current.clear?.();
-        loaded.forEach((s) => stepperRef.current.addStep(s));
-        stepsLoadedRef.current = true;
-      })
-      .catch((e) => console.error("[Discrepancy] Failed to load steps:", e));
+    // Create stepper and add canvas
+    stepperRef.current = new ProcessStepper(800);
+    stepperRef.current.addCanvas(canvasRef.current);
+    
+    // Add steps directly (no lazy loading)
+    if (alive && stepperRef.current) {
+      Steps.forEach((step) => stepperRef.current.addStep(step));
+    }
 
     return () => {
       alive = false;
+      stepperRef.current = null;
     };
-  }, []);
+  }, [canvasRef.current]);
 
   const onCheck = async () => {
-    // clear sign while checking
+    // Clear sign while checking
     setCheckSign({ text: "", ok: null });
-    const all = formRef.current?.getValues?.();
-    if (!all || !all.attributes) return;
-
-    // Clear canvas first (keeps visuals clean)
-    const ctx = canvasRef.current?.getContext("2d");
-    if (ctx && canvasRef.current) {
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    
+    const formData = formRef.current?.getValues?.() ?? {};
+    if (!formData.attributes) {
+      setCheckSign({ text: "Please fill in the form", ok: false });
+      return;
     }
 
-    // Ensure runAll knows this is a discrepancy check
-    let message = await stepperRef.current?.runAll({
-      ...(all.attributes || {}),
-      discrepancyChecker: true,
-    });
+    console.log("Running discrepancy check with data:", formData);
 
-    console.log("Discrepancy check result:", message);
-    if (message?.discrepancyProblem) {
-      setCheckSign({ text: "Discrepancies found", ok: false });
+    // Wrap data in expected structure (products array) with discrepancyChecker flag
+    const wrappedData = {
+      discrepancyChecker: true,
+      products: [{
+        attributes: formData.attributes
+      }]
+    };
+
+    // Run all steps
+    let stepperData = await stepperRef.current?.runAll(wrappedData);
+
+    console.log("Discrepancy check result:", stepperData);
+    
+    // Extract the first product's attributes to check for discrepancy
+    const resultAttributes = stepperData?.products?.[0]?.attributes;
+    const maxDiscrepancy = resultAttributes?.maxDiscrepancy ?? 0;
+    const discrepancyProblem = resultAttributes?.discrepancyProblem ?? false;
+    
+    console.log("Max discrepancy:", maxDiscrepancy, "Problem:", discrepancyProblem);
+    
+    if (discrepancyProblem) {
+      setCheckSign({ text: `Discrepancies found (max: ${maxDiscrepancy.toFixed(2)}mm)`, ok: false });
     } else {
-      setCheckSign({ text: "Discrepancies within tolerance", ok: true });
+      setCheckSign({ text: `Within tolerance (max: ${maxDiscrepancy.toFixed(2)}mm)`, ok: true });
     }
   };
 
@@ -98,11 +86,9 @@ export default function Discrepancy() {
         </div>
 
         <div className="flex flex-col md:flex-row gap-10">
-          {/* Left: compact form + action */}
+          {/* Left: form + action */}
           <div className="flex-1 min-w-[360px]">
-            <Suspense fallback={<div className="p-3">Loading form…</div>}>
-              <ShadesailForm formRef={formRef} discrepancyChecker = {true} />
-            </Suspense>
+            <ProductForm formRef={formRef} discrepancyChecker={true} />
 
             <div className="flex items-center gap-3 mt-4">
               <button onClick={onCheck} className="buttonStyle">
@@ -124,8 +110,8 @@ export default function Discrepancy() {
           <div className="flex-1 min-w-[360px] flex flex-col items-center">
             <canvas
               ref={canvasRef}
-              width={1050}
-              height={2000}
+              width={1000}
+              height={5000}
               style={{
                 border: "1px solid #ccc",
                 marginTop: "20px",

@@ -89,14 +89,14 @@ const devMode = useSelector(state => state.toggles.devMode);
 
   // Minimal stepper setup – we defer heavy calculations until needed.
   useEffect(() => {
-    if (!project) return;
+    if (!editedProject) return;
     if (!stepperRef.current) stepperRef.current = new ProcessStepper(800);
     if (canvasRef.current) stepperRef.current.addCanvas(canvasRef.current);
     if (Steps && Steps.length) {
       stepperRef.current.steps = [];
       Steps.forEach((s) => stepperRef.current.addStep(s));
     }
-  }, [project, Steps]);
+  }, [editedProject, Steps]);
   
   useEffect(() => {
     if (!stepperRef.current) stepperRef.current = new ProcessStepper(800);
@@ -109,19 +109,24 @@ const devMode = useSelector(state => state.toggles.devMode);
 
   // Auto-run the stepper once everything is ready (project, steps, canvas, stepper)
   useEffect(() => {
-    const ready = project && stepperRef.current && canvasRef.current && Steps && Steps.length;
+    const ready = editedProject && stepperRef.current && canvasRef.current && Steps && Steps.length;
     if (!ready) return;
-    const key = `${project?.id ?? 'new'}:${Steps.length}`;
+    const key = `${editedProject?.id ?? 'new'}:${Steps.length}`;
     if (lastAutoRunKeyRef.current === key) return; // prevent duplicate runs for same state
     lastAutoRunKeyRef.current = key;
     (async () => {
       try {
-        await stepperRef.current.runAll(project);
+        console.groupCollapsed('[AUTO-RUN] Stepper starting');
+        console.log('Input (editedProject):', JSON.parse(JSON.stringify(editedProject)));
+        // Auto-run for visuals only; do not mutate editedProject to avoid loops
+        const result = await stepperRef.current.runAll(editedProject);
+        console.log('Output (enriched, visual-only):', JSON.parse(JSON.stringify(result)));
+        console.groupEnd();
       } catch (e) {
         console.error('Auto stepper run failed:', e);
       }
     })();
-  }, [project, Steps, canvasRef.current]);
+  }, [editedProject, Steps, canvasRef.current]);
 
   /* ==========================================================================
    *  DATA FETCHING: loadProjectFromServer
@@ -163,8 +168,9 @@ const loadProjectFromServer = async () => {
       setSchema(modules.Schema);
       setEditedSchema(modules.Schema);
       
-      // Now set project data
-      setProject(data);
+  // Now set project data and initialize edited copy for experimentation
+  setProject(data);
+  setEditedProject(data);
 
       //handleRunStepper(); // Run stepper after setting project
 
@@ -218,26 +224,56 @@ useEffect(() => {
     }
   };
   */
-  // Unified submit: send entire form values object (general + project_attributes + products)
+  // Helper: sync edited project from the form's current values
+  const syncEditedFromForm = () => {
+    const values = formRef.current?.getValues?.();
+    if (values) setEditedProject(values);
+    return values;
+  };
+
+  // Unified submit: run stepper once (manual style), update editedProject, then send editedProject
   const handleSubmit = async () => {
     try {
-      const values = formRef.current?.getValues?.();
-      if (!values) {
-        alert('Form values unavailable.');
+      const base = syncEditedFromForm() || editedProject || project;
+      if (!base) {
+        alert('No edited values to submit.');
         return;
       }
+      console.groupCollapsed('[SUBMIT] Pre-submit stepper run');
+      console.log('Input (base):', JSON.parse(JSON.stringify(base)));
+      const enriched = await stepperRef.current.runAll(base);
+      console.log('Output (enriched to submit):', JSON.parse(JSON.stringify(enriched)));
+      setEditedProject(enriched);
+      console.groupEnd();
+      const payload = enriched;
+      console.groupCollapsed('[SUBMIT] Sending editedProject payload');
+      console.log('editedProject:', JSON.parse(JSON.stringify(editedProject)));
+      console.log('payload used:', JSON.parse(JSON.stringify(payload)));
+      console.groupEnd();
       const res = await apiFetch(`/products/edit/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok || json?.error) {
         alert(`Update failed: ${json?.error || res.statusText}`);
         return;
       }
-      handleRunStepper();
-      alert('Project updated successfully.');
+      // Merge returned data if server sends authoritative project, else fall back to local form values
+      const updatedProject = json?.project || {
+        ...project,
+        ...payload,
+        products: (payload && payload.products) || project.products
+      };
+      console.groupCollapsed('[SUBMIT] Response / updated state');
+      console.log('server json:', json);
+      console.log('updatedProject:', JSON.parse(JSON.stringify(updatedProject)));
+      console.groupEnd();
+      setProject(updatedProject);
+      // Keep editedProject as the enriched payload we submitted; avoid triggering auto-run cascades
+      //alert('Project updated & stepper recalculated.');
+      window.location.reload();
     } catch (e) {
       console.error('Submit error:', e);
       alert('Error submitting project.');
@@ -245,10 +281,10 @@ useEffect(() => {
   };
 
   const handleCheck = () => {
-    const v = formRef.current?.getValues?.();
-    console.log('Form values:', v);
+    const v = syncEditedFromForm();
+    console.log('Form values (synced to editedProject):', v);
     handleRunStepper();
-    alert(JSON.stringify(v, null, 2));
+    if (v) alert(JSON.stringify(v, null, 2));
   };
 
   // Run stepper calculations and redraw canvas with unified project data
@@ -257,22 +293,26 @@ useEffect(() => {
       console.warn('Stepper not initialized');
       return;
     }
-    const values = formRef.current?.getValues?.();
+    const values = syncEditedFromForm() || editedProject || project;
     if (!values) {
-      console.warn('No form values available');
+      console.warn('No values available to run stepper');
       return;
     }
-    console.log('Running stepper with data:', values);
+    console.groupCollapsed('[RUN] Manual stepper run');
+    console.log('Input:', JSON.parse(JSON.stringify(values)));
     try {
       const result = await stepperRef.current.runAll(values);
-      console.log('Stepper result:', result);
+      console.log('Output (enriched):', JSON.parse(JSON.stringify(result)));
+      setEditedProject(result);
+      console.groupEnd();
     } catch (e) {
       console.error('Stepper error:', e);
     }
   };
 
   const handleMaterials = () => {
-    const primary = project?.products?.[0];
+    const working = editedProject || project;
+    const primary = working?.products?.[0];
     const mats = primary?.calculated?.materials;
     alert(mats ? JSON.stringify(mats, null, 2) : 'No materials data available.');
   };
@@ -330,7 +370,7 @@ useEffect(() => {
                   <ProjectForm
                     productType={productType}
                     formRef={formRef}
-                    rehydrate={project}
+                    rehydrate={editedProject || project}
                   />
                 
 
@@ -402,7 +442,7 @@ useEffect(() => {
 
           {/* Estimate table: only admin + estimator */}
               
-          {/* 
+          
           {(role === 'estimator'|| role === 'admin') ? (
             Schema ? (
               <div className="scroll-x">
@@ -413,15 +453,14 @@ useEffect(() => {
                   onCheck={handleSchemaCheck}
                   onReturn={handleSchemaReturn}
                   onSubmit={handleSchemaSubmit}
-                  attributes={primaryAttributes}
-                  calculated={primaryCalculated}
+                  products={(editedProject?.products ?? project.products)}
                 />
               </div>
             ) : (
               <div style={{ color: '#888' }}>No estimate schema for this project type.</div>
             )
           ) : null}
-           */}
+          
 
           {/* Canvas: all staff (designer, admin, estimator) */}
           {(role === 'estimator'|| role === 'designer' || role === 'admin' || role === 'client') && (

@@ -10,15 +10,19 @@ export const Steps = [
 
         let attributes = sail.attributes || {};
 
-        let perimeter = 0;
-        const dims = (attributes?.dimensions) || {};
-        for (const [edge, value] of Object.entries(dims)) {
-          if (typeof edge === 'string' && edge.length === 2) {
-            perimeter += Number(value) || 0;
-          }
+        // Perimeter should include only adjacent edge dimensions (no diagonals).
+        // Use sumEdges helper which walks A->B, B->C, ... last->A.
+        const pointCount = attributes.pointCount || 0;
+        attributes.perimeter = pointCount
+          ? sumEdges(attributes.dimensions || {}, pointCount)
+          : 0;
+
+        if (attributes.perimeter % 1000 < 200) {
+          attributes.edgeMeter = Math.floor(attributes.perimeter / 1000);
         }
-        // keep original key if you rely on it elsewhere; also store corrected spelling
-        attributes.perimeter = perimeter;
+        else {
+          attributes.edgeMeter = Math.ceil(attributes.perimeter / 1000);
+        }
 
         attributes.xyDistances = buildXYDistances(attributes.dimensions, attributes.points || {});
 
@@ -43,7 +47,9 @@ export const Steps = [
 
 
         attributes.discrepancyProblem = attributes.maxDiscrepancy > (discrepancyThreshold);
-        
+
+        attributes.fabricPrice = getPriceByFabric(attributes.fabricType, attributes.edgeMeter);
+
 
       }
 
@@ -723,6 +729,8 @@ function drawBoxAt(boxPts, dimensions, anchorPoint, globalAngleRad) {
 
 
 function getPriceByFabric(fabric, edgeMeter) {
+
+  console.log("Getting price for fabric:", fabric, "edgeMeter:", edgeMeter);
 
   if (edgeMeter < 15) {
     return pricelist[fabric][15];

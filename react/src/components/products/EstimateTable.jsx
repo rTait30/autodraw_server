@@ -10,11 +10,12 @@ function evalExpr(expr, named = {}) {
   try {
     const argNames = Object.keys(named);
     const argValues = Object.values(named);
-    // eslint-disable-next-line no-new-func
     const fn = new Function(...argNames, `"use strict"; return (${expr});`);
-    return fn(...argValues);
-  } catch {
-    return '';
+    const result = fn(...argValues);
+    return result;
+  } catch (e) {
+    console.warn('[EstimateTable] Expression eval error for:', expr, e);
+    return 0; // numeric fallback avoids row suppression
   }
 }
 
@@ -25,14 +26,13 @@ export default function EstimateTable({
   onCheck = () => {},
   onReturn = () => {},
   onSubmit = () => {},
-  attributes = {},
-  calculated = {},
+  products = [], // Now expects array of products: [{attributes, calculated}, ...]
 
 }) {
   
-  const [rowState, setRowState] = useState({});
-  const [inputState, setInputState] = useState({});
-  const [products, setProducts] = useState({});
+  const [rowState, setRowState] = useState({}); // Now keyed by productIndex then section
+  const [inputState, setInputState] = useState({}); // Now keyed by productIndex
+  const [skuProducts, setSkuProducts] = useState({});
 
   const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
@@ -46,7 +46,7 @@ export default function EstimateTable({
     });
 
     if (allSkus.length === 0) {
-      setProducts({});
+      setSkuProducts({});
       return;
     }
 
@@ -61,224 +61,298 @@ export default function EstimateTable({
         productList.forEach((p) => {
           bySku[p.sku] = p;
         });
-        setProducts(bySku);
+        setSkuProducts(bySku);
       })
       .catch(console.error);
   }, [schema]);
 
-  // --- Initialize row + input state whenever inputs/products/schema change ---
+  // --- Initialize row + input state for ALL products ---
   useEffect(() => {
 
-    console.log("schema:", schema);
-    console.log("attributes:", attributes);
-    console.log("calculated:", calculated);
+    const newRowState = {}; // structure: { productIndex: { section: [rows...] } }
+    const newInputState = {}; // structure: { productIndex: { key: value } }
 
-    const newRowState = {};
-    const newInputState = {};
+    // Sort products by productIndex
+    const sortedProducts = [...products].sort((a, b) => (a.productIndex || 0) - (b.productIndex || 0));
 
-    Object.entries(schema).forEach(([section, rows]) => {
-      newRowState[section] = rows
-        .filter((r) => r.type === 'row' || r.type === 'sku')
-        .map((row) => {
-          // Build the minimal context available at row init
-          const baseNamed = {
-            attributes,
-            calculated,
-            inputs: newInputState,     // may be sparsely filled (ok)
-            rows: newRowState,         // section rows will fill as we map
-          };
+    sortedProducts.forEach((product) => {
+      const productIndex = product.productIndex || 0;
+      const attrs = product.attributes || {};
 
-          if (row.type === 'sku') {
-            const product = products[row.sku] || {};
+      newRowState[productIndex] = {};
+      newInputState[productIndex] = {};
+
+      Object.entries(schema).forEach(([section, rows]) => {
+        newRowState[productIndex][section] = rows
+          .filter((r) => r.type === 'row' || r.type === 'sku')
+          .map((row) => {
+            // Expressions can reference attributes directly (no "attributes." prefix needed)
+            const evalContext = {
+              ...attrs,
+              inputs: newInputState[productIndex],
+              rows: newRowState[productIndex],
+            };
+
+            if (row.type === 'sku') {
+              const skuProduct = skuProducts[row.sku] || {};
+              return {
+                sku: row.sku,
+                description: skuProduct.name || row.sku,
+                quantity:
+                  typeof row.quantity === 'string'
+                    ? evalExpr(row.quantity, evalContext)
+                    : row.quantity,
+                unitCost: skuProduct.price || 0,
+              };
+            }
+
             return {
-              sku: row.sku,
-              description: product.name || row.sku,
+              description: row.description,
               quantity:
                 typeof row.quantity === 'string'
-                  ? evalExpr(row.quantity, baseNamed)
+                  ? evalExpr(row.quantity, evalContext)
                   : row.quantity,
-              unitCost: product.price || 0,
+              unitCost:
+                typeof row.unitCost === 'string'
+                  ? evalExpr(row.unitCost, evalContext)
+                  : row.unitCost,
             };
+          });
+
+        // default values for input rows
+        rows.forEach((row) => {
+          if (row.type === 'input') {
+            newInputState[productIndex][row.key] = row.default;
           }
-
-          return {
-            description: row.description,
-            quantity:
-              typeof row.quantity === 'string'
-                ? evalExpr(row.quantity, baseNamed)
-                : row.quantity,
-            unitCost:
-              typeof row.unitCost === 'string'
-                ? evalExpr(row.unitCost, baseNamed)
-                : row.unitCost,
-          };
         });
-
-      // default values for input rows
-      rows.forEach((row) => {
-        if (row.type === 'input') {
-          newInputState[row.key] = row.default;
-        }
       });
     });
 
     setRowState(newRowState);
     setInputState(newInputState);
-  }, [schema, attributes, calculated, products]);
+  }, [schema, products, skuProducts]);
 
-  // --- Handlers ---
-  const handleRowChange = (section, idx, field, value) => {
+  // --- Handlers (now take productIndex) ---
+  const handleRowChange = (productIndex, section, idx, field, value) => {
     setRowState((prev) => ({
       ...prev,
-      [section]: prev[section].map((item, i) =>
-        i === idx
-          ? { ...item, [field]: field === 'description' ? value : Number(value) }
-          : item
-      ),
+      [productIndex]: {
+        ...prev[productIndex],
+        [section]: prev[productIndex][section].map((item, i) =>
+          i === idx
+            ? { ...item, [field]: field === 'description' ? value : Number(value) }
+            : item
+        ),
+      },
     }));
   };
 
-  const handleInputChange = (key, value) => {
+  const handleInputChange = (productIndex, key, value) => {
     setInputState((prev) => ({
       ...prev,
-      [key]: Number(value),
+      [productIndex]: {
+        ...prev[productIndex],
+        [key]: Number(value),
+      },
     }));
   };
 
-  // --- Calculate totals and derived values (exposed to expressions as `context`) ---
-  // Per-section totals + baseCost
-  const sectionTotals = {};
-  Object.entries(rowState).forEach(([section, rows]) => {
-    sectionTotals[`${section.toLowerCase()}Total`] = rows.reduce(
-      (sum, row) => sum + Number(row.quantity) * Number(row.unitCost),
-      0
-    );
+  // --- Calculate per-product totals + grand total ---
+  // Sort products by productIndex for display
+  const sortedProducts = [...products].sort((a, b) => (a.productIndex || 0) - (b.productIndex || 0));
+
+  const productTotals = sortedProducts.map((product) => {
+    const productIndex = product.productIndex || 0;
+    const attrs = product.attributes || {};
+    const productRows = rowState[productIndex] || {};
+    const productInputs = inputState[productIndex] || {};
+
+    const sectionTotals = {};
+    Object.entries(productRows).forEach(([section, rows]) => {
+      sectionTotals[`${section.toLowerCase()}Total`] = rows.reduce(
+        (sum, row) => sum + Number(row.quantity) * Number(row.unitCost),
+        0
+      );
+    });
+
+    const baseCost = Object.values(sectionTotals).reduce((a, b) => a + b, 0);
+
+    // Context for calc expressions
+    const context = {
+      ...sectionTotals,
+      baseCost,
+    };
+
+    return {
+      productIndex,
+      name: product.name || `Product ${productIndex + 1}`,
+      attributes: attrs,
+      inputs: productInputs,
+      rows: productRows,
+      context,
+      baseCost,
+    };
   });
 
-  const baseCost = Object.values(sectionTotals).reduce((a, b) => a + b, 0);
-
-  // Full context accessible to "calc" expressions
-  const context = {
-    ...sectionTotals,
-    baseCost,
-  };
+  const grandTotal = productTotals.reduce((sum, pt) => sum + pt.baseCost, 0);
 
   return (
     <div>
-      <table className="tableBase">
-        <tbody>
-          {Object.entries(schema).map(([section, rows]) => (
-            <React.Fragment key={section}>
-              {/* Column Headings */}
-              <tr className="tableHeader">
-                <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Cost</th>
-                <th>Total</th>
-              </tr>
+      {productTotals.map((productData) => {
+        const { productIndex, name, attributes, inputs, rows, context } = productData;
 
-              {/* Section Header */}
-              <tr>
-                <td colSpan={4} className="tableSection">
-                  {section}
-                </td>
-              </tr>
+        return (
+          <div key={productIndex} style={{ marginBottom: '40px' }}>
+            {/* Product Header */}
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>
+              {name}
+            </h3>
 
-              {/* Dynamic Rows */}
-              {rows.map((row, idx) => {
-                const item = rowState[section]?.[idx] || {};
+            <table className="tableBase">
+              <tbody>
+                {Object.entries(schema).map(([section, schemaRows]) => (
+                  <React.Fragment key={section}>
+                    {/* Column Headings */}
+                    <tr className="tableHeader">
+                      <th>Description</th>
+                      <th>Quantity</th>
+                      <th>Unit Cost</th>
+                      <th>Total</th>
+                    </tr>
 
-                if (row.type === 'row' || row.type === 'sku') {
-                  if (Number(item.quantity) === 0) return null;
-                  return (
-                    <tr key={idx} className="tableRowHover">
-                      <td className="tableCell">{item.description}</td>
-                      <td className="tableCell">
-                        <input
-                          type="number"
-                          value={item.quantity ?? ''}
-                          onChange={(e) =>
-                            handleRowChange(section, idx, 'quantity', e.target.value)
-                          }
-                          className="inputCompact"
-                        />
-                      </td>
-                      <td className="tableCell">
-                        <input
-                          type="number"
-                          value={item.unitCost ?? ''}
-                          onChange={(e) =>
-                            handleRowChange(section, idx, 'unitCost', e.target.value)
-                          }
-                          className="inputCompact"
-                        />
-                      </td>
-                      <td className="tableCell text-right font-mono">
-                        {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                    {/* Section Header */}
+                    <tr>
+                      <td colSpan={4} className="tableSection">
+                        {section}
                       </td>
                     </tr>
-                  );
-                }
 
-                if (row.type === 'subtotal') {
-                  const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
-                  return (
-                    <tr key={idx} className="tableCalc">
-                      <td className="tableCell" colSpan={3}>
-                        {row.label}
-                      </td>
-                      <td className="tableCell text-right">
-                        {subtotalValue.toFixed(2)}
-                      </td>
-                    </tr>
-                  );
-                }
+                    {/* Dynamic Rows */}
+                    {schemaRows.map((row, idx) => {
+                      const productRows = rows[section] || [];
+                      const item = productRows[idx] || {};
 
-                if (row.type === 'input') {
-                  return (
-                    <tr key={idx} className="bg-gray-50">
-                      <td className="tableCell">{row.label}</td>
-                      <td className="tableCell">
-                        <input
-                          type="number"
-                          value={inputState[row.key] ?? ''}
-                          onChange={(e) => handleInputChange(row.key, e.target.value)}
-                          className="inputCompact"
-                        />
-                      </td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  );
-                }
+                      if (row.type === 'row' || row.type === 'sku') {
+                        // Hide rows with zero or NaN quantity
+                        if (!item || Number(item.quantity) === 0 || isNaN(Number(item.quantity))) return null;
+                        return (
+                          <tr key={idx} className="tableRowHover">
+                            <td className="tableCell">{item.description}</td>
+                            <td className="tableCell">
+                              <input
+                                type="number"
+                                value={item.quantity ?? ''}
+                                onChange={(e) =>
+                                  handleRowChange(productIndex, section, idx, 'quantity', e.target.value)
+                                }
+                                className="inputCompact"
+                              />
+                            </td>
+                            <td className="tableCell">
+                              <input
+                                type="number"
+                                value={item.unitCost ?? ''}
+                                onChange={(e) =>
+                                  handleRowChange(productIndex, section, idx, 'unitCost', e.target.value)
+                                }
+                                className="inputCompact"
+                              />
+                            </td>
+                            <td className="tableCell text-right font-mono">
+                              {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      }
 
-                if (row.type === 'calc') {
-                  // Expressions can reference:
-                  //  - attributes.*, calculated.*, inputs.*, rows.*, context.*
-                  const value = evalExpr(row.expr, {
-                    attributes,
-                    calculated,
-                    inputs: inputState,
-                    rows: rowState,
-                    context,
-                  });
+                      if (row.type === 'subtotal') {
+                        const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
+                        return (
+                          <tr key={idx} className="tableCalc">
+                            <td className="tableCell" colSpan={3}>
+                              {row.label}
+                            </td>
+                            <td className="tableCell text-right">
+                              {subtotalValue.toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      }
 
-                  return (
-                    <tr key={idx} className="tableCalc">
-                      <td className="tableCell">{row.label}</td>
-                      <td colSpan={2}></td>
-                      <td className="tableCell text-right font-bold">
-                        {typeof value === 'number' ? value.toFixed(2) : value}
-                      </td>
-                    </tr>
-                  );
-                }
+                      if (row.type === 'input') {
+                        return (
+                          <tr key={idx} className="bg-gray-50">
+                            <td className="tableCell">{row.label}</td>
+                            <td className="tableCell">
+                              <input
+                                type="number"
+                                value={inputs[row.key] ?? ''}
+                                onChange={(e) => handleInputChange(productIndex, row.key, e.target.value)}
+                                className="inputCompact"
+                              />
+                            </td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        );
+                      }
 
-                return null;
-              })}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+                      if (row.type === 'calc') {
+                        // Expressions can reference attributes directly (all attrs are at top level)
+                        const evalContext = {
+                          ...attributes,
+                          inputs,
+                          rows,
+                          context,
+                        };
+
+                        const value = evalExpr(row.expr, evalContext);
+
+                        return (
+                          <tr key={idx} className="tableCalc">
+                            <td className="tableCell">{row.label}</td>
+                            <td colSpan={2}></td>
+                            <td className="tableCell text-right font-bold">
+                              {typeof value === 'number' ? value.toFixed(2) : value}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </React.Fragment>
+                ))}
+
+                {/* Per-Product Total */}
+                <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
+                  <td className="tableCell" colSpan={3}>
+                    {name} Total
+                  </td>
+                  <td className="tableCell text-right">
+                    ${context.baseCost.toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+
+      {/* Grand Total Section */}
+      {products.length > 1 && (
+        <table className="tableBase" style={{ marginTop: '20px' }}>
+          <tbody>
+            <tr style={{ backgroundColor: '#1f2937', color: 'white', fontSize: '18px', fontWeight: 'bold' }}>
+              <td className="tableCell" colSpan={3}>
+                GRAND TOTAL (All Products)
+              </td>
+              <td className="tableCell text-right">
+                ${grandTotal.toFixed(2)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
 

@@ -86,6 +86,33 @@ def save_project_config():
     #   "type": "cover" | "shade_sail" | ...
     # }
 
+    if (data.get("type") == "COVER" and data.get("submitToWG") == True):
+        name = (data.get("general").get("name") or "").strip()
+        description = ""
+        for cover in data.get("products", []):
+            cover_quantity = cover.get("attributes", {}).get("quantity", 0)
+            cover_length = cover.get("attributes", {}).get("length", 0)
+            cover_width = cover.get("attributes", {}).get("width", 0)
+            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_length}mm \n")
+        add_cover(name, description)
+
+        # --- TEMPORARY: Estimate price for covers and print ---
+        for cover in data.get("products", []):
+            attrs = cover.get("attributes", {})
+            price = estimate_cover_price(attrs)
+            print(f"[DEBUG] Estimated cover price: {price}")
+# --- TEMPORARY: Utility function to estimate cover price ---
+def estimate_cover_price(attrs):
+    # Example hardcoded logic: base price + area multiplier
+    base_price = 100.0
+    length = float(attrs.get("length", 0))
+    width = float(attrs.get("width", 0))
+    quantity = int(attrs.get("quantity", 1))
+    area = length * width / 1000000.0  # mm^2 to m^2
+    price_per_m2 = 25.0
+    total = base_price + (area * price_per_m2)
+    return round(total * quantity, 2)
+
     general = data.get("general") or {}
     if not isinstance(general, dict):
         return jsonify({"error": "general must be an object"}), 400

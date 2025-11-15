@@ -38,6 +38,8 @@ export default function ProjectForm({
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
 }) {
+  // Top-level WG submit state
+  const [submitToWG, setSubmitToWG] = useState(false);
   // Dynamically import the correct product and project forms
   const [ProductForm, setProductForm] = useState(null);
   const [ProjectFormComponent, setProjectFormComponent] = useState(null);
@@ -180,6 +182,7 @@ export default function ProjectForm({
           general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
           project_attributes: projectAttrs,
           products,
+          submitToWG,
         };
       },
     };
@@ -187,7 +190,7 @@ export default function ProjectForm({
     return () => {
       if (formRef) formRef.current = undefined;
     };
-  }, [formRef, items, generalData]);
+  }, [formRef, items, generalData, submitToWG]);
 
   // When rehydrate changes, update generalData and items
   useEffect(() => {
@@ -228,6 +231,7 @@ export default function ProjectForm({
 
   return (
   <div key={instanceKey} className="p-3 space-y-4">
+
       {toast && (
         <div
           role="status"
@@ -408,6 +412,18 @@ export default function ProjectForm({
           </div>
         )}
       </section>
+
+
+      <div className="flex items-center mb-2">
+        <input
+          type="checkbox"
+          id="submitToWG"
+          checked={submitToWG}
+          onChange={e => setSubmitToWG(e.target.checked)}
+          style={{ marginRight: '8px' }}
+        />
+        <label htmlFor="submitToWG" style={{ fontWeight: 500 }}>Submit to WG</label>
+      </div>
     </div>
   );
 }

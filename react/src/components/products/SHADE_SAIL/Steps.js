@@ -50,7 +50,29 @@ export const Steps = [
 
         attributes.fabricPrice = getPriceByFabric(attributes.fabricType, attributes.edgeMeter);
 
+        attributes.fittingCounts = {};
 
+        for (const pointKey in attributes.points || {}) {
+          const pt = attributes.points[pointKey];
+          const fitting = pt.cornerFitting;
+          if (fitting in attributes.fittingCounts) {
+            attributes.fittingCounts[fitting]++;
+          } else {
+            attributes.fittingCounts[fitting] = 1;
+          }
+        }
+
+        attributes.totalSailLengthCeilMeters = 0;
+
+        for (const edge of attributes.sailTracks || []) {
+          const dim = Number(attributes.dimensions[edge]);
+          if (isNaN(dim)) {
+            console.warn("Missing or invalid dimension for edge:", edge, attributes.dimensions[edge]);
+            continue;
+          }
+          attributes.totalSailLengthCeilMeters += dim;
+        }
+        attributes.totalSailLengthCeilMeters = Math.ceil(attributes.totalSailLengthCeilMeters / 1000) || null;
       }
 
       return {...data};

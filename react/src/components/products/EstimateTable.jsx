@@ -200,13 +200,15 @@ export default function EstimateTable({
     <div>
 
       <table className="tableBase">
+        <thead>
       <tr className="tableHeader">
         <th>Description</th>
         <th>Quantity</th>
         <th>Unit Cost</th>
         <th>Total</th>
-      </tr></table>
-
+      </tr>
+    </thead>
+    </table>
       {productTotals.map((productData) => {
         const { productIndex, name, attributes, inputs, rows, context } = productData;
 

@@ -14,6 +14,8 @@ import { ProcessStepper } from '../components/products/ProcessStepper';
 
 import { useSelector } from 'react-redux';
 
+
+
 /* ============================================================================
  *  MODULE LOADER (per-project-type)
  *  - [Extract] into services/typeLoader.js later
@@ -73,6 +75,8 @@ const devMode = useSelector(state => state.toggles.devMode);
   const [Form, setForm] = useState(null);
 
   const [estimateVersion, setEstimateVersion] = useState(0);
+
+  const [toggleData, setToggleData] = useState(false);
 
   /* ==========================================================================
    *  CANVAS / STEPPER
@@ -404,7 +408,27 @@ useEffect(() => {
                     </button>
 }
                     </>
+                    
+                    {devMode && (
+                      <button
+                        onClick={() => setToggleData(!toggleData)}
+                        className="buttonStyle"
+                      >
+                        {toggleData ? 'Hide' : 'Show'} JSON
+                      </button>
+                    )}
                   </div>
+                  
+                  {toggleData && (
+                    <div style={{ marginTop: '16px', padding: '12px', border: '1px solid #ccc', borderRadius: '4px', background: '#f9f9f9', maxHeight: '500px', overflow: 'auto' }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>
+                        Project JSON
+                      </div>
+                      <div style={{ fontSize: '12px', fontFamily: 'monospace', lineHeight: '1.5' }}>
+                        <JsonViewer data={editedProject || project} />
+                      </div>
+                    </div>
+                  )}
                 </Suspense>
               ) : (
                 <div style={{ color: '#888' }}>Form not available for this project type.</div>
@@ -652,4 +676,58 @@ async function fetchPDF(projectId, include_bom) {
     console.error('Error fetching PDF:', error);
     alert(error.message || 'Failed to download PDF');
   }
+}
+
+
+/* ============================================================================
+ *  LEAN JSON VIEWER - Recursive collapsible viewer
+ * ==========================================================================*/
+function JsonViewer({ data, level = 0 }) {
+  if (data === null) return <span style={{ color: '#999' }}>null</span>;
+  if (data === undefined) return <span style={{ color: '#999' }}>undefined</span>;
+  
+  const type = typeof data;
+  if (type === 'string') return <span style={{ color: '#a31515' }}>"{data}"</span>;
+  if (type === 'number') return <span style={{ color: '#098658' }}>{data}</span>;
+  if (type === 'boolean') return <span style={{ color: '#0000ff' }}>{String(data)}</span>;
+  
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <span>[]</span>;
+    return (
+      <details style={{ marginLeft: level > 0 ? '16px' : 0 }}>
+        <summary style={{ cursor: 'pointer', color: '#666' }}>
+          Array[{data.length}]
+        </summary>
+        <div>
+          {data.map((item, i) => (
+            <div key={i} style={{ marginLeft: '12px' }}>
+              <span style={{ color: '#999' }}>[{i}]:</span> <JsonViewer data={item} level={level + 1} />
+            </div>
+          ))}
+        </div>
+      </details>
+    );
+  }
+  
+  if (type === 'object') {
+    const keys = Object.keys(data);
+    if (keys.length === 0) return <span>{'{}'}</span>;
+    return (
+      <details style={{ marginLeft: level > 0 ? '16px' : 0 }}>
+        <summary style={{ cursor: 'pointer', color: '#666' }}>
+          Object {'{'}...{'}'}
+        </summary>
+        <div>
+          {keys.map(key => (
+            <div key={key} style={{ marginLeft: '12px' }}>
+              <span style={{ color: '#001080', fontWeight: '500' }}>{key}:</span>{' '}
+              <JsonViewer data={data[key]} level={level + 1} />
+            </div>
+          ))}
+        </div>
+      </details>
+    );
+  }
+  
+  return <span>{String(data)}</span>;
 }

@@ -34,7 +34,7 @@ function normalizeAttributes(productsHydrate) {
 
 export default function ProjectForm({
   formRef,
-  productType,
+  product,
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
 }) {
@@ -44,13 +44,13 @@ export default function ProjectForm({
   const [ProductForm, setProductForm] = useState(null);
   const [ProjectFormComponent, setProjectFormComponent] = useState(null);
   useEffect(() => {
-    if (!productType) {
+    if (!product) {
       setProductForm(null);
       setProjectFormComponent(null);
       return;
     }
     let alive = true;
-    import(`../components/products/${productType}/Form.jsx`)
+    import(`../components/products/${product}/Form.jsx`)
       .then((mod) => {
         if (alive) {
           // Only set ProductForm if it exists in the module
@@ -59,7 +59,6 @@ export default function ProjectForm({
           } else {
             setProductForm(null);
           }
-          
           // Only set ProjectForm if it exists in the module
           if (mod.ProjectForm) {
             setProjectFormComponent(() => React.lazy(() => Promise.resolve({ default: mod.ProjectForm })));
@@ -76,7 +75,7 @@ export default function ProjectForm({
         }
       });
     return () => { alive = false; };
-  }, [productType]);
+  }, [product]);
   // Ref and state for global project attributes
   const projectFormRef = useRef();
   const [projectData, setProjectData] = useState({});

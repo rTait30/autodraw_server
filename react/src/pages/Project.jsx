@@ -62,7 +62,6 @@ const devMode = useSelector(state => state.toggles.devMode);
   const [error, setError] = useState(null); // error state for fetch failures
   // Legacy type id/name states retained for possible future use but not required with unified payload
   const [productID, setProductID] = useState(0);
-  const [productName, setProductName] = useState('');
 
   /* ==========================================================================
    *  DYNAMIC TYPE RESOURCES
@@ -140,56 +139,47 @@ const devMode = useSelector(state => state.toggles.devMode);
    * ========================================================================*/
   
 /* Then modify the loadProjectFromServer function to ensure proper ordering */
-const loadProjectFromServer = async () => {
-  try {
-    const res = await apiFetch(`/project/${projectId}`);
-    if (!res.ok) throw new Error('Failed to fetch project');
+  const loadProjectFromServer = async () => {
+    try {
+      const res = await apiFetch(`/project/${projectId}`);
+      if (!res.ok) throw new Error('Failed to fetch project');
 
-    const data = await res.json();
-    console.log("Loaded project data:", data);
+      const data = await res.json();
+      console.log("Loaded project data:", data);
 
-    // Initialize stepper first if needed
-    if (!stepperRef.current) {
-      stepperRef.current = new ProcessStepper(800);
-      stepperRef.current.addCanvas(canvasRef.current);
-    }
-
-    // Load type modules first
-    if (data?.type) {
-      const modules = await loadTypeResources(data.type.name);
-      
-      // Set Steps first so they're available for calculations
-      setSteps(modules.Steps || []);
-      
-      // Register steps with stepper immediately
-      if (stepperRef.current && modules.Steps) {
-        stepperRef.current.steps = [];
-        modules.Steps.forEach(step => stepperRef.current.addStep(step));
+      // Initialize stepper first if needed
+      if (!stepperRef.current) {
+        stepperRef.current = new ProcessStepper(800);
+        stepperRef.current.addCanvas(canvasRef.current);
       }
 
-      // Set other module resources
-      setForm(() => modules.Form);
-      setSchema(modules.Schema);
-      setEditedSchema(modules.Schema);
-      
-  // Now set project data and initialize edited copy for experimentation
-  setProject(data);
-  setEditedProject(data);
-
-      //handleRunStepper(); // Run stepper after setting project
-
-    } else {
-      setForm(null);
-      setSteps([]);
-      setSchema(null);
-      setEditedSchema(null);
-      setProject(data);
+      // Load product modules first
+      const productName = data?.type?.name || data?.product?.name;
+      if (productName) {
+        const modules = await loadTypeResources(productName);
+        setSteps(modules.Steps || []);
+        if (stepperRef.current && modules.Steps) {
+          stepperRef.current.steps = [];
+          modules.Steps.forEach(step => stepperRef.current.addStep(step));
+        }
+        setForm(() => modules.Form);
+        // Use schema from project if present, else product default
+        setSchema(data?.schema ?? modules.Schema);
+        setEditedSchema(data?.schema ?? modules.Schema);
+        setProject(data);
+        setEditedProject(data);
+      } else {
+        setForm(null);
+        setSteps([]);
+        setSchema(null);
+        setEditedSchema(null);
+        setProject(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch project:', err);
+      setError('Unable to load project. Please try again later.');
     }
-  } catch (err) {
-    console.error('Failed to fetch project:', err);
-    setError('Unable to load project. Please try again later.');
-  }
-};
+  };
 
 /* Add an effect to monitor calculated values */
 /*
@@ -343,8 +333,8 @@ useEffect(() => {
   if (error) return <div>{error}</div>;   // show error
   if (!project) return <div>Loading...</div>; // previous fallback
 
-  // Derive product type & primary product for EstimateTable
-  const productType = project?.type?.name; // e.g. 'COVER'
+  // Derive product name & primary product for EstimateTable
+  const productName = project?.product?.name || project?.type?.name; // e.g. 'COVER'
   const primaryProduct = project?.products?.[0] || {};
   const primaryAttributes = primaryProduct?.attributes || {};
   const primaryCalculated = primaryProduct?.calculated || {};
@@ -372,7 +362,7 @@ useEffect(() => {
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>
                   <ProjectForm
-                    productType={productType}
+                    product={productName}
                     formRef={formRef}
                     rehydrate={editedProject || project}
                   />

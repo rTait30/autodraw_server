@@ -1,18 +1,3 @@
-# -------------------------------
-# Get schema by id (for frontend)
-# -------------------------------
-@projects_api_bp.route("/schemas/<int:schema_id>", methods=["GET"])
-@jwt_required()
-def get_schema_by_id(schema_id):
-    schema = EstimatingSchema.query.get_or_404(schema_id)
-    return jsonify({
-        "id": schema.id,
-        "product_id": schema.product_id,
-        "name": schema.name,
-        "data": schema.data,
-        "is_default": schema.is_default,
-        "version": schema.version,
-    })
 from datetime import datetime, timezone
 from dateutil.parser import parse as parse_date
 

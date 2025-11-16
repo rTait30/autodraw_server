@@ -2,9 +2,9 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
 
-export default function ProjectSidebar({ open, setOpen, selectedType, setSelectedType, projectTypes }) {
+export default function ProjectSidebar({ open, setOpen, selectedProduct, setSelectedProduct, products }) {
   const handleSelect = (id) => {
-    setSelectedType(id);
+    setSelectedProduct(id);
     setOpen(false);
   };
 
@@ -19,7 +19,7 @@ export default function ProjectSidebar({ open, setOpen, selectedType, setSelecte
       </div>
 
       {/* Sidebar */}
-        <aside
+      <aside
         className={`
             h-screen md:h-auto
             bg-white shadow-md p-6 w-56 z-50
@@ -27,15 +27,15 @@ export default function ProjectSidebar({ open, setOpen, selectedType, setSelecte
             fixed top-0 left-0 transform transition-transform duration-300 ease-in-out
             ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
-        >
+      >
         <h3 className="text-lg font-bold mb-4">Select product</h3>
         <ul className="list-none p-0">
-          {projectTypes.map(({ name, id }) => (
+          {products.map(({ name, id }) => (
             <li key={id} className="mb-2">
               <button
                 onClick={() => handleSelect(id)}
                 className={`block w-full text-left py-1 px-2 rounded transition ${
-                  selectedType === id
+                  selectedProduct === id
                     ? 'bg-blue-100 text-blue-800 font-semibold underline'
                     : 'hover:bg-gray-100'
                 }`}

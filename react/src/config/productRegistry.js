@@ -26,7 +26,7 @@ function deriveIdFromPath(path) {
   return after.split("/")[0] || null;
 }
 
-export const PRODUCT_TYPES = Object.entries(modules)
+export const PRODUCTS = Object.entries(modules)
   .map(([path, mod]) => {
     const meta = (mod && (mod.default || mod.config || mod)) || {};
     const derivedId = deriveIdFromPath(path);
@@ -41,7 +41,7 @@ export const PRODUCT_TYPES = Object.entries(modules)
   .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
 // Convenience map by id if needed elsewhere
-export const PRODUCT_TYPE_BY_ID = PRODUCT_TYPES.reduce((acc, p) => {
+export const PRODUCT_BY_ID = PRODUCTS.reduce((acc, p) => {
   acc[p.id] = p;
   return acc;
 }, {});

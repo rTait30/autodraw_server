@@ -61,8 +61,8 @@ const devMode = useSelector(state => state.toggles.devMode);
   const [editedProject, setEditedProject] = useState(null);
   const [error, setError] = useState(null); // error state for fetch failures
   // Legacy type id/name states retained for possible future use but not required with unified payload
-  const [projectTypeID, setProjectTypeID] = useState(0);
-  const [projectTypeName, setProjectTypeName] = useState('');
+  const [productID, setProductID] = useState(0);
+  const [productName, setProductName] = useState('');
 
   /* ==========================================================================
    *  DYNAMIC TYPE RESOURCES

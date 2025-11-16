@@ -8,7 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from models import db, User, ProjectType  # noqa: E402
+from models import db, User, Product  # noqa: E402
 
 def bootstrap_admin():
     from passlib.hash import bcrypt
@@ -34,9 +34,10 @@ def bootstrap_admin():
     print(f"✅ Bootstrapped admin user '{username}' successfully (id={user.id}).")
 
 
-def bootstrap_project_types():
-    """Bootstrap default ProjectType records."""
-    types_to_create = [
+
+def bootstrap_products():
+    """Bootstrap default Product records."""
+    products_to_create = [
         {
             "id": 0,
             "name": "COVER",
@@ -51,26 +52,25 @@ def bootstrap_project_types():
         }
     ]
 
-    for type_data in types_to_create:
-        existing = ProjectType.query.filter_by(id=type_data["id"]).first()
+    for prod_data in products_to_create:
+        existing = Product.query.filter_by(id=prod_data["id"]).first()
         if existing:
-            print(f"ProjectType '{type_data['name']}' already exists (id={existing.id}).")
+            print(f"Product '{prod_data['name']}' already exists (id={existing.id}).")
             continue
 
-        project_type = ProjectType(
-            id=type_data["id"],
-            name=type_data["name"],
-            description=type_data["description"],
-            default_schema_id=type_data["default_schema_id"]
+        product = Product(
+            id=prod_data["id"],
+            name=prod_data["name"],
+            description=prod_data["description"],
+            default_schema_id=prod_data["default_schema_id"]
         )
-        db.session.add(project_type)
-        print(f"Bootstrapped ProjectType '{type_data['name']}' (id={type_data['id']}).")
+        db.session.add(product)
+        print(f"Bootstrapped Product '{prod_data['name']}' (id={prod_data['id']}).")
 
     db.session.commit()
 
 
 if __name__ == "__main__":
-    
     from flask import Flask
     instance_dir = BASE_DIR / "instance"
     instance_dir.mkdir(parents=True, exist_ok=True)
@@ -89,4 +89,4 @@ if __name__ == "__main__":
         # Ensure tables exist, then insert admin if needed
         db.create_all()
         bootstrap_admin()
-        bootstrap_project_types()
+        bootstrap_products()

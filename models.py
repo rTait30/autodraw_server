@@ -22,15 +22,14 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.verify(password, self.password_hash)
 
-class ProjectType(db.Model):
-    __tablename__ = 'project_types'
+class Product(db.Model):
+    __tablename__ = 'products'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
     default_schema_id = db.Column(db.Integer, db.ForeignKey('estimating_schemas.id'), nullable=True)
     default_schema = db.relationship('EstimatingSchema', foreign_keys=[default_schema_id], post_update=True)
-    # Optional: add icon, default_attributes, etc.
-    schemas = db.relationship('EstimatingSchema', backref='project_type', lazy='dynamic', foreign_keys='EstimatingSchema.project_type_id')
+    schemas = db.relationship('EstimatingSchema', backref='product', lazy='dynamic', foreign_keys='EstimatingSchema.product_id')
 
 class ProjectStatus(enum.Enum):
     quoting = "quoting"
@@ -43,17 +42,31 @@ class ProjectStatus(enum.Enum):
     # Add more statuses as needed
 
 class Project(db.Model):
+    def get_estimated_price(self):
+        """
+        Returns the estimated price for this project using its schema if set,
+        otherwise falls back to the product's default schema.
+        """
+        from estimation import estimate_price_from_schema
+        schema = self.schema or self.product.default_schema
+        if not schema:
+            return None  # No schema available
+        return estimate_price_from_schema(schema.data, self.project_attributes)
     __tablename__ = "projects"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    type_id = db.Column(db.Integer, db.ForeignKey("project_types.id"), nullable=False)
-    type = db.relationship("ProjectType", backref="projects")
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
+    product = db.relationship("Product", backref="projects")
 
     status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
     due_date = db.Column(db.Date)
     info = db.Column(db.Text)
     client_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    schema_id = db.Column(db.Integer, db.ForeignKey("estimating_schemas.id"), nullable=True, index=True)
+    schema = db.relationship("EstimatingSchema", foreign_keys=[schema_id], post_update=True)
+    # If schema_id is null, use product.default_schema
 
     project_attributes = db.Column(db.JSON, default=dict)
     project_calculated = db.Column(db.JSON, default=dict)
@@ -99,26 +112,12 @@ class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(255))
 
-class Product(db.Model):
-    __tablename__ = 'products'
-    id = db.Column(db.Integer, primary_key=True)
-    sku = db.Column(db.String(64), unique=True, nullable=False)
-    name = db.Column(db.String(120), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    price = db.Column(db.Float, nullable=False)
-    unit = db.Column(db.String(32), nullable=True)
-    active = db.Column(db.Boolean, default=True, nullable=True)
-    #created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    #updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
 class EstimatingSchema(db.Model):
     __tablename__ = "estimating_schemas"
     id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=True, index=True)
-    project_type_id = db.Column(db.Integer, db.ForeignKey("project_types.id"), nullable=True, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=True, index=True)
     name = db.Column(db.String(200), nullable=False)
     data = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     version = db.Column(db.Integer, nullable=False, default=1)
-    #created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-    #updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())

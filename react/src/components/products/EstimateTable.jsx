@@ -4,6 +4,10 @@ import { apiFetch } from '../../services/auth';
 
 import SchemaEditor from './SchemaEditor';
 
+// Default fallback values if schema does not provide constants
+const DEFAULT_CONTINGENCY_PERCENT = 3; // % added to base cost
+const DEFAULT_MARGIN_PERCENT = 45; // gross margin %
+
 // Small, safe-ish evaluator that passes named params into the expression.
 // Usage inside schema: e.g. "attributes.width * 2" or "calculated.panelCount * inputs.markup"
 function evalExpr(expr, named = {}) {
@@ -20,30 +24,36 @@ function evalExpr(expr, named = {}) {
 }
 
 export default function EstimateTable({
-  
   schema = {},
   editedSchema = {},
   onCheck = () => {},
   onReturn = () => {},
   onSubmit = () => {},
-  products = [], // Now expects array of products: [{attributes, calculated}, ...]
-
+  products = [], // [{ attributes, calculated, productIndex, name }]
 }) {
   
-  const [rowState, setRowState] = useState({}); // Now keyed by productIndex then section
-  const [inputState, setInputState] = useState({}); // Now keyed by productIndex
+  const [rowState, setRowState] = useState({}); // keyed by productIndex then section
+  const [inputState, setInputState] = useState({}); // keyed by productIndex
   const [skuProducts, setSkuProducts] = useState({});
+  // Per-product financial parameters
+  const initialContingency = schema?._constants?.contingencyPercent ?? DEFAULT_CONTINGENCY_PERCENT;
+  const initialMargin = schema?._constants?.marginPercent ?? DEFAULT_MARGIN_PERCENT;
+  const [contingencyPercents, setContingencyPercents] = useState({}); // { [productIndex]: value }
+  const [marginPercents, setMarginPercents] = useState({}); // { [productIndex]: value }
 
   const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
   // --- Fetch SKUs from schema, then load products from API ---
   useEffect(() => {
     const allSkus = [];
-    Object.values(schema).forEach((rows) => {
-      rows.forEach((row) => {
-        if (row.type === 'sku' && row.sku) allSkus.push(row.sku);
+    // Only iterate array sections (skip _constants or any non-array entries)
+    Object.values(schema)
+      .filter((rows) => Array.isArray(rows))
+      .forEach((rows) => {
+        rows.forEach((row) => {
+          if (row.type === 'sku' && row.sku) allSkus.push(row.sku);
+        });
       });
-    });
 
     if (allSkus.length === 0) {
       setSkuProducts({});
@@ -83,14 +93,19 @@ export default function EstimateTable({
       newInputState[productIndex] = {};
 
       Object.entries(schema).forEach(([section, rows]) => {
+        if (!Array.isArray(rows)) return; // skip _constants or non-array entries
+        // Build computation context incrementally (attributes first; inputs will be added below)
         newRowState[productIndex][section] = rows
           .filter((r) => r.type === 'row' || r.type === 'sku')
           .map((row) => {
-            // Expressions can reference attributes directly (no "attributes." prefix needed)
             const evalContext = {
               ...attrs,
               inputs: newInputState[productIndex],
               rows: newRowState[productIndex],
+              global: {
+                contingencyPercent: contingencyPercents[productIndex] ?? initialContingency,
+                marginPercent: marginPercents[productIndex] ?? initialMargin,
+              },
             };
 
             if (row.type === 'sku') {
@@ -119,7 +134,7 @@ export default function EstimateTable({
             };
           });
 
-        // default values for input rows
+        // Default values for custom input rows (not margin/contingency which are global)
         rows.forEach((row) => {
           if (row.type === 'input') {
             newInputState[productIndex][row.key] = row.default;
@@ -130,6 +145,23 @@ export default function EstimateTable({
 
     setRowState(newRowState);
     setInputState(newInputState);
+    // Initialize per-product margin/contingency if not set
+    setContingencyPercents((prev) => {
+      const updated = { ...prev };
+      sortedProducts.forEach((product) => {
+        const productIndex = product.productIndex || 0;
+        if (updated[productIndex] === undefined) updated[productIndex] = initialContingency;
+      });
+      return updated;
+    });
+    setMarginPercents((prev) => {
+      const updated = { ...prev };
+      sortedProducts.forEach((product) => {
+        const productIndex = product.productIndex || 0;
+        if (updated[productIndex] === undefined) updated[productIndex] = initialMargin;
+      });
+      return updated;
+    });
   }, [schema, products, skuProducts]);
 
   // --- Handlers (now take productIndex) ---
@@ -166,6 +198,8 @@ export default function EstimateTable({
     const attrs = product.attributes || {};
     const productRows = rowState[productIndex] || {};
     const productInputs = inputState[productIndex] || {};
+    const marginPercent = marginPercents[productIndex] ?? initialMargin;
+    const contingencyPercent = contingencyPercents[productIndex] ?? initialContingency;
 
     const sectionTotals = {};
     Object.entries(productRows).forEach(([section, rows]) => {
@@ -176,11 +210,19 @@ export default function EstimateTable({
     });
 
     const baseCost = Object.values(sectionTotals).reduce((a, b) => a + b, 0);
+    const contingencyAmount = baseCost * (contingencyPercent / 100);
+    const suggestedPrice = (baseCost + contingencyAmount) / (1 - marginPercent / 100);
 
-    // Context for calc expressions
+    // Context for calc expressions (schema calc rows can reference context.sectionTotal & global.*)
     const context = {
       ...sectionTotals,
       baseCost,
+    };
+    const global = {
+      contingencyPercent,
+      marginPercent,
+      contingencyAmount,
+      suggestedPrice,
     };
 
     return {
@@ -190,7 +232,10 @@ export default function EstimateTable({
       inputs: productInputs,
       rows: productRows,
       context,
+      global,
       baseCost,
+      marginPercent,
+      contingencyPercent,
     };
   });
 
@@ -198,145 +243,180 @@ export default function EstimateTable({
 
   return (
     <div>
-
       <table className="tableBase">
         <thead>
-      <tr className="tableHeader">
-        <th>Description</th>
-        <th>Quantity</th>
-        <th>Unit Cost</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-    </table>
+          <tr className="tableHeader">
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit Cost</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+      </table>
       {productTotals.map((productData) => {
-        const { productIndex, name, attributes, inputs, rows, context } = productData;
+        const { productIndex, name, attributes, inputs, rows, context, global, marginPercent, contingencyPercent } = productData;
+
+        // Handlers for per-product margin/contingency
+        const handleContingencyChange = (e) => {
+          const value = Number(e.target.value) || 0;
+          setContingencyPercents((prev) => ({ ...prev, [productIndex]: value }));
+        };
+        const handleMarginChange = (e) => {
+          const value = Number(e.target.value) || 0;
+          setMarginPercents((prev) => ({ ...prev, [productIndex]: value }));
+        };
 
         return (
           <div key={productIndex}>
             {/* Product Header */}
-            <h3 className = "headingStyle mt-5 text-red-800">
+            <h3 className="headingStyle mt-5 text-red-800">
               {name}
             </h3>
 
+            {/* Per-product margin/contingency controls */}
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', fontSize: '14px' }}>
+                Contingency %
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={contingencyPercent}
+                  onChange={handleContingencyChange}
+                  className="inputCompact"
+                  style={{ width: '100px' }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', fontSize: '14px' }}>
+                Gross Margin %
+                <input
+                  type="number"
+                  min={0}
+                  max={99.9}
+                  value={marginPercent}
+                  onChange={handleMarginChange}
+                  className="inputCompact"
+                  style={{ width: '100px' }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setContingencyPercents((prev) => ({ ...prev, [productIndex]: initialContingency }));
+                  setMarginPercents((prev) => ({ ...prev, [productIndex]: initialMargin }));
+                }}
+              >
+                Reset Defaults
+              </button>
+            </div>
+
             <table className="tableBase">
               <tbody>
-                {Object.entries(schema).map(([section, schemaRows]) => (
-                  <React.Fragment key={section}>
-                    {/* Column Headings  */}
+                {Object.entries(schema)
+                  .filter(([, schemaRows]) => Array.isArray(schemaRows))
+                  .map(([section, schemaRows]) => {
+                    return (
+                      <React.Fragment key={section}>
+                        <tr>
+                          <td colSpan={4} style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                            {section}
+                          </td>
+                        </tr>
+                        {schemaRows.map((row, idx) => {
+                          const productRows = rows[section] || [];
+                          const item = productRows[idx] || {};
 
+                          // Display only populated row/sku entries
+                          if (row.type === 'row' || row.type === 'sku') {
+                            if (!item || Number(item.quantity) === 0 || isNaN(Number(item.quantity))) return null;
+                            return (
+                              <tr key={idx} className="tableRowHover">
+                                <td className="tableCell">{item.description}</td>
+                                <td className="tableCell">
+                                  <input
+                                    type="number"
+                                    value={item.quantity ?? ''}
+                                    onChange={(e) => handleRowChange(productIndex, section, idx, 'quantity', e.target.value)}
+                                    className="inputCompact"
+                                  />
+                                </td>
+                                <td className="tableCell">
+                                  <input
+                                    type="number"
+                                    value={item.unitCost ?? ''}
+                                    onChange={(e) => handleRowChange(productIndex, section, idx, 'unitCost', e.target.value)}
+                                    className="inputCompact"
+                                  />
+                                </td>
+                                <td className="tableCell text-right font-mono">
+                                  {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          }
 
-                    {/* Section Header */}
-                    <tr>
-                      <td colSpan={4} style={{ fontSize: '18px', fontWeight: 'bold'}}>
-                        {section}
-                      </td>
-                    </tr>
+                          // Custom input rows (other than global margin/contingency)
+                          if (row.type === 'input') {
+                            return (
+                              <tr key={idx} className="bg-gray-50">
+                                <td className="tableCell">{row.label}</td>
+                                <td className="tableCell">
+                                  <input
+                                    type="number"
+                                    value={inputs[row.key] ?? ''}
+                                    onChange={(e) => handleInputChange(productIndex, row.key, e.target.value)}
+                                    className="inputCompact"
+                                  />
+                                </td>
+                                <td colSpan={2}></td>
+                              </tr>
+                            );
+                          }
 
-                    {/* Dynamic Rows */}
-                    {schemaRows.map((row, idx) => {
-                      const productRows = rows[section] || [];
-                      const item = productRows[idx] || {};
+                          if (row.type === 'calc') {
+                            const evalContext = {
+                              ...attributes,
+                              inputs,
+                              rows,
+                              context,
+                              global,
+                            };
+                            const value = evalExpr(row.expr, evalContext);
+                            return (
+                              <tr key={idx} className="tableCalc">
+                                <td className="tableCell">{row.label}</td>
+                                <td colSpan={2}></td>
+                                <td className="tableCell text-right font-bold">
+                                  {typeof value === 'number' ? value.toFixed(2) : value}
+                                </td>
+                              </tr>
+                            );
+                          }
 
-                      if (row.type === 'row' || row.type === 'sku') {
-                        // Hide rows with zero or NaN quantity
-                        if (!item || Number(item.quantity) === 0 || isNaN(Number(item.quantity))) return null;
-                        return (
-                          <tr key={idx} className="tableRowHover">
-                            <td className="tableCell">{item.description}</td>
-                            <td className="tableCell">
-                              <input
-                                type="number"
-                                value={item.quantity ?? ''}
-                                onChange={(e) =>
-                                  handleRowChange(productIndex, section, idx, 'quantity', e.target.value)
-                                }
-                                className="inputCompact"
-                              />
-                            </td>
-                            <td className="tableCell">
-                              <input
-                                type="number"
-                                value={item.unitCost ?? ''}
-                                onChange={(e) =>
-                                  handleRowChange(productIndex, section, idx, 'unitCost', e.target.value)
-                                }
-                                className="inputCompact"
-                              />
-                            </td>
-                            <td className="tableCell text-right font-mono">
-                              {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      if (row.type === 'subtotal') {
-                        const subtotalValue = context[`${section.toLowerCase()}Total`] || 0;
-                        return (
-                          <tr key={idx} className="tableCalc">
-                            <td className="tableCell" colSpan={3}>
-                              {row.label}
-                            </td>
-                            <td className="tableCell text-right">
-                              {subtotalValue.toFixed(2)}
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      if (row.type === 'input') {
-                        return (
-                          <tr key={idx} className="bg-gray-50">
-                            <td className="tableCell">{row.label}</td>
-                            <td className="tableCell">
-                              <input
-                                type="number"
-                                value={inputs[row.key] ?? ''}
-                                onChange={(e) => handleInputChange(productIndex, row.key, e.target.value)}
-                                className="inputCompact"
-                              />
-                            </td>
-                            <td colSpan={2}></td>
-                          </tr>
-                        );
-                      }
-
-                      if (row.type === 'calc') {
-                        // Expressions can reference attributes directly (all attrs are at top level)
-                        const evalContext = {
-                          ...attributes,
-                          inputs,
-                          rows,
-                          context,
-                        };
-
-                        const value = evalExpr(row.expr, evalContext);
-
-                        return (
-                          <tr key={idx} className="tableCalc">
-                            <td className="tableCell">{row.label}</td>
-                            <td colSpan={2}></td>
-                            <td className="tableCell text-right font-bold">
-                              {typeof value === 'number' ? value.toFixed(2) : value}
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return null;
-                    })}
-                  </React.Fragment>
-                ))}
+                          // Ignore legacy subtotal rows (auto total shown below)
+                          return null;
+                        })}
+                        {/* Automatic section total */}
+                        <tr className="tableCalc" style={{ backgroundColor: '#f3f4f6' }}>
+                          <td className="tableCell" colSpan={3}>{section} Total</td>
+                          <td className="tableCell text-right">{(context[`${section.toLowerCase()}Total`] || 0).toFixed(2)}</td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
 
                 {/* Per-Product Total */}
                 <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
-                  <td className="tableCell" colSpan={3}>
-                    {name} Total
-                  </td>
-                  <td className="tableCell text-right">
-                    ${context.baseCost.toFixed(2)}
-                  </td>
+                  <td className="tableCell" colSpan={3}>{name} Base Cost</td>
+                  <td className="tableCell text-right">${context.baseCost.toFixed(2)}</td>
+                </tr>
+                <tr style={{ backgroundColor: '#f9fafb' }}>
+                  <td className="tableCell" colSpan={3}>Contingency ({contingencyPercent}%)</td>
+                  <td className="tableCell text-right">${global.contingencyAmount.toFixed(2)}</td>
+                </tr>
+                <tr style={{ backgroundColor: '#eef2ff', fontWeight: 'bold' }}>
+                  <td className="tableCell" colSpan={3}>Suggested Price (Margin {marginPercent}%)</td>
+                  <td className="tableCell text-right">${global.suggestedPrice.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -360,20 +440,7 @@ export default function EstimateTable({
         </table>
       )}
 
-      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-
-        <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
-          Use Suggested Price
-        </button>
-
-        <button onClick={() => submitQuote(project.id, value)} className="buttonStyle">
-          Use price: todo
-        </button>
-
-      </div>
-
       <div>
-
         <button
           className="mt-4 underline text-sm text-blue-600"
           onClick={() => setToggleSchemaEditor(!toggleSchemaEditor)}
@@ -391,11 +458,11 @@ export default function EstimateTable({
           />
         )}
       </div>
-   </div>
+    </div>
   );
 }
 
+// Placeholder for future integration
 async function submitQuote(projectId, value) {
-  // Implement the function to submit the quote
   console.log(`Submitting quote for project ${projectId} with value ${value}`);
 }

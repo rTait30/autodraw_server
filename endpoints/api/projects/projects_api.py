@@ -1,3 +1,18 @@
+# -------------------------------
+# Get schema by id (for frontend)
+# -------------------------------
+@projects_api_bp.route("/schemas/<int:schema_id>", methods=["GET"])
+@jwt_required()
+def get_schema_by_id(schema_id):
+    schema = EstimatingSchema.query.get_or_404(schema_id)
+    return jsonify({
+        "id": schema.id,
+        "product_id": schema.product_id,
+        "name": schema.name,
+        "data": schema.data,
+        "is_default": schema.is_default,
+        "version": schema.version,
+    })
 from datetime import datetime, timezone
 from dateutil.parser import parse as parse_date
 
@@ -23,7 +38,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
 
-from models import db, Project, ProjectProduct, User, Product, ProjectType, EstimatingSchema, ProjectStatus
+from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
 from WG.workGuru import get_leads
@@ -43,24 +58,24 @@ def resolve_project_type_id(data):
     """
     Supports either:
       - data['type_id'] as an int/stringified int, OR
-      - data['type'] as the ProjectType.name (e.g. 'cover', 'shadesail')
+    - data['product'] as the Product.name (e.g. 'cover', 'shadesail')
     Returns: (type_id:int|None, error:str|None)
     """
     # Prefer explicit id
     tid = _as_int(data.get("type_id"))
     if tid:
-        pt = db.session.get(ProjectType, tid)
-        if not pt:
-            return None, f"ProjectType id {tid} not found"
-        return pt.id, None
+        prod = db.session.get(Product, tid)
+        if not prod:
+            return None, f"Product id {tid} not found"
+    return prod.id, None
 
     # Fallback: lookup by name
     tname = (data.get("type") or "").strip()
     if tname:
-        pt = ProjectType.query.filter_by(name=tname).first()
-        if not pt:
-            return None, f"ProjectType '{tname}' not found"
-        return pt.id, None
+        prod = Product.query.filter_by(name=tname).first()
+        if not prod:
+            return None, f"Product '{tname}' not found"
+    return prod.id, None
 
     return None, "type_id or type (name) is required"
 # ------------------------------------------------------------------------
@@ -87,31 +102,25 @@ def save_project_config():
     # }
 
     if (data.get("type") == "COVER" and data.get("submitToWG") == True):
+
         name = (data.get("general").get("name") or "").strip()
+
         description = ""
         for cover in data.get("products", []):
             cover_quantity = cover.get("attributes", {}).get("quantity", 0)
             cover_length = cover.get("attributes", {}).get("length", 0)
             cover_width = cover.get("attributes", {}).get("width", 0)
             description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_length}mm \n")
-        add_cover(name, description)
 
-        # --- TEMPORARY: Estimate price for covers and print ---
-        for cover in data.get("products", []):
-            attrs = cover.get("attributes", {})
-            price = estimate_cover_price(attrs)
-            print(f"[DEBUG] Estimated cover price: {price}")
-# --- TEMPORARY: Utility function to estimate cover price ---
-def estimate_cover_price(attrs):
-    # Example hardcoded logic: base price + area multiplier
-    base_price = 100.0
-    length = float(attrs.get("length", 0))
-    width = float(attrs.get("width", 0))
-    quantity = int(attrs.get("quantity", 1))
-    area = length * width / 1000000.0  # mm^2 to m^2
-    price_per_m2 = 25.0
-    total = base_price + (area * price_per_m2)
-    return round(total * quantity, 2)
+        # Get estimated price for the project
+        # Find the project by name (or other identifier if available)
+        project = Project.query.filter_by(name=name).order_by(Project.id.desc()).first()
+        estimated_price = None
+        if project:
+            estimated_price = project.get_estimated_price()
+
+        # Optionally, include estimated price in CRM submission
+        add_cover(name, description + (f"\nEstimated Price: ${estimated_price:.2f}" if estimated_price is not None else ""))
 
     general = data.get("general") or {}
     if not isinstance(general, dict):

@@ -1,24 +1,25 @@
-export const Schema = {
+export const Schema = 
+
+{
+  "_constants": {
+    "contingencyPercent": 3,
+    "marginPercent": 45
+  },
   "Materials": [
     {
       "type": "sku",
       "sku": "2-DR-F-225",
-      "quantity": "calculated?.nestData?.total_width ? Math.ceil((calculated.nestData.total_width / 1000) * 2) / 2 : 0"
+      "quantity": "Math.ceil((flatMainWidth + flatSideWidth)/1000)"
     },
     {
       "type": "sku",
       "sku": "2-DR-H-113",
-      "quantity": "2 * Math.ceil((attributes?.height || 0) / 1000)"
+      "quantity": "2 * Math.ceil(height / 1000)"
     },
     {
       "type": "sku",
       "sku": "2-DR-H-001",
-      "quantity": "2 * Math.ceil((attributes?.height || 0) / 1000)"
-    },
-    {
-      "type": "subtotal",
-      "label": "Total Materials",
-      "key": "materialsTotal" // optional; totals available as context.materialsTotal
+      "quantity": "2 * Math.ceil(height / 1000)"
     }
   ],
   "Labour": [
@@ -30,20 +31,26 @@ export const Schema = {
     },
     {
       "type": "row",
+      "description": "Total cut length",
+      "quantity": "Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000)",
+      "unitCost": 0
+    },
+    {
+      "type": "row",
       "description": "Cutting/Plotting",
-      "quantity": "calculated?.finalArea ? ((calculated.finalArea / 1_000_000) < 80 ? 0.5 : Math.ceil(((calculated.finalArea / 1_000_000) / 80) / 0.25) * 0.25) : 0",
+      "quantity": "(1/3) + Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000) * (1/60)",
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "Sewing",
-      "quantity": "Math.ceil(((2 * attributes.quantity * (calculated.flatMainWidth + calculated.flatMainHeight) + 4 * attributes.quantity * (calculated.flatSideWidth + calculated.flatSideHeight)) / 1000 * 2 / 60) / 0.25) * 0.25",
+      "quantity": "10",
       "unitCost": 55
     },
     {
       "type": "row",
       "description": "Welding",
-      "quantity": "(attributes?.width > attributes?.fabricWidth ? Math.ceil(((calculated?.flatMainWidth * calculated?.flatMainHeight * 0.05) / 1_000_000) / 0.25) * 0.25 : 0)",
+      "quantity": "10",
       "unitCost": 55
     },
     {
@@ -57,43 +64,6 @@ export const Schema = {
       "description": "Packing up",
       "quantity": 0.5,
       "unitCost": 55
-    },
-    {
-      "type": "subtotal",
-      "label": "Total Labour",
-      "key": "labourTotal" // optional; totals available as context.labourTotal
-    }
-  ],
-  "Summary": [
-    {
-      "type": "calc",
-      "key": "totalCostFabrication",
-      "label": "Total Cost Fabrication",
-      "expr": "context.materialsTotal + context.labourTotal"
-    },
-    {
-      "type": "input",
-      "label": "Contingencies %",
-      "key": "contingencyPercent",
-      "default": 3
-    },
-    {
-      "type": "calc",
-      "key": "contingencyAmount",
-      "label": "Contingency Amount",
-      "expr": "context.baseCost * inputs.contingencyPercent / 100"
-    },
-    {
-      "type": "input",
-      "label": "Gross Margin %",
-      "key": "marginPercent",
-      "default": 45
-    },
-    {
-      "type": "calc",
-      "key": "suggestedPrice",
-      "label": "Suggested Price",
-      "expr": "(context.baseCost + (inputs.contingencyPercent ? (context.baseCost * inputs.contingencyPercent / 100) : 0)) / (1 - (inputs.marginPercent * 0.01))"
     }
   ]
-};
+}

@@ -8,7 +8,7 @@ import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 import { ProcessStepper } from '../components/products/ProcessStepper';
 import ProjectForm from "../components/ProjectForm";
-import { PRODUCT_TYPES } from "../config/productRegistry";
+import { PRODUCTS } from "../config/productRegistry";
 
 export default function NewProject() {
 
@@ -17,7 +17,7 @@ export default function NewProject() {
   const stepperRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [projectType, setProjectType] = useState(null);
+  const [product, setProduct] = useState(null);
 
   const role = localStorage.getItem("role") || "guest";
 
@@ -35,13 +35,13 @@ export default function NewProject() {
   const devMode = useSelector(state => state.toggles.devMode);
 
   useEffect(() => {
-    if (!projectType || !canvasRef.current) {
+  if (!product || !canvasRef.current) {
       return;
     }
     let alive = true;
 
     // Dynamically import steps only
-    import(`../components/products/${projectType}/Steps.js`)
+  import(`../components/products/${product}/Steps.js`)
       .then((stepsMod) => {
         const loadedSteps = stepsMod.Steps ?? stepsMod.steps ?? [];
         if (alive && stepperRef.current) {
@@ -50,18 +50,18 @@ export default function NewProject() {
         }
       })
       .catch((e) => {
-        console.error(`[Discrepancy] Failed to load steps for ${projectType}:`, e);
+  console.error(`[Discrepancy] Failed to load steps for ${product}:`, e);
       });
 
     return () => {
       alive = false;
     };
-  }, [projectType, canvasRef.current]);
+  }, [product, canvasRef.current]);
 
   // Reset formRef when switching types
   // Do not reset formRef here; let ProjectForm manage the ref lifecycle
 
-  // NEW: Build a new ProcessStepper and load Steps whenever projectType changes
+  // NEW: Build a new ProcessStepper and load Steps whenever product changes
   useEffect(() => {
 
     canvasRef.current?.getContext("2d")?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -69,7 +69,7 @@ export default function NewProject() {
     let cancelled = false;
 
     // if no type or canvas missing, reset
-    if (!projectType || !canvasRef.current) {
+  if (!product || !canvasRef.current) {
       stepperRef.current = null;
       return;
     }
@@ -80,7 +80,7 @@ export default function NewProject() {
       new ProcessStepper(800);
 
     return () => { cancelled = true; };
-  }, [projectType]);
+  }, [product]);
 
   
 
@@ -109,7 +109,7 @@ export default function NewProject() {
 
 
   const handleSubmit = async () => {
-    if (!projectType) {
+  if (!product) {
       showToast("Please select a project type first.")
       return;
     }
@@ -124,7 +124,7 @@ export default function NewProject() {
 
       const payload = {
         ...stepperData ?? {},
-        type: projectType
+  product: product
       };
 
       const response = await apiFetch("/projects/create", {
@@ -148,9 +148,9 @@ export default function NewProject() {
       <ProjectSidebar
         open={sidebarOpen}
         setOpen={setSidebarOpen}
-        projectType={projectType}
-        setSelectedType={setProjectType}
-        projectTypes={PRODUCT_TYPES}
+        selectedProduct={product}
+        setSelectedProduct={setProduct}
+        products={PRODUCTS}
       />
 
       {toast && (
@@ -173,13 +173,13 @@ export default function NewProject() {
       )}
 
       <main className="flex-1 p-6">
-        {projectType ? (
+  {product ? (
           <div className="flex flex-wrap gap-10">
             <div className="flex-1 min-w-[400px]">
               <Suspense fallback={<div className="p-3"></div>}>
                 <ProjectForm
-                  key={projectType}
-                  productType={projectType}
+                  key={product}
+                  product={product}
                   formRef={formRef}
                 />
               </Suspense>

@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required
 
-from models import db, EstimatingSchema, ProjectType
+from models import db, EstimatingSchema, Product
 from endpoints.api.auth.utils import role_required, _json, _user_by_credentials
 
 estimating_schemas_api_bp = Blueprint(
@@ -42,9 +42,9 @@ def create_schema():
     if data is None:
         return jsonify({"error": "data (schema JSON) is required"}), 400
 
-    pt = ProjectType.query.get(project_type_id)
-    if not pt:
-        return jsonify({"error": f"ProjectType {project_type_id} not found"}), 404
+        prod = Product.query.get(product_id)
+        if not prod:
+            return jsonify({"error": f"Product {product_id} not found"}), 404
 
     schema = EstimatingSchema(
         project_id=None,

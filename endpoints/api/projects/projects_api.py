@@ -29,6 +29,7 @@ from endpoints.api.auth.utils import current_user, role_required, _json, _user_b
 from WG.workGuru import get_leads
 
 from WG.workGuru import add_cover
+from WG.workGuru import dr_make_lead
 
 projects_api_bp = Blueprint("projects_api", __name__)
 
@@ -106,6 +107,14 @@ def save_project_config():
 
         # Optionally, include estimated price in CRM submission
         add_cover(name, description + (f"\nEstimated Price: ${estimated_price:.2f}" if estimated_price is not None else ""))
+
+        dr_make_lead(
+            name=name,
+            description=description,
+            budget=math.ceil(estimated_price) if estimated_price is not None else 0,
+            category="2a",
+            go_percent=100
+        )
 
     general = data.get("general") or {}
     if not isinstance(general, dict):

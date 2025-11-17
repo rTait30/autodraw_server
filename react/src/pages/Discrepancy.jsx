@@ -62,6 +62,8 @@ export default function Discrepancy() {
     const resultAttributes = stepperData?.products?.[0]?.attributes;
     const maxDiscrepancy = resultAttributes?.maxDiscrepancy ?? 0;
     const discrepancyProblem = resultAttributes?.discrepancyProblem ?? false;
+
+
     
     console.log("Max discrepancy:", maxDiscrepancy, "Problem:", discrepancyProblem);
     
@@ -90,11 +92,11 @@ export default function Discrepancy() {
           <div className="flex-1 min-w-[360px]">
             <ProductForm formRef={formRef} discrepancyChecker={true} />
 
-            <div className="flex items-center gap-3 mt-4">
-              <button onClick={onCheck} className="buttonStyle">
+            <div className="flex flex-col gap-3 mt-4">
+              <button onClick={onCheck} className="buttonStyle whitespace-nowrap">
                 Check Discrepancy
               </button>
-              <span className="text-sm" aria-live="polite">
+              <span className="text-xl" aria-live="polite">
                 {checkSign.ok === null ? (
                   ""
                 ) : (
@@ -111,7 +113,7 @@ export default function Discrepancy() {
             <canvas
               ref={canvasRef}
               width={1000}
-              height={5000}
+              height={2000}
               style={{
                 border: "1px solid #ccc",
                 marginTop: "20px",

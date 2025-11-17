@@ -148,44 +148,124 @@ export const Steps = [
           
           ctx.fillStyle = '#000';
 
-          ctx.fillText(id, p.x, p.y);
+          ctx.font = 'bold 40px Arial';
 
+          ctx.fillText(`Point ${id}`, p.x - 100, p.y);
 
-          ctx.font = 'bold 30px Arial';
+          ctx.fillText(`Height: ${points[id].height}`, p.x - 100, p.y + 40);
 
           if (!data.discrepancyChecker) {
             ctx.font = 'bold 20px Arial';
-            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 100, p.y + 50);
-            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 100, p.y + 80);
-            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 100, p.y + 110);
+            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 100, p.y + 80);
+            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 100, p.y + 120);
+            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 100, p.y + 160);
           }
-
-          ctx.fillText(`Height: ${points[id].height}`, p.x - 100, p.y + 20);
 
           let y = 140;
 
           ctx.fillStyle = '#F00';
 
-          if (attributes.exitPoint === id) {
+          if (attributes.exitPoint === id && !data.discrepancyChecker) {
             ctx.fillText(`Exit Point`, p.x - 100, p.y + y);
             y += 30;
           }
 
-          if (attributes.logoPoint === id) {
+          if (attributes.logoPoint === id && !data.discrepancyChecker) {
             ctx.fillText(`Logo`, p.x - 100, p.y + y);
           }
 
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
+
         if (ordered.length > 1) {
           const first = mapped[ordered[0]];
           ctx.lineTo(first.x, first.y);
         }
         ctx.stroke();
 
-        ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, topOffset + slotHeight - 200);
-        ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, topOffset + slotHeight - 200 + 30);
+        // Draw all connecting lines (edges and diagonals) with dimension labels
+        ctx.strokeStyle = '#ccc';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#666';
+        ctx.font = 'bold 24px Arial';
+
+        const drawnLines = new Set(); // To avoid drawing the same line twice
+
+        for (const edgeKey in attributes.dimensions) {
+          if (edgeKey.length !== 2) continue;
+          
+          const [p1, p2] = edgeKey.split('');
+          const lineKey = [p1, p2].sort().join(''); // Normalize key
+          
+          if (drawnLines.has(lineKey)) continue;
+          drawnLines.add(lineKey);
+
+          const pos1 = mapped[p1];
+          const pos2 = mapped[p2];
+
+          if (!pos1 || !pos2) continue;
+
+          // Draw the line
+          ctx.beginPath();
+          ctx.moveTo(pos1.x, pos1.y);
+          ctx.lineTo(pos2.x, pos2.y);
+          ctx.stroke();
+
+          // Calculate midpoint for label
+          const midX = (pos1.x + pos2.x) / 2;
+          const midY = (pos1.y + pos2.y) / 2;
+
+          // Calculate angle of the line
+          const angle = Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x);
+
+          // Get dimension value
+          const dimValue = attributes.dimensions[edgeKey];
+          const label = `${edgeKey}: ${dimValue}mm`;
+
+          // Save context, rotate, draw text, restore
+          ctx.save();
+          ctx.translate(midX, midY);
+          ctx.rotate(angle);
+          
+          // Adjust text position slightly above the line
+          ctx.fillText(label, 0, -5);
+          
+          ctx.restore();
+        }
+
+        // Restore original stroke style for other elements
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+
+        attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
+
+        let yPos = topOffset + slotHeight - 200 + 60;
+
+        if (data.discrepancyChecker) {
+          yPos = 1050;
+        }
+
+        ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, yPos);
+        ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, yPos + 30);
+      
+        yPos += 60;
+
+
+        let sortedDiscrepancies = Object.entries(attributes.discrepancies || {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+        sortedDiscrepancies.forEach(([edge, value], i) => {
+          ctx.fillText(`Discrepancy ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
+          yPos += 30;
+        });
+
+        let sortedBlame = Object.entries(attributes.blame || {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+        sortedBlame.forEach(([edge, value], i) => {
+          ctx.fillText(`Blame ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
+          yPos += 30;
+        });
+      
       });
 
       ctx.restore();

@@ -585,53 +585,55 @@ const setPointField = (p, key, value) =>
         </div>
       </section>
 
-{/* Exit Point and Logo Point side by side, compact layout */}
-<section className="flex items-end gap-4">
-  {/* Exit Point */}
-  <div className="flex flex-col items-center">
-    <label className="text-sm font-medium mb-1">Exit Point</label>
-    {(() => {
-      const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
-      const allowBlankExit = (attributes.sailTracks || []).length > 0;
-      return (
-        <select
-          className="inputCompact h-9 text-center"
-          value={attributes.exitPoint ?? ""}
-          onChange={(e) => setExitPoint(e.target.value)}
-        >
-          {allowBlankExit ? <option value="">-</option> : null}
-          {verts.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      );
-    })()}
-  </div>
+      {/* Exit Point and Logo Point side by side, compact layout */}
 
-  {/* Logo Point */}
-  <div className="flex flex-col items-center">
-    <label className="text-sm font-medium mb-1">Logo</label>
-    {(() => {
-      const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
-      return (
-        <select
-          className="inputCompact h-9 text-center"
-          value={attributes.logoPoint ?? ""}
-          onChange={(e) => setLogoPoint(e.target.value)}
-        >
-          <option value="">-</option>
-          {verts.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      );
-    })()}
-  </div>
-</section>
+      {!discrepancyChecker && (
+        <section className="flex items-end gap-4">
+          {/* Exit Point */}
+          <div className="flex flex-col items-center">
+            <label className="text-sm font-medium mb-1">Exit Point</label>
+            {(() => {
+              const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
+              const allowBlankExit = (attributes.sailTracks || []).length > 0;
+              return (
+                <select
+                  className="inputCompact h-9 text-center"
+                  value={attributes.exitPoint ?? ""}
+                  onChange={(e) => setExitPoint(e.target.value)}
+                >
+                  {allowBlankExit ? <option value="">-</option> : null}
+                  {verts.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()}
+          </div>
+
+          {/* Logo Point */}
+          <div className="flex flex-col items-center">
+            <label className="text-sm font-medium mb-1">Logo</label>
+            {(() => {
+              const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
+              return (
+                <select
+                  className="inputCompact h-9 text-center"
+                  value={attributes.logoPoint ?? ""}
+                  onChange={(e) => setLogoPoint(e.target.value)}
+                >
+                  <option value="">-</option>
+                  {verts.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()}
+          </div>
+        </section>)}
 
       {/* Dimensions (Edges first, then Diagonals) */}
       <section className="space-y-3">
@@ -830,7 +832,7 @@ const setPointField = (p, key, value) =>
             {/* Height */}
             <input
               ref={(el) => (heightRefs.current[p] = el)}
-              className="inputCompact col-span-2"
+              className={`inputCompact ${discrepancyChecker ? 'col-span-5 md:col-span-11' : 'col-span-2'}`}
               type="number"
               min={0}
               step="any"

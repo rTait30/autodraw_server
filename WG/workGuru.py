@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Calculate forecast close date: last day of month, or next month if in last week
+from datetime import datetime, timedelta
+from calendar import monthrange
+
 # WG/workGuru.py -> WG/ -> top-level/
 TOP = Path(__file__).resolve().parent.parent
 load_dotenv(TOP / "instance" / ".env")
@@ -121,12 +125,12 @@ def add_cover(name: str, description: str):
         "CategoryId": 2140,          # dr warm
         "StageId": 2607,             # dr lead
         "CloseProbability": 90,
-        "ForecastCloseDate": "30/09/2025",  # match Postman format if that's what worked
-        "ClientId": 178827,          # dr nsc
+        "ForecastCloseDate": get_forecastclose_date(),
+        "ClientId": 178827,          # dr parameter
         "ContactId": None,           # or omit if not used
         "BillingClientId": 178827,
         "BillingClientContactId": None,
-        "Budget": 0,
+        "Budget": 0,           # generate with estimate
         "CustomFieldValues": [
             {
                 "TenantId": 826,
@@ -136,18 +140,77 @@ def add_cover(name: str, description: str):
             {
                 "TenantId": 826,
                 "CustomFieldId": 5385,
-                "Value": "90",
+                "Value": "90",  # 0
             },
             {
                 "TenantId": 826,
                 "CustomFieldId": 5386,
-                "Value": "90",
+                "Value": "90",  # supplied by customer
             },
         ],
     }
 
     # Send JSON (not data=)
     res = requests.post(url, json=body, headers=headers, timeout=30)
+
+    # Helpful diagnostics on failure
+    if not res.ok:
+        print("Status:", res.status_code)
+        print("Response headers:", res.headers)
+        try:
+            print("Response JSON:", res.json())
+        except Exception:
+            print("Response text:", res.text)
+        res.raise_for_status()
+
+    data = res.json()
+    print("LEAD CREATED/UPDATED:", data)
+    return data
+
+
+def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 50):
+
+    # Build the exact shape Postman typically uses for WG: {"input": {...}}
+    body = {
+        "Id": 0,                     # for create
+        "TenantId": 826,
+        "WonOrLostDate": "",         # omit if not needed
+        "Status": "Current",         # if Postman used "Open", use that
+        "CreatorUserId": "",         # omit if not needed
+        "LeadNumber": "",            # omit if not needed
+        "Name": name,
+        "Description": description,
+        "OwnerId": 14364,            # dr ryan
+        "CategoryId": 2140,          # dr warm
+        "StageId": 2607,             # dr lead
+        "CloseProbability": go_percent * 0.5,
+        "ForecastCloseDate": get_forecastclose_date(),
+        "ClientId": 178827,          # dr parameter
+        "ContactId": None,           # or omit if not used
+        "BillingClientId": 178827,
+        "BillingClientContactId": None,
+        "Budget": budget,           # generate with estimate
+        "CustomFieldValues": [
+            {
+                "TenantId": 826,
+                "CustomFieldId": 3686,
+                "Value": get_category_display(category),
+            },
+            {
+                "TenantId": 826,
+                "CustomFieldId": 5385,
+                "Value": "50",  # Get% 50
+            },
+            {
+                "TenantId": 826,
+                "CustomFieldId": 5386,
+                "Value": str(go_percent),  # Go% supplied by customer
+            },
+        ],
+    }
+
+    # Send JSON (not data=)
+    res = wg_post("DR", "Lead/AddOrUpdateLead", body)
 
     # Helpful diagnostics on failure
     if not res.ok:
@@ -183,3 +246,62 @@ def wg_post(tenant: str, endpoint: str, body: dict):
     res = requests.post(url, headers=headers, json=body, timeout=30)
     res.raise_for_status()
     return res.json()
+
+
+
+def get_forecastclose_date():
+    today = datetime.now()
+    # Get last day of current month
+    last_day_of_month = monthrange(today.year, today.month)[1]
+    
+    # Check if we're in the last week (within 7 days of month end)
+    days_until_month_end = last_day_of_month - today.day
+    
+    if days_until_month_end < 7:
+        # Move to next month
+        if today.month == 12:
+            next_year = today.year + 1
+            next_month = 1
+        else:
+            next_year = today.year
+            next_month = today.month + 1
+        
+        last_day = monthrange(next_year, next_month)[1]
+        forecastclose_date = f"{last_day:02d}/{next_month:02d}/{next_year}"
+    else:
+        # Use current month
+        forecastclose_date = f"{last_day_of_month:02d}/{today.month:02d}/{today.year}"
+    
+    return forecastclose_date
+
+
+CATEGORIES = {
+    "1a": {"id": 1,  "name": "Dam & Pond Liners",             "group": "Environmental"},
+    "1b": {"id": 2,  "name": "Tank Liners",                   "group": "Environmental"},
+    "1c": {"id": 3,  "name": "Spill Control and Containment", "group": "Environmental"},
+    "1d": {"id": 4,  "name": "Waste Management",              "group": "Environmental"},
+
+    "2a": {"id": 5,  "name": "Tarpaulins",                    "group": "Tarps and Covers"},
+    "2b": {"id": 6,  "name": "Grain and Stockpile Covers",    "group": "Tarps and Covers"},
+    "2c": {"id": 7,  "name": "Truck & Transport",             "group": "Tarps and Covers"},
+
+    "3a": {"id": 8,  "name": "Marine Curtains",               "group": "Industrial Curtains"},
+    "3b": {"id": 9,  "name": "Industrial Curtains",           "group": "Industrial Curtains"},
+    "3c": {"id": 10, "name": "Cold Store Curtains",           "group": "Industrial Curtains"},
+
+    "4a": {"id": 11, "name": "Fumigation Tarps",              "group": "Fumigation"},
+    "4b": {"id": 12, "name": "Fumigation Chamber Covers",     "group": "Fumigation"},
+
+    "5":  {"id": 13, "name": "Poultry",                       "group": "Poultry"},
+    "6":  {"id": 14, "name": "Miscellaneous",                 "group": "Miscellaneous"},
+}
+
+def get_category_display(code, categories=CATEGORIES):
+    """
+    Returns a display string like:
+    "1a. Dam & Pond Liners (Environmental)"
+    """
+    item = categories.get(code)
+    if not item:
+        return None
+    return f"{code}. {item['name'] } ({item['group']})"

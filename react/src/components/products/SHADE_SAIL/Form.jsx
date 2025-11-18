@@ -779,9 +779,9 @@ const setPointField = (p, key, value) =>
                   </div>
                 )}
 
-                {/* Mobile clear buttons */}
+                {/* Clear edges button */}
                 {edges.length > 0 && (
-                  <div className="flex gap-2 mt-3 md:hidden">
+                  <div className="mt-3">
                     <button
                       type="button"
                       className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
@@ -799,7 +799,7 @@ const setPointField = (p, key, value) =>
               {mandatoryDiagonals.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-sm font-medium opacity-70">Required diagonals</h5>
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-x-0 gap-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {mandatoryDiagonals.map(([label, value]) => (
                       <div key={label} className="space-y-3">
                         <label className="text-sm block mb-2">{label} <span className="text-xs opacity-60">(required)</span></label>
@@ -822,7 +822,7 @@ const setPointField = (p, key, value) =>
               {optionalDiagonals.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-sm font-medium opacity-70">Optional diagonals (Please provide as many as possible)</h5>
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-x-0 gap-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {optionalDiagonals.map(([label, value]) => (
                       <div key={label} className="space-y-3">
                         <label className="text-sm block mb-2">{label}</label>
@@ -842,14 +842,18 @@ const setPointField = (p, key, value) =>
                 </div>
               )}
 
-              
-              <button
-                type="button"
-                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
-                onClick={clearAllDiagonals}
-              >
-                Clear Diagonals
-              </button>
+              {/* Clear diagonals button */}
+              {(mandatoryDiagonals.length > 0 || optionalDiagonals.length > 0) && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+                    onClick={clearAllDiagonals}
+                  >
+                    Clear Diagonals
+                  </button>
+                </div>
+              )}
             </>
           );
         })()}
@@ -941,8 +945,8 @@ const setPointField = (p, key, value) =>
           </div>
         ))}
       </div>
-      {/* Mobile clear heights button */}
-      <div className="mt-2 md:hidden">
+      {/* Clear heights button */}
+      <div className="mt-2">
         <button
           type="button"
           className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"

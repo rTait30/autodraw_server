@@ -199,12 +199,13 @@ export default function NewProject() {
                 width={1000}
                 height={5000}
                 style={{
-                  border: "1px solid #ccc",
+                  border: "1px solid #d1d5db",
                   marginTop: "20px",
                   width: "100%",
                   maxWidth: "500px",
                   display: "block",
-                  background: "#fff",
+                  background: "#f8f9fa",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                 }}
               />
               <div className="mt-6 text-center">

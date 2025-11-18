@@ -68,9 +68,9 @@ export default function Discrepancy() {
     console.log("Max discrepancy:", maxDiscrepancy, "Problem:", discrepancyProblem);
     
     if (discrepancyProblem) {
-      setCheckSign({ text: `Discrepancies found (max: ${maxDiscrepancy.toFixed(2)}mm)`, ok: false });
+      setCheckSign({ text: `Discrepancies found\n(max: ${maxDiscrepancy.toFixed(0)}mm)`, ok: false });
     } else {
-      setCheckSign({ text: `Within tolerance (max: ${maxDiscrepancy.toFixed(2)}mm)`, ok: true });
+      setCheckSign({ text: `Within tolerance\n(max: ${maxDiscrepancy.toFixed(0)}mm)`, ok: true });
     }
   };
 
@@ -80,7 +80,7 @@ export default function Discrepancy() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Sail Discrepancy Checker</h2>
           <button
-            className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+            className="buttonStyle bg-[#AA0000]"
             onClick={() => navigate("/copelands")}
           >
             ← Back
@@ -96,7 +96,7 @@ export default function Discrepancy() {
               <button onClick={onCheck} className="buttonStyle whitespace-nowrap">
                 Check Discrepancy
               </button>
-              <span className="text-xl" aria-live="polite">
+              <span className="text-lg" aria-live="polite">
                 {checkSign.ok === null ? (
                   ""
                 ) : (
@@ -115,12 +115,13 @@ export default function Discrepancy() {
               width={1000}
               height={2000}
               style={{
-                border: "1px solid #ccc",
+                border: "1px solid #d1d5db",
                 marginTop: "20px",
                 width: "100%",
                 maxWidth: "500px",
                 display: "block",
-                background: "#fff",
+                background: "#f8f9fa",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               }}
             />
           </div>

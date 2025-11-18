@@ -32,7 +32,8 @@ export const Steps = [
         attributes.discrepancies = discrepancies;
         attributes.blame = blame;
 
-        attributes.maxDiscrepancy = Math.max(...Object.values(discrepancies || {}).map(v => Math.abs(v))) || 0;
+        const discrepancyValues = Object.values(discrepancies || {}).map(v => Math.abs(v)).filter(v => isFinite(v));
+        attributes.maxDiscrepancy = discrepancyValues.length > 0 ? Math.max(...discrepancyValues) : 0;
 
         let discrepancyThreshold = 100;
 
@@ -86,9 +87,14 @@ export const Steps = [
       const canvasHeight = ctx.canvas.height || 1000;
 
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Light background for better visibility in dark mode
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
       ctx.save();
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "#000";
+      ctx.strokeStyle = "#1a1a1a";
 
       // half the old 500-high per sail
       const slotHeight = 1000;
@@ -124,7 +130,7 @@ export const Steps = [
         const innerW = canvasWidth - pad * 2;
         const innerH = slotHeight - pad * 2;
 
-        const scale = Math.min(innerW / shapeW, innerH / shapeH);
+        const scale = Math.min(innerW / shapeW, innerH / shapeH) * 0.9;
 
         const topOffset = idx * slotHeight;
 
@@ -139,43 +145,75 @@ export const Steps = [
         // Outer shape: join points A, B, C, ... in order
         const ordered = [...ids].sort();
 
+        // Compute centroid of sail (average of vertex positions)
+        let cx = 0, cy = 0;
+        ordered.forEach(id => { cx += mapped[id].x; cy += mapped[id].y; });
+        cx /= ordered.length || 1; cy /= ordered.length || 1;
+
+        // Calculate label dimensions to adjust scale if needed
+        const estimatedLabelWidth = 350; // approximate max width for labels
+        const estimatedLabelHeight = data.discrepancyChecker ? 80 : 200; // height varies by content
+        
+        // Check if we need to add padding for labels in bounding box
+        const labelPadding = Math.max(estimatedLabelWidth, estimatedLabelHeight) * 0.3;
+        
         ctx.beginPath();
         ordered.forEach((id, i) => {
           const p = mapped[id];
-
-
           if (!p) return;
-          
+
+          // Path drawing (unchanged)
+          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+
+          // Outward direction from centroid
+          let vx = p.x - cx; let vy = p.y - cy;
+          let vlen = Math.hypot(vx, vy) || 1;
+          vx /= vlen; vy /= vlen;
+
+          // Base outward anchor (distance from point) - reduced from 80 to 40
+          const baseDist = 40; // closer to sail
+          const lineSpacingLarge = 28; // spacing for large font lines
+          const lineSpacingSmall = 18; // spacing for small font lines
+          const anchorX = p.x + vx * baseDist;
+          const anchorY = p.y + vy * baseDist;
+
+          // Slight lateral offset to avoid overlapping edge if near horizontal/vertical
+          // Use perpendicular vector
+          const perpX = -vy; const perpY = vx;
+          const lateral = 10; // reduced lateral shift
+          const labelX = anchorX + perpX * lateral * 0.2;
+          const labelY = anchorY + perpY * lateral * 0.2;
+
+          // Draw primary point & height info with smaller fonts
           ctx.fillStyle = '#000';
+          ctx.font = 'bold 28px Arial'; // reduced from 40px
+          ctx.fillText(`Point ${id}`, labelX, labelY);
+          if (points[id].height !== undefined && points[id].height !== "") {
+            ctx.fillText(`Height: ${points[id].height}`, labelX, labelY + lineSpacingLarge);
+          }
 
-          ctx.font = 'bold 40px Arial';
-
-          ctx.fillText(`Point ${id}`, p.x - 100, p.y);
-
-          ctx.fillText(`Height: ${points[id].height}`, p.x - 100, p.y + 40);
+          let offsetY = labelY + lineSpacingLarge * 2; // next line start
 
           if (!data.discrepancyChecker) {
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, p.x - 100, p.y + 80);
-            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, p.x - 100, p.y + 120);
-            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, p.x - 100, p.y + 160);
+            ctx.font = 'bold 16px Arial'; // reduced from 20px
+            ctx.fillText(`Fitting: ${points[id].cornerFitting}`, labelX, offsetY);
+            offsetY += lineSpacingSmall;
+            ctx.fillText(`Hardware: ${points[id].tensionHardware}`, labelX, offsetY);
+            offsetY += lineSpacingSmall;
+            ctx.fillText(`Allowance: ${points[id].tensionAllowance}`, labelX, offsetY);
+            offsetY += lineSpacingSmall;
           }
 
-          let y = 140;
-
+          ctx.font = 'bold 16px Arial'; // reduced from 20px
           ctx.fillStyle = '#F00';
-
           if (attributes.exitPoint === id && !data.discrepancyChecker) {
-            ctx.fillText(`Exit Point`, p.x - 100, p.y + y);
-            y += 30;
+            ctx.fillText(`Exit Point`, labelX, offsetY);
+            offsetY += lineSpacingSmall;
           }
-
           if (attributes.logoPoint === id && !data.discrepancyChecker) {
-            ctx.fillText(`Logo`, p.x - 100, p.y + y);
+            ctx.fillText(`Logo`, labelX, offsetY);
+            offsetY += lineSpacingSmall;
           }
-
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
         });
 
         if (ordered.length > 1) {
@@ -185,9 +223,9 @@ export const Steps = [
         ctx.stroke();
 
         // Draw all connecting lines (edges and diagonals) with dimension labels
-        ctx.strokeStyle = '#ccc';
+        ctx.strokeStyle = '#999';
         ctx.lineWidth = 1;
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = '#333';
         ctx.font = 'bold 24px Arial';
 
         const drawnLines = new Set(); // To avoid drawing the same line twice
@@ -235,15 +273,21 @@ export const Steps = [
         }
 
         // Restore original stroke style for other elements
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 2;
 
         attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
 
-        let yPos = topOffset + slotHeight - 200 + 60;
+        let yPos = 500;
 
         if (data.discrepancyChecker) {
+
           yPos = 1050;
+        }
+
+        else {
+
+          ctx.font = 'bold 16px Arial';
         }
 
         ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, yPos);
@@ -252,14 +296,20 @@ export const Steps = [
         yPos += 60;
 
 
-        let sortedDiscrepancies = Object.entries(attributes.discrepancies || {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+        let sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
+          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+          .slice(0, 10);
 
         sortedDiscrepancies.forEach(([edge, value], i) => {
-          ctx.fillText(`Discrepancy ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
-          yPos += 30;
+          if (value > 0) {
+            ctx.fillText(`Discrepancy ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
+            yPos += 30;
+          }
         });
 
-        let sortedBlame = Object.entries(attributes.blame || {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+        let sortedBlame = Object.entries(attributes.blame || {})
+          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+          .slice(0, 10);
 
         sortedBlame.forEach(([edge, value], i) => {
           ctx.fillText(`Blame ${edge}: ${value.toFixed(2)} mm`, pad, yPos);

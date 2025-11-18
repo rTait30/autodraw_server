@@ -296,6 +296,38 @@ const setPointField = (p, key, value) =>
     return { ...prev, points: newPoints };
   });
 
+  // Mobile convenience: clear all edge dimensions
+  const clearAllEdges = () =>
+    setAttributes((prev) => {
+      const n = clamp(prev.pointCount, 1, MAX_POINTS);
+      const dims = { ...(prev.dimensions || {}) };
+      makeEdgeLabels(n).forEach((lbl) => {
+        if (dims.hasOwnProperty(lbl)) dims[lbl] = "";
+      });
+      return { ...prev, dimensions: dims };
+    });
+
+  // Mobile convenience: clear all diagonal dimensions
+  const clearAllDiagonals = () =>
+    setAttributes((prev) => {
+      const n = clamp(prev.pointCount, 1, MAX_POINTS);
+      const dims = { ...(prev.dimensions || {}) };
+      makeDiagonalLabels(n).forEach((lbl) => {
+        if (dims.hasOwnProperty(lbl)) dims[lbl] = "";
+      });
+      return { ...prev, dimensions: dims };
+    });
+
+  // Mobile convenience: clear all heights
+  const clearAllHeights = () =>
+    setAttributes((prev) => {
+      const pts = { ...(prev.points || {}) };
+      Object.keys(pts).forEach((p) => {
+        pts[p] = { ...pts[p], height: "" };
+      });
+      return { ...prev, points: pts };
+    });
+
   // Toggle sailtrack presence for a given edge label
   const toggleSailTrack = (edgeLabel) =>
     setAttributes((prev) => {
@@ -746,6 +778,19 @@ const setPointField = (p, key, value) =>
                     Edge meter: {perimeterMM}mm ({perimeterMetersRounded}m)
                   </div>
                 )}
+
+                {/* Mobile clear buttons */}
+                {edges.length > 0 && (
+                  <div className="flex gap-2 mt-3 md:hidden">
+                    <button
+                      type="button"
+                      className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+                      onClick={clearAllEdges}
+                    >
+                      Clear Edges
+                    </button>
+                  </div>
+                )}
               </div>
 
               <br></br>
@@ -796,6 +841,15 @@ const setPointField = (p, key, value) =>
                   </div>
                 </div>
               )}
+
+              
+              <button
+                type="button"
+                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+                onClick={clearAllDiagonals}
+              >
+                Clear Diagonals
+              </button>
             </>
           );
         })()}
@@ -832,7 +886,7 @@ const setPointField = (p, key, value) =>
             {/* Height */}
             <input
               ref={(el) => (heightRefs.current[p] = el)}
-              className={`inputCompact ${discrepancyChecker ? 'col-span-5 md:col-span-11' : 'col-span-2'}`}
+              className={`inputCompact ${discrepancyChecker ? 'col-span-5 md:col-span-11 md:w-28' : 'col-span-2 md:w-28'}`}
               type="number"
               min={0}
               step="any"
@@ -886,6 +940,16 @@ const setPointField = (p, key, value) =>
             )}
           </div>
         ))}
+      </div>
+      {/* Mobile clear heights button */}
+      <div className="mt-2 md:hidden">
+        <button
+          type="button"
+          className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+          onClick={clearAllHeights}
+        >
+          Clear Heights
+        </button>
       </div>
       </section>
 

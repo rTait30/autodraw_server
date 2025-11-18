@@ -222,7 +222,7 @@ const addUfc = () => {
       makeVertexLabels(n).forEach((p) => {
         const old = prev.points?.[p] ?? {};
         points[p] = {
-          height: old.height ?? 5,
+          height: old.height ?? "",
           // default tension hardware (was FIXING_TYPES[0])
           tensionHardware: old.tensionHardware ?? TENSION_HARDWARE_OPTIONS[0],
           tensionAllowance: old.tensionAllowance ?? 50,

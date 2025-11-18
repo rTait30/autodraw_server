@@ -28,27 +28,21 @@ export const Steps = [
 
         attributes.positions = computeSailPositionsFromXY(attributes.pointCount, attributes.xyDistances);
 
-        const { discrepancies, blame } = computeDiscrepanciesAndBlame(attributes.pointCount, attributes.xyDistances, sail);
+
+        //DISCREPANCIES
+        const { discrepancies, blame, boxProblems, discrepancyThreshold } = computeDiscrepanciesAndBlame(attributes.pointCount, attributes.xyDistances, sail);
         attributes.discrepancies = discrepancies;
         attributes.blame = blame;
+        attributes.boxProblems = boxProblems;
 
         const discrepancyValues = Object.values(discrepancies || {}).map(v => Math.abs(v)).filter(v => isFinite(v));
         attributes.maxDiscrepancy = discrepancyValues.length > 0 ? Math.max(...discrepancyValues) : 0;
 
-        let discrepancyThreshold = 100;
-
-        if (attributes.fabricCategory === "PVC") {
-          discrepancyThreshold = 20;
-        }
-
-        if (attributes.fabricCategory === "ShadeCloth") {
-          discrepancyThreshold = 70;
-        }
-
-
-
         attributes.discrepancyProblem = attributes.maxDiscrepancy > (discrepancyThreshold);
 
+
+
+        //MATERIALS
         attributes.fabricPrice = getPriceByFabric(attributes.fabricType, attributes.edgeMeter);
 
         attributes.fittingCounts = {};
@@ -157,13 +151,36 @@ export const Steps = [
         // Check if we need to add padding for labels in bounding box
         const labelPadding = Math.max(estimatedLabelWidth, estimatedLabelHeight) * 0.3;
         
-        ctx.beginPath();
+        // Draw outer perimeter edges individually with proper colors
+        for (let i = 0; i < ordered.length; i++) {
+          const p1 = ordered[i];
+          const p2 = ordered[(i + 1) % ordered.length];
+          const pos1 = mapped[p1];
+          const pos2 = mapped[p2];
+          
+          if (!pos1 || !pos2) continue;
+          
+          // Check if this edge belongs to a problematic box
+          let isProblematicEdge = false;
+          for (const boxKey in attributes.boxProblems || {}) {
+            if (attributes.boxProblems[boxKey] && boxKey.includes(p1) && boxKey.includes(p2)) {
+              isProblematicEdge = true;
+              break;
+            }
+          }
+          
+          ctx.strokeStyle = isProblematicEdge ? '#F00' : '#1a1a1a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(pos1.x, pos1.y);
+          ctx.lineTo(pos2.x, pos2.y);
+          ctx.stroke();
+        }
+
+        // Now draw point labels
         ordered.forEach((id, i) => {
           const p = mapped[id];
           if (!p) return;
-
-          // Path drawing (unchanged)
-          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
 
           // Outward direction from centroid
           let vx = p.x - cx; let vy = p.y - cy;
@@ -216,23 +233,34 @@ export const Steps = [
           }
         });
 
-        if (ordered.length > 1) {
-          const first = mapped[ordered[0]];
-          ctx.lineTo(first.x, first.y);
-        }
-        ctx.stroke();
-
         // Draw all connecting lines (edges and diagonals) with dimension labels
-        ctx.strokeStyle = '#999';
         ctx.lineWidth = 1;
         ctx.fillStyle = '#333';
         ctx.font = 'bold 24px Arial';
 
         const drawnLines = new Set(); // To avoid drawing the same line twice
+        
+        // Helper to check if edge is part of outer perimeter
+        const isPerimeterEdge = (p1, p2) => {
+          const i1 = ordered.indexOf(p1);
+          const i2 = ordered.indexOf(p2);
+          if (i1 === -1 || i2 === -1) return false;
+          return Math.abs(i1 - i2) === 1 || Math.abs(i1 - i2) === ordered.length - 1;
+        };
 
         for (const edgeKey in attributes.dimensions) {
+
+
           if (edgeKey.length !== 2) continue;
           
+
+
+          const dimValue = attributes.dimensions[edgeKey];
+
+          if (dimValue === "" || dimValue === undefined || dimValue === null || isNaN(Number(dimValue))) {
+            continue;
+          }
+
           const [p1, p2] = edgeKey.split('');
           const lineKey = [p1, p2].sort().join(''); // Normalize key
           
@@ -244,11 +272,30 @@ export const Steps = [
 
           if (!pos1 || !pos2) continue;
 
-          // Draw the line
-          ctx.beginPath();
-          ctx.moveTo(pos1.x, pos1.y);
-          ctx.lineTo(pos2.x, pos2.y);
-          ctx.stroke();
+          // Skip perimeter edges - they were already drawn above
+          if (isPerimeterEdge(p1, p2)) {
+            // Still add labels for perimeter edges, just skip drawing the line
+          } else {
+            // Draw diagonal/internal lines
+            // Check if this line belongs to a problematic box
+            let isProblematicLine = false;
+            for (const boxKey in attributes.boxProblems || {}) {
+              if (attributes.boxProblems[boxKey] && boxKey.includes(p1) && boxKey.includes(p2)) {
+                isProblematicLine = true;
+                break;
+              }
+            }
+
+            // Set line color based on whether it's in a problematic box
+            ctx.strokeStyle = isProblematicLine ? '#F00' : '#999';
+            ctx.lineWidth = 1;
+
+            // Draw the line
+            ctx.beginPath();
+            ctx.moveTo(pos1.x, pos1.y);
+            ctx.lineTo(pos2.x, pos2.y);
+            ctx.stroke();
+          }
 
           // Calculate midpoint for label
           const midX = (pos1.x + pos2.x) / 2;
@@ -258,7 +305,6 @@ export const Steps = [
           const angle = Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x);
 
           // Get dimension value
-          const dimValue = attributes.dimensions[edgeKey];
           const label = `${edgeKey}: ${dimValue}mm`;
 
           // Save context, rotate, draw text, restore
@@ -290,31 +336,54 @@ export const Steps = [
           ctx.font = 'bold 16px Arial';
         }
 
-        ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(2) + " mm", pad, yPos);
+        ctx.fillText("Max Discrepancy: " + (attributes.maxDiscrepancy || 0).toFixed(0) + " mm", pad, yPos);
         ctx.fillText("Discrepancy Problem: " + (attributes.discrepancyProblem ? "Yes" : "No"), pad, yPos + 30);
       
-        yPos += 60;
+        if (attributes.pointCount >= 5) {
 
+          yPos += 60;
 
-        let sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
-          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-          .slice(0, 10);
-
-        sortedDiscrepancies.forEach(([edge, value], i) => {
-          if (value > 0) {
-            ctx.fillText(`Discrepancy ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
-            yPos += 30;
-          }
-        });
-
-        let sortedBlame = Object.entries(attributes.blame || {})
-          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-          .slice(0, 10);
-
-        sortedBlame.forEach(([edge, value], i) => {
-          ctx.fillText(`Blame ${edge}: ${value.toFixed(2)} mm`, pad, yPos);
+          ctx.fillText('Discrepancies', pad, yPos);
           yPos += 30;
-        });
+
+          let sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
+            .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+            .slice(0, 10);
+
+          sortedDiscrepancies.forEach(([edge, value], i) => {
+            if (value > 0) {
+              ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, pad, yPos);
+              yPos += 30;
+            }
+          });
+
+          ctx.fillText('Blame', pad, yPos);
+          yPos += 30;
+
+          const blameEntries = Object.entries(attributes.blame || {});
+          const blameGroups = new Map();
+          blameEntries.forEach(([key, val]) => {
+            const rounded = Math.abs(Number(val) || 0).toFixed(2);
+            if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
+            blameGroups.get(rounded).push(key);
+          });
+
+          const groupedSorted = Array.from(blameGroups.entries())
+            .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+            .slice(0, 10);
+
+          groupedSorted.forEach(([rounded, keys]) => {
+
+            if (rounded > 1) {
+              
+              keys.sort();
+              const label = keys.join(', ');
+              ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, pad, yPos);
+              yPos += 30;
+
+            }
+          });
+        }
       
       });
 
@@ -616,6 +685,16 @@ function computePositionsForManySided(N, xyDistances) {
 function computeDiscrepanciesAndBlame(N, xyDistances, data) {
   const discrepancies = {};
   const blame = {};
+  const boxProblems = {};
+
+  // Determine threshold from fabric category
+  let discrepancyThreshold = 100;
+  const fabricCategory = data?.attributes?.fabricCategory;
+  if (fabricCategory === "PVC") {
+    discrepancyThreshold = 20;
+  } else if (fabricCategory === "ShadeCloth") {
+    discrepancyThreshold = 70;
+  }
 
   // Initialize blame for all dimensions as 0
   for (const key in xyDistances) {
@@ -640,22 +719,17 @@ function computeDiscrepanciesAndBlame(N, xyDistances, data) {
 
       discrepancies[combo.combo] = discrepancy;
 
-      if (discrepancy !== null && !isNaN(discrepancy)) {
+      // Mark problem boxes and only attribute blame for those
+      const isProblem = discrepancy !== null && isFinite(discrepancy) && discrepancy > discrepancyThreshold;
+      if (isProblem) {
+        boxProblems[combo.combo] = true;
+
         // For each blame key, check if it shares ALL characters with combo
         for (const blameKey in blame) {
-          const allInside = [...blameKey].every((char) =>
-            combo.combo.includes(char)
-          );
-
+          const allInside = [...blameKey].every((char) => combo.combo.includes(char));
           if (allInside) {
-            if (blameKey.length === 2) {
-              // edge/diagonal
-              blame[blameKey] += discrepancy;
-            } else {
-              // point / height
-              // TODO: could scale down height contribution if desired
-              blame[blameKey] += discrepancy;
-            }
+            // edge/diagonal or point/height; both aggregate full discrepancy
+            blame[blameKey] += discrepancy;
           }
         }
       }
@@ -665,7 +739,7 @@ function computeDiscrepanciesAndBlame(N, xyDistances, data) {
     console.log(blame);
   }
 
-  return { discrepancies, blame };
+  return { discrepancies, blame, boxProblems, discrepancyThreshold };
 }
 
 function getFourPointCombosWithDims(N, xyDimensions) {
@@ -819,7 +893,16 @@ function placeQuadrilateral(dAB, dAC, dAD, dBC, dBD, dCD) {
   const rx = (-dy * h) / d;
   const ry = (dx * h) / d;
 
-  pos["D"] = { x: xD + rx, y: yD + ry };
+  // Two possible positions for D (one on each side of line AC)
+  const D1 = { x: xD + rx, y: yD + ry };
+  const D2 = { x: xD - rx, y: yD - ry };
+
+  // Calculate BD distance for both positions
+  const dist1 = Math.sqrt((D1.x - pos["B"].x) ** 2 + (D1.y - pos["B"].y) ** 2);
+  const dist2 = Math.sqrt((D2.x - pos["B"].x) ** 2 + (D2.y - pos["B"].y) ** 2);
+
+  // Choose the position that best matches the given BD distance
+  pos["D"] = Math.abs(dist1 - dBD) < Math.abs(dist2 - dBD) ? D1 : D2;
 
   return pos;
 }

@@ -30,10 +30,12 @@ export const Steps = [
 
 
         //DISCREPANCIES
-        const { discrepancies, blame, boxProblems, discrepancyThreshold } = computeDiscrepanciesAndBlame(attributes.pointCount, attributes.xyDistances, sail);
+        const { discrepancies, blame, boxProblems, discrepancyThreshold, reflex, reflexAngleValues } = computeDiscrepanciesAndBlame(attributes.pointCount, attributes.xyDistances, sail);
         attributes.discrepancies = discrepancies;
         attributes.blame = blame;
         attributes.boxProblems = boxProblems;
+        attributes.hasReflexAngle = reflex === true; // store whether any reflex angle exists in evaluated boxes
+        attributes.reflexAngleValues = reflexAngleValues; // map of point label -> angle (deg) for reflex angles (max if multiple)
 
         const discrepancyValues = Object.values(discrepancies || {}).map(v => Math.abs(v)).filter(v => isFinite(v));
         attributes.maxDiscrepancy = discrepancyValues.length > 0 ? Math.max(...discrepancyValues) : 0;
@@ -687,6 +689,11 @@ function computeDiscrepanciesAndBlame(N, xyDistances, data) {
   const blame = {};
   const boxProblems = {};
 
+  // Will be set true if ANY quadrilateral evaluated has a reflex angle (concave)
+  let reflex = false;
+  // Aggregate of reflex angle values across all examined quadrilaterals; if a point appears multiple times keep max angle
+  const reflexAngleValues = {};
+
   // Determine threshold from fabric category
   let discrepancyThreshold = 100;
   const fabricCategory = data?.attributes?.fabricCategory;
@@ -713,11 +720,23 @@ function computeDiscrepanciesAndBlame(N, xyDistances, data) {
       console.log(combo.combo);
       console.log(combo.dims);
 
-      const discrepancy = computeDiscrepancyXY(combo.dims);
+      const { discrepancy, reflex: reflexObj, angles, reflexAngles } = computeDiscrepancyXY(combo.dims);
 
       console.log(discrepancy);
 
       discrepancies[combo.combo] = discrepancy;
+
+      // Determine if any reflex angles in this quadrilateral
+      const quadHasReflex = Object.values(reflexObj).some(v => v === true);
+      if (quadHasReflex) reflex = true;
+
+      // Merge reflex angle values (store maximum if repeated)
+      for (const [label, angleDeg] of Object.entries(reflexAngles)) {
+        if (angleDeg == null) continue;
+        if (!(label in reflexAngleValues) || angleDeg > reflexAngleValues[label]) {
+          reflexAngleValues[label] = angleDeg;
+        }
+      }
 
       // Mark problem boxes and only attribute blame for those
       const isProblem = discrepancy !== null && isFinite(discrepancy) && discrepancy > discrepancyThreshold;
@@ -739,7 +758,7 @@ function computeDiscrepanciesAndBlame(N, xyDistances, data) {
     console.log(blame);
   }
 
-  return { discrepancies, blame, boxProblems, discrepancyThreshold };
+  return { discrepancies, blame, boxProblems, discrepancyThreshold, reflex, reflexAngleValues };
 }
 
 function getFourPointCombosWithDims(N, xyDimensions) {
@@ -781,66 +800,115 @@ function getFourPointCombosWithDims(N, xyDimensions) {
 function computeDiscrepancyXY(dimensions) {
   const lengths = Object.values(dimensions);
 
-  if (!lengths[0] || !lengths[1] || !lengths[2] || !lengths[3] || !lengths[4] || !lengths[5]) {
-
-    return 0
+  if (lengths.length < 6 || lengths.some(v => !v)) {
+    return { discrepancy: 0, reflex: {}, angles: {}, reflexAngles: {} };
   }
 
-  // Naming consistent with your original code
-  const l12xy = lengths[0]; // AB
-  const l13xy = lengths[1]; // AC (diagonal)
-  const l41xy = lengths[2]; // DA
-  const l23xy = lengths[3]; // BC
-  const l24xy = lengths[4]; // BD (diagonal)
-  const l34xy = lengths[5]; // CD
+  // AB, AC, AD, BC, BD, CD  (your existing ordering)
+  const AB = lengths[0];
+  const AC = lengths[1];
+  const AD = lengths[2];
+  const BC = lengths[3];
+  const BD = lengths[4];
+  const CD = lengths[5];
 
-  // --- Utility: Safe acos for numeric stability ---
   const safeAcos = (x) => Math.acos(Math.min(1, Math.max(-1, x)));
 
-  // --- Step 1: Compute cosines of angles ---
-  const cos123 = (l13xy ** 2 + l12xy ** 2 - l23xy ** 2) / (2 * l13xy * l12xy);
-  const cos134 = (l13xy ** 2 + l41xy ** 2 - l34xy ** 2) / (2 * l13xy * l41xy);
+  // ------------------------------------------------------
+  // 1) Reconstruct the quadrilateral in 2D
+  // ------------------------------------------------------
 
-  // --- Step 2: Get *unsigned* angles ---
-  const angle123_unsigned = safeAcos(cos123);
-  const angle134_unsigned = safeAcos(cos134);
+  // Fixed baseline: A = (0,0), C = (AC, 0)
+  const A = { x: 0,     y: 0 };
+  const C = { x: AC,    y: 0 };
 
-  // --- Step 3: Determine *signed* angles ---
-  // We assume CCW winding, so we flip sign if needed.
-  // For a reflex angle, the "turn" should go beyond π.
-  // Trick: if the quadrilateral is concave, the diagonals will cross differently.
-  // We'll determine sign based on triangle inequality check:
-  let angle123 = angle123_unsigned;
-  let angle134 = angle134_unsigned;
+  // ---- Compute angle at A for triangle ABC
+  const cosA_ABC = (AB*AB + AC*AC - BC*BC) / (2 * AB * AC);
+  let angleA_ABC = safeAcos(cosA_ABC);
 
-  // OPTIONAL heuristic: detect reflex by checking if sum of opposite edges < diagonal
-  const isReflex123 = (l12xy + l23xy < l13xy + 1e-9);
-  const isReflex134 = (l41xy + l34xy < l13xy + 1e-9);
+  // Coordinates of B in the upper half-plane
+  const B = {
+    x: AB * Math.cos(angleA_ABC),
+    y: AB * Math.sin(angleA_ABC)
+  };
 
-  if (isReflex123) angle123 = 2 * Math.PI - angle123_unsigned;
-  if (isReflex134) angle134 = 2 * Math.PI - angle134_unsigned;
+  // ---- Compute angle at A for triangle ADC
+  const cosA_ADC = (AD*AD + AC*AC - CD*CD) / (2 * AD * AC);
+  let angleA_ADC = safeAcos(cosA_ADC);
 
-  // --- Step 4: Place points ---
-  // P1 is at origin
-  const p1x = 0, p1y = 0;
-  // P3 is at (l13xy, 0) - baseline
-  const p3x = l13xy, p3y = 0;
+  // Coordinates of D: choose lower half-plane
+  const D = {
+    x: AD * Math.cos(angleA_ADC),
+    y: -AD * Math.sin(angleA_ADC)
+  };
 
-  // P2 is rotated CCW from baseline by angle123
-  const p2x = l12xy * Math.cos(angle123);
-  const p2y = l12xy * Math.sin(angle123);
+  // ------------------------------------------------------
+  // 2) Compute theoretical BD distance for discrepancy
+  // ------------------------------------------------------
+  const BD_theory = Math.sqrt(
+    (B.x - D.x) ** 2 + (B.y - D.y) ** 2
+  );
 
-  // P4 is rotated CW from baseline by angle134 (negative y direction)
-  const p4x = l41xy * Math.cos(-angle134);
-  const p4y = l41xy * Math.sin(-angle134);
+  const discrepancy = Math.abs(BD_theory - BD);
 
-  // --- Step 5: Compute theoretical BD distance ---
-  const l24Theoric = Math.sqrt((p2x - p4x) ** 2 + (p2y - p4y) ** 2);
+  // ------------------------------------------------------
+  // 3) Compute internal angles at A, B, C, D
+  // ------------------------------------------------------
+  function angleAt(P, Q, R) {
+    // angle at Q formed by QP and QR
+    const v1 = { x: P.x - Q.x, y: P.y - Q.y };
+    const v2 = { x: R.x - Q.x, y: R.y - Q.y };
 
-  const discrepancy = Math.abs(l24Theoric - l24xy);
-  console.log("discrepancy", discrepancy);
-  return discrepancy;
+    const dot = v1.x*v2.x + v1.y*v2.y;
+    const m1 = Math.sqrt(v1.x*v1.x + v1.y*v1.y);
+    const m2 = Math.sqrt(v2.x*v2.x + v2.y*v2.y);
+
+    let ang = Math.acos(Math.min(1, Math.max(-1, dot / (m1*m2))));
+    return ang;
+  }
+
+  // Convex or reflex is determined *by the polygon orientation*
+  const Aang = angleAt(D, A, B);
+  const Bang = angleAt(A, B, C);
+  const Cang = angleAt(B, C, D);
+  const Dang = angleAt(C, D, A);
+
+  // ------------------------------------------------------
+  // 4) Determine reflex angles
+  // ------------------------------------------------------
+  // In a quadrilateral exactly one will exceed 180° if concave.
+
+  // In a quadrilateral exactly one will exceed 180° if concave.
+  function isReflex(aRad) {
+    return aRad > Math.PI; 
+  }
+
+  const angles = {
+    A: Aang * 180 / Math.PI,
+    B: Bang * 180 / Math.PI,
+    C: Cang * 180 / Math.PI,
+    D: Dang * 180 / Math.PI
+  };
+
+  const reflex = {
+    A: isReflex(Aang),
+    B: isReflex(Bang),
+    C: isReflex(Cang),
+    D: isReflex(Dang)
+  };
+
+  // Only include angles that are reflex in reflexAngles
+  const reflexAngles = Object.fromEntries(Object.entries(angles).filter(([label, deg]) => reflex[label]));
+
+  return {
+    discrepancy,
+    reflex,
+    angles,
+    reflexAngles
+  };
+
 }
+
 
 function getDistXY(a, b, xyDistances) {
   const k = [a, b].sort().join("");

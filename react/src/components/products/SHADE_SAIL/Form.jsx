@@ -14,10 +14,10 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
   );
 
   return (
-    <div className="mb-4 p-2 border rounded bg-gray-50">
+    <div className="space-y-2">
       <label className="block text-sm font-medium mb-1">Location</label>
       <input
-        className="inputCompact"
+        className="inputStyle"
         type="text"
         value={projectData.location}
         onChange={e => setProjectData(prev => ({ ...prev, location: e.target.value }))}

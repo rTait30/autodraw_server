@@ -328,6 +328,25 @@ const setPointField = (p, key, value) =>
       return { ...prev, points: pts };
     });
 
+  // Mobile convenience: clear all measurements
+  const clearAllMeasurements = () => {
+    // Single batched update: clear all edges, diagonals, and heights
+    setAttributes((prev) => {
+      const n = clamp(prev.pointCount, 1, MAX_POINTS);
+
+      // Clear edge and diagonal dimensions
+      const dims = { ...(prev.dimensions || {}) };
+      makeEdgeLabels(n).forEach((lbl) => { if (dims.hasOwnProperty(lbl)) dims[lbl] = ""; });
+      makeDiagonalLabels(n).forEach((lbl) => { if (dims.hasOwnProperty(lbl)) dims[lbl] = ""; });
+
+      // Clear heights
+      const pts = { ...(prev.points || {}) };
+      Object.keys(pts).forEach((p) => { pts[p] = { ...pts[p], height: "" }; });
+
+      return { ...prev, dimensions: dims, points: pts };
+    });
+  };
+
   // Toggle sailtrack presence for a given edge label
   const toggleSailTrack = (edgeLabel) =>
     setAttributes((prev) => {
@@ -957,6 +976,17 @@ const setPointField = (p, key, value) =>
       </div>
       </section>
 
+      {/* Clear all button */}
+      <div className="mt-2">
+        <button
+          type="button"
+          className="h-16 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
+          onClick={clearAllMeasurements}
+        >
+          Clear Measurements
+        </button>
+      </div>
+
         {/* Trace cables - separate section (keeps points compact on mobile) */}
       {!discrepancyChecker && (
         <section className="space-y-2">
@@ -1139,12 +1169,8 @@ const setPointField = (p, key, value) =>
               ))}
             </div>
           )}
-
         </section>
       )}
-
-
-
     </div>
   );
 }

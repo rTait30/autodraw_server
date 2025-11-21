@@ -95,12 +95,19 @@ def get_skus_by_codes():
     for code in missing:
         print(f"SKU '{code}' not found locally; attempting CRM lazy fetch...")
         crm_data = fetch_sku_from_crm(code)
-        if crm_data:
+
+        # Safe, compact version:
+        sku_data = (crm_data or {}).get("result") or {}
+
+        print("CRM data:", crm_data)
+        print("SKU data:", sku_data)
+
+        if sku_data and sku_data.get("costPrice") is not None:
             sku_obj = SKU(
-                sku=crm_data.get("sku") or code,
-                name=crm_data.get("name"),
-                costPrice=crm_data.get("costPrice"),
-                sellPrice=crm_data.get("sellPrice"),
+                sku=sku_data.get("sku") or code,
+                name=sku_data.get("name"),
+                costPrice=sku_data.get("costPrice"),
+                sellPrice=sku_data.get("sellPrice"),
             )
             db.session.add(sku_obj)
             existing_map[sku_obj.sku] = sku_obj

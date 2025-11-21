@@ -44,14 +44,19 @@ export default function EstimateTable({
   const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
   // --- Fetch SKUs from schema, then load products from API ---
+  // --- Fetch SKUs from schema, then load products from API ---
+  // --- Fetch SKUs from schema, then load products from API ---
   useEffect(() => {
     const allSkus = [];
+
     // Only iterate array sections (skip _constants or any non-array entries)
     Object.values(schema)
       .filter((rows) => Array.isArray(rows))
       .forEach((rows) => {
         rows.forEach((row) => {
-          if (row.type === 'sku' && row.sku) allSkus.push(row.sku);
+          if (row.type === "sku" && row.sku) {
+            allSkus.push(row.sku);
+          }
         });
       });
 
@@ -60,20 +65,38 @@ export default function EstimateTable({
       return;
     }
 
-    apiFetch('/database/get_by_sku', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    apiFetch("/database/get_by_sku", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ skus: allSkus }),
     })
       .then((res) => res.json())
-      .then((productList) => {
+      .then((data) => {
+        console.log("Response JSON:", data);
+
+        // Backend format: { missing: [], newly_added: [], skus: [...] }
+        const list = Array.isArray(data && data.skus) ? data.skus : [];
+
         const bySku = {};
-        productList.forEach((p) => {
-          bySku[p.sku] = p;
+        list.forEach((p) => {
+          if (p && p.sku) {
+            bySku[p.sku] = {
+              sku: p.sku,
+              name: p.name,
+              price: p.costPrice, // Use costPrice from backend
+              costPrice: p.costPrice,
+              sellPrice: p.sellPrice,
+              data: p.data || {},
+            };
+          }
         });
+
         setSkuProducts(bySku);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Error loading SKU products", err);
+        setSkuProducts({});
+      });
   }, [schema]);
 
   // --- Initialize row + input state for ALL products ---

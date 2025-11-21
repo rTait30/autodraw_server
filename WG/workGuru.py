@@ -283,12 +283,20 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
 
 
 
-def wg_get(tenant: str, endpoint: str, token = "", params: dict | None = None):
+def wg_get(tenant: str, endpoint: str, params: dict | None = None):
     url = f"{WG_BASE}/api/services/app/{endpoint}"
-    if token == "": token = get_access_token(tenant)
+    token = get_access_token(tenant)
+
+    #print (f"token: {token}")
+
+    #return {}
+
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers, params=params, timeout=20)
     res.raise_for_status()
+
+    print("Response JSON:", res.json())
+    
     return res.json()
 
 def wg_post(tenant: str, endpoint: str, body: dict):

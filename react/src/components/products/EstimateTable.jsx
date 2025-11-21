@@ -35,6 +35,8 @@ export default function EstimateTable({
   const [rowState, setRowState] = useState({}); // keyed by productIndex then section
   const [inputState, setInputState] = useState({}); // keyed by productIndex
   const [skuProducts, setSkuProducts] = useState({});
+  const [skuLoading, setSkuLoading] = useState(false);
+  const [skuFetchKey, setSkuFetchKey] = useState(0); // increment to force re-init
   // Per-product financial parameters
   const initialContingency = schema?._constants?.contingencyPercent ?? DEFAULT_CONTINGENCY_PERCENT;
   const initialMargin = schema?._constants?.marginPercent ?? DEFAULT_MARGIN_PERCENT;
@@ -62,9 +64,11 @@ export default function EstimateTable({
 
     if (allSkus.length === 0) {
       setSkuProducts({});
+      setSkuLoading(false);
       return;
     }
 
+    setSkuLoading(true);
     apiFetch("/database/get_by_sku", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,7 +87,6 @@ export default function EstimateTable({
             bySku[p.sku] = {
               sku: p.sku,
               name: p.name,
-              price: p.costPrice, // Use costPrice from backend
               costPrice: p.costPrice,
               sellPrice: p.sellPrice,
               data: p.data || {},
@@ -92,15 +95,20 @@ export default function EstimateTable({
         });
 
         setSkuProducts(bySku);
+        setSkuLoading(false);
+        setSkuFetchKey(prev => prev + 1); // Force re-initialization
       })
       .catch((err) => {
         console.error("Error loading SKU products", err);
         setSkuProducts({});
+        setSkuLoading(false);
       });
   }, [schema]);
 
   // --- Initialize row + input state for ALL products ---
   useEffect(() => {
+    // Don't initialize until SKU data is loaded
+    if (skuLoading) return;
 
     const newRowState = {}; // structure: { productIndex: { section: [rows...] } }
     const newInputState = {}; // structure: { productIndex: { key: value } }
@@ -140,7 +148,7 @@ export default function EstimateTable({
                   typeof row.quantity === 'string'
                     ? evalExpr(row.quantity, evalContext)
                     : row.quantity,
-                unitCost: skuProduct.price || 0,
+                unitCost: skuProduct.costPrice || 0,
               };
             }
 
@@ -185,7 +193,7 @@ export default function EstimateTable({
       });
       return updated;
     });
-  }, [schema, products, skuProducts]);
+  }, [schema, products, skuProducts, skuLoading, skuFetchKey]);
 
   // --- Handlers (now take productIndex) ---
   const handleRowChange = (productIndex, section, idx, field, value) => {
@@ -262,20 +270,21 @@ export default function EstimateTable({
     };
   });
 
-  const grandTotal = productTotals.reduce((sum, pt) => sum + pt.baseCost, 0);
+  // Grand total should reflect fully loaded product pricing (base + contingency + margin)
+  const grandTotal = productTotals.reduce((sum, pt) => sum + (pt.global?.suggestedPrice || 0), 0);
+
+  // Show loading state while SKUs are being fetched
+  if (skuLoading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <p>Loading SKU data from database/CRM...</p>
+        <p style={{ fontSize: '14px', color: '#666' }}>This may take a moment for new items.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <table className="tableBase">
-        <thead>
-          <tr className="tableHeader">
-            <th>Description</th>
-            <th>Quantity</th>
-            <th>Unit Cost</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-      </table>
       {productTotals.map((productData) => {
         const { productIndex, name, attributes, inputs, rows, context, global, marginPercent, contingencyPercent } = productData;
 
@@ -334,6 +343,14 @@ export default function EstimateTable({
             </div>
 
             <table className="tableBase">
+              <thead>
+                <tr style={{ backgroundColor: '#f3f4f6' }}>
+                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Item</th>
+                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Qty</th>
+                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Unit Cost</th>
+                  <th className="tableCell text-right" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Line Total</th>
+                </tr>
+              </thead>
               <tbody>
                 {Object.entries(schema)
                   .filter(([, schemaRows]) => Array.isArray(schemaRows))
@@ -448,20 +465,18 @@ export default function EstimateTable({
       })}
 
       {/* Grand Total Section */}
-      {products.length > 1 && (
-        <table className="tableBase" style={{ marginTop: '20px' }}>
-          <tbody>
-            <tr style={{ backgroundColor: '#1f2937', color: 'white', fontSize: '18px', fontWeight: 'bold' }}>
-              <td className="tableCell" colSpan={3}>
-                GRAND TOTAL (All Products)
-              </td>
-              <td className="tableCell text-right">
-                ${grandTotal.toFixed(2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      )}
+      <table className="tableBase" style={{ marginTop: '20px' }}>
+        <tbody>
+          <tr style={{ backgroundColor: '#1f2937', color: 'white', fontSize: '18px', fontWeight: 'bold' }}>
+            <td className="tableCell" colSpan={3}>
+              GRAND TOTAL (All Products)
+            </td>
+            <td className="tableCell text-right">
+              ${grandTotal.toFixed(2)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <div>
         <button

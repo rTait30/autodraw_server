@@ -92,6 +92,7 @@ def get_skus_by_codes():
     missing = [code for code in norm_skus if code not in existing_map]
 
     newly_added = []
+    updated = []
     for code in missing:
         print(f"SKU '{code}' not found locally; attempting CRM lazy fetch...")
         crm_data = fetch_sku_from_crm(code)
@@ -103,28 +104,44 @@ def get_skus_by_codes():
         print("SKU data:", sku_data)
 
         if sku_data and sku_data.get("costPrice") is not None:
-            sku_obj = SKU(
-                sku=sku_data.get("sku") or code,
-                name=sku_data.get("name"),
-                costPrice=sku_data.get("costPrice"),
-                sellPrice=sku_data.get("sellPrice"),
-            )
-            db.session.add(sku_obj)
-            existing_map[sku_obj.sku] = sku_obj
-            newly_added.append(sku_obj.sku)
+            sku_code = sku_data.get("sku") or code
+            
+            # Check if SKU exists (might have been created between queries)
+            existing_sku = SKU.query.filter_by(sku=sku_code).first()
+            
+            if existing_sku:
+                # Update existing record
+                existing_sku.name = sku_data.get("name")
+                existing_sku.costPrice = sku_data.get("costPrice")
+                existing_sku.sellPrice = sku_data.get("sellPrice")
+                existing_sku.updated_at = datetime.now(timezone.utc)
+                existing_map[sku_code] = existing_sku
+                updated.append(sku_code)
+            else:
+                # Create new record
+                sku_obj = SKU(
+                    sku=sku_code,
+                    name=sku_data.get("name"),
+                    costPrice=sku_data.get("costPrice"),
+                    sellPrice=sku_data.get("sellPrice"),
+                )
+                db.session.add(sku_obj)
+                existing_map[sku_code] = sku_obj
+                newly_added.append(sku_code)
         else:
             print(f"CRM did not return data for SKU '{code}'.")
 
-    if newly_added:
+    if newly_added or updated:
         try:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return jsonify({"error": f"Failed to persist new SKUs: {e}"}), 500
+            return jsonify({"error": f"Failed to persist SKUs: {e}"}), 500
 
     response_payload = [existing_map[c].to_dict() for c in norm_skus if c in existing_map]
     return jsonify({
         "skus": response_payload,
-        "missing": [m for m in missing if m not in newly_added],
+        "missing": [m for m in missing if m not in newly_added and m not in updated],
         "newly_added": newly_added,
+        "updated": updated,
     }), 200

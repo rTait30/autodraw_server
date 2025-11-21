@@ -72,6 +72,8 @@ export const Steps = [
         attributes.totalSailLengthCeilMeters = Math.ceil(attributes.totalSailLengthCeilMeters / 1000) || null;
       }
 
+      attributes.traceCount = attributes.traceCables.count;
+
       return {...data};
 
     },

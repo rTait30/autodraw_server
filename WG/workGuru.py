@@ -295,8 +295,8 @@ def wg_get(tenant: str, endpoint: str, params: dict | None = None):
     res = requests.get(url, headers=headers, params=params, timeout=20)
     res.raise_for_status()
 
-    print("Response JSON:", res.json())
-    
+    #print("Response JSON:", res.json())
+
     return res.json()
 
 def wg_post(tenant: str, endpoint: str, body: dict):

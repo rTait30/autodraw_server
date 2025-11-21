@@ -108,7 +108,7 @@ COVER_DEFAULT_SCHEMA = {
         {
             "type": "row",
             "description": "Cutting/Plotting",
-            "quantity": "(1/3) + Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000) * (1/60)",
+            "quantity": "((1/3) + Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000) * (1/60)).toFixed(2)",
             "unitCost": 55,
         },
         {
@@ -136,6 +136,76 @@ COVER_DEFAULT_SCHEMA = {
             "unitCost": 55,
         },
     ],
+}
+
+SHADE_SAIL_DEFAULT_SCHEMA = {
+    
+    "Combined": [
+        {
+        "description": "Membrane",
+        "quantity": "1",
+        "type": "row",
+        "unitCost": "fabricPrice"
+        },
+        {
+        "description": "4mm Cable",
+        "quantity": "cableSize === 4 ? (edgeMeter || 0) : 0",
+        "type": "row",
+        "unitCost": "3"
+        },
+        {
+        "description": "5mm Cable",
+        "quantity": "cableSize === 5 ? (edgeMeter || 0) : 0",
+        "type": "row",
+        "unitCost": "4.5"
+        },
+        {
+        "description": "6mm Cable",
+        "quantity": "cableSize === 6 ? Math.max((edgeMeter || 0) - (totalSailLengthCeilMeters || 0), 0) : 0",
+        "type": "row",
+        "unitCost": "5.5"
+        },
+        {
+        "description": "8mm Cable",
+        "quantity": "cableSize === 8 ? Math.max((edgeMeter || 0) - (totalSailLengthCeilMeters || 0), 0) : 0",
+        "type": "row",
+        "unitCost": "9.5"
+        },
+        {
+        "description": "Sailtrack Corner",
+        "quantity": "fittingCounts['Sailtrack Corner'] || 0",
+        "type": "row",
+        "unitCost": "28"
+        },
+        {
+        "description": "Pro-Rig or Ezy Slide",
+        "quantity": "(fittingCounts['Pro-Rig'] || 0) + (fittingCounts['Ezy Slide'] || 0)",
+        "type": "row",
+        "unitCost": "36"
+        },
+        {
+        "description": "Pro-Rig with Small Pipe",
+        "quantity": "(fittingCounts['Pro-Rig with Small Pipe'] || 0)",
+        "type": "row",
+        "unitCost": "50"
+        },
+        {
+        "description": "Keder/Rope Edge/Spline per lm",
+        "quantity": "totalSailLengthCeilMeters || 0",
+        "type": "row",
+        "unitCost": "10"
+        },
+        {
+        "description": "Trace cable set up",
+        "quantity": "traceCables.length || 0",
+        "type": "row",
+        "unitCost": "15"
+        }
+    ],
+    "_constants": {
+        "contingencyPercent": 3,
+        "marginPercent": 45
+    }
 }
 
 
@@ -203,11 +273,7 @@ def bootstrap_products():
         shade_schema = EstimatingSchema(
             product_id=shade_sail.id,
             name="SHADE_SAIL default v1",
-            data={
-                "_constants": {},
-                "Materials": [],
-                "Labour": [],
-            },
+            data=SHADE_SAIL_DEFAULT_SCHEMA,
             is_default=True,
             version=1,
         )

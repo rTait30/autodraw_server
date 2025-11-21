@@ -1,5 +1,5 @@
 export const Schema = {
-  "Materials": [
+  "Combined": [
     {
       "type": "row",
       "description": "Membrane",
@@ -53,14 +53,6 @@ export const Schema = {
       "description": "Keder/Rope Edge/Spline per lm",
       "quantity": "totalSailLengthCeilMeters || 0",
       "unitCost": "10"
-    }
-  ],
-  "Summary": [
-    {
-      "type": "calc",
-      "key": "totalCostFabrication",
-      "label": "Total Cost Fabrication",
-      "expr": "context.baseCost"
     }
   ]
 }

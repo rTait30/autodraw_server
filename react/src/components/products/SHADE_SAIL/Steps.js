@@ -43,9 +43,16 @@ export const Steps = [
         attributes.discrepancyProblem = attributes.maxDiscrepancy > (discrepancyThreshold);
 
 
+        attributes.totalTraceLength = 0;
+        for (const point of attributes.traceCables || []) {
+          attributes.totalTraceLength += Number(point["length"]) || 0;
+        }
+
+        attributes.totalTraceLengthCeilMeters = Math.ceil((attributes.totalTraceLength || 0) / 1000) || null;
+
 
         //MATERIALS
-        attributes.fabricPrice = getPriceByFabric(attributes.fabricType, attributes.edgeMeter);
+        attributes.fabricPrice = getPriceByFabric(attributes.fabricType, attributes.edgeMeter - (attributes.totalTraceLengthCeilMeters || 0));
 
         attributes.fittingCounts = {};
 
@@ -59,7 +66,7 @@ export const Steps = [
           }
         }
 
-        attributes.totalSailLengthCeilMeters = 0;
+        attributes.totalSailLength = 0;
 
         for (const edge of attributes.sailTracks || []) {
           const dim = Number(attributes.dimensions[edge]);
@@ -67,12 +74,12 @@ export const Steps = [
             console.warn("Missing or invalid dimension for edge:", edge, attributes.dimensions[edge]);
             continue;
           }
-          attributes.totalSailLengthCeilMeters += dim;
+          attributes.totalSailLength += dim;
         }
-        attributes.totalSailLengthCeilMeters = Math.ceil(attributes.totalSailLengthCeilMeters / 1000) || null;
-      }
+        attributes.totalSailLengthCeilMeters = Math.ceil((attributes.totalSailLength || 0) / 1000) || null;
 
-      attributes.traceCount = attributes.traceCables.count;
+
+      }
 
       return {...data};
 
@@ -401,7 +408,7 @@ const pricelist = {
   "Rainbow Z16": {
     15: 585, 16: 615, 17: 660, 18: 700, 19: 740, 20: 780,
     21: 840, 22: 890, 23: 940, 24: 990, 25: 1040, 26: 1100,
-    27: 1160, 28: 1210, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
+    27: 1160, 28: 1220, 29: 1280, 30: 1340, 31: 1400, 32: 1460,
     33: 1520, 34: 1580, 35: 1645, 36: 1710, 37: 1780, 38: 1850,
     39: 1910, 40: 1980, 41: 2060, 42: 2135, 43: 2210, 44: 2285,
     45: 2360, 46: 2435, 47: 2510, 48: 2585, 49: 2685, 50: 2770

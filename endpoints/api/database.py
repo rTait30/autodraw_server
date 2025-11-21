@@ -100,8 +100,8 @@ def get_skus_by_codes():
         # Safe, compact version:
         sku_data = (crm_data or {}).get("result") or {}
 
-        print("CRM data:", crm_data)
-        print("SKU data:", sku_data)
+        #print("CRM data:", crm_data)
+        #print("SKU data:", sku_data)
 
         if sku_data and sku_data.get("costPrice") is not None:
             sku_code = sku_data.get("sku") or code

@@ -110,15 +110,17 @@ export default function Authentication() {
 
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="formStyle">
+
               <input
                 type="text"
                 placeholder="Username"
                 value={loginForm.username}
                 onChange={(e) => setLoginForm((s) => ({ ...s, username: e.target.value }))}
                 required
-                className="inputStyle w-full"
+                className="inputStyle"
                 autoComplete="username"
               />
+
               <input
                 type="password"
                 placeholder="Password"
@@ -128,26 +130,24 @@ export default function Authentication() {
                 className="inputStyle"
                 autoComplete="current-password"
               />
-               
-              <br />
 
               <button type="submit" className="buttonStyle w-full" disabled={submitting}>
                 {submitting ? 'Logging in…' : 'Login'}
               </button>
 
-              <div className="my-2" />
-
               <button
-                type="button"
-                onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
-                className="buttonStyle"
-                disabled={submitting}
-              >
-                Register as client
+                  type="button"
+                  onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
+                  className="buttonStyle"
+                  disabled={submitting}
+                >
+                  Register as client
               </button>
 
-              {errorText && <div className="auth-error">{errorText}</div>}
+              { errorText && <div className="auth-error">{errorText} </div> }
+
             </form>
+            
           ) : (
             <form onSubmit={handleRegister} className="formStyle">
               <input

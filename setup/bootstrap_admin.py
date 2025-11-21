@@ -8,7 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from models import db, User, Product  # noqa: E402
+from models import db, User, Product, EstimatingSchema  # noqa: E402
 
 def bootstrap_admin():
     from passlib.hash import bcrypt
@@ -68,6 +68,163 @@ def bootstrap_products():
         print(f"Bootstrapped Product '{prod_data['name']}' (id={prod_data['id']}).")
 
     db.session.commit()
+
+
+COVER_DEFAULT_SCHEMA = {
+    "_constants": {
+        "contingencyPercent": 3,
+        "marginPercent": 45,
+    },
+    "Materials": [
+        {
+            "type": "sku",
+            "sku": "2-DR-F-225",
+            "quantity": "Math.ceil((flatMainWidth + flatSideWidth)/1000)",
+        },
+        {
+            "type": "sku",
+            "sku": "2-DR-H-113",
+            "quantity": "2 * Math.ceil(height / 1000)",
+        },
+        {
+            "type": "sku",
+            "sku": "2-DR-H-001",
+            "quantity": "2 * Math.ceil(height / 1000)",
+        },
+    ],
+    "Labour": [
+        {
+            "type": "row",
+            "description": "Design",
+            "quantity": 0.5,
+            "unitCost": 55,
+        },
+        {
+            "type": "row",
+            "description": "Total cut length",
+            "quantity": "Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000)",
+            "unitCost": 0,
+        },
+        {
+            "type": "row",
+            "description": "Cutting/Plotting",
+            "quantity": "(1/3) + Math.ceil((flatMainWidth + flatMainHeight + flatSideWidth + flatSideHeight)/1000) * (1/60)",
+            "unitCost": 55,
+        },
+        {
+            "type": "row",
+            "description": "Sewing",
+            "quantity": "10",
+            "unitCost": 55,
+        },
+        {
+            "type": "row",
+            "description": "Welding",
+            "quantity": "10",
+            "unitCost": 55,
+        },
+        {
+            "type": "row",
+            "description": "QA",
+            "quantity": 0.5,
+            "unitCost": 55,
+        },
+        {
+            "type": "row",
+            "description": "Packing up",
+            "quantity": 0.5,
+            "unitCost": 55,
+        },
+    ],
+}
+
+
+def bootstrap_products():
+    """Bootstrap default Product records and their default estimating schemas."""
+
+    # --- 1. Ensure COVER product exists ---
+    cover = Product.query.filter_by(name="COVER").first()
+    if not cover:
+        cover = Product(
+            name="COVER",
+            description="Covers for various products",
+        )
+        db.session.add(cover)
+        db.session.flush()  # get cover.id
+        print(f"Bootstrapped Product 'COVER' (id={cover.id}).")
+    else:
+        print(f"Product 'COVER' already exists (id={cover.id}).")
+
+    # --- 2. Ensure SHADE_SAIL product exists ---
+    shade_sail = Product.query.filter_by(name="SHADE_SAIL").first()
+    if not shade_sail:
+        shade_sail = Product(
+            name="SHADE_SAIL",
+            description="Shadesail in mesh or PVC",
+        )
+        db.session.add(shade_sail)
+        db.session.flush()  # get shade_sail.id
+        print(f"Bootstrapped Product 'SHADE_SAIL' (id={shade_sail.id}).")
+    else:
+        print(f"Product 'SHADE_SAIL' already exists (id={shade_sail.id}).")
+
+    # --- 3. Ensure default COVER schema exists ---
+    cover_schema = (
+        EstimatingSchema.query
+        .filter_by(product_id=cover.id, name="COVER default v1")
+        .first()
+    )
+    if not cover_schema:
+        cover_schema = EstimatingSchema(
+            product_id=cover.id,
+            name="COVER default v1",
+            data=COVER_DEFAULT_SCHEMA,
+            is_default=True,
+            version=1,
+        )
+        db.session.add(cover_schema)
+        db.session.flush()
+        print(f"Created default schema for 'COVER' (schema id={cover_schema.id}).")
+    else:
+        print(f"Default schema for 'COVER' already exists (schema id={cover_schema.id}).")
+
+    # Link COVER to its default schema if not already
+    if cover.default_schema_id != cover_schema.id:
+        cover.default_schema_id = cover_schema.id
+        print(f"Set COVER.default_schema_id = {cover_schema.id}")
+
+    # --- 4. Ensure stub SHADE_SAIL schema exists ---
+    shade_schema = (
+        EstimatingSchema.query
+        .filter_by(product_id=shade_sail.id, name="SHADE_SAIL default v1")
+        .first()
+    )
+    if not shade_schema:
+        shade_schema = EstimatingSchema(
+            product_id=shade_sail.id,
+            name="SHADE_SAIL default v1",
+            data={
+                "_constants": {},
+                "Materials": [],
+                "Labour": [],
+            },
+            is_default=True,
+            version=1,
+        )
+        db.session.add(shade_schema)
+        db.session.flush()
+        print(f"Created stub default schema for 'SHADE_SAIL' (schema id={shade_schema.id}).")
+    else:
+        print(f"Default schema for 'SHADE_SAIL' already exists (schema id={shade_schema.id}).")
+
+    # Link SHADE_SAIL to its default schema if not already
+    if shade_sail.default_schema_id != shade_schema.id:
+        shade_sail.default_schema_id = shade_schema.id
+        print(f"Set SHADE_SAIL.default_schema_id = {shade_schema.id}")
+
+    db.session.commit()
+    print("Bootstrap complete.")
+
 
 
 if __name__ == "__main__":

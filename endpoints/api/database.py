@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import text
-from models import db, Project, ProjectProduct, User, Product
+from models import db, Project, ProjectProduct, User, Product, SKU
 from datetime import datetime, timezone, date
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+
+from WG.workGuru import wg_get
 
 database_api_bp = Blueprint('database_api', __name__)
 
@@ -63,30 +65,59 @@ def run_sql():
         return jsonify({"error": str(e)}), 400
 
 
+def fetch_sku_from_crm(sku_code: str):
+    
+
+    sku_data = wg_get("DR", "Product/GetProductBySku", {"sku": sku_code})
+    
+    if sku_data and isinstance(sku_data, dict):
+        return sku_data
+    return None
+
+
 @database_api_bp.route("/database/get_by_sku", methods=["POST"])
 @role_required("estimator")
-def get_products_by_skus():
+def get_skus_by_codes():
     data = request.get_json(silent=True) or {}
     skus = data.get("skus")
     if not isinstance(skus, list) or not skus:
         return jsonify({"error": "Missing or invalid 'skus' (expected non-empty list)"}), 400
 
-    # Normalize SKUs (trim, drop empties)
     norm_skus = [s.strip() for s in skus if isinstance(s, str) and s.strip()]
     if not norm_skus:
         return jsonify({"error": "No valid SKUs provided"}), 400
 
-    products = Product.query.filter(Product.sku.in_(norm_skus)).all()
+    existing = SKU.query.filter(SKU.sku.in_(norm_skus)).all()
+    existing_map = {s.sku: s for s in existing}
+    missing = [code for code in norm_skus if code not in existing_map]
 
-    for p in skus:
-        if p not in [prod.sku for prod in products]:
-            print(f"Warning: SKU '{p}' not found in database.")
-            print ("trying CRM API...")
+    newly_added = []
+    for code in missing:
+        print(f"SKU '{code}' not found locally; attempting CRM lazy fetch...")
+        crm_data = fetch_sku_from_crm(code)
+        if crm_data:
+            sku_obj = SKU(
+                sku=crm_data.get("sku") or code,
+                name=crm_data.get("name"),
+                costPrice=crm_data.get("costPrice"),
+                sellPrice=crm_data.get("sellPrice"),
+            )
+            db.session.add(sku_obj)
+            existing_map[sku_obj.sku] = sku_obj
+            newly_added.append(sku_obj.sku)
+        else:
+            print(f"CRM did not return data for SKU '{code}'.")
 
+    if newly_added:
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": f"Failed to persist new SKUs: {e}"}), 500
 
-    return jsonify([
-        {"sku": p.sku, "name": p.name, "price": p.price}
-        for p in products
-
-    
-    ]), 200
+    response_payload = [existing_map[c].to_dict() for c in norm_skus if c in existing_map]
+    return jsonify({
+        "skus": response_payload,
+        "missing": [m for m in missing if m not in newly_added],
+        "newly_added": newly_added,
+    }), 200

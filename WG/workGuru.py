@@ -32,32 +32,87 @@ TENANTS = {
 def _now() -> int:
     return int(time.time())
 
-def _fetch_access_token(tenant):
+import requests
+import traceback
 
-    print (f"Fetching new access token for tenant: {tenant}")
+import requests
+import traceback
+
+def _fetch_access_token(tenant: str):
+    print("\n========== FETCHING NEW WORKGURU TOKEN ==========")
+    print(f"Tenant: {tenant}")
+
     creds = TENANTS.get(tenant)
+    if not creds:
+        raise RuntimeError(f"No credentials configured for tenant '{tenant}'")
 
-    print ("Credentials: ", creds)
+    base = WG_BASE.rstrip("/")  # e.g. "https://api.workguru.io"
+    url = f"{base}/api/ClientTokenAuth/Authenticate/api/client/v1/tokenauth"
+    print(f"Auth URL: {url}")
 
-    url = f"{WG_BASE}/api/ClientTokenAuth/Authenticate/api/client/v1/tokenauth"
-    res = requests.post(url, json={"apiKey": creds["key"], "secret": creds["secret"]}, timeout=20)
-    res.raise_for_status()
-    data = res.json()
+    payload = {
+        "apiKey": creds["key"],
+        "secret": creds["secret"],
+    }
+    print("Payload keys present:", {
+        "apiKey": bool(creds.get("key")),
+        "secret": bool(creds.get("secret")),
+    })
+
+    try:
+        res = requests.post(url, json=payload, timeout=20)
+
+        # Debug info
+        print("Auth status code:", res.status_code)
+        try:
+            # First 500 chars of body so logs don't explode
+            print("Auth response body preview:")
+            print((res.text or "")[:500])
+        except Exception:
+            print("Could not read response text")
+
+        res.raise_for_status()
+        data = res.json()
+
+    except Exception as e:
+        # This is what you’re seeing now in the traceback
+        print("\n!!!!!! ERROR WHILE FETCHING WORKGURU TOKEN !!!!!!")
+        print("Tenant:", tenant)
+        print("Exception:", repr(e))
+        print("Traceback:")
+        traceback.print_exc()
+        print("--------------------------------------------------")
+        raise RuntimeError(
+            f"Failed to fetch WorkGuru token for tenant '{tenant}'. "
+            f"HTTP status: {getattr(res, 'status_code', 'unknown')}. "
+            f"See logs above for full response."
+        ) from e
 
     access = data.get("accessToken")
     if not access:
-        raise RuntimeError(f"Token response missing access token for tenant '{tenant}'")
+        raise RuntimeError(
+            f"WorkGuru token response did not contain 'accessToken' for tenant '{tenant}'. "
+            f"Raw response: {data}"
+        )
 
+    # Common fields in WG token responses: accessToken, expiresInSeconds
     expires_in = int(data.get("expiresInSeconds", data.get("expires_in", 3600)))
-    exp = _now() + max(60, expires_in - 30)  # refresh a bit early
+    exp = _now() + max(60, expires_in - 30)
 
-    TENANTS[tenant]["token"] = access  # cache it
-
-    print ("Token: ", TENANTS[tenant]["token"])
-
+    TENANTS[tenant]["token"] = access
     TENANTS[tenant]["token_exp"] = exp
 
+    print("Token fetched OK for tenant", tenant)
+    print("Token expires at:", exp)
+    print("==================================================\n")
+
+    return access
+
+
+
 def get_access_token(tenant):
+
+    print (f"Getting access token for tenant: {tenant}")
 
     if TENANTS[tenant]["token"]:
         return TENANTS[tenant]["token"]

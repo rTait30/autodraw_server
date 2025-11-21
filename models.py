@@ -42,20 +42,11 @@ class ProjectStatus(enum.Enum):
     # Add more statuses as needed
 
 class Project(db.Model):
-    def get_estimated_price(self):
-        """
-        Returns the estimated price for this project using its schema if set,
-        otherwise falls back to the product's default schema.
-        """
-        from estimation import estimate_price_from_schema
-        schema = self.schema or self.product.default_schema
-        if not schema:
-            return None  # No schema available
-        return estimate_price_from_schema(schema.data, self.project_attributes)
     __tablename__ = "projects"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     product = db.relationship("Product", backref="projects")
 
@@ -64,10 +55,16 @@ class Project(db.Model):
     info = db.Column(db.Text)
     client_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
-    schema_id = db.Column(db.Integer, db.ForeignKey("estimating_schemas.id"), nullable=True, index=True)
+    # optional pointer to the template ID (just to remember what it came from)
+    schema_id = db.Column(
+        db.Integer,
+        db.ForeignKey("estimating_schemas.id"),
+        nullable=True,
+        index=True,
+    )
     schema = db.relationship("EstimatingSchema", foreign_keys=[schema_id], post_update=True)
-    # If schema_id is null, use product.default_schema
 
+    # actual values for the job
     project_attributes = db.Column(db.JSON, default=dict)
     project_calculated = db.Column(db.JSON, default=dict)
 
@@ -75,8 +72,25 @@ class Project(db.Model):
         "ProjectProduct",
         back_populates="project",
         cascade="all, delete-orphan",
-        #order_by="ProjectProduct.item_index"
     )
+
+    # 👇 THIS is the working schema for the project
+    estimate_schema = db.Column(db.JSON, default=dict)
+
+    # optional convenience field
+    estimate_total = db.Column(db.Float)
+
+    def get_estimated_price(self):
+        from estimation import estimate_price_from_schema
+        if not self.estimate_schema:
+            return None
+        results = estimate_price_from_schema(self.estimate_schema, self.project_attributes)
+        totals = results.get("totals") or {}
+        return (
+            totals.get("grand_total")
+            or totals.get("grandTotal")
+            or totals.get("total")
+        )
 
 
 class ProjectProduct(db.Model):
@@ -121,3 +135,22 @@ class EstimatingSchema(db.Model):
     data = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     version = db.Column(db.Integer, nullable=False, default=1)
+
+
+class SKU(db.Model):
+    __tablename__ = "skus"
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=True)
+    costPrice = db.Column(db.Float, nullable=True)
+    sellPrice = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False)
+
+    def to_dict(self):
+        return {
+            "sku": self.sku,
+            "name": self.name,
+            "costPrice": self.costPrice,
+            "sellPrice": self.sellPrice,
+        }

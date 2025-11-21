@@ -26,10 +26,13 @@ from reportlab.pdfgen import canvas
 from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
+from WG.workGuru import wg_get
+
 from WG.workGuru import get_leads
 
 from WG.workGuru import add_cover
 from WG.workGuru import dr_make_lead
+
 
 projects_api_bp = Blueprint("projects_api", __name__)
 
@@ -40,30 +43,38 @@ def _as_int(v):
     except (TypeError, ValueError):
         return None
 
-def resolve_project_type_id(data):
+
+def resolve_product_id(data):
     """
     Supports either:
-      - data['type_id'] as an int/stringified int, OR
-    - data['product'] as the Product.name (e.g. 'cover', 'shadesail')
-    Returns: (type_id:int|None, error:str|None)
+      - data['type_id'] as an int/stringified int (legacy),
+      - data['type'] or data['product'] as the Product.name (e.g. 'COVER', 'SHADE_SAIL').
+
+    Returns: (product_id:int|None, error:str|None)
     """
-    # Prefer explicit id
+    # 1) Prefer explicit id
     tid = _as_int(data.get("type_id"))
-    if tid:
+    if tid is not None:
         prod = db.session.get(Product, tid)
         if not prod:
             return None, f"Product id {tid} not found"
-    return prod.id, None
+        return prod.id, None
 
-    # Fallback: lookup by name
-    tname = (data.get("type") or "").strip()
-    if tname:
-        prod = Product.query.filter_by(name=tname).first()
+    # 2) Fallback: resolve by name from 'type' or 'product'
+    name = (data.get("type") or data.get("product") or "").strip()
+    if name:
+        qname = name.upper()
+        prod = (
+            Product.query.filter_by(name=qname).first()
+            or Product.query.filter_by(name=name).first()
+        )
         if not prod:
-            return None, f"Product '{tname}' not found"
-    return prod.id, None
+            return None, f"Product '{name}' not found"
+        return prod.id, None
 
-    return None, "type_id or type (name) is required"
+    # 3) Nothing provided
+    return None, "Missing 'type_id' or 'type'/'product' in request data"
+
 # ------------------------------------------------------------------------
 
 # -------------------------------
@@ -166,10 +177,10 @@ def save_project_config():
                     return jsonify({"error": f"Invalid status: {st}"}), 400
 
     # ---- resolve type_id from 'type' in payload (e.g. "cover") ----
-    type_id, type_err = resolve_project_type_id(data)
-    if type_err and not project_id:
-        # On CREATE, type is required
-        return jsonify({"error": type_err}), 400
+    product_id, product_err = resolve_product_id(data)
+    if product_err and not project_id:
+        # On CREATE, product is required
+        return jsonify({"error": product_err}), 400
 
     # ---- determine client_id ----
     if user.role == "client":
@@ -196,8 +207,8 @@ def save_project_config():
                 project.client_id = target_client_id
 
         # Staff can change type if provided
-        if user.role != "client" and type_id is not None and type_id != project.type_id:
-            project.type_id = type_id
+        if user.role != "client" and product_id is not None and product_id != project.product_id:
+            project.product_id = product_id
 
         # Apply scalar fields (name/status/due_date/info)
         for field, value in project_data.items():
@@ -213,12 +224,36 @@ def save_project_config():
             due_date=project_data.get("due_date"),
             info=project_data.get("info"),
             client_id=target_client_id,
-            type_id=type_id,
+            product_id=product_id,  # ✅ matches your Project model
             project_attributes=project_attributes,
             project_calculated=project_calculated,
         )
         db.session.add(project)
         db.session.flush()  # get project.id for products
+
+        # After we know product_id, copy default schema into project.estimate_schema
+        product = db.session.get(Product, product_id) if product_id is not None else None
+        if product and product.default_schema:
+            project.schema_id = product.default_schema.id       # optional "came from" pointer
+            project.estimate_schema = product.default_schema.data
+
+            # Optionally compute an initial estimate_total
+            try:
+                from estimation import estimate_price_from_schema
+                results = estimate_price_from_schema(
+                    project.estimate_schema,
+                    project.project_attributes or {},
+                ) or {}
+                totals = results.get("totals") or {}
+                project.estimate_total = (
+                    totals.get("grand_total")
+                    or totals.get("grandTotal")
+                    or totals.get("total")
+                )
+            except Exception as e:
+                # Don't blow up project creation if estimating fails
+                print("Initial estimate failed:", e)
+
 
     # ---------- UPDATE project-level JSON on both create & update ----------
     # (On create we already initialised; on update we overwrite with new payload)
@@ -252,7 +287,10 @@ def save_project_config():
 
     db.session.commit()
 
-    resp_type = {"id": project.type.id, "name": project.type.name} if project.type else None
+    resp_product = (
+        {"id": project.product.id, "name": project.product.name}
+        if project.product else None
+    )
     resp_status = project.status.name if hasattr(project.status, "name") else project.status
 
     # Optionally, serialize products back
@@ -268,10 +306,11 @@ def save_project_config():
         #.order_by(ProjectProduct.item_index).all()
     ]
 
+
     return jsonify({
         "id": project.id,
         "client_id": project.client_id,
-        "type": resp_type,
+        "product": resp_product,          # or "type": resp_product if you want to keep the old key
         "status": resp_status,
         "project_attributes": project.project_attributes,
         "project_calculated": project.project_calculated,
@@ -416,19 +455,23 @@ def list_project_configs():
 
     projects = query.all()
     result = []
+
     for project in projects:
         client_user = User.query.get(project.client_id)
+
         result.append({
             "id": project.id,
             "name": project.name,
-            "type": project.type.name if hasattr(project.type, "name") else project.type,
+            # 🔁 use product instead of type
+            "type": project.product.name if project.product else None,
             "status": project.status.name if hasattr(project.status, "name") else project.status,
             "due_date": project.due_date.isoformat() if project.due_date else None,
             "info": project.info,
-            #"created_at": project.created_at.isoformat() if project.created_at else None,
-            #"updated_at": project.updated_at.isoformat() if project.updated_at else None,
+            # optionally include estimate_total if you want it in the list
+            # "estimate_total": project.estimate_total,
             "client": client_user.username if client_user else None,
         })
+
     return jsonify(result), 200
 
 # -------------------------------
@@ -452,25 +495,23 @@ def get_project_config(project_id):
         "due_date": project.due_date.isoformat() if project.due_date else None,
         "info": project.info,
         "status": project.status.name if hasattr(project.status, "name") else project.status,
-        #"created_at": project.created_at.isoformat() if project.created_at else None,
-        #"updated_at": project.updated_at.isoformat() if project.updated_at else None,
+        # "estimate_total": project.estimate_total,   # optional
     }
 
-    # --- Project type info ---
-    project_type = {
-        "id": project.type.id if project.type else None,
-        "name": project.type.name if project.type else None,
+    # --- Product info ---
+    product_info = {
+        "id": project.product.id if project.product else None,
+        "name": project.product.name if project.product else None,
     }
 
-    # --- Project-level attributes + calculated JSON ---
+    # --- Project-level JSON ---
     project_attributes = project.project_attributes or {}
     project_calculated = project.project_calculated or {}
 
-    # --- Products (one per sail/cover/panel) ---
-    products = []
+    # --- Items (covers, sails, etc.) ---
+    items = []
     for p in project.products:
-        #.order_by(ProjectProduct.item_index).all()
-        products.append({
+        items.append({
             "id": p.id,
             "name": p.label,
             "productIndex": p.item_index,
@@ -481,14 +522,19 @@ def get_project_config(project_id):
     # --- Response payload ---
     data = {
         "id": project.id,
-        "type": project_type,
+        "product": product_info,
         "general": general,
         "project_attributes": project_attributes,
         "project_calculated": project_calculated,
-        "products": products,
+        "products": items,
     }
 
+    # --- Include schema for privileged roles ---
+    if user.role in ("admin", "estimator"):
+        data["estimate_schema"] = project.estimate_schema or {}
+
     return jsonify(data), 200
+
 
 
 # -------------------------------

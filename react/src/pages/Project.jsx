@@ -20,18 +20,16 @@ import { useSelector } from 'react-redux';
  *  MODULE LOADER (per-project-type)
  *  - [Extract] into services/typeLoader.js later
  * ==========================================================================*/
+// Loader now only fetches Form and Steps; schema comes from backend (estimate_schema)
 async function loadTypeResources(type) {
-  const [FormModule, StepsModule, SchemaModule] = await Promise.all([
+  const [FormModule, StepsModule] = await Promise.all([
     import(`../components/products/${type}/Form.jsx`),
     import(`../components/products/${type}/Steps.js`),
-    import(`../components/products/${type}/Schema.js`),
   ]);
 
   return {
     Form: FormModule.default,
-    // tolerate either a named export `Steps` or a const `steps`
     Steps: StepsModule.Steps ?? StepsModule.steps ?? [],
-    Schema: SchemaModule.Schema ?? null,
   };
 }
 
@@ -153,7 +151,7 @@ const devMode = useSelector(state => state.toggles.devMode);
         stepperRef.current.addCanvas(canvasRef.current);
       }
 
-      // Load product modules first
+      // Load product modules (Form & Steps) first
       const productName = data?.type?.name || data?.product?.name;
       if (productName) {
         const modules = await loadTypeResources(productName);
@@ -163,9 +161,10 @@ const devMode = useSelector(state => state.toggles.devMode);
           modules.Steps.forEach(step => stepperRef.current.addStep(step));
         }
         setForm(() => modules.Form);
-        // Use schema from project if present, else product default
-        setSchema(data?.schema ?? modules.Schema);
-        setEditedSchema(data?.schema ?? modules.Schema);
+        // Backend now supplies estimate schema under estimate_schema
+        const backendSchema = data?.estimate_schema ?? null;
+        setSchema(backendSchema);
+        setEditedSchema(backendSchema);
         setProject(data);
         setEditedProject(data);
       } else {

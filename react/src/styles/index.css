@@ -41,7 +41,7 @@
     
   }
   .formStyle {
-    @apply flex flex-col items-center;
+    @apply flex flex-col items-center gap-y-2;
   }
   .linkStyle {
     @apply text-white no-underline font-medium text-sm;

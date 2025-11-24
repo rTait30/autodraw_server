@@ -89,15 +89,23 @@ def can_fit(rectangles: List[Tuple[int, int, str]], bin_width: int, bin_height: 
 def run_rectpack_with_fixed_height(
     rectangles: List[Tuple[int, int, str]],
     fabric_height: int,
-    allow_rotation: bool = True
+    allow_rotation: bool = True,
+    fabric_roll_length: int = None
 ):
     """
-    Binary search minimal width to fit all rectangles into a single bin of height = fabric_height.
-    Returns placements and the minimal width achieved.
+    Binary search minimal width to fit all rectangles into bins of height = fabric_height.
+    If fabric_roll_length is provided, creates multiple bins (rolls) with max width = fabric_roll_length,
+    optimizing to minimize total rolls and then minimize last roll length.
+    Returns placements and bin information.
     """
     if fabric_height <= 0:
         raise ValueError("fabric_height must be a positive integer")
 
+    # If roll length optimization requested, pack into multiple fixed-width bins
+    if fabric_roll_length and fabric_roll_length > 0:
+        return pack_into_multiple_rolls(rectangles, fabric_height, fabric_roll_length, allow_rotation)
+    
+    # Original single-bin behavior
     min_width = max(r[0] for r in rectangles)  # at least the widest
     max_width = sum(r[0] for r in rectangles)  # worst case: side by side
     best_packer = None
@@ -140,6 +148,121 @@ def run_rectpack_with_fixed_height(
         "bin_height": int(fabric_height),
         "rotation": bool(allow_rotation),
     }
+
+
+def pack_into_multiple_rolls(
+    rectangles: List[Tuple[int, int, str]],
+    fabric_height: int,
+    fabric_roll_length: int,
+    allow_rotation: bool = True
+):
+    """
+    Pack rectangles into multiple bins (rolls), each with max width = fabric_roll_length.
+    Uses rectpack to automatically distribute across bins (rolls).
+    Returns bins with their placements.
+    """
+    import rectpack
+    
+    print(f"[DEBUG] pack_into_multiple_rolls called with:")
+    print(f"  fabric_height (bin height): {fabric_height}")
+    print(f"  fabric_roll_length (bin width): {fabric_roll_length}")
+    print(f"  allow_rotation: {allow_rotation}")
+    print(f"  num rectangles: {len(rectangles)}")
+    
+    # Sort rectangles by area (largest first) for better packing
+    sorted_rects = sorted(rectangles, key=lambda r: r[0] * r[1], reverse=True)
+    
+    # Estimate number of bins needed (generous overestimate)
+    total_area = sum(r[0] * r[1] for r in sorted_rects)
+    bin_area = fabric_roll_length * fabric_height
+    estimated_bins = max(3, int((total_area / bin_area) * 1.5) + 2)
+    
+    print(f"[DEBUG] Creating packer with {estimated_bins} bins")
+    
+    # Create single packer with multiple bins
+    packer = rectpack.newPacker(rotation=allow_rotation, pack_algo=rectpack.MaxRectsBssf)
+    
+    # Add multiple bins (rolls)
+    for i in range(estimated_bins):
+        packer.add_bin(fabric_roll_length, fabric_height)
+    
+    # Add all rectangles
+    for w, h, label in sorted_rects:
+        print(f"[DEBUG] Adding rectangle {label} ({w}x{h})")
+        packer.add_rect(w, h, label)
+    
+    # Pack!
+    print(f"[DEBUG] Packing rectangles...")
+    packer.pack()
+    
+    # Extract placements per bin
+    all_placements = {}
+    rolls = []
+    bins_used = {}
+    
+    print(f"[DEBUG] Extracting placements...")
+    for bin_idx, x, y, w, h, rid in packer.rect_list():
+        print(f"[DEBUG] Panel {rid} placed in bin {bin_idx} at ({x}, {y}) size {w}x{h}")
+        
+        # Determine rotation
+        orig = next(r for r in rectangles if r[2] == rid)
+        rotated = (w != orig[0] or h != orig[1])
+        
+        if bin_idx not in bins_used:
+            bins_used[bin_idx] = {
+                'placements': {},
+                'max_x': 0,
+                'max_y': 0
+            }
+        
+        bins_used[bin_idx]['placements'][rid] = {
+            "x": x,
+            "y": y,
+            "rotated": rotated,
+            "bin": bin_idx
+        }
+        bins_used[bin_idx]['max_x'] = max(bins_used[bin_idx]['max_x'], x + w)
+        bins_used[bin_idx]['max_y'] = max(bins_used[bin_idx]['max_y'], y + h)
+        
+        all_placements[rid] = {
+            "x": x,
+            "y": y,
+            "rotated": rotated,
+            "bin": bin_idx
+        }
+    
+    # Build rolls list from actually used bins
+    for bin_idx in sorted(bins_used.keys()):
+        bin_data = bins_used[bin_idx]
+        rolls.append({
+            "roll_number": len(rolls) + 1,
+            "width": bin_data['max_x'],
+            "max_width": fabric_roll_length,
+            "height": fabric_height,
+            "panels": bin_data['placements'],
+            "is_last": False
+        })
+    
+    if rolls:
+        rolls[-1]['is_last'] = True
+    
+    total_fabric = sum(r['width'] for r in rolls)
+    
+    print(f"[DEBUG] Packing complete: {len(rolls)} rolls used")
+    
+    result = {
+        "panels": all_placements,
+        "total_width": total_fabric,
+        "required_width": fabric_roll_length,
+        "bin_height": int(fabric_height),
+        "rotation": bool(allow_rotation),
+        "fabric_roll_length": fabric_roll_length,
+        "num_rolls": len(rolls),
+        "last_roll_length": rolls[-1]['width'] if rolls else 0,
+        "rolls": rolls
+    }
+    
+    return result
 
 
 # ---------- Generic helpers ----------
@@ -355,7 +478,8 @@ def nest_rectangles_logic(
     bin_obj=None,
     group_small=False,
     small_side_max=500,
-    group_row_max=2000
+    group_row_max=2000,
+    fabric_roll_length=None
 ):
     """
     Core nesting logic extracted for internal use without HTTP layer.
@@ -368,6 +492,7 @@ def nest_rectangles_logic(
         group_small: Whether to group small panels
         small_side_max: Max dimension for "small" panels
         group_row_max: Max row width when grouping
+        fabric_roll_length: Maximum length per fabric roll for optimization
     
     Returns:
         Dict with nesting result or {"error": "message"}
@@ -410,7 +535,7 @@ def nest_rectangles_logic(
         return {"error": f"Invalid fabricHeight: {e}"}
 
     try:
-        return run_rectpack_with_fixed_height(rect_tuples, fabric_height, allow_rotation)
+        return run_rectpack_with_fixed_height(rect_tuples, fabric_height, allow_rotation, fabric_roll_length)
     except ValueError as ve:
         return {"error": str(ve)}
     except Exception as e:

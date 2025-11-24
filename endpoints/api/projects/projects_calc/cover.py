@@ -147,6 +147,13 @@ def calculate(data: Dict) -> Dict:
             (_num(p.get("attributes", {}).get("fabricWidth")) or 1500)
             for p in products
         )
+        max_roll_length = max(
+            (_num(p.get("attributes", {}).get("fabricRollLength")) or 50000)
+            for p in products
+        )
+        # Convert to integers for nesting
+        max_fabric_width = int(max_fabric_width)
+        max_roll_length = int(max_roll_length) if max_roll_length else None
         
         try:
             # Call nesting logic directly (no HTTP request)
@@ -155,7 +162,8 @@ def calculate(data: Dict) -> Dict:
             nest_result = nest_rectangles_logic(
                 rectangles=all_rectangles,
                 fabric_height=max_fabric_width,
-                allow_rotation=True
+                allow_rotation=True,
+                fabric_roll_length=max_roll_length
             )
             
             # Distribute nest placements back to individual products

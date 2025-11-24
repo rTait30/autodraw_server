@@ -78,6 +78,7 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   zips: true,
   stayputs: false,
   fabricWidth: 1320,
+  fabricRollLength: 50000,
 });
 
 export function ProductForm({ formRef, attributesHydrate = {} }) {
@@ -208,6 +209,15 @@ export function ProductForm({ formRef, attributesHydrate = {} }) {
         type="number"
         value={attributes.fabricWidth}
         onChange={(e) => setAttr("fabricWidth")(e.target.value)}
+        inputMode="numeric"
+      />
+
+      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Roll Length (mm) </label>
+      <input
+        className="inputCompact"
+        type="number"
+        value={attributes.fabricRollLength}
+        onChange={(e) => setAttr("fabricRollLength")(e.target.value)}
         inputMode="numeric"
       />
     </div>

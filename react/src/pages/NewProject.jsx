@@ -15,7 +15,7 @@ export default function NewProject() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 2000 });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 4000 });
 
   const role = localStorage.getItem("role") || "guest";
 

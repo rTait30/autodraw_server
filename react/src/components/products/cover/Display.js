@@ -297,84 +297,184 @@ function drawSplitPanels(ctx, products, layout, baseScale, fontScale, spacingSca
 
 function drawNestLayout(ctx, products, projectAttrs, layout, baseScale, fontScale, spacingScale, isMobile) {
   const nest = projectAttrs.nest;
-  if (!nest || !nest.required_width || !nest.bin_height) return;
+  if (!nest || !nest.bin_height) return;
 
   const offsetY = layout.yPos;
   const padding = 30 * spacingScale;
-  const availableW = (isMobile ? 600 : 800) * baseScale;
-  const availableH = (isMobile ? 500 : 700) * baseScale;
-  const scale = Math.min(availableW / nest.required_width, availableH / nest.bin_height);
-
-  const binX = padding;
-  const binY = offsetY + padding;
-  const binW = Math.round(nest.required_width * scale);
-  const binH = Math.round(nest.bin_height * scale);
-
-  // Fabric boundary
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2 * baseScale;
-  ctx.strokeRect(binX, binY, binW, binH);
-
-  // Dimension annotation
-  const dimY = binY + binH + 15 * spacingScale;
-  ctx.strokeStyle = '#374151';
-  ctx.lineWidth = 1 * baseScale;
-  ctx.beginPath();
-  ctx.moveTo(binX, dimY);
-  ctx.lineTo(binX + binW, dimY);
-  ctx.moveTo(binX, dimY - 5 * spacingScale);
-  ctx.lineTo(binX, dimY + 5 * spacingScale);
-  ctx.moveTo(binX + binW, dimY - 5 * spacingScale);
-  ctx.lineTo(binX + binW, dimY + 5 * spacingScale);
-  ctx.stroke();
-
-  ctx.fillStyle = '#000';
-  ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText(`${nest.required_width}mm`, binX + binW / 2, dimY + 12 * spacingScale);
-
-  // Fabric width label
-  ctx.save();
-  ctx.translate(binX - 15 * spacingScale, binY + binH / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(`${nest.bin_height}mm`, 0, 0);
-  ctx.restore();
-
-  // Panel colors
-  const colors = { MAIN: '#ef4444', SIDE_L: '#3b82f6', SIDE_R: '#10b981', DEFAULT: '#9ca3af' };
+  const rolls = nest.rolls || [];
   
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // If no rolls, fall back to single bin display
+  if (rolls.length === 0) {
+    if (!nest.required_width) return;
+    const availableW = (isMobile ? 600 : 800) * baseScale;
+    const availableH = (isMobile ? 500 : 700) * baseScale;
+    const scale = Math.min(availableW / nest.required_width, availableH / nest.bin_height);
 
-  for (const [label, placement] of Object.entries(nest.panels || {})) {
-    let meta = null;
-    for (const prod of products) {
-      const attr = prod.attributes || {};
-      if (attr.panels && attr.panels[label]) {
-        meta = attr.panels[label];
-        break;
-      }
-    }
-    if (!meta) continue;
+    const binX = padding;
+    const binY = offsetY + padding;
+    const binW = Math.round(nest.required_width * scale);
+    const binH = Math.round(nest.bin_height * scale);
 
-    const color = colors[meta.base] || colors.DEFAULT;
-    const w = Math.round((placement.rotated ? meta.height : meta.width) * scale);
-    const h = Math.round((placement.rotated ? meta.width : meta.height) * scale);
-    const x = Math.round(binX + placement.x * scale);
-    const y = Math.round(binY + placement.y * scale);
-
-    ctx.globalAlpha = 0.7;
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w, h);
-    ctx.globalAlpha = 1;
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1 * baseScale;
-    ctx.strokeRect(x, y, w, h);
+    ctx.lineWidth = 2 * baseScale;
+    ctx.strokeRect(binX, binY, binW, binH);
 
-    ctx.fillStyle = '#fff';
-    ctx.font = `${Math.round(8 * fontScale)}px sans-serif`;
-    ctx.fillText(label, x + w / 2, y + h / 2);
+    const dimY = binY + binH + 15 * spacingScale;
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 1 * baseScale;
+    ctx.beginPath();
+    ctx.moveTo(binX, dimY);
+    ctx.lineTo(binX + binW, dimY);
+    ctx.stroke();
+
+    ctx.fillStyle = '#000';
+    ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${nest.total_width || nest.required_width}mm`, binX + binW / 2, dimY + 12 * spacingScale);
+
+    const colors = { MAIN: '#ef4444', SIDE_L: '#3b82f6', SIDE_R: '#10b981', DEFAULT: '#9ca3af' };
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const [label, placement] of Object.entries(nest.panels || {})) {
+      let meta = null;
+      for (const prod of products) {
+        const attr = prod.attributes || {};
+        if (attr.panels && attr.panels[label]) {
+          meta = attr.panels[label];
+          break;
+        }
+      }
+      if (!meta) continue;
+
+      const color = colors[meta.base] || colors.DEFAULT;
+      const w = Math.round((placement.rotated ? meta.height : meta.width) * scale);
+      const h = Math.round((placement.rotated ? meta.width : meta.height) * scale);
+      const x = Math.round(binX + placement.x * scale);
+      const y = Math.round(binY + placement.y * scale);
+
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1 * baseScale;
+      ctx.strokeRect(x, y, w, h);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.round(8 * fontScale)}px sans-serif`;
+      ctx.fillText(label, x + w / 2, y + h / 2);
+    }
+    
+    layout.yPos = Math.ceil(dimY + 40 * spacingScale);
+    return;
   }
-  const bottom = dimY + 24 * spacingScale;
-  layout.yPos = Math.ceil(bottom + 40 * spacingScale);
+
+  // Multi-roll display: stack bins vertically
+  const rollGap = 40 * spacingScale;
+  let currentY = offsetY + padding;
+  
+  // Calculate scale based on max roll width
+  const maxRollWidth = Math.max(...rolls.map(r => r.max_width || r.width));
+  const availableW = (isMobile ? 600 : 800) * baseScale;
+  const scale = availableW / maxRollWidth;
+
+  const colors = { MAIN: '#ef4444', SIDE_L: '#3b82f6', SIDE_R: '#10b981', DEFAULT: '#9ca3af' };
+
+  for (const roll of rolls) {
+    const binX = padding;
+    const binY = currentY;
+    const binW = Math.round(roll.width * scale);
+    const binH = Math.round(roll.height * scale);
+
+    // Highlight last roll
+    if (roll.is_last) {
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.15)';
+      ctx.fillRect(binX, binY, binW, binH);
+    }
+
+    // Roll border
+    ctx.strokeStyle = roll.is_last ? '#f59e0b' : '#000';
+    ctx.lineWidth = roll.is_last ? 2.5 * baseScale : 2 * baseScale;
+    ctx.strokeRect(binX, binY, binW, binH);
+
+    // Roll label
+    ctx.fillStyle = roll.is_last ? '#f59e0b' : '#111827';
+    ctx.font = `bold ${Math.round(12 * fontScale)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `Roll ${roll.roll_number}${roll.is_last ? ' (Final Roll)' : ''}`,
+      binX,
+      binY - 8 * spacingScale
+    );
+
+    // Draw panels in this roll
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const [label, placement] of Object.entries(roll.panels || {})) {
+      let meta = null;
+      for (const prod of products) {
+        const attr = prod.attributes || {};
+        if (attr.panels && attr.panels[label]) {
+          meta = attr.panels[label];
+          break;
+        }
+      }
+      if (!meta) continue;
+
+      const color = colors[meta.base] || colors.DEFAULT;
+      const w = Math.round((placement.rotated ? meta.height : meta.width) * scale);
+      const h = Math.round((placement.rotated ? meta.width : meta.height) * scale);
+      const x = Math.round(binX + placement.x * scale);
+      const y = Math.round(binY + placement.y * scale);
+
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1 * baseScale;
+      ctx.strokeRect(x, y, w, h);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.round(8 * fontScale)}px sans-serif`;
+      ctx.fillText(label, x + w / 2, y + h / 2);
+    }
+
+    // Dimension annotation below each roll
+    const dimY = binY + binH + 8 * spacingScale;
+    ctx.strokeStyle = '#6b7280';
+    ctx.lineWidth = 1 * baseScale;
+    ctx.beginPath();
+    ctx.moveTo(binX, dimY);
+    ctx.lineTo(binX + binW, dimY);
+    ctx.moveTo(binX, dimY - 3 * spacingScale);
+    ctx.lineTo(binX, dimY + 3 * spacingScale);
+    ctx.moveTo(binX + binW, dimY - 3 * spacingScale);
+    ctx.lineTo(binX + binW, dimY + 3 * spacingScale);
+    ctx.stroke();
+
+    ctx.fillStyle = '#374151';
+    ctx.font = `${Math.round(10 * fontScale)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${roll.width}mm × ${roll.height}mm`, binX + binW / 2, dimY + 12 * spacingScale);
+
+    currentY = dimY + 22 * spacingScale + rollGap;
+  }
+
+  // Summary at the bottom
+  if (rolls.length > 0) {
+    ctx.fillStyle = '#111827';
+    ctx.font = `bold ${Math.round(11 * fontScale)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `Total: ${rolls.length} roll${rolls.length > 1 ? 's' : ''} | Final roll length: ${nest.last_roll_length}mm`,
+      padding,
+      currentY
+    );
+    currentY += 20 * spacingScale;
+  }
+
+  layout.yPos = Math.ceil(currentY + 20 * spacingScale);
 }

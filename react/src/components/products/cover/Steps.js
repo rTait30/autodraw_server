@@ -1,31 +1,11 @@
+// Server now returns fully enriched cover data (flattened panels + nesting).
+// Calc functions are stubbed to avoid client-side mutation.
 import { apiFetch } from '../../../services/auth.js';
 
 export const Steps = [
   {
     title: 'Step 0: Visualise Covers',
-    calcFunction: (data) => {
-      let totalCovers = 0;
-      for (const product of data.products) {
-        try {
-          if (!product) throw new Error("Missing product");
-          const attributes = product.attributes || {};
-
-          attributes.volume =
-            (Number(attributes.length) || 0) *
-            (Number(attributes.width) || 0) *
-            (Number(attributes.height) || 0);
-
-          totalCovers += attributes.quantity || 0;
-        } catch (err) {
-          console.error(`[Covers Step 0] calcFunction error:`, err);
-        }
-      }
-
-      return {
-        ...data,
-        totalCovers
-      }; // No extra calc
-    },
+    calcFunction: (data) => data, // Stub: server supplies volume or metrics if needed
     drawFunction: (ctx, data) => {
 
       for (const product of data.products) {
@@ -162,28 +142,7 @@ export const Steps = [
   },
   {
     title: 'Step 1: Flatten Panels',
-    calcFunction: (data) => {
-      // No extra calc
-
-      for (const cover of data.products) {
-        let attributes = cover.attributes || {};
-        
-        attributes.flatMainHeight = attributes.width + 2 * attributes.seam;
-        attributes.flatMainWidth = 2 * attributes.hem + attributes.height * 2 + attributes.length;
-        attributes.flatSideWidth = attributes.height + attributes.seam;
-        attributes.flatSideHeight = attributes.length + attributes.seam * 2;
-        attributes.totalSeamLength =
-          2 * attributes.flatMainWidth +
-          2 * attributes.flatSideWidth +
-          4 * attributes.flatSideHeight;
-
-        attributes.areaMainM2 = (attributes.flatMainWidth * attributes.flatMainHeight) / 1e6;
-        attributes.areaSideM2 = (attributes.flatSideWidth * attributes.flatSideHeight) / 1e6;
-        attributes.totalFabricArea = attributes.areaMainM2 + 2 * attributes.areaSideM2;
-        }
-
-      return data;
-    },
+    calcFunction: (data) => data, // Stub: server already computed flattened panels
     drawFunction: (ctx, data) => {
       // Simple text indication
       let index = 0;
@@ -196,78 +155,7 @@ export const Steps = [
   },
   {
     title: 'Step 2: Nest Panels',
-    calcFunction: async (data) => {
-      // Aggregate all rectangles for ALL products into one nest
-      const allRectangles = [];
-      const metaMap = {}; // label -> {width,height,base,productIndex}
-      for (let i = 0; i < data.products.length; i++) {
-        const cover = data.products[i];
-        if (!cover) continue;
-        const a = cover.attributes || {};
-        const seam = Number(a.seam) || 0;
-        const fabricWidth = Number(a.fabricWidth) || 1500;
-        const minAllowance = 200;
-        const quantity = Math.max(1, Number(a.quantity) || 1); // how many copies of this cover
-        const panels = [
-          { id: 'MAIN', w: Number(a.flatMainWidth) || 0, h: Number(a.flatMainHeight) || 0 },
-          { id: 'SIDE_L', w: Number(a.flatSideWidth) || 0, h: Number(a.flatSideHeight) || 0 },
-          { id: 'SIDE_R', w: Number(a.flatSideWidth) || 0, h: Number(a.flatSideHeight) || 0 },
-        ];
-        for (const p of panels) {
-          if (!(p.w > 0 && p.h > 0)) continue;
-          if (p.h > fabricWidth) {
-            const parts = splitPanelIfNeeded(p.w, p.h, fabricWidth, minAllowance, seam, 1);
-            parts.forEach(part => {
-              const suffix = part.hasSeam === 'top' ? 'TOP' : (part.hasSeam === 'bottom' ? 'BOTTOM' : 'PART');
-              for (let q = 1; q <= quantity; q++) {
-                const label = `P${i + 1}_${p.id}_${suffix}_Q${q}`;
-                allRectangles.push({ width: part.width, height: part.height, label, quantity: 1 });
-                metaMap[label] = { width: part.width, height: part.height, base: p.id, productIndex: i };
-              }
-            });
-          } else {
-            for (let q = 1; q <= quantity; q++) {
-              const label = `P${i + 1}_${p.id}_Q${q}`;
-              allRectangles.push({ width: p.w, height: p.h, label, quantity: 1 });
-              metaMap[label] = { width: p.w, height: p.h, base: p.id, productIndex: i };
-            }
-          }
-        }
-      }
-      if (allRectangles.length === 0) return data;
-      const maxFabricWidth = Math.max(...data.products.map(p => Number(p.attributes?.fabricWidth) || 1500));
-      try {
-        const response = await apiFetch('/nest_rectangles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rectangles: allRectangles, fabricHeight: maxFabricWidth, allowRotation: true })
-        });
-        if (!response.ok) {
-          const err = await response.json().catch(()=>({}));
-          throw new Error(err.error || 'Nesting failed');
-        }
-        const nest = await response.json();
-        // distribute back
-        for (const [label, placement] of Object.entries(nest.panels || {})) {
-          const mm = metaMap[label];
-          if (!mm) continue;
-          const prod = data.products[mm.productIndex];
-          if (!prod) continue;
-          const attr = prod.attributes || (prod.attributes = {});
-          if (!attr.panels) attr.panels = {};
-            attr.panels[label] = { width: mm.width, height: mm.height, base: mm.base, x: placement.x, y: placement.y, rotated: !!placement.rotated };
-        }
-        // Store for whole project (project-level result)
-        if (!data.project_attributes) data.project_attributes = {};
-        data.project_attributes.nest = nest;
-        data.project_attributes.nested_panels = metaMap; // raw meta if needed later
-      } catch (e) {
-        console.error('[Covers Step 2] nest error', e);
-        if (!data.project_attributes) data.project_attributes = {};
-        data.project_attributes.nestError = String(e?.message || e);
-      }
-      return data;
-    },
+    calcFunction: (data) => data, // Stub: server already nested panels
     drawFunction: (ctx, data) => {
 
             if (!ctx) return;

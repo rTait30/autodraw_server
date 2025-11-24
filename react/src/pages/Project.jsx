@@ -10,26 +10,18 @@ import { apiFetch } from '../services/auth';
 
 import { useParams } from 'react-router-dom';
 
-import { ProcessStepper } from '../components/products/ProcessStepper';
-
 import { useSelector } from 'react-redux';
 
 
 
 /* ============================================================================
  *  MODULE LOADER (per-project-type)
- *  - [Extract] into services/typeLoader.js later
+ *  - Loads Form component for the product type
  * ==========================================================================*/
-// Loader now only fetches Form and Steps; schema comes from backend (estimate_schema)
 async function loadTypeResources(type) {
-  const [FormModule, StepsModule] = await Promise.all([
-    import(`../components/products/${type}/Form.jsx`),
-    import(`../components/products/${type}/Steps.js`),
-  ]);
-
+  const FormModule = await import(`../components/products/${type}/Form.jsx`);
   return {
     Form: FormModule.default,
-    Steps: StepsModule.Steps ?? StepsModule.steps ?? [],
   };
 }
 
@@ -53,90 +45,34 @@ const devMode = useSelector(state => state.toggles.devMode);
    *  STATE: project snapshots (saved vs. edited)
    *  - attributes/calculated reflect SAVED server data
    *  - editedAttributes/editedCalculated reflect working copy
-   *  - [Extract] snapshot reducer (useReducer) if this grows
    * ========================================================================*/
   const [project, setProject] = useState(null);
   const [editedProject, setEditedProject] = useState(null);
   const [error, setError] = useState(null); // error state for fetch failures
-  // Legacy type id/name states retained for possible future use but not required with unified payload
   const [productID, setProductID] = useState(0);
 
   /* ==========================================================================
    *  DYNAMIC TYPE RESOURCES
-   *  - Form / Steps / Schema are type-dependent
+   *  - Form / Schema are type-dependent
    * ========================================================================*/
   const [Schema, setSchema] = useState(null);
   const [editedSchema, setEditedSchema] = useState(null);
-
-  const [Steps, setSteps] = useState([]);
   const [Form, setForm] = useState(null);
 
   const [estimateVersion, setEstimateVersion] = useState(0);
-
   const [toggleData, setToggleData] = useState(false);
 
   /* ==========================================================================
-   *  CANVAS / STEPPER
-   *  - keep `stepper` instance stable-ish; reflect via a ref to avoid effect loops
-   *  - [Extract] a custom hook useStepperRunner(canvasRef, Steps, options)
+   *  CANVAS
    * ========================================================================*/
   const formRef = useRef(null);
-
-  const stepperRef = useRef(null);
   const canvasRef = useRef(null);
-  const lastAutoRunKeyRef = useRef(null);
-
-  //const stepper = useProcessStepper({ canvasRef, steps: Steps, options });
-
-  // Minimal stepper setup – we defer heavy calculations until needed.
-  useEffect(() => {
-    if (!editedProject) return;
-    if (!stepperRef.current) stepperRef.current = new ProcessStepper(800);
-    if (canvasRef.current) stepperRef.current.addCanvas(canvasRef.current);
-    if (Steps && Steps.length) {
-      stepperRef.current.steps = [];
-      Steps.forEach((s) => stepperRef.current.addStep(s));
-    }
-  }, [editedProject, Steps]);
-  
-  useEffect(() => {
-    if (!stepperRef.current) stepperRef.current = new ProcessStepper(800);
-    if (canvasRef.current) stepperRef.current.addCanvas(canvasRef.current);
-    if (Steps && Steps.length) {
-      stepperRef.current.steps = [];
-      Steps.forEach((step) => stepperRef.current.addStep(step));
-    }
-  }, [Steps, canvasRef.current]);
-
-  // Auto-run the stepper once everything is ready (project, steps, canvas, stepper)
-  useEffect(() => {
-    const ready = editedProject && stepperRef.current && canvasRef.current && Steps && Steps.length;
-    if (!ready) return;
-    const key = `${editedProject?.id ?? 'new'}:${Steps.length}`;
-    if (lastAutoRunKeyRef.current === key) return; // prevent duplicate runs for same state
-    lastAutoRunKeyRef.current = key;
-    (async () => {
-      try {
-        console.groupCollapsed('[AUTO-RUN] Stepper starting');
-        console.log('Input (editedProject):', JSON.parse(JSON.stringify(editedProject)));
-        // Auto-run for visuals only; do not mutate editedProject to avoid loops
-        const result = await stepperRef.current.runAll(editedProject);
-        console.log('Output (enriched, visual-only):', JSON.parse(JSON.stringify(result)));
-        console.groupEnd();
-      } catch (e) {
-        console.error('Auto stepper run failed:', e);
-      }
-    })();
-  }, [editedProject, Steps, canvasRef.current]);
 
   /* ==========================================================================
    *  DATA FETCHING: loadProjectFromServer
    *  - populates both saved and edited snapshots
    *  - loads type modules after project fetched
-   *  - [Extract] into services/projects.getProject(projectId)
    * ========================================================================*/
-  
-/* Then modify the loadProjectFromServer function to ensure proper ordering */
   const loadProjectFromServer = async () => {
     try {
       const res = await apiFetch(`/project/${projectId}`);
@@ -145,23 +81,12 @@ const devMode = useSelector(state => state.toggles.devMode);
       const data = await res.json();
       console.log("Loaded project data:", data);
 
-      // Initialize stepper first if needed
-      if (!stepperRef.current) {
-        stepperRef.current = new ProcessStepper(800);
-        stepperRef.current.addCanvas(canvasRef.current);
-      }
-
-      // Load product modules (Form & Steps) first
+      // Load product modules (Form only)
       const productName = data?.type?.name || data?.product?.name;
       if (productName) {
         const modules = await loadTypeResources(productName);
-        setSteps(modules.Steps || []);
-        if (stepperRef.current && modules.Steps) {
-          stepperRef.current.steps = [];
-          modules.Steps.forEach(step => stepperRef.current.addStep(step));
-        }
         setForm(() => modules.Form);
-        // Backend now supplies estimate schema under estimate_schema
+        // Backend supplies estimate schema under estimate_schema
         const backendSchema = data?.estimate_schema ?? null;
         setSchema(backendSchema);
         setEditedSchema(backendSchema);
@@ -169,7 +94,6 @@ const devMode = useSelector(state => state.toggles.devMode);
         setEditedProject(data);
       } else {
         setForm(null);
-        setSteps([]);
         setSchema(null);
         setEditedSchema(null);
         setProject(data);
@@ -180,43 +104,44 @@ const devMode = useSelector(state => state.toggles.devMode);
     }
   };
 
-/* Add an effect to monitor calculated values */
-/*
-useEffect(() => {
-  console.log("editedCalculated changed:", editedCalculated);
-}, [editedCalculated]);
-*/
   // initial fetch / refetch when projectId changes
   useEffect(() => {
     loadProjectFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-
-    //handleRunStepper(); // Run stepper after setting project
   }, [projectId]);
+
+  // Render canvas using Display module when project data changes
+  useEffect(() => {
+    if (!editedProject || !canvasRef.current) return;
+    
+    const productName = (editedProject.product?.name || editedProject.type?.name || '').toUpperCase();
+    if (!productName) return;
+
+    // Dynamically import Display module for the product type
+    import(`../components/products/${productName}/Display.js`)
+      .then((module) => {
+        const data = {
+          products: editedProject.products || [],
+          project_attributes: editedProject.project_attributes || {},
+        };
+        // Call generic render() function from Display module
+        if (typeof module.render === 'function') {
+          module.render(canvasRef.current, data);
+        }
+      })
+      .catch(e => {
+        console.warn(`No Display module for ${productName}:`, e.message);
+      });
+  }, [editedProject]);
 
   /* ==========================================================================
    *  ACTIONS: UI event handlers
-   *  - [Extract] into a small controller object if desired
    * ========================================================================*/
   const handleReturn = () => {
     // Placeholder for future diff/undo features
     setEditedProject(project);
   };
 
-  /*
-  const handleCheck = () => {
-    console.log("handleCheck called");
-    console.log("formRef current:", formRef.current);
-    
-    if (formRef.current?.getValues) {
-      const values = formRef.current.getValues();
-      console.log("Form values:", values);
-      setEditedAttributes(values.attributes);
-    } else {
-      console.log("No getValues method found on formRef");
-    }
-  };
-  */
   // Helper: sync edited project from the form's current values
   const syncEditedFromForm = () => {
     const values = formRef.current?.getValues?.();
@@ -224,7 +149,46 @@ useEffect(() => {
     return values;
   };
 
-  // Unified submit: run stepper once (manual style), update editedProject, then send editedProject
+  // Recalculate project on server
+  const handleQuickCheck = async () => {
+    try {
+      const base = syncEditedFromForm() || editedProject || project;
+      if (!base) {
+        alert('No values to check.');
+        return;
+      }
+
+      const payload = {
+        product_id: base.product_id || base.product?.id,
+        general: base.general || {},
+        project_attributes: base.project_attributes || {},
+        products: base.products || []
+      };
+
+      const response = await apiFetch("/projects/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+
+      // Update editedProject with recalculated data
+      setEditedProject({
+        ...base,
+        products: result.products || [],
+        project_attributes: result.project_attributes || {},
+      });
+
+      console.log("Recalculation result:", result);
+    } catch (err) {
+      console.error("Quick check error:", err);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  // Submit changes to server
   const handleSubmit = async () => {
     try {
       const base = syncEditedFromForm() || editedProject || project;
@@ -232,41 +196,32 @@ useEffect(() => {
         alert('No edited values to submit.');
         return;
       }
-      console.groupCollapsed('[SUBMIT] Pre-submit stepper run');
-      console.log('Input (base):', JSON.parse(JSON.stringify(base)));
-      const enriched = await stepperRef.current.runAll(base);
-      console.log('Output (enriched to submit):', JSON.parse(JSON.stringify(enriched)));
-      setEditedProject(enriched);
-      console.groupEnd();
-      const payload = enriched;
-      console.groupCollapsed('[SUBMIT] Sending editedProject payload');
-      console.log('editedProject:', JSON.parse(JSON.stringify(editedProject)));
-      console.log('payload used:', JSON.parse(JSON.stringify(payload)));
-      console.groupEnd();
+
+      const payload = base;
+      console.log('Submitting payload:', JSON.parse(JSON.stringify(payload)));
+
       const res = await apiFetch(`/products/edit/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
       const json = await res.json();
       if (!res.ok || json?.error) {
         alert(`Update failed: ${json?.error || res.statusText}`);
         return;
       }
-      // Merge returned data if server sends authoritative project, else fall back to local form values
+
       const updatedProject = json?.project || {
         ...project,
         ...payload,
         products: (payload && payload.products) || project.products
       };
-      console.groupCollapsed('[SUBMIT] Response / updated state');
-      console.log('server json:', json);
-      console.log('updatedProject:', JSON.parse(JSON.stringify(updatedProject)));
-      console.groupEnd();
+
+      console.log('Updated project:', updatedProject);
       setProject(updatedProject);
-      // Keep editedProject as the enriched payload we submitted; avoid triggering auto-run cascades
-      //alert('Project updated & stepper recalculated.');
-      window.location.reload();
+      setEditedProject(updatedProject);
+      alert('Project updated successfully.');
     } catch (e) {
       console.error('Submit error:', e);
       alert('Error submitting project.');
@@ -276,31 +231,7 @@ useEffect(() => {
   const handleCheck = () => {
     const v = syncEditedFromForm();
     console.log('Form values (synced to editedProject):', v);
-    handleRunStepper();
     if (v) alert(JSON.stringify(v, null, 2));
-  };
-
-  // Run stepper calculations and redraw canvas with unified project data
-  const handleRunStepper = async () => {
-    if (!stepperRef.current) {
-      console.warn('Stepper not initialized');
-      return;
-    }
-    const values = syncEditedFromForm() || editedProject || project;
-    if (!values) {
-      console.warn('No values available to run stepper');
-      return;
-    }
-    console.groupCollapsed('[RUN] Manual stepper run');
-    console.log('Input:', JSON.parse(JSON.stringify(values)));
-    try {
-      const result = await stepperRef.current.runAll(values);
-      console.log('Output (enriched):', JSON.parse(JSON.stringify(result)));
-      setEditedProject(result);
-      console.groupEnd();
-    } catch (e) {
-      console.error('Stepper error:', e);
-    }
   };
 
   const handleMaterials = () => {
@@ -375,6 +306,12 @@ useEffect(() => {
                       Check Values
                     </button>
                     <button
+                      onClick={handleQuickCheck}
+                      className="buttonStyle bg-blue-600 hover:bg-blue-700"
+                    >
+                      Quick Check
+                    </button>
+                    <button
                       onClick={handleSubmit}
                       className="buttonStyle"
                     >
@@ -386,17 +323,6 @@ useEffect(() => {
                     >
                       Check Materials
                     </button>
-                    
-                    <>
-                    
-                    {devMode && <button
-                      onClick={handleRunStepper}
-                      className="buttonStyle"
-                    >
-                      Run Stepper
-                    </button>
-}
-                    </>
                     
                     {devMode && (
                       <button
@@ -481,15 +407,7 @@ useEffect(() => {
               <canvas
                 ref={canvasRef}
                 width={1000}
-                height={4000}
-                style={{
-                  border: '1px solid #ccc',
-                  marginTop: '20px',
-                  width: '100%',
-                  maxWidth: '500px',
-                  display: 'block',
-                  background: '#fff',
-                }}
+                height={2000}
               />
             </div>
           )}

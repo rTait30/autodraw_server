@@ -21,16 +21,32 @@ print("Installing React dependencies...")
 print("Building and deploying React frontend...")
 run_command("python build_and_deploy.py", cwd="setup")
 
-# 4. Create .env file in /instance with placeholder secrets
+# 4. Create/update .env file in /instance with placeholder secrets
 instance_dir = "instance"
 os.makedirs(instance_dir, exist_ok=True)
 env_path = os.path.join(instance_dir, ".env")
-flask_secret = secrets.token_urlsafe(32)
-jwt_secret = secrets.token_urlsafe(32)
+
+# Read existing environment variables
+existing_vars = {}
+if os.path.exists(env_path):
+    with open(env_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                existing_vars[key.strip()] = value.strip()
+
+# Generate new secrets only if they don't exist
+if "FLASK_SECRET_KEY" not in existing_vars:
+    existing_vars["FLASK_SECRET_KEY"] = f'"{secrets.token_urlsafe(32)}"'
+if "JWT_SECRET_KEY" not in existing_vars:
+    existing_vars["JWT_SECRET_KEY"] = f'"{secrets.token_urlsafe(32)}"'
+
+# Write back all variables
 with open(env_path, "w") as f:
-    f.write(f'FLASK_SECRET_KEY="{flask_secret}"\n')
-    f.write(f'JWT_SECRET_KEY="{jwt_secret}"\n')
-print(f"Created {env_path} with placeholder secrets.")
+    for key, value in existing_vars.items():
+        f.write(f'{key}={value}\n')
+print(f"Updated {env_path} with secrets (preserving existing variables).")
 
 # 5. Create users.db if not exists
 db_path = os.path.join(instance_dir, "users.db")

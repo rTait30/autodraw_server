@@ -332,43 +332,86 @@ def nest_rectangles():
     except Exception:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    allow_rotation = bool(data.get("allowRotation", True))
+    result = nest_rectangles_logic(
+        rectangles=data.get("rectangles"),
+        fabric_height=data.get("fabricHeight") or data.get("fabric_height") or data.get("bin_height"),
+        allow_rotation=data.get("allowRotation", True),
+        bin_obj=data.get("bin"),
+        group_small=data.get("group_small", False),
+        small_side_max=data.get("small_side_max", 500),
+        group_row_max=data.get("group_row_max", 2000)
+    )
+    
+    if "error" in result:
+        return jsonify(result), 400 if "not found" not in result["error"].lower() else 500
+    
+    return jsonify(result), 200
 
+
+def nest_rectangles_logic(
+    rectangles,
+    fabric_height=None,
+    allow_rotation=True,
+    bin_obj=None,
+    group_small=False,
+    small_side_max=500,
+    group_row_max=2000
+):
+    """
+    Core nesting logic extracted for internal use without HTTP layer.
+    
+    Args:
+        rectangles: List of rect dicts with width, height, label, quantity
+        fabric_height: Fixed height for minimize-width mode
+        allow_rotation: Whether to allow 90° rotation
+        bin_obj: Dict with width/height for fixed-bin mode
+        group_small: Whether to group small panels
+        small_side_max: Max dimension for "small" panels
+        group_row_max: Max row width when grouping
+    
+    Returns:
+        Dict with nesting result or {"error": "message"}
+    """
     try:
-        rectangles = prepare_arbitrary_rectangles(data)
+        data_wrapper = {
+            "rectangles": rectangles,
+            "group_small": group_small,
+            "small_side_max": small_side_max,
+            "group_row_max": group_row_max
+        }
+        rect_tuples = prepare_arbitrary_rectangles(data_wrapper)
     except ValueError as ve:
-        return jsonify({"error": str(ve)}), 400
+        return {"error": str(ve)}
 
     # Mode detection
-    bin_obj = data.get("bin") if isinstance(data.get("bin"), dict) else None
-    if bin_obj and ("width" in bin_obj and "height" in bin_obj):
+    if bin_obj and isinstance(bin_obj, dict) and ("width" in bin_obj and "height" in bin_obj):
         # Fixed bin mode
         try:
             bw = int(round(float(bin_obj["width"])))
             bh = int(round(float(bin_obj["height"])))
         except Exception:
-            return jsonify({"error": "bin width/height must be numeric"}), 400
+            return {"error": "bin width/height must be numeric"}
         try:
-            result = pack_into_fixed_bin(rectangles, bw, bh, allow_rotation)
-            return jsonify(result), 200
+            return pack_into_fixed_bin(rect_tuples, bw, bh, allow_rotation)
         except ValueError as ve:
-            return jsonify({"error": str(ve)}), 400
-        except Exception:
-            return jsonify({"error": "Nesting failed"}), 500
+            return {"error": str(ve)}
+        except Exception as e:
+            return {"error": f"Nesting failed: {e}"}
 
-    # Otherwise treat as fixed-height minimize width
-    fabric_height = data.get("fabricHeight") or data.get("fabric_height") or data.get("bin_height")
+    # Fixed-height minimize width mode
+    if not fabric_height:
+        return {"error": "fabricHeight is required when bin is not provided"}
+    
     try:
         fabric_height = int(round(float(fabric_height)))
         if fabric_height <= 0:
-            raise ValueError
-    except Exception:
-        return jsonify({"error": "fabricHeight must be a positive number"}), 400
+            raise ValueError("fabricHeight must be positive")
+    except Exception as e:
+        return {"error": f"Invalid fabricHeight: {e}"}
 
     try:
-        result = run_rectpack_with_fixed_height(rectangles, fabric_height, allow_rotation)
-        return jsonify(result), 200
+        return run_rectpack_with_fixed_height(rect_tuples, fabric_height, allow_rotation)
     except ValueError as ve:
-        return jsonify({"error": str(ve)}), 400
-    except Exception:
-        return jsonify({"error": "Nesting failed"}), 500
+        return {"error": str(ve)}
+    except Exception as e:
+        return {"error": f"Nesting failed: {e}"}

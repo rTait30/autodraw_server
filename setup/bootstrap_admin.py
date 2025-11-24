@@ -22,7 +22,7 @@ def bootstrap_admin():
         print(f"Admin user '{username}' already exists (id={existing.id}).")
         return
 
-    user = User(
+    user = User( 
         username=username,
         password_hash=bcrypt.hash(password),
         role="admin",
@@ -39,16 +39,16 @@ def bootstrap_products():
     """Bootstrap default Product records."""
     products_to_create = [
         {
-            "id": 0,
+            "id": 1,
             "name": "COVER",
             "description": "Covers for various products",
-            "default_schema_id": 0
+            "default_schema_id": 1
         },
         {
-            "id": 1,
+            "id": 2,
             "name": "SHADE_SAIL",
             "description": "Shadesail in mesh or PVC",
-            "default_schema_id": 1
+            "default_schema_id": 2
         }
     ]
 
@@ -88,7 +88,7 @@ COVER_DEFAULT_SCHEMA = {
         },
         {
             "type": "sku",
-            "sku": "2-DR-H-001",
+            "sku": "2-DR-H-001-N",
             "quantity": "2 * Math.ceil(height / 1000)",
         },
     ],

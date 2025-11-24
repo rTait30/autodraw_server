@@ -25,6 +25,7 @@ from reportlab.pdfgen import canvas
 
 from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+from endpoints.api.projects.projects_calc import dispatch
 
 from WG.workGuru import wg_get
 
@@ -44,38 +45,6 @@ def _as_int(v):
         return None
 
 
-def resolve_product_id(data):
-    """
-    Supports either:
-      - data['type_id'] as an int/stringified int (legacy),
-      - data['type'] or data['product'] as the Product.name (e.g. 'COVER', 'SHADE_SAIL').
-
-    Returns: (product_id:int|None, error:str|None)
-    """
-    # 1) Prefer explicit id
-    tid = _as_int(data.get("type_id"))
-    if tid is not None:
-        prod = db.session.get(Product, tid)
-        if not prod:
-            return None, f"Product id {tid} not found"
-        return prod.id, None
-
-    # 2) Fallback: resolve by name from 'type' or 'product'
-    name = (data.get("type") or data.get("product") or "").strip()
-    if name:
-        qname = name.upper()
-        prod = (
-            Product.query.filter_by(name=qname).first()
-            or Product.query.filter_by(name=name).first()
-        )
-        if not prod:
-            return None, f"Product '{name}' not found"
-        return prod.id, None
-
-    # 3) Nothing provided
-    return None, "Missing 'type_id' or 'type'/'product' in request data"
-
-# ------------------------------------------------------------------------
 
 # -------------------------------
 # Create / update project (auth required)
@@ -176,11 +145,12 @@ def save_project_config():
                 except Exception:
                     return jsonify({"error": f"Invalid status: {st}"}), 400
 
-    # ---- resolve type_id from 'type' in payload (e.g. "cover") ----
-    product_id, product_err = resolve_product_id(data)
-    if product_err and not project_id:
-        # On CREATE, product is required
-        return jsonify({"error": product_err}), 400
+    # ---- unified product id (required on create) ----
+    product_id = _as_int(data.get("product_id"))
+    if not project_id and product_id is None:
+        return jsonify({"error": "product_id is required"}), 400
+    if product_id is not None and not db.session.get(Product, product_id):
+        return jsonify({"error": f"Product id {product_id} not found"}), 400
 
     # ---- determine client_id ----
     if user.role == "client":
@@ -255,10 +225,33 @@ def save_project_config():
                 print("Initial estimate failed:", e)
 
 
-    # ---------- UPDATE project-level JSON on both create & update ----------
-    # (On create we already initialised; on update we overwrite with new payload)
-    project.project_attributes = project_attributes
-    project.project_calculated = project_calculated
+    # ---------- Unified enrichment (single raw format) ----------
+    if project.product:
+        try:
+            calc_input = {
+                "product_id": project.product_id,
+                "product_type": project.product.name,
+                "type": project.product.name,
+                "general": general,
+                "project_attributes": project_attributes,
+                "products": products_payload,
+            }
+            enriched = dispatch(project.product.name, calc_input) or {}
+            if isinstance(enriched.get("project_attributes"), dict):
+                project.project_attributes = enriched["project_attributes"]
+            else:
+                project.project_attributes = project_attributes
+            if isinstance(enriched.get("products"), list):
+                products_payload = enriched["products"]
+            flag_modified(project, "project_attributes")
+        except Exception as e:
+            print(f"Enrichment failed for project {project.id}: {e}")
+            project.project_attributes = project_attributes
+    else:
+        project.project_attributes = project_attributes
+    
+    # Deprecated: keep project_calculated for backward compat but consider empty
+    project.project_calculated = project_calculated or {}
 
     # ---------- Replace products from payload ----------
     # Simple approach: delete existing and recreate from the sent list
@@ -326,6 +319,12 @@ def upsert_project_and_attributes(project_id):
     project_attributes = payload.get("project_attributes")
     project_calculated = payload.get("project_calculated")
     products_payload = payload.get("products")
+    new_product_id = payload.get("product_id")
+    if new_product_id is not None:
+        try:
+            new_product_id = int(new_product_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "product_id must be an integer"}), 400
 
     if not isinstance(general, dict):
         return jsonify({"error": "general must be an object"}), 400
@@ -340,11 +339,9 @@ def upsert_project_and_attributes(project_id):
     project = Project.query.get_or_404(project_id)
 
     # ---------- Update general (Project) fields ----------
-    # Optional "enabled" flag as you had before
     if general.get("enabled", True):
         if "name" in general:
             project.name = (general["name"] or "").strip()
-
         if "client_id" in general:
             cid = general["client_id"]
             if cid in (None, "", "null"):
@@ -354,27 +351,51 @@ def upsert_project_and_attributes(project_id):
                     project.client_id = int(cid)
                 except (TypeError, ValueError):
                     return jsonify({"error": "client_id must be an integer or empty"}), 400
-
         if "due_date" in general:
             dd = general["due_date"]
             if dd in (None, "", "null"):
                 project.due_date = None
             elif isinstance(dd, str):
-                # Accept ISO or YYYY-MM-DD; convert to date
                 try:
                     project.due_date = parse_date(dd)
                 except Exception:
                     return jsonify({"error": f"Invalid due_date format: {dd}"}), 400
             else:
                 project.due_date = dd
-
         if "info" in general:
             project.info = general["info"]
+    # ---------- Optional product change ----------
+    if new_product_id is not None and new_product_id != project.product_id:
+        if not db.session.get(Product, new_product_id):
+            return jsonify({"error": f"Product id {new_product_id} not found"}), 400
+        project.product_id = new_product_id
 
     # ---------- Update project-level JSON if provided ----------
-    if project_attributes is not None:
+    if project_attributes is not None and project.product:
+        try:
+            calc_input = {
+                "product_id": project.product_id,
+                "product_type": project.product.name,
+                "type": project.product.name,
+                "general": general,
+                "project_attributes": project_attributes,
+                "products": products_payload if products_payload is not None else [],
+            }
+            enriched = dispatch(project.product.name, calc_input) or {}
+            if isinstance(enriched.get("project_attributes"), dict):
+                project.project_attributes = enriched["project_attributes"]
+            else:
+                project.project_attributes = project_attributes
+            if isinstance(enriched.get("products"), list) and products_payload is not None:
+                products_payload = enriched["products"]
+            flag_modified(project, "project_attributes")
+        except Exception as e:
+            print(f"Enrichment failed for project {project.id}: {e}")
+            project.project_attributes = project_attributes
+    elif project_attributes is not None:
         project.project_attributes = project_attributes
 
+    # Deprecated: project_calculated kept for backward compat
     if project_calculated is not None:
         project.project_calculated = project_calculated
 

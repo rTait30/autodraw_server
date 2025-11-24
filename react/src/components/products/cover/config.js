@@ -1,5 +1,5 @@
 export default {
   id: "COVER",
   name: "Cover",
-  dbId: 0,
+  dbId: 1,
 };

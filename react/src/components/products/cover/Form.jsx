@@ -55,15 +55,14 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
   );
 
   return (
-    <div className="mb-4 p-2 border rounded bg-gray-50">
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={projectData.medical}
-          onChange={e => setProjectData(prev => ({ ...prev, medical: e.target.checked }))}
-        />
-        <span className="text-sm font-medium">Medical Cover</span>
-      </label>
+    <div>
+      <label className="block text-sm font-medium mb-1">Medical </label>
+      <input
+        type="checkbox"
+        checked={projectData.medical}
+        onChange={e => setProjectData(prev => ({ ...prev, medical: e.target.checked }))}
+      />
+      
     </div>
   );
 }

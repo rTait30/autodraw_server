@@ -6,6 +6,8 @@ export const Steps = [
     calcFunction: (data) => {
       // Placeholder: No calculations in this step
 
+      return {...data};
+
       for (const sail of data.products || []) {
 
         let attributes = sail.attributes || {};

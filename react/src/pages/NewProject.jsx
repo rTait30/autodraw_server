@@ -10,10 +10,12 @@ export default function NewProject() {
 
   const formRef = useRef(null);
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 2000 });
 
   const role = localStorage.getItem("role") || "guest";
 
@@ -131,6 +133,23 @@ export default function NewProject() {
     }
   };
 
+  // Responsive canvas sizing
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (!containerRef.current) return;
+      const containerWidth = containerRef.current.offsetWidth;
+      const isMobile = window.innerWidth < 768;
+      // On desktop, use full container width; on mobile, use viewport-based sizing
+      const width = isMobile ? Math.min(window.innerWidth - 60, 600) : Math.min(containerWidth, 1000);
+      const height = width * 2;
+      setCanvasDimensions({ width, height });
+    };
+
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
+    return () => window.removeEventListener('resize', updateCanvasSize);
+  }, []);
+
   useEffect(() => {
     if (!createdProject || !canvasRef.current) return;
     
@@ -152,7 +171,7 @@ export default function NewProject() {
       .catch(e => {
         console.warn(`No Display module for ${productName}:`, e.message);
       });
-  }, [createdProject]);
+  }, [createdProject, canvasDimensions]);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
@@ -185,8 +204,8 @@ export default function NewProject() {
 
       <main className="flex-1 p-6">
   {product ? (
-          <div className="flex flex-wrap gap-10">
-            <div className="flex-1 min-w-[400px]">
+          <div className="flex flex-col lg:flex-row gap-10">
+            <div className="flex-1 lg:max-w-xl">
               <Suspense fallback={<div className="p-3"></div>}>
                 <ProjectForm
                   key={product}
@@ -207,8 +226,14 @@ export default function NewProject() {
               </div>
             </div>
             {/* Canvas visualization rendered by Display.js after project creation */}
-              <div className="mt-8 md:pr-20">
-                <canvas ref={canvasRef} width={1000} height={2000} className="border shadow bg-white" />
+              <div ref={containerRef} className="flex-1">
+                <canvas 
+                  ref={canvasRef} 
+                  width={canvasDimensions.width} 
+                  height={canvasDimensions.height} 
+                  className="border shadow bg-white max-w-full" 
+                  style={{ display: 'block', width: '100%', height: 'auto' }}
+                />
               </div>
           </div>
         ) : (

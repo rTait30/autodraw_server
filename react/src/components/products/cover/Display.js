@@ -1,5 +1,5 @@
 /**
- * COVER Display - Minimal canvas rendering for server-enriched project data.
+ * COVER Display - Minimal canvas rendering for server-enriched project data (Responsive).
  * Draws three visualization steps: 3D preview, flattened panels, and nesting layout.
  */
 
@@ -9,28 +9,58 @@ export function render(canvas, data) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  const canvasWidth = canvas.width || 1000;
+  const canvasHeight = canvas.height || 1000;
+  
+  // Responsive scale factors
+  const isMobile = canvasWidth < 768;
+  //const baseScale = canvasWidth / 1000;
+  //const fontScale = isMobile ? baseScale * 1.0 : baseScale;
+  //const spacingScale = isMobile ? baseScale * 0.6 : baseScale;
+
+  let baseScale;
+  let fontScale;
+  let spacingScale;
+
+  if (isMobile) {
+    baseScale = canvasWidth / 800;
+    fontScale = baseScale * 1.0;
+    spacingScale = baseScale;
+  } else {
+    baseScale = canvasWidth / 1000;
+    fontScale = baseScale;
+    spacingScale = baseScale;
+  }
+
   // Clear canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
   ctx.fillStyle = '#f9fafb';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  // Sharper vectors/text where possible
+  ctx.imageSmoothingEnabled = false;
 
   const products = data.products || [];
   const projectAttrs = data.project_attributes || {};
 
+  // Global vertical layout state that steps can update
+  const layout = { yPos: 0 };
+
   // Step 0: Visualize Covers (3D preview)
-  drawCover3DPreviews(ctx, products, 0);
+  drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
 
   // Step 1: Flatten Panels
-  drawFlattenedPanels(ctx, products, 400);
+  drawFlattenedPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
 
   // Step 2: Split Panels (if needed)
-  drawSplitPanels(ctx, products, 700);
+  drawSplitPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
 
   // Step 3: Nest Panels
-  drawNestLayout(ctx, products, projectAttrs, 900);
+  drawNestLayout(ctx, products, projectAttrs, layout, baseScale, fontScale, spacingScale, isMobile);
 }
 
-function drawCover3DPreviews(ctx, products, offsetY) {
+function drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile) {
+  const offsetY = layout.yPos;
+  let maxBottomY = offsetY;
   for (let i = 0; i < products.length; i++) {
     const product = products[i];
     const attrs = product.attributes || {};
@@ -41,11 +71,11 @@ function drawCover3DPreviews(ctx, products, offsetY) {
     const length = Number(attrs.length) || 1;
     const hem = Number(attrs.hem) || 0;
 
-    const padding = 50;
+    const padding = 50 * spacingScale;
     const totalWidthUnits = width + length;
     const totalHeightUnits = height + hem + length;
-    const maxDrawWidth = 400;
-    const maxDrawHeight = 400;
+    const maxDrawWidth = (isMobile ? 300 : 400) * baseScale;
+    const maxDrawHeight = (isMobile ? 300 : 400) * baseScale;
     const scale = 0.5 * Math.min(maxDrawWidth / totalWidthUnits, maxDrawHeight / totalHeightUnits);
 
     const boxW = width * scale;
@@ -53,11 +83,11 @@ function drawCover3DPreviews(ctx, products, offsetY) {
     const boxD = length * scale;
     const boxHem = hem * scale;
 
-    const startX = 50 + i * 250;
-    const startY = offsetY + 200;
+    const startX = (50 + i * 250) * spacingScale;
+    const startY = offsetY + 200 * spacingScale;
 
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * baseScale;
 
     // Front face
     ctx.strokeRect(startX, startY, boxW, boxH);
@@ -86,15 +116,21 @@ function drawCover3DPreviews(ctx, products, offsetY) {
 
     // Labels
     ctx.fillStyle = '#000';
-    ctx.font = '12px sans-serif';
+    ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${width}mm × ${height}mm × ${length}mm`, startX + boxW / 2, startY + boxH + boxHem + 20);
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText(`× ${quantity}`, startX + boxW / 2, startY + boxH + boxHem + 40);
+    ctx.fillText(`${width}mm × ${height}mm × ${length}mm`, startX + boxW / 2, startY + boxH + boxHem + 20 * spacingScale);
+    ctx.font = `bold ${Math.round(20 * fontScale)}px sans-serif`;
+    ctx.fillText(`× ${quantity}`, startX + boxW / 2, startY + boxH + boxHem + 40 * spacingScale);
+
+    const bottom = startY + boxH + boxHem + 50 * spacingScale;
+    if (bottom > maxBottomY) maxBottomY = bottom;
   }
+  layout.yPos = Math.ceil(maxBottomY + 40 * spacingScale);
 }
 
-function drawFlattenedPanels(ctx, products, offsetY) {
+function drawFlattenedPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile) {
+  const offsetY = layout.yPos;
+  let maxBottomY = offsetY;
   for (let i = 0; i < products.length; i++) {
     const attrs = products[i].attributes || {};
     const flatMainWidth = attrs.flatMainWidth || 0;
@@ -106,28 +142,29 @@ function drawFlattenedPanels(ctx, products, offsetY) {
 
     if (!flatMainWidth || !flatMainHeight) continue;
 
-    const gap = 30;
+    const gap = 30 * spacingScale;
     const layoutWidth = Math.max(flatMainWidth, flatSideWidth * 2 + gap);
     const layoutHeight = flatMainHeight + flatSideHeight + gap;
-    const scale = Math.min(350 / layoutWidth, 350 / layoutHeight);
+    const maxDim = (isMobile ? 250 : 350) * baseScale;
+    const scale = Math.min(maxDim / layoutWidth, maxDim / layoutHeight) * 0.5;
 
     const mainW = flatMainWidth * scale;
     const mainH = flatMainHeight * scale;
     const sideW = flatSideWidth * scale;
     const sideH = flatSideHeight * scale;
 
-    const originX = 50 + i * 250;
-    const originY = offsetY + 50;
+    const originX = (50 + i * 250) * spacingScale;
+    const originY = offsetY + 50 * spacingScale;
 
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * baseScale;
 
     // Main panel
     ctx.strokeRect(originX, originY, mainW, mainH);
 
     // Hems (dotted)
     if (hem > 0) {
-      ctx.setLineDash([3, 5]);
+      ctx.setLineDash([3 * baseScale, 5 * baseScale]);
       ctx.strokeStyle = '#6b7280';
       const hemOffset = hem * scale;
       ctx.beginPath();
@@ -147,103 +184,125 @@ function drawFlattenedPanels(ctx, products, offsetY) {
 
     // Labels
     ctx.fillStyle = '#000';
-    ctx.font = '10px sans-serif';
+    ctx.font = `${Math.round(10 * fontScale)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(`Main: ${flatMainWidth}×${flatMainHeight}mm`, originX + mainW / 2, originY - 5);
-    ctx.fillText(`Side: ${flatSideWidth}×${flatSideHeight}mm`, originX + sideW / 2, sideY - 5);
+    ctx.fillText(`Main: ${flatMainWidth}×${flatMainHeight}mm`, originX + mainW / 2, originY - 5 * spacingScale);
+    ctx.fillText(`Side: ${flatSideWidth}×${flatSideHeight}mm`, originX + sideW / 2, sideY - 5 * spacingScale);
+
+    const bottom = sideY + sideH + 20 * spacingScale;
+    if (bottom > maxBottomY) maxBottomY = bottom;
   }
+  layout.yPos = Math.ceil(maxBottomY + 40 * spacingScale);
 }
 
-function drawSplitPanels(ctx, products, offsetY) {
-  let xOffset = 50;
-  const spacing = 20;
-  const maxHeight = 400;
+function drawSplitPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile) {
+  const offsetY = layout.yPos;
+  // Draw per product in rows with grouped identical panels annotated as x{count}
+  const rowHeight = (isMobile ? 100 : 120) * baseScale;
+  const spacing = 20 * spacingScale;
 
-  // First pass: collect all panels and find global max dimensions
-  const allPanels = [];
-  let globalMaxHeight = 0;
-  let globalMaxWidth = 0;
+  const colors = { MAIN: '#fecaca', SIDE_L: '#bfdbfe', SIDE_R: '#a7f3d0', DEFAULT: '#e5e7eb' };
 
   for (let i = 0; i < products.length; i++) {
     const attrs = products[i].attributes || {};
     const panels = attrs.panels || {};
-    
-    for (const [label, meta] of Object.entries(panels)) {
-      const h = meta.height || 0;
-      const w = meta.width || 0;
-      if (h > globalMaxHeight) globalMaxHeight = h;
-      if (w > globalMaxWidth) globalMaxWidth = w;
-      allPanels.push({ label, ...meta });
-    }
-  }
+    const entries = Object.entries(panels);
+    if (!entries.length) continue;
 
-  if (globalMaxHeight === 0 || globalMaxWidth === 0) return;
-
-  // Calculate single scale for all panels
-  const scale = Math.min(maxHeight / globalMaxHeight, 200 / globalMaxWidth) * 0.5;
-
-  // Second pass: draw all panels at the same scale
-  for (const panel of allPanels) {
-    const w = (panel.width || 0) * scale;
-    const h = (panel.height || 0) * scale;
-    
-    const x = xOffset;
-    const y = offsetY + 100 - h / 2;
-
-    // Color based on base type
-    const colors = { MAIN: '#fecaca', SIDE_L: '#bfdbfe', SIDE_R: '#a7f3d0', DEFAULT: '#e5e7eb' };
-    ctx.fillStyle = colors[panel.base] || colors.DEFAULT;
-    ctx.fillRect(x, y, w, h);
-
-    // Border
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(x, y, w, h);
-
-    // Seam indicator if present
-    if (panel.hasSeam && panel.hasSeam !== 'no') {
-      ctx.strokeStyle = '#dc2626';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      
-      if (panel.hasSeam === 'top') {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + w, y);
-        ctx.stroke();
-      } else if (panel.hasSeam === 'bottom') {
-        ctx.beginPath();
-        ctx.moveTo(x, y + h);
-        ctx.lineTo(x + w, y + h);
-        ctx.stroke();
+    // Group identical panels by signature
+    const groups = new Map();
+    for (const [label, meta] of entries) {
+      const w = Math.round(meta.width || 0);
+      const h = Math.round(meta.height || 0);
+      const base = meta.base || 'DEFAULT';
+      const seam = meta.hasSeam || 'no';
+      const key = `${w}|${h}|${base}|${seam}`;
+      if (!groups.has(key)) {
+        groups.set(key, { sample: { label, ...meta }, count: 0 });
       }
-      
-      ctx.setLineDash([]);
-      ctx.strokeStyle = '#000';
+      groups.get(key).count += 1;
     }
 
-    // Label
-    ctx.fillStyle = '#000';
-    ctx.font = '8px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(panel.label, x + w / 2, y + h / 2);
+    // Determine per-product scale
+    let maxW = 0, maxH = 0;
+    for (const { sample } of groups.values()) {
+      maxW = Math.max(maxW, sample.width || 0);
+      maxH = Math.max(maxH, sample.height || 0);
+    }
+    const maxHeightPx = (isMobile ? 160 : 180) * baseScale;
+    const maxWidthPx = (isMobile ? 160 : 200) * baseScale;
+    const scale = Math.min(
+      maxHeightPx / (maxH || 1),
+      maxWidthPx / (maxW || 1)
+    ) * 0.9;
 
-    // Dimensions
-    ctx.font = '9px sans-serif';
-    ctx.fillText(`${Math.round(panel.width)}×${Math.round(panel.height)}`, x + w / 2, y + h + 12);
+    let xOffset = 50 * spacingScale;
+    // Optional: product header
+    ctx.fillStyle = '#111827';
+    ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(`Size ${i + 1} (${attrs.length} x ${attrs.width} x ${attrs.height})`, xOffset, Math.round(offsetY + i * rowHeight + 16 * spacingScale - 20));
 
-    xOffset += w + spacing;
+    // Draw each group once with count
+    for (const { sample, count } of groups.values()) {
+      const w = Math.round((sample.width || 0) * scale);
+      const h = Math.round((sample.height || 0) * scale);
+      const x = Math.round(xOffset);
+      const y = Math.round(offsetY + i * rowHeight + 40 * spacingScale - h / 2);
+
+      ctx.fillStyle = colors[sample.base] || colors.DEFAULT;
+      ctx.fillRect(x, y, w, h);
+
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = Math.max(1, Math.floor(1 * baseScale));
+      ctx.strokeRect(x + 0.5, y + 0.5, w, h); // snap for crisp edges
+
+      if (sample.hasSeam && sample.hasSeam !== 'no') {
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = Math.max(1, Math.floor(1 * baseScale));
+        ctx.setLineDash([4 * baseScale, 4 * baseScale]);
+        if (sample.hasSeam === 'top') {
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, y + 0.5);
+          ctx.lineTo(x + w + 0.5, y + 0.5);
+          ctx.stroke();
+        } else if (sample.hasSeam === 'bottom') {
+          ctx.beginPath();
+          ctx.moveTo(x + 0.5, y + h + 0.5);
+          ctx.lineTo(x + w + 0.5, y + h + 0.5);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#000';
+      }
+
+      // Label (dimensions) under panel
+      ctx.fillStyle = '#000';
+      ctx.font = `${Math.round(10 * fontScale)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(`${Math.round(sample.width)}×${Math.round(sample.height)}mm`, Math.round(x + w / 2), Math.round(y + h + 12 * spacingScale));
+
+      // Count annotation x{num} beside the panel
+      ctx.font = `bold ${Math.round(12 * fontScale)}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`x${count}`, Math.round(x + w + 8 * spacingScale), Math.round(y + h / 2));
+
+      xOffset += w + Math.max(40, spacing * 2);
+    }
   }
+  const totalHeight = products.length * rowHeight + 60 * spacingScale;
+  layout.yPos = Math.ceil(offsetY + totalHeight);
 }
 
-function drawNestLayout(ctx, products, projectAttrs, offsetY) {
+function drawNestLayout(ctx, products, projectAttrs, layout, baseScale, fontScale, spacingScale, isMobile) {
   const nest = projectAttrs.nest;
   if (!nest || !nest.required_width || !nest.bin_height) return;
 
-  const padding = 30;
-  const availableW = 800;
-  const availableH = 700;
+  const offsetY = layout.yPos;
+  const padding = 30 * spacingScale;
+  const availableW = (isMobile ? 600 : 800) * baseScale;
+  const availableH = (isMobile ? 500 : 700) * baseScale;
   const scale = Math.min(availableW / nest.required_width, availableH / nest.bin_height);
 
   const binX = padding;
@@ -253,30 +312,30 @@ function drawNestLayout(ctx, products, projectAttrs, offsetY) {
 
   // Fabric boundary
   ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 * baseScale;
   ctx.strokeRect(binX, binY, binW, binH);
 
   // Dimension annotation
-  const dimY = binY + binH + 15;
+  const dimY = binY + binH + 15 * spacingScale;
   ctx.strokeStyle = '#374151';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1 * baseScale;
   ctx.beginPath();
   ctx.moveTo(binX, dimY);
   ctx.lineTo(binX + binW, dimY);
-  ctx.moveTo(binX, dimY - 5);
-  ctx.lineTo(binX, dimY + 5);
-  ctx.moveTo(binX + binW, dimY - 5);
-  ctx.lineTo(binX + binW, dimY + 5);
+  ctx.moveTo(binX, dimY - 5 * spacingScale);
+  ctx.lineTo(binX, dimY + 5 * spacingScale);
+  ctx.moveTo(binX + binW, dimY - 5 * spacingScale);
+  ctx.lineTo(binX + binW, dimY + 5 * spacingScale);
   ctx.stroke();
 
   ctx.fillStyle = '#000';
-  ctx.font = '12px sans-serif';
+  ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(`${nest.required_width}mm`, binX + binW / 2, dimY + 12);
+  ctx.fillText(`${nest.required_width}mm`, binX + binW / 2, dimY + 12 * spacingScale);
 
   // Fabric width label
   ctx.save();
-  ctx.translate(binX - 15, binY + binH / 2);
+  ctx.translate(binX - 15 * spacingScale, binY + binH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.fillText(`${nest.bin_height}mm`, 0, 0);
   ctx.restore();
@@ -309,11 +368,13 @@ function drawNestLayout(ctx, products, projectAttrs, offsetY) {
     ctx.fillRect(x, y, w, h);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * baseScale;
     ctx.strokeRect(x, y, w, h);
 
     ctx.fillStyle = '#fff';
-    ctx.font = '8px sans-serif';
+    ctx.font = `${Math.round(8 * fontScale)}px sans-serif`;
     ctx.fillText(label, x + w / 2, y + h / 2);
   }
+  const bottom = dimY + 24 * spacingScale;
+  layout.yPos = Math.ceil(bottom + 40 * spacingScale);
 }

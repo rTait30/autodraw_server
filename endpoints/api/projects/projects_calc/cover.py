@@ -10,12 +10,11 @@ def _num(v):
 
 
 def calculate(data: Dict) -> Dict:
-    """Per-product COVER calculations.
+    """Per-project COVER calculations.
 
     Expects payload shape including optional `products: [ { attributes: {...} }, ... ]`.
     Iterates each product, mutating its attributes in-place with derived fields.
     Returns the FULL (mutated) data payload so callers can pick updated products.
-    Also supports legacy single `attributes` at top-level.
     """
 
     print (data)
@@ -191,8 +190,6 @@ def calculate(data: Dict) -> Dict:
     return data
 
 __all__ = ["calculate"]
-
-
 
 
 def _split_panel_if_needed(width, height, fabric_width, min_allowance, seam):

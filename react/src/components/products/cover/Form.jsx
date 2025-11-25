@@ -78,7 +78,7 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   zips: true,
   stayputs: false,
   fabricWidth: 1320,
-  fabricRollLength: 50000,
+  fabricRollLength: 30000,
 });
 
 export function ProductForm({ formRef, attributesHydrate = {} }) {

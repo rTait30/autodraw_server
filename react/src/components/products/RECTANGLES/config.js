@@ -1,5 +1,5 @@
 export default {
   id: "RECTANGLES",
   name: "Rectangles",
-  dbId: null, // No database entry - experimental tool only
+  dbId: 3, // No database entry - experimental tool only
 };

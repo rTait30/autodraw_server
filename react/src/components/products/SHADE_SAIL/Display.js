@@ -3,20 +3,20 @@
  * Mirrors original drawFunction logic from Steps.js with dynamic scaling for mobile/desktop.
  */
 
-export function render(canvas, data) {
+export function render(canvas, data, _internalPass = false) {
   if (!canvas || !data) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   const sails = data.products || [];
-  const canvasWidth = canvas.width || 1000;
-  const canvasHeight = canvas.height || 1000;
+  let canvasWidth = canvas.width || 1000; 
+  let canvasHeight = canvas.height || 1000;
 
-  // Responsive scale factors based on canvas size
-  const isMobile = canvasWidth < 768;
+  // Responsive scale factors based on viewport width
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const baseScale = canvasWidth / 1000; // normalize to 1000px baseline
   const fontScale = isMobile ? baseScale * 1.0 : baseScale;
-  const paddingScale = isMobile ? baseScale * 0.6 : baseScale; // reduce padding on mobile
+  const paddingScale = isMobile ? baseScale * 1.0 : baseScale; // reduce padding on mobile
 
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
   ctx.fillStyle = '#f8f9fa';
@@ -26,8 +26,8 @@ export function render(canvas, data) {
   ctx.lineWidth = 2 * baseScale;
   ctx.strokeStyle = '#1a1a1a';
 
-  const slotHeight = isMobile ? canvasHeight / Math.max(sails.length, 1) : 1000 * baseScale;
-  const pad = isMobile ? 40 * paddingScale : 100 * paddingScale;
+  const pad = isMobile ? 20 * paddingScale : 400 * paddingScale;
+  let currentY = 0;
 
   sails.forEach((sail, idx) => {
     const attributes = sail.attributes || {};
@@ -47,10 +47,20 @@ export function render(canvas, data) {
     }
     const shapeW = maxX - minX || 1;
     const shapeH = maxY - minY || 1;
-    const innerW = canvasWidth - pad * 2;
-    const innerH = slotHeight - pad * 2;
-    const scale = Math.min(innerW / shapeW, innerH / shapeH) * (isMobile ? 0.95 : 0.9);
-    const topOffset = idx * slotHeight;
+    const innerW = (canvasWidth) - pad * 2;
+    
+    // Estimate content height based on point count and discrepancies
+    const pointCount = attributes.pointCount || ids.length;
+    const hasDiscrepancies = pointCount >= 5;
+    const discrepancyLines = hasDiscrepancies ? Math.min(Object.keys(attributes.discrepancies || {}).length, isMobile ? 5 : 10) : 0;
+    const blameLines = hasDiscrepancies ? Math.min(Object.keys(attributes.blame || {}).length, isMobile ? 5 : 10) : 0;
+    const metadataHeight = (data.discrepancyChecker ? 100 : 200) + (hasDiscrepancies ? (discrepancyLines + blameLines + 4) * 30 : 60);
+    
+    // Ensure reasonable space for shape (desktop reduced to tighten spacing)
+    const minShapeSpace = isMobile ? 900 * baseScale : 100 * baseScale;
+    const availableHeight = Math.max(minShapeSpace, canvasHeight - metadataHeight - pad * 2);
+    const scale = Math.min(innerW / shapeW, availableHeight / shapeH) * (isMobile ? 0.9 : 0.8);
+    const topOffset = currentY;
 
     const mapped = {};
     for (const [id, p] of Object.entries(positions)) {
@@ -162,9 +172,12 @@ export function render(canvas, data) {
 
     // Summary metrics (responsive positioning and sizing)
     attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
-    let yPos = topOffset + (isMobile ? slotHeight * 0.5 : 500 * baseScale);
-    if (data.discrepancyChecker) { yPos = topOffset + (isMobile ? slotHeight * 0.9 : 1050 * baseScale); } 
-    else { ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; }
+    let yPos = topOffset + pad + shapeH * scale + 40 * fontScale;
+    if (data.discrepancyChecker) { 
+      ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
+    } else { 
+      ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
+    }
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, pad, yPos);
     ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, pad, yPos + 30 * fontScale);
 
@@ -195,8 +208,25 @@ export function render(canvas, data) {
         }
       });
     }
+    
+    // Update currentY for next sail - ensure at least minShapeSpace height per sail (reduced padding)
+    const usedHeight = Math.max(shapeH * scale + metadataHeight + pad * 2, minShapeSpace + metadataHeight + pad * 2);
+    currentY += usedHeight;
   });
 
   ctx.restore();
+
+  // Dynamic height expansion (only expand, never shrink)
+  const required = Math.ceil(currentY + 40 * paddingScale); // add bottom padding
+  if (!_internalPass && required > canvasHeight) {
+    // Resize canvas element
+    canvas.height = required;
+    // Preserve CSS width; set explicit pixel height to avoid stretching
+    if (!canvas.style.height || /px$/.test(canvas.style.height)) {
+      canvas.style.height = required + 'px';
+    }
+    // Re-run render on second internal pass (guarded to prevent loops)
+    render(canvas, data, true);
+  }
 }
 

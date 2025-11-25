@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProcessStepper } from "../components/products/ProcessStepper";
+import { apiFetch } from '../services/auth';
 
 const RectanglesForm = React.lazy(() =>
   import("../components/products/RECTANGLES/Form.jsx").then((module) => ({
@@ -13,57 +13,43 @@ export default function Rectangles() {
 
   const formRef = useRef(null);
   const canvasRef = useRef(null);
-  const stepperRef = useRef(null);
-  const stepsLoadedRef = useRef(false);
   const [nestStatus, setNestStatus] = useState({ text: "", ok: null });
+  const [projectData, setProjectData] = useState(null);
 
-  // Init stepper once and attach canvas when available
+  // Render canvas using Display module when project data changes
   useEffect(() => {
-    stepperRef.current = new ProcessStepper(800);
+    if (!projectData || !canvasRef.current) return;
 
-    // if canvas already mounted, attach immediately
-    if (canvasRef.current) {
-      stepperRef.current.addCanvas(canvasRef.current);
-    }
+    console.log("[Rectangles] Rendering with projectData:", projectData);
 
-    return () => {
-      stepperRef.current = null;
-    };
-  }, []);
-
-  // Attach canvas whenever it mounts/changes
-  useEffect(() => {
-    if (canvasRef.current && stepperRef.current) {
-      stepperRef.current.addCanvas(canvasRef.current);
-    }
-  }, [canvasRef.current]);
-
-  // Lazy-load Steps only once and register them on the stepper
-  useEffect(() => {
-    let alive = true;
-    if (stepsLoadedRef.current) return;
-
-    import("../components/products/RECTANGLES/Steps.js")
-      .then((mod) => {
-        if (!alive || !stepperRef.current) return;
-        const loaded = mod.Steps ?? mod.steps ?? [];
-        // Clear just in case, then add
-        stepperRef.current.clear?.();
-        loaded.forEach((s) => stepperRef.current.addStep(s));
-        stepsLoadedRef.current = true;
+    // Dynamically import Display module for RECTANGLES
+    import("../components/products/RECTANGLES/Display.js")
+      .then((module) => {
+        const data = {
+          products: projectData.products || [],
+          project_attributes: projectData.project_attributes || {},
+        };
+        console.log("[Rectangles] Passing to Display.render:", data);
+        // Call generic render() function from Display module
+        if (typeof module.render === 'function') {
+          module.render(canvasRef.current, data);
+        }
       })
-      .catch((e) => console.error("[Rectangles] Failed to load steps:", e));
-
-    return () => {
-      alive = false;
-    };
-  }, []);
+      .catch(e => {
+        console.warn(`No Display module for RECTANGLES:`, e.message);
+      });
+  }, [projectData]);
 
   const onNest = async () => {
     // clear status while processing
     setNestStatus({ text: "", ok: null });
     const all = formRef.current?.getValues?.();
-    if (!all || !all.project) return;
+    console.log("Form values:", all);
+    
+    if (!all || !all.project) {
+      setNestStatus({ text: "No form data available", ok: false });
+      return;
+    }
 
     // Clear canvas first
     const ctx = canvasRef.current?.getContext("2d");
@@ -72,17 +58,45 @@ export default function Rectangles() {
     }
 
     try {
-      const result = await stepperRef.current?.runAll({
+      // Call server-side API to calculate rectangles nesting
+      const payload = {
+        product_id: 3, // RECTANGLES product ID (from productsConfig.js)
+        general: {},
         project_attributes: all.project,
+        products: []
+      };
+
+      console.log("Sending payload:", payload);
+
+      const response = await apiFetch("/projects/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+
       console.log("Nesting result:", result);
-      if (result?.calculated?.error) {
-        setNestStatus({ text: `Error: ${result.calculated.error}`, ok: false });
+
+      // Update project data for canvas rendering
+      setProjectData({
+        products: result.products || [],
+        project_attributes: result.project_attributes || {},
+      });
+
+      if (result?.project_attributes?.nest?.error) {
+        setNestStatus({ text: `Error: ${result.project_attributes.nest.error}`, ok: false });
       } else {
-        const totalWidth = result?.calculated?.totalWidth || 0;
+        const nest = result?.project_attributes?.nest || {};
+        const rolls = nest.rolls || [];
+        const totalRolls = rolls.length;
+        const fullRolls = totalRolls > 0 ? totalRolls - 1 : 0;
+        const lastRollWidth = rolls.length > 0 ? (rolls[rolls.length - 1].width || 0) : 0;
+        const lastRollMeters = (lastRollWidth / 1000).toFixed(1);
+        
         setNestStatus({ 
-          text: `Nested successfully! Total width: ${totalWidth}mm`, 
+          text: `Nested successfully! Total rolls: ${totalRolls} (${fullRolls} full + ${lastRollMeters}m)`, 
           ok: true 
         });
       }
@@ -131,8 +145,9 @@ export default function Rectangles() {
         <div className="w-full">
           <canvas
             ref={canvasRef}
-            width={1800}
-            height={1000}
+            data-dynamic-rectangles="true"
+            width={2000}
+            height={2000}
             style={{
               border: "1px solid #ccc",
               width: "100%",

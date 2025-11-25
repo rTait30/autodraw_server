@@ -114,13 +114,13 @@ COVER_DEFAULT_SCHEMA = {
         {
             "type": "row",
             "description": "Sewing",
-            "quantity": "10",
+            "quantity": "1",
             "unitCost": 55,
         },
         {
             "type": "row",
             "description": "Welding",
-            "quantity": "10",
+            "quantity": "1",
             "unitCost": 55,
         },
         {
@@ -208,6 +208,13 @@ SHADE_SAIL_DEFAULT_SCHEMA = {
   }
 }
 
+RECTANGLES_DEFAULT_SCHEMA = {
+  "_constants": {
+    "contingencyPercent": 0,
+    "marginPercent": 0
+  }
+}
+
 
 def bootstrap_products():
     """Bootstrap default Product records and their default estimating schemas."""
@@ -238,7 +245,20 @@ def bootstrap_products():
     else:
         print(f"Product 'SHADE_SAIL' already exists (id={shade_sail.id}).")
 
-    # --- 3. Ensure default COVER schema exists ---
+    # --- 3. Ensure RECTANGLES product exists ---
+    rectangles = Product.query.filter_by(name="RECTANGLES").first()
+    if not rectangles:
+        rectangles = Product(
+            name="RECTANGLES",
+            description="Arbitrary rectangles for testing",
+        )
+        db.session.add(rectangles)
+        db.session.flush()  # get rectangles.id
+        print(f"Bootstrapped Product 'RECTANGLES' (id={rectangles.id}).")
+    else:
+        print(f"Product 'RECTANGLES' already exists (id={rectangles.id}).")
+
+    # --- 4. Ensure default COVER schema exists ---
     cover_schema = (
         EstimatingSchema.query
         .filter_by(product_id=cover.id, name="COVER default v1")
@@ -263,7 +283,7 @@ def bootstrap_products():
         cover.default_schema_id = cover_schema.id
         print(f"Set COVER.default_schema_id = {cover_schema.id}")
 
-    # --- 4. Ensure stub SHADE_SAIL schema exists ---
+    # --- 5. Ensure stub SHADE_SAIL schema exists ---
     shade_schema = (
         EstimatingSchema.query
         .filter_by(product_id=shade_sail.id, name="SHADE_SAIL default v1")
@@ -287,6 +307,31 @@ def bootstrap_products():
     if shade_sail.default_schema_id != shade_schema.id:
         shade_sail.default_schema_id = shade_schema.id
         print(f"Set SHADE_SAIL.default_schema_id = {shade_schema.id}")
+
+    # --- 6. Ensure stub RECTANGLES schema exists ---
+    rectangles_schema = (
+        EstimatingSchema.query
+        .filter_by(product_id=rectangles.id, name="RECTANGLES default v1")
+        .first()
+    )
+    if not rectangles_schema:
+        rectangles_schema = EstimatingSchema(
+            product_id=rectangles.id,
+            name="RECTANGLES default v1",
+            data=RECTANGLES_DEFAULT_SCHEMA,
+            is_default=True,
+            version=1,
+        )
+        db.session.add(rectangles_schema)
+        db.session.flush()
+        print(f"Created stub default schema for 'RECTANGLES' (schema id={rectangles_schema.id}).")
+    else:
+        print(f"Default schema for 'RECTANGLES' already exists (schema id={rectangles_schema.id}).")
+
+    # Link RECTANGLES to its default schema if not already
+    if rectangles.default_schema_id != rectangles_schema.id:
+        rectangles.default_schema_id = rectangles_schema.id
+        print(f"Set RECTANGLES.default_schema_id = {rectangles_schema.id}")
 
     db.session.commit()
     print("Bootstrap complete.")

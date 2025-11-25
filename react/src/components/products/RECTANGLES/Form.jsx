@@ -5,7 +5,8 @@ export const PROJECT_DEFAULTS = Object.freeze({
     { width: 1000, height: 800, label: "A", quantity: 1 },
     { width: 600, height: 400, label: "B", quantity: 1 },
   ],
-  fabricHeight: 3200,
+  fabricWidth: 3200,
+  fabricRollLength: 50000,
   allowRotation: true,
 });
 
@@ -56,15 +57,30 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
         <h3 className="text-lg font-semibold">Nesting Configuration</h3>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium">Fabric Height (mm)</label>
+          <label className="block text-sm font-medium">Fabric Width (mm)</label>
           <input
             type="number"
             className="inputCompact"
-            value={projectData.fabricHeight}
+            value={projectData.fabricWidth}
             onChange={(e) =>
               setProjectData((prev) => ({
                 ...prev,
-                fabricHeight: Number(e.target.value),
+                fabricWidth: Number(e.target.value),
+              }))
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Fabric Roll Length (mm)</label>
+          <input
+            type="number"
+            className="inputCompact"
+            value={projectData.fabricRollLength}
+            onChange={(e) =>
+              setProjectData((prev) => ({
+                ...prev,
+                fabricRollLength: Number(e.target.value),
               }))
             }
           />

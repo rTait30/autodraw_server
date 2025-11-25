@@ -15,7 +15,7 @@ export default function NewProject() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 4000 });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 1000 });
 
   const role = localStorage.getItem("role") || "guest";
 
@@ -137,12 +137,19 @@ export default function NewProject() {
   useEffect(() => {
     const updateCanvasSize = () => {
       if (!containerRef.current) return;
+      const dpr = window.devicePixelRatio || 1;
       const containerWidth = containerRef.current.offsetWidth;
       const isMobile = window.innerWidth < 768;
       // On desktop, use full container width; on mobile, use viewport-based sizing
-      const width = isMobile ? Math.min(window.innerWidth - 60, 600) : Math.min(containerWidth, 1000);
-      const height = width * 2;
-      setCanvasDimensions({ width, height });
+      const displayWidth = isMobile ? Math.min(window.innerWidth - 60, 600) : Math.min(containerWidth, 1000);
+      const displayHeight = displayWidth * 2;
+      // Scale by device pixel ratio for crisp rendering
+      setCanvasDimensions({ 
+        width: Math.round(displayWidth * dpr), 
+        height: Math.round(displayHeight * dpr),
+        displayWidth,
+        displayHeight
+      });
     };
 
     updateCanvasSize();
@@ -232,7 +239,12 @@ export default function NewProject() {
                   width={canvasDimensions.width} 
                   height={canvasDimensions.height} 
                   className="border shadow bg-white max-w-full" 
-                  style={{ display: 'block', width: '100%', height: 'auto' }}
+                  style={{ 
+                    display: 'block', 
+                    width: canvasDimensions.displayWidth ? `${canvasDimensions.displayWidth}px` : '100%', 
+                    height: canvasDimensions.displayHeight ? `${canvasDimensions.displayHeight}px` : 'auto',
+                    imageRendering: 'crisp-edges'
+                  }}
                 />
               </div>
           </div>

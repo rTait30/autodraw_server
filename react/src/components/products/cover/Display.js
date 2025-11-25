@@ -3,41 +3,41 @@
  * Draws three visualization steps: 3D preview, flattened panels, and nesting layout.
  */
 
-export function render(canvas, data) {
+export function render(canvas, data, _internalPass = false) {
   if (!canvas || !data) return;
-  
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  // Get device pixel ratio for crisp rendering
+  const dpr = window.devicePixelRatio || 1;
   const canvasWidth = canvas.width || 1000;
-  const canvasHeight = canvas.height || 1000;
+  let canvasHeight = canvas.height || 1000;
   
   // Responsive scale factors
-  const isMobile = canvasWidth < 768;
-  //const baseScale = canvasWidth / 1000;
-  //const fontScale = isMobile ? baseScale * 1.0 : baseScale;
-  //const spacingScale = isMobile ? baseScale * 0.6 : baseScale;
+  const isMobile = canvasWidth < 768 * dpr;
 
   let baseScale;
   let fontScale;
   let spacingScale;
 
   if (isMobile) {
-    baseScale = canvasWidth / 800;
+    baseScale = (canvasWidth / dpr) / 800;
     fontScale = baseScale * 1.0;
     spacingScale = baseScale;
   } else {
-    baseScale = canvasWidth / 1000;
+    baseScale = (canvasWidth / dpr) / 1000;
     fontScale = baseScale;
     spacingScale = baseScale;
   }
 
-  // Clear canvas
+  // Clear & init drawing state (fresh each pass)
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
   ctx.fillStyle = '#f9fafb';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  // Sharper vectors/text where possible
   ctx.imageSmoothingEnabled = false;
+  ctx.scale(dpr, dpr);
+  ctx.translate(0.5, 0.5);
 
   const products = data.products || [];
   const projectAttrs = data.project_attributes || {};
@@ -45,17 +45,24 @@ export function render(canvas, data) {
   // Global vertical layout state that steps can update
   const layout = { yPos: 0 };
 
-  // Step 0: Visualize Covers (3D preview)
+  // Rendering passes
   drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
-
-  // Step 1: Flatten Panels
   drawFlattenedPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
-
-  // Step 2: Split Panels (if needed)
   drawSplitPanels(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile);
-
-  // Step 3: Nest Panels
   drawNestLayout(ctx, products, projectAttrs, layout, baseScale, fontScale, spacingScale, isMobile);
+
+  // Dynamic height expansion (only expand, never shrink)
+  const required = Math.ceil(layout.yPos + 40 * spacingScale); // add bottom padding
+  if (!_internalPass && required > canvasHeight) {
+    // Resize canvas element
+    canvas.height = required;
+    // Preserve CSS width; set explicit pixel height to avoid stretching based on previous aspect ratio.
+    if (!canvas.style.height || /px$/.test(canvas.style.height)) {
+      canvas.style.height = required + 'px';
+    }
+    // Re-run render on second internal pass (guarded to prevent loops)
+    render(canvas, data, true);
+  }
 }
 
 function drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacingScale, isMobile) {
@@ -78,16 +85,16 @@ function drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacin
     const maxDrawHeight = (isMobile ? 300 : 400) * baseScale;
     const scale = 0.5 * Math.min(maxDrawWidth / totalWidthUnits, maxDrawHeight / totalHeightUnits);
 
-    const boxW = width * scale;
-    const boxH = height * scale;
-    const boxD = length * scale;
-    const boxHem = hem * scale;
+    const boxW = Math.round(width * scale);
+    const boxH = Math.round(height * scale);
+    const boxD = Math.round(length * scale);
+    const boxHem = Math.round(hem * scale);
 
-    const startX = (50 + i * 250) * spacingScale;
-    const startY = offsetY + 200 * spacingScale;
+    const startX = Math.round((50 + i * 250) * spacingScale);
+    const startY = Math.round(offsetY + 200 * spacingScale);
 
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1.5 * baseScale;
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * baseScale));
 
     // Front face
     ctx.strokeRect(startX, startY, boxW, boxH);
@@ -118,7 +125,7 @@ function drawCover3DPreviews(ctx, products, layout, baseScale, fontScale, spacin
     ctx.fillStyle = '#000';
     ctx.font = `${Math.round(12 * fontScale)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${width}mm × ${height}mm × ${length}mm`, startX + boxW / 2, startY + boxH + boxHem + 20 * spacingScale);
+    ctx.fillText(`${length}mm × ${width}mm × ${height}mm`, startX + boxW / 2, startY + boxH + boxHem + 20 * spacingScale);
     ctx.font = `bold ${Math.round(20 * fontScale)}px sans-serif`;
     ctx.fillText(`× ${quantity}`, startX + boxW / 2, startY + boxH + boxHem + 40 * spacingScale);
 
@@ -148,25 +155,25 @@ function drawFlattenedPanels(ctx, products, layout, baseScale, fontScale, spacin
     const maxDim = (isMobile ? 250 : 350) * baseScale;
     const scale = Math.min(maxDim / layoutWidth, maxDim / layoutHeight) * 0.5;
 
-    const mainW = flatMainWidth * scale;
-    const mainH = flatMainHeight * scale;
-    const sideW = flatSideWidth * scale;
-    const sideH = flatSideHeight * scale;
+    const mainW = Math.round(flatMainWidth * scale);
+    const mainH = Math.round(flatMainHeight * scale);
+    const sideW = Math.round(flatSideWidth * scale);
+    const sideH = Math.round(flatSideHeight * scale);
 
-    const originX = (50 + i * 250) * spacingScale;
-    const originY = offsetY + 50 * spacingScale;
+    const originX = Math.round((50 + i * 250) * spacingScale);
+    const originY = Math.round(offsetY + 50 * spacingScale);
 
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1.5 * baseScale;
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * baseScale));
 
     // Main panel
     ctx.strokeRect(originX, originY, mainW, mainH);
 
     // Hems (dotted)
     if (hem > 0) {
-      ctx.setLineDash([3 * baseScale, 5 * baseScale]);
+      ctx.setLineDash([Math.round(3 * baseScale), Math.round(5 * baseScale)]);
       ctx.strokeStyle = '#6b7280';
-      const hemOffset = hem * scale;
+      const hemOffset = Math.round(hem * scale);
       ctx.beginPath();
       ctx.moveTo(originX + hemOffset, originY);
       ctx.lineTo(originX + hemOffset, originY + mainH);
@@ -178,7 +185,7 @@ function drawFlattenedPanels(ctx, products, layout, baseScale, fontScale, spacin
     }
 
     // Side panels
-    const sideY = originY + mainH + gap;
+    const sideY = Math.round(originY + mainH + gap);
     ctx.strokeRect(originX, sideY, sideW, sideH);
     ctx.strokeRect(originX + sideW + gap, sideY, sideW, sideH);
 

@@ -145,8 +145,18 @@ const devMode = useSelector(state => state.toggles.devMode);
   // Helper: sync edited project from the form's current values
   const syncEditedFromForm = () => {
     const values = formRef.current?.getValues?.();
-    if (values) setEditedProject(values);
-    return values;
+    if (!values) return null;
+    
+    // Merge form values into the edited project structure
+    const updated = {
+      ...editedProject,
+      general: values.general || editedProject?.general || {},
+      project_attributes: values.project_attributes || editedProject?.project_attributes || {},
+      products: values.products || editedProject?.products || [],
+    };
+    
+    setEditedProject(updated);
+    return updated;
   };
 
   // Recalculate project on server
@@ -162,8 +172,10 @@ const devMode = useSelector(state => state.toggles.devMode);
         product_id: base.product_id || base.product?.id,
         general: base.general || {},
         project_attributes: base.project_attributes || {},
-        products: base.products || []
+        products: base.products || [],
       };
+
+      console.log('Quick check payload:', payload);
 
       const response = await apiFetch("/projects/calculate", {
         method: "POST",
@@ -171,17 +183,23 @@ const devMode = useSelector(state => state.toggles.devMode);
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
       const result = await response.json();
 
-      // Update editedProject with recalculated data
+      // Update editedProject with recalculated data, preserving structure
       setEditedProject({
         ...base,
-        products: result.products || [],
+        general: result.general || base.general,
         project_attributes: result.project_attributes || {},
+        products: result.products || [],
       });
 
       console.log("Recalculation result:", result);
+      alert('Calculation complete!');
     } catch (err) {
       console.error("Quick check error:", err);
       alert(`Error: ${err.message}`);
@@ -197,7 +215,14 @@ const devMode = useSelector(state => state.toggles.devMode);
         return;
       }
 
-      const payload = base;
+      const payload = {
+        id: project.id,
+        product_id: base.product_id || base.product?.id,
+        general: base.general || {},
+        project_attributes: base.project_attributes || {},
+        products: base.products || [],
+      };
+      
       console.log('Submitting payload:', JSON.parse(JSON.stringify(payload)));
 
       const res = await apiFetch(`/products/edit/${project.id}`, {
@@ -214,8 +239,9 @@ const devMode = useSelector(state => state.toggles.devMode);
 
       const updatedProject = json?.project || {
         ...project,
-        ...payload,
-        products: (payload && payload.products) || project.products
+        general: payload.general,
+        project_attributes: payload.project_attributes,
+        products: payload.products,
       };
 
       console.log('Updated project:', updatedProject);
@@ -224,7 +250,7 @@ const devMode = useSelector(state => state.toggles.devMode);
       alert('Project updated successfully.');
     } catch (e) {
       console.error('Submit error:', e);
-      alert('Error submitting project.');
+      alert(`Error submitting project: ${e.message}`);
     }
   };
 

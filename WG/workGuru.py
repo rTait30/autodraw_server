@@ -223,42 +223,44 @@ def add_cover(name: str, description: str):
     return data
 
 
-def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 50):
+def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100):
 
-    # Build the exact shape Postman typically uses for WG: {"input": {...}}
+    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent)
+
+    # Build the exact shape that matches the working example
     body = {
-        "Id": 0,                     # for create
-        "TenantId": 826,
-        "WonOrLostDate": "",         # omit if not needed
-        "Status": "Current",         # if Postman used "Open", use that
-        "CreatorUserId": "",         # omit if not needed
-        "LeadNumber": "",            # omit if not needed
+        "Id": "0",                   # STRING for create (working example uses strings)
+        "TenantId": "826",           # STRING
+        "WonOrLostDate": "",
+        "Status": "Current",
+        "CreatorUserId": "",
+        "LeadNumber": "",
         "Name": name,
         "Description": description,
-        "OwnerId": 14364,            # dr ryan
-        "CategoryId": 2140,          # dr warm
-        "StageId": 2607,             # dr lead
-        "CloseProbability": go_percent * 0.5,
+        "OwnerId": "14364",          # STRING - dr ryan
+        "CategoryId": "2140",        # STRING - dr warm
+        "StageId": "2607",           # STRING - dr lead
+        "CloseProbability": str(int(go_percent * 0.5)),  # STRING
         "ForecastCloseDate": get_forecastclose_date(),
-        "ClientId": 178827,          # dr parameter
-        "ContactId": None,           # or omit if not used
-        "BillingClientId": 178827,
-        "BillingClientContactId": None,
-        "Budget": budget,           # generate with estimate
+        "ClientId": "178827",        # STRING - dr nsc
+        "ContactId": "",             # Empty string, not None
+        "BillingClientId": "178827", # STRING - dr nsc
+        "BillingClientContactId": "",  # Empty string, not None
+        "Budget": budget,       # STRING - generate with estimate
         "CustomFieldValues": [
             {
-                "TenantId": 826,
-                "CustomFieldId": 3686,
+                "TenantId": "826",   # STRING
+                "CustomFieldId": "3686",  # STRING
                 "Value": get_category_display(category),
             },
             {
-                "TenantId": 826,
-                "CustomFieldId": 5385,
+                "TenantId": "826",
+                "CustomFieldId": "5385",
                 "Value": "50",  # Get% 50
             },
             {
-                "TenantId": 826,
-                "CustomFieldId": 5386,
+                "TenantId": "826",
+                "CustomFieldId": "5386",
                 "Value": str(go_percent),  # Go% supplied by customer
             },
         ],
@@ -267,19 +269,10 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
     # Send JSON (not data=)
     res = wg_post("DR", "Lead/AddOrUpdateLead", body)
 
-    # Helpful diagnostics on failure
-    if not res.ok:
-        print("Status:", res.status_code)
-        print("Response headers:", res.headers)
-        try:
-            print("Response JSON:", res.json())
-        except Exception:
-            print("Response text:", res.text)
-        res.raise_for_status()
 
-    data = res.json()
-    print("LEAD CREATED/UPDATED:", data)
-    return data
+
+    print("LEAD CREATED/UPDATED:", res)
+    return res
 
 
 

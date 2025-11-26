@@ -70,7 +70,7 @@ def bootstrap_products():
     db.session.commit()
 
 
-COVER_DEFAULT_SCHEMA = {
+COVER_DEFAULT_SCHEMA_REAL = {
     "_constants": {
         "contingencyPercent": 3,
         "marginPercent": 45,
@@ -136,6 +136,23 @@ COVER_DEFAULT_SCHEMA = {
             "unitCost": 55,
         },
     ],
+}
+
+COVER_DEFAULT_SCHEMA = {
+
+  "Combined": [
+    {
+      "description": "Price List",
+      "quantity": "1",
+      "type": "row",
+      "unitCost": "length * 0.10470337 + width * 0.06595973 + height * 0.08644519 + 111.16780488 + (stayputs ? 55 : 0)"
+    }
+
+  ],
+  "_constants": {
+    "contingencyPercent": 0,
+    "marginPercent": 0
+  }
 }
 
 SHADE_SAIL_DEFAULT_SCHEMA = {

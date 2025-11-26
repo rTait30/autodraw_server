@@ -67,34 +67,7 @@ def save_project_config():
     #   "type": "cover" | "shade_sail" | ...
     # }
 
-    if (data.get("type") == "COVER" and data.get("submitToWG") == True):
 
-        name = (data.get("general").get("name") or "").strip()
-
-        description = ""
-        for cover in data.get("products", []):
-            cover_quantity = cover.get("attributes", {}).get("quantity", 0)
-            cover_length = cover.get("attributes", {}).get("length", 0)
-            cover_width = cover.get("attributes", {}).get("width", 0)
-            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_length}mm \n")
-
-        # Get estimated price for the project
-        # Find the project by name (or other identifier if available)
-        project = Project.query.filter_by(name=name).order_by(Project.id.desc()).first()
-        estimated_price = None
-        if project:
-            estimated_price = project.get_estimated_price()
-
-        # Optionally, include estimated price in CRM submission
-        add_cover(name, description + (f"\nEstimated Price: ${estimated_price:.2f}" if estimated_price is not None else ""))
-
-        dr_make_lead(
-            name=name,
-            description=description,
-            budget=math.ceil(estimated_price) if estimated_price is not None else 0,
-            category="2a",
-            go_percent=100
-        )
 
     general = data.get("general") or {}
     if not isinstance(general, dict):
@@ -278,14 +251,38 @@ def save_project_config():
         )
         db.session.add(pp)
 
+    # --- Compute per-item and project totals (row-only evaluator) ---
+    try:
+        if project.estimate_schema:
+            from estimation import estimate_price_from_schema
+            grand_total = 0.0
+            for pp in ProjectProduct.query.filter_by(project_id=project.id):
+                res = estimate_price_from_schema(project.estimate_schema, pp.attributes or {}) or {}
+                totals = res.get("totals") or {}
+                item_total = (
+                    totals.get("grand_total")
+                    or totals.get("grandTotal")
+                    or totals.get("total")
+                    or 0.0
+                )
+                pp.estimate_total = float(item_total or 0.0)
+                grand_total += float(item_total or 0.0)
+            project.estimate_total = grand_total
+    except Exception as e:
+        # Avoid breaking create flow on estimation errors
+        print(f"Item/project estimate failed: {e}")
+        print(f"Schema: {project.estimate_schema}")
+        print(f"Attributes sample: {ProjectProduct.query.filter_by(project_id=project.id).first().attributes if ProjectProduct.query.filter_by(project_id=project.id).first() else 'none'}")
+        import traceback
+        traceback.print_exc()
+ 
     db.session.commit()
-
+ 
     resp_product = (
         {"id": project.product.id, "name": project.product.name}
         if project.product else None
     )
     resp_status = project.status.name if hasattr(project.status, "name") else project.status
-
     # Optionally, serialize products back
     products_out = [
         {
@@ -298,6 +295,30 @@ def save_project_config():
         for pp in ProjectProduct.query.filter_by(project_id=project.id)
         #.order_by(ProjectProduct.item_index).all()
     ]
+
+    if (data.get("product_id") == 1 and data.get("submitToWG") == True):
+
+        print ("Submitting cover project to WorkGuru...")
+
+        name = (data.get("general").get("name") or "").strip()
+
+        description = ""
+        for cover in data.get("products", []):
+            cover_quantity = cover.get("attributes", {}).get("quantity", 0)
+            cover_length = cover.get("attributes", {}).get("length", 0)
+            cover_width = cover.get("attributes", {}).get("width", 0)
+            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_length}mm \n")
+
+        # Use the estimate_total we just computed above
+        estimated_price = project.estimate_total or 0.0
+
+        dr_make_lead(
+            name=name,
+            description=description,
+            budget=math.ceil(estimated_price) if estimated_price else 0,
+            category="2a",
+            go_percent=100
+        )
 
 
     return jsonify({
@@ -597,7 +618,7 @@ def get_clients():
 def get_dxf():
     """
     Body: { "project_id": 123 }
-    Uses calculated.nestData + calculated.rawPanels to generate the DXF.
+    Uses project_attributes.nest + nested_panels to generate the DXF.
     """
     payload = request.get_json(silent=True) or {}
     project_id = payload.get("project_id")
@@ -608,24 +629,35 @@ def get_dxf():
     if not project:
         return jsonify({"error": f"Project {project_id} not found"}), 404
 
-    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    if not attr or not attr.calculated:
-        return jsonify({"error": f"No calculated data found for Project {project_id}"}), 400
+    # Get nest data from project_attributes
+    project_attrs = project.project_attributes or {}
+    nest = project_attrs.get("nest")
+    nested_panels = project_attrs.get("nested_panels") or project_attrs.get("all_meta_map")
     
-    data = attr.data or {}
+    if not nest or not nested_panels:
+        return jsonify({"error": "No nesting data found. Project may need to be recalculated."}), 400
 
-    print ("project:", project.id, project.name)
+    print("project:", project.id, project.name)
+    try:
+        print("nest data keys:", list(nest.keys()) if nest else None)
+        np_keys = list((nested_panels or {}).keys())
+        print("nested_panels keys (sample):", np_keys[:10], "... total:", len(np_keys))
+    except Exception as _e_dbg:
+        print("[DXF] debug error while printing keys:", _e_dbg)
 
-    print ("attr.data:", data)
-
-    calc = attr.calculated
-    nest = calc.get("nestData") or calc.get("nestdata")
-    raw = calc.get("rawPanels") or calc.get("raw_panels")
-    if not nest or not raw:
-        return jsonify({"error": "calculated.nestData and calculated.rawPanels are required"}), 400
+    # Build a map of product dimensions by index
+    product_dims = {}
+    for i, prod in enumerate(project.products):
+        attrs = prod.attributes or {}
+        product_dims[i] = {
+            "length": attrs.get("length"),
+            "width": attrs.get("width"),
+            "height": attrs.get("height"),
+            "stayputs": attrs.get("stayputs", False)
+        }
 
     fname = f"{(project.name or 'project').strip()}.dxf".replace(" ", "_")
-    return _build_dxf_from_nest_and_raw(nest, raw, fname, data['length'], data['width'], data['height'])
+    return _build_dxf_from_nest_and_raw(nest, nested_panels, fname, product_dims)
 
 
 
@@ -666,12 +698,11 @@ def get_pdf():
 
     include_bom = requested_include_bom and is_staff
 
-    # Attributes
-    attr = ProjectAttribute.query.filter_by(project_id=project.id).first()
-    if not attr or not attr.data:
-        return jsonify({"error": f"No attributes found for Project {project_id}"}), 400
-
-    a = attr.data or {}
+    # Get attributes from first product
+    if not project.products:
+        return jsonify({"error": f"No products found for Project {project_id}"}), 400
+    
+    a = project.products[0].attributes or {}
     width  = _safe_float(a.get("width"),  default=1000.0, min_val=1.0)
     length = _safe_float(a.get("length"), default=1000.0, min_val=1.0)
     height = _safe_float(a.get("height"), default=50.0,   min_val=0.0)
@@ -754,25 +785,35 @@ def _new_doc_mm():
     return doc, msp
 
 def _basename(panel_key: str) -> str:
-    # "1_Lside1" -> "Lside1"; "main1" -> "main1"
-    return panel_key.split("_", 1)[1] if "_" in panel_key else panel_key
+    # "P1_MAIN_Q1" -> "MAIN"; "P1_SIDE_L_Q1" -> "SIDE_L"
+    # Extract the base panel name from product-prefixed labels
+    parts = panel_key.split("_")
+    if len(parts) >= 2:
+        # Skip first part (P1, P2, etc) and last part (Q1, Q2, etc)
+        # Join middle parts
+        return "_".join(parts[1:-1]) if len(parts) > 2 else parts[1]
+    return panel_key
 
-def _dims_map_from_raw(raw_panels: dict) -> dict:
+def _dims_map_from_raw(nested_panels: dict) -> dict:
     """
-    rawPanels example:
-      { "Lside1": {"width":1040,"height":1020, ...}, ... }
-    Returns { name: (w, h) } in mm.
+    Build dimensions map keyed by the FULL panel label, matching `nest['panels']` keys.
+    Example key: "P1_MAIN_Q1" or "P2_MAIN_TOP_Q1" → (width, height, hasSeam, productIndex)
     """
     out = {}
-    for name, rec in (raw_panels or {}).items():
+    for name, rec in (nested_panels or {}).items():
+        key = str(name)
         try:
             w = float(rec.get("width") or 0)
             h = float(rec.get("height") or 0)
             seams = rec.get("hasSeam") or "no"
+            prod_idx = rec.get("productIndex", 0)
         except (TypeError, ValueError):
             w = h = 0.0
+            seams = "no"
+            prod_idx = 0
         if w > 0 and h > 0:
-            out[str(name)] = (w, h, seams)
+            out[key] = (w, h, seams, prod_idx)
+    print("[DXF] dims map keys (sample):", sorted(list(out.keys()))[:10], "... total:", len(out))
     return out
 
 
@@ -812,20 +853,72 @@ def _is_on_border(pt, total_w, bin_h):
 def _snap(v: float) -> float:
     return round(v / _SNAP) * _SNAP
 
-def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: str, length, width, height):
+def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, seam_flag, panel_name):
+    """
+    Draw stayput points on the left fold line (at x + height) for MAIN panels.
+    Points are positioned at 1/4 and 3/4 of the ORIGINAL width attribute (no seam in calculation),
+    but drawn with 20mm offset from bottom edge to account for seam allowance.
+    Accounts for split panel offsets and 25mm weld allowances.
+    
+    Note: width attribute becomes panel_h when plotted; length attribute becomes panel_w
+    """
+    # Left fold line x-coordinate
+    fold_x = x + height
+    
+    # Calculate mark positions based on original width only (no seam added)
+    # This is the width attribute without any seam allowances
+    original_panel_height = original_width
+    
+    # Marks at 1/4 and 3/4 of original width only
+    mark_pos_1 = original_panel_height * 0.25
+    mark_pos_2 = original_panel_height * 0.75
+    
+    # Seam offset - all panels have 20mm seam at bottom
+    seam_offset = 20.0  # mm offset from bottom edge where actual drawing starts
+    
+    # Determine offset for split panels
+    offset = 0.0
+    weld_allowance = 25.0  # Standard weld allowance added to split panels
+    
+    if "_TOP" in panel_name or "_BOTTOM" in panel_name:
+        # This is a split panel
+        if seam_flag == "top":
+            # TOP = Main large piece - starts at offset 0 in original coordinates
+            offset = 0.0
+        elif seam_flag == "bottom":
+            # BOTTOM = Small strip piece at the end
+            # The current panel_h includes the 25mm weld allowance
+            # We need to find where this piece starts in the original panel (without seams)
+            actual_piece_height = panel_h - weld_allowance - (2 * seam_offset)  # Remove weld and both seams
+            offset = original_panel_height - actual_piece_height
+    
+    # Calculate actual Y positions in the current panel's coordinate system
+    # Start with mark positions relative to original panel, subtract offset for split panels,
+    # then add seam_offset to account for the 20mm bottom seam in the actual drawn panel
+    actual_y_1 = y + seam_offset + (mark_pos_1 - offset)
+    actual_y_2 = y + seam_offset + (mark_pos_2 - offset)
+    
+    # Only draw points that fall within this panel's bounds
+    # Check against the position before seam offset is added
+    if 0 <= (mark_pos_1 - offset) <= (panel_h - 2 * seam_offset):
+        msp.add_point((fold_x, actual_y_1), dxfattribs={"layer": "PEN"})
+    
+    if 0 <= (mark_pos_2 - offset) <= (panel_h - 2 * seam_offset):
+        msp.add_point((fold_x, actual_y_2), dxfattribs={"layer": "PEN"})
+
+def _build_dxf_from_nest_and_raw(nest: dict, nested_panels: dict, download_name: str, product_dims: dict):
     doc, msp = _new_doc_mm()
-    dims = _dims_map_from_raw(raw_panels)
+    dims = _dims_map_from_raw(nested_panels)
     panels = nest.get("panels") or {}
-    bin_h = float(nest.get("bin_height") or 0)
+    bin_h = float(nest.get("bin_height") or nest.get("fabric_height") or 0)
     total_w = float(nest.get("total_width") or nest.get("required_width") or 0)
 
     # Compute total width if not provided
     if bin_h > 0 and total_w <= 0:
         for name, pos in panels.items():
-            base = _basename(name)
-            if base not in dims:
+            if name not in dims:
                 continue
-            w, h = dims[base]
+            w, h, _, _ = dims[name]
             if pos.get("rotated"):
                 w, h = h, w
             total_w = max(total_w, float(pos.get("x", 0)) + w)
@@ -852,26 +945,29 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
             return
         verticals.setdefault(x, []).append((a, b))
 
-
-    print (panels)
+    print("[DXF] panels count:", len(panels))
 
     # Panels + labels
     for name, pos in panels.items():
-
-        base = _basename(name)
-        if base not in dims:
+        base = _basename(str(name))
+        if name not in dims:
+            print(f"[DXF] skip: name='{name}' (base='{base}') not in dims")
             continue
-        
-        
 
-
-        w, h, seams = dims[base]
+        w, h, seam_flag, prod_idx = dims[name]
         if pos.get("rotated"):
             w, h = h, w
         x = float(pos.get("x", 0))
         y = float(pos.get("y", 0))
-
-        print (base, seams)
+        
+        # Get this panel's product dimensions
+        prod_dim = product_dims.get(prod_idx, {})
+        length = prod_dim.get("length", 0) or 0
+        width = prod_dim.get("width", 0) or 0
+        height = prod_dim.get("height", 0) or 0
+        has_stayputs = prod_dim.get("stayputs", False)
+        
+        print(f"[DXF] panel: name='{name}' base='{base}' w={w} h={h} seams={seam_flag} x={x} y={y} rot={bool(pos.get('rotated'))} prod_idx={prod_idx} L={length} W={width} H={height}")
 
         # helpers to avoid duplication
         def _draw_top_marks(msp, x, y, height, width, length, *,
@@ -920,28 +1016,32 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
                         dxfattribs={"layer": layer})
 
         # fold/seam lines
-        if "main" in base:
+        if "MAIN" in base or "main" in base.lower():
             # semantics requested:
             # seams == "top"    -> only BOTTOM marks
             # seams == "bottom" -> only TOP marks
             # seams == "no"     -> both TOP and BOTTOM marks
-            if seams == "top":
+            if seam_flag == "top":
                 _draw_bottom_marks(msp, x, y, height, width, length)
-            elif seams == "bottom":
+            elif seam_flag == "bottom":
                 _draw_top_marks(msp, x, y, height, width, length)
-            elif seams == "no":
+            elif seam_flag == "no":
                 _draw_top_marks(msp, x, y, height, width, length)
                 _draw_bottom_marks(msp, x, y, height, width, length)
+            
+            # Stayput points (if enabled for this product)
+            if has_stayputs:
+                _draw_stayput_points(msp, x, y, w, h, height, width, seam_flag, name)
         # Panel rectangle edges
         add_h(y, x, x + w)             # bottom
         add_h(y + h, x, x + w)         # top
         add_v(x, y, y + h)             # left
         add_v(x + w, y, y + h)         # right
 
-        # Dimension label in top-right
+        # Dimension label showing the whole cover's 3D dimensions (length x width x height)
         label = f"{int(round(length))} x {int(round(width))} x {int(round(height))}"
-        margin = 5.0
-        tx, ty = (x + w - margin, y + h - margin)
+        label_margin = 25.0  # Increased from 5.0 for better spacing
+        tx, ty = (x + w - label_margin, y + h - label_margin)
         t = msp.add_text(label, dxfattribs={"layer": "PEN", "height": 20})
         t.dxf.halign = 2  # Right
         t.dxf.valign = 3  # Top
@@ -966,16 +1066,21 @@ def _build_dxf_from_nest_and_raw(nest: dict, raw_panels: dict, download_name: st
         return merged
 
     # --- Draw merged segments once ---
+    print("[DXF] horizontals rows:", len(horizontals), "verticals cols:", len(verticals))
     # Horizontal segments
     for y, spans in horizontals.items():
-        for x1, x2 in merge_intervals(spans):
-            
+        merged_h = merge_intervals(spans)
+        if not merged_h:
+            print(f"[DXF] no merged horizontals at y={y}")
+        for x1, x2 in merged_h:
             msp.add_line((x1, y), (x2, y), dxfattribs={"layer": "WHEEL"})
 
     # Vertical segments
     for x, spans in verticals.items():
-        for y1, y2 in merge_intervals(spans):
-            
+        merged_v = merge_intervals(spans)
+        if not merged_v:
+            print(f"[DXF] no merged verticals at x={x}")
+        for y1, y2 in merged_v:
             msp.add_line((x, y1), (x, y2), dxfattribs={"layer": "WHEEL"})
 
     # --- Save to a temp file and return ---

@@ -295,6 +295,13 @@ const devMode = useSelector(state => state.toggles.devMode);
   const primaryAttributes = primaryProduct?.attributes || {};
   const primaryCalculated = primaryProduct?.calculated || {};
 
+  // New: detect if nesting data exists (required for DXF)
+  const working = editedProject || project;
+  const hasNestData = Boolean(
+    working?.project_attributes?.nest &&
+    (working?.project_attributes?.nested_panels || working?.project_attributes?.all_meta_map)
+  );
+
   return (
     <>
       <div
@@ -391,9 +398,14 @@ const devMode = useSelector(state => state.toggles.devMode);
           }}
         >
           {/* Buttons: only for staff, and only when it's a cover */}
-          {(role === 'estimator'|| role === 'designer' || role === 'admin') && project?.type?.name === 'COVER' && (
+          {(role === 'estimator'|| role === 'designer' || role === 'admin') && project?.product?.name === 'COVER' && (
             <div>
-              <button onClick={() => fetchDXF(project.id)} className="buttonStyle">
+              <button 
+                onClick={() => fetchDXF(project.id)} 
+                className="buttonStyle"
+                disabled={!hasNestData}
+                title={!hasNestData ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
+              >
                 Download DXF
               </button>
               <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
@@ -402,6 +414,11 @@ const devMode = useSelector(state => state.toggles.devMode);
               <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
                 Download PDF with BOM
               </button>
+              {!hasNestData && (
+                <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+                  DXF requires nesting data. Click "Quick Check" first.
+                </div>
+              )}
             </div>
           )}
 

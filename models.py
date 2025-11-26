@@ -80,11 +80,33 @@ class Project(db.Model):
     # optional convenience field
     estimate_total = db.Column(db.Float)
 
+    # WorkGuru integration data (lead_id, quote_id, project_id, etc.)
+    wg_data = db.Column(db.JSON, default=dict)
+
     def get_estimated_price(self):
         from estimation import estimate_price_from_schema
+        # If we have items, prefer summing their estimates (compute on the fly if missing)
+        if self.products and self.estimate_schema:
+            grand_total = 0.0
+            for item in self.products:
+                # Use the item-specific attributes when evaluating
+                result = estimate_price_from_schema(self.estimate_schema, item.attributes or {}) or {}
+                totals = result.get("totals") or {}
+                item_total = (
+                    totals.get("grand_total")
+                    or totals.get("grandTotal")
+                    or totals.get("total")
+                    or 0.0
+                )
+                item.estimate_total = item_total
+                grand_total += float(item_total or 0.0)
+            self.estimate_total = grand_total
+            return grand_total
+
+        # Fallback: evaluate against project-level attributes
         if not self.estimate_schema:
             return None
-        results = estimate_price_from_schema(self.estimate_schema, self.project_attributes)
+        results = estimate_price_from_schema(self.estimate_schema, self.project_attributes or {})
         totals = results.get("totals") or {}
         return (
             totals.get("grand_total")
@@ -103,6 +125,9 @@ class ProjectProduct(db.Model):
 
     attributes = db.Column(db.JSON, default=dict)
     calculated = db.Column(db.JSON, default=dict)
+
+    # per-item estimated total (computed from project.estimate_schema against attributes)
+    estimate_total = db.Column(db.Float)
 
     project = db.relationship("Project", back_populates="products")
 

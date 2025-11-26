@@ -37,7 +37,7 @@ def create_app():
     #print (cp_key)
 
     # --- DB config ---
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///autodraw.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # --- JWT config (access in header, refresh in cookie) ---

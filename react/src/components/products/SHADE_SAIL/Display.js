@@ -26,7 +26,7 @@ export function render(canvas, data, _internalPass = false) {
   ctx.lineWidth = 2 * baseScale;
   ctx.strokeStyle = '#1a1a1a';
 
-  const pad = isMobile ? 20 * paddingScale : 400 * paddingScale;
+  const pad = isMobile ? 20 * paddingScale : 150 * paddingScale;
   let currentY = 0;
 
   sails.forEach((sail, idx) => {
@@ -59,7 +59,7 @@ export function render(canvas, data, _internalPass = false) {
     // Ensure reasonable space for shape (desktop reduced to tighten spacing)
     const minShapeSpace = isMobile ? 900 * baseScale : 100 * baseScale;
     const availableHeight = Math.max(minShapeSpace, canvasHeight - metadataHeight - pad * 2);
-    const scale = Math.min(innerW / shapeW, availableHeight / shapeH) * (isMobile ? 0.9 : 0.8);
+    const scale = Math.min(innerW / shapeW, availableHeight / shapeH) * (isMobile ? 0.9 : 0.95);
     const topOffset = currentY;
 
     const mapped = {};

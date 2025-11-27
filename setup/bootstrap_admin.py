@@ -360,7 +360,7 @@ if __name__ == "__main__":
     instance_dir = BASE_DIR / "instance"
     instance_dir.mkdir(parents=True, exist_ok=True)
 
-    db_path = instance_dir / "users.db"
+    db_path = instance_dir / "autodraw.db"
     db_uri = f"sqlite:///{db_path.as_posix()}"
 
     app = Flask(__name__, instance_path=str(instance_dir), instance_relative_config=True)

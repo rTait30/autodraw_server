@@ -173,10 +173,11 @@ export function render(canvas, data, _internalPass = false) {
     // Summary metrics (responsive positioning and sizing)
     attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
     let yPos = topOffset + pad + shapeH * scale + 40 * fontScale;
-    if (data.discrepancyChecker) { 
-      ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
-    } else { 
-      ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
+
+    ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
+
+    if (data.discrepancyChecker) {
+      yPos = 1100  
     }
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, pad, yPos);
     ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, pad, yPos + 30 * fontScale);

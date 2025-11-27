@@ -48,8 +48,8 @@ with open(env_path, "w") as f:
         f.write(f'{key}={value}\n')
 print(f"Updated {env_path} with secrets (preserving existing variables).")
 
-# 5. Create users.db if not exists
-db_path = os.path.join(instance_dir, "users.db")
+# 5. Create autodraw.db if not exists
+db_path = os.path.join(instance_dir, "autodraw.db")
 if not os.path.exists(db_path):
     open(db_path, "a").close()
     print(f"Created {db_path}.")

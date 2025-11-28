@@ -298,20 +298,29 @@ def save_project_config():
 
     if (data.get("product_id") == 1 and data.get("submitToWG") == True):
 
+
+
         print ("Submitting cover project to WorkGuru...")
 
         name = (data.get("general").get("name") or "").strip()
 
+        #print (str(cover.at))
+
         description = ""
         for cover in data.get("products", []):
-            cover_quantity = cover.get("attributes", {}).get("quantity", 0)
-            cover_length = cover.get("attributes", {}).get("length", 0)
-            cover_width = cover.get("attributes", {}).get("width", 0)
-            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_length}mm \n")
+
+            attributes = cover.get("attributes", {})
+
+            cover_quantity = attributes.get("quantity", 0)
+            cover_length = attributes.get("length", 0)
+            cover_width = attributes.get("width", 0)
+            cover_height = attributes.get("height", 0)
+            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm \n")
 
         # Use the estimate_total we just computed above
         estimated_price = project.estimate_total or 0.0
 
+        
         dr_make_lead(
             name=name,
             description=description,
@@ -319,6 +328,7 @@ def save_project_config():
             category="2a",
             go_percent=100
         )
+        
 
 
     return jsonify({

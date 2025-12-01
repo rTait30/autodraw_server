@@ -10,7 +10,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models import db, Product, Project, User
 from endpoints.api.auth.utils import current_user
-from endpoints.api.projects.projects_calc import dispatch
+from endpoints.api.projects.products import dispatch_calculation
 
 
 projects_calc_api_bp = Blueprint("projects_calc_api", __name__)
@@ -68,7 +68,7 @@ def calculate():
     calc_input.setdefault("project_attributes", {})
     calc_input.setdefault("general", {})
 
-    enriched = dispatch(product.name, calc_input)
+    enriched = dispatch_calculation(product.name, calc_input)
 
     return jsonify({
         "product_id": product_id,

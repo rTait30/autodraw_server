@@ -295,12 +295,15 @@ const devMode = useSelector(state => state.toggles.devMode);
   const primaryAttributes = primaryProduct?.attributes || {};
   const primaryCalculated = primaryProduct?.calculated || {};
 
-  // New: detect if nesting data exists (required for DXF)
+  // New: detect if nesting data exists (required for DXF on COVER products)
   const working = editedProject || project;
   const hasNestData = Boolean(
     working?.project_attributes?.nest &&
     (working?.project_attributes?.nested_panels || working?.project_attributes?.all_meta_map)
   );
+  
+  // Shade sails don't need nesting data for DXF
+  const canGenerateDXF = project?.product?.name === 'SHADE_SAIL' || hasNestData;
 
   return (
     <>
@@ -397,14 +400,14 @@ const devMode = useSelector(state => state.toggles.devMode);
             gap: '24px',
           }}
         >
-          {/* Buttons: only for staff, and only when it's a cover */}
-          {(role === 'estimator'|| role === 'designer' || role === 'admin') && project?.product?.name === 'COVER' && (
+          {/* Buttons: only for staff, and only when it's a cover or shade sail */}
+          {(role === 'estimator'|| role === 'designer' || role === 'admin') && (project?.product?.name === 'COVER' || project?.product?.name === 'SHADE_SAIL') && (
             <div>
               <button 
                 onClick={() => fetchDXF(project.id)} 
                 className="buttonStyle"
-                disabled={!hasNestData}
-                title={!hasNestData ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
+                disabled={!canGenerateDXF}
+                title={!canGenerateDXF ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
               >
                 Download DXF
               </button>
@@ -414,7 +417,7 @@ const devMode = useSelector(state => state.toggles.devMode);
               <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
                 Download PDF with BOM
               </button>
-              {!hasNestData && (
+              {!canGenerateDXF && project?.product?.name === 'COVER' && (
                 <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
                   DXF requires nesting data. Click "Quick Check" first.
                 </div>

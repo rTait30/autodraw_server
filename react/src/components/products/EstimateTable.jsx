@@ -46,8 +46,7 @@ export default function EstimateTable({
   const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
   // --- Fetch SKUs from schema, then load products from API ---
-  // --- Fetch SKUs from schema, then load products from API ---
-  // --- Fetch SKUs from schema, then load products from API ---
+  
   useEffect(() => {
     const allSkus = [];
 

@@ -224,6 +224,16 @@ def save_project_config():
     else:
         project.project_attributes = project_attributes
     
+    # ---------- Check for discrepancy problems in shade_sail (product_id == 2) on create ----------
+    if not project_id and product_id == 2:  # Only on create for shade_sail
+        discrepancy_sails = []
+        for idx, p in enumerate(products_payload):
+            if p.get("attributes", {}).get("discrepancyProblem") == True:
+                label = p.get("name") or p.get("attributes", {}).get("label") or f"Item {idx + 1}"
+                discrepancy_sails.append(label)
+        if discrepancy_sails:
+            return jsonify({"error": f"Discrepancy problems in sails: {', '.join(discrepancy_sails)}"}), 400
+    
     # Deprecated: keep project_calculated for backward compat but consider empty
     project.project_calculated = project_calculated or {}
 
@@ -646,31 +656,72 @@ def get_dxf():
     
     product_type = project.product.name
 
-    # Lean DXF: no pre-filtering or nesting requirements; generators will decide.
-    project_attrs = project.project_attributes or {}
-    nest = None
-    nested_panels = None
+    # Build a standalone plain object for DXF generators (frontend-compatible)
+    def _serialize_project_plain(prj):
+        # Generic SQLAlchemy row -> plain dict (columns only)
+        def _row_to_dict(row):
+            out = {}
+            for k, v in dict(row.__dict__).items():
+                if k.startswith("_"):
+                    continue
+                # Convert datetimes safely
+                if hasattr(v, "isoformat"):
+                    try:
+                        out[k] = v.isoformat()
+                        continue
+                    except Exception:
+                        pass
+                out[k] = v
+            return out
 
-    print("project:", project.id, project.name, "product_type:", product_type)
-    try:
-        print("[DXF] Using lean payload: products passed directly to generator.")
-    except Exception as _e_dbg:
-        print("[DXF] debug note:", _e_dbg)
+        proj_dict = _row_to_dict(prj)
 
-    # Pass the whole project object directly; generators will use what they need.
-    product_dims = {"project": project}
+        # Normalize product info to simple name/id for consumers
+        product_info = {
+            "id": prj.product.id if prj.product else None,
+            "name": prj.product.name if prj.product else None,
+        }
+
+        # Serialize related products rows generically
+        items = []
+        for p in prj.products:
+            item = _row_to_dict(p)
+            # Keep only fields commonly used on the frontend
+            item = {
+                "id": item.get("id"),
+                "name": item.get("label"),
+                "productIndex": item.get("item_index"),
+                "attributes": item.get("attributes") or {},
+                "calculated": item.get("calculated") or {},
+            }
+            items.append(item)
+
+        # Build final plain object; include project JSON blobs untouched
+        return {
+            "id": proj_dict.get("id"),
+            "product": product_info,
+            "general": {
+                "id": proj_dict.get("id"),
+                "name": proj_dict.get("name"),
+                "client_id": proj_dict.get("client_id"),
+                "due_date": proj_dict.get("due_date"),
+                "info": proj_dict.get("info"),
+                "status": prj.status.name if hasattr(prj.status, "name") else proj_dict.get("status"),
+            },
+            "project_attributes": prj.project_attributes or {},
+            "project_calculated": prj.project_calculated or {},
+            "products": items,
+        }
+
+    plain_project = _serialize_project_plain(project)
+
+    print("[DXF] Dispatching with plain project dict for", product_type, "id:", project.id)
 
     fname = f"{(project.name or 'project').strip()}.dxf".replace(" ", "_")
-    
-    # Dispatch to product-specific DXF generator
+
+    # Dispatch to product-specific DXF generator with plain dict
     try:
-        return dispatch_dxf(
-            product_type=product_type,
-            nest=nest,
-            nested_panels=nested_panels,
-            download_name=fname,
-            product_dims=product_dims
-        )
+        return dispatch_dxf(product_type, plain_project, download_name=fname)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

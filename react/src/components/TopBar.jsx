@@ -117,7 +117,7 @@ function TopBar() {
         >Dev</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* ...existing code... */}
+        {navLinks}
         <button
           onClick={handleLogout}
           style={{

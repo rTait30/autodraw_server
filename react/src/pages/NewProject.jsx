@@ -15,7 +15,6 @@ export default function NewProject() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1000, height: 1000 });
 
   const role = localStorage.getItem("role") || "guest";
 
@@ -133,30 +132,6 @@ export default function NewProject() {
     }
   };
 
-  // Responsive canvas sizing
-  useEffect(() => {
-    const updateCanvasSize = () => {
-      if (!containerRef.current) return;
-      const dpr = window.devicePixelRatio || 1;
-      const containerWidth = containerRef.current.offsetWidth;
-      const isMobile = window.innerWidth < 768;
-      // On desktop, use full container width; on mobile, use viewport-based sizing
-      const displayWidth = isMobile ? Math.min(window.innerWidth - 60, 600) : Math.min(containerWidth, 1000);
-      const displayHeight = displayWidth * 2;
-      // Scale by device pixel ratio for crisp rendering
-      setCanvasDimensions({ 
-        width: Math.round(displayWidth * dpr), 
-        height: Math.round(displayHeight * dpr),
-        displayWidth,
-        displayHeight
-      });
-    };
-
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => window.removeEventListener('resize', updateCanvasSize);
-  }, []);
-
   useEffect(() => {
     if (!createdProject || !canvasRef.current) return;
     
@@ -178,7 +153,7 @@ export default function NewProject() {
       .catch(e => {
         console.warn(`No Display module for ${productName}:`, e.message);
       });
-  }, [createdProject, canvasDimensions]);
+  }, [createdProject]);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
@@ -236,15 +211,9 @@ export default function NewProject() {
               <div ref={containerRef} className="flex-1">
                 <canvas 
                   ref={canvasRef} 
-                  width={canvasDimensions.width} 
-                  height={canvasDimensions.height} 
-                  className="border shadow bg-white max-w-full" 
-                  style={{ 
-                    display: 'block', 
-                    width: canvasDimensions.displayWidth ? `${canvasDimensions.displayWidth}px` : '100%', 
-                    height: canvasDimensions.displayHeight ? `${canvasDimensions.displayHeight}px` : 'auto',
-                    imageRendering: 'crisp-edges'
-                  }}
+                  width={800}
+                  height={500} 
+                  className="border shadow bg-white max-w-full"
                 />
               </div>
           </div>

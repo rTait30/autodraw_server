@@ -3,31 +3,32 @@
  * Mirrors original drawFunction logic from Steps.js with dynamic scaling for mobile/desktop.
  */
 
-export function render(canvas, data, _internalPass = false) {
+export function render(canvas, data) {
   if (!canvas || !data) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   const sails = data.products || [];
-  let canvasWidth = canvas.width || 1000; 
-  let canvasHeight = canvas.height || 1000;
+
+  // Fixed per-sail block height so we avoid re-scaling complexities
+  const perSailHeight = 1000; 
+  canvas.height = perSailHeight * sails.length;
 
   // Responsive scale factors based on viewport width
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const baseScale = canvasWidth / 1000; // normalize to 1000px baseline
-  const fontScale = isMobile ? baseScale * 1.0 : baseScale;
-  const paddingScale = isMobile ? baseScale * 1.0 : baseScale; // reduce padding on mobile
+  const baseScale = 3.0; // leaner base scaling
+  const fontScale = 1.0;
+  const paddingScale = 1.0;
 
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#f8f9fa';
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
   ctx.lineWidth = 2 * baseScale;
   ctx.strokeStyle = '#1a1a1a';
 
-  const pad = isMobile ? 20 * paddingScale : 150 * paddingScale;
-  let currentY = 0;
+  const pad = isMobile ? 100 : 150;
 
   sails.forEach((sail, idx) => {
     const attributes = sail.attributes || {};
@@ -47,24 +48,20 @@ export function render(canvas, data, _internalPass = false) {
     }
     const shapeW = maxX - minX || 1;
     const shapeH = maxY - minY || 1;
-    const innerW = (canvasWidth) - pad * 2;
+    const innerW = canvas.width - pad * 2;
     
-    // Estimate content height based on point count and discrepancies
-    const pointCount = attributes.pointCount || ids.length;
-    const hasDiscrepancies = pointCount >= 5;
-    const discrepancyLines = hasDiscrepancies ? Math.min(Object.keys(attributes.discrepancies || {}).length, isMobile ? 5 : 10) : 0;
-    const blameLines = hasDiscrepancies ? Math.min(Object.keys(attributes.blame || {}).length, isMobile ? 5 : 10) : 0;
-    const metadataHeight = (data.discrepancyChecker ? 100 : 200) + (hasDiscrepancies ? (discrepancyLines + blameLines + 4) * 30 : 60);
-    
-    // Ensure reasonable space for shape (desktop reduced to tighten spacing)
-    const minShapeSpace = isMobile ? 900 * baseScale : 100 * baseScale;
-    const availableHeight = Math.max(minShapeSpace, canvasHeight - metadataHeight - pad * 2);
-    const scale = Math.min(innerW / shapeW, availableHeight / shapeH) * (isMobile ? 0.9 : 0.95);
-    const topOffset = currentY;
+    // Use consistent shape drawing area regardless of metadata size
+    // Reserve ~600px for the sail shape itself, rest for metadata
+    const maxShapeHeight = 600;
+    const scale = Math.min(innerW / shapeW, maxShapeHeight / shapeH);
+    const topOffset = 100 + idx * (perSailHeight);
 
     const mapped = {};
+    // Map coordinates ensuring positive X -> right, positive Y -> down
     for (const [id, p] of Object.entries(positions)) {
-      mapped[id] = { x: pad + (p.x - minX) * scale, y: topOffset + pad + (p.y - minY) * scale };
+      const mappedX = pad + (p.x - minX) * scale;
+      const mappedY = topOffset + pad + (p.y - maxY) * scale + 400; // invert Y so positive goes downward
+      mapped[id] = { x: mappedX, y: mappedY };
     }
 
     const ordered = [...ids].sort();
@@ -72,7 +69,7 @@ export function render(canvas, data, _internalPass = false) {
     ordered.forEach(id => { cx += mapped[id].x; cy += mapped[id].y; });
     cx /= ordered.length || 1; cy /= ordered.length || 1;
 
-    // Draw outer perimeter edges with problematic coloring
+    // Draw outer perimeter edges with problematic coloring and catenary curves
     for (let i = 0; i < ordered.length; i++) {
       const p1 = ordered[i];
       const p2 = ordered[(i + 1) % ordered.length];
@@ -86,12 +83,44 @@ export function render(canvas, data, _internalPass = false) {
           break;
         }
       }
-      ctx.strokeStyle = isProblematicEdge ? '#F00' : '#1a1a1a';
-      ctx.lineWidth = 2 * baseScale;
+
+      // Draw catenary curve (visual only, 5% dip)
+      // Find midpoint
+      const mx = (pos1.x + pos2.x) / 2;
+      const my = (pos1.y + pos2.y) / 2;
+      // Vector from p1 to p2
+      const dx = pos2.x - pos1.x;
+      const dy = pos2.y - pos1.y;
+      const length = Math.hypot(dx, dy);
+      // Perpendicular vector (normalized)
+      const perpX = -dy / length;
+      const perpY = dx / length;
+      // Dip is 5% of edge length
+      const dip = 0.1 * length;
+      // Catenary control point (midpoint, dipped toward center)
+      // Find center of sail for general inward direction
+      const sailCenter = { x: cx, y: cy };
+      // Vector from midpoint to center
+      const toCenterX = sailCenter.x - mx;
+      const toCenterY = sailCenter.y - my;
+      const toCenterLen = Math.hypot(toCenterX, toCenterY) || 1;
+      // Direction for dip: blend between perfect inward and perfect perpendicular
+      // For simplicity, just use perpendicular toward center
+      let dipDirX = toCenterX / toCenterLen;
+      let dipDirY = toCenterY / toCenterLen;
+      // Control point for quadratic curve
+      const cx1 = mx + dipDirX * dip;
+      const cy1 = my + dipDirY * dip;
+      // Draw catenary as quadratic curve
+      ctx.save();
+      ctx.strokeStyle = '#0000FF'; // red for catenary
+      ctx.lineWidth = 4; // thicker but constant
       ctx.beginPath();
       ctx.moveTo(pos1.x, pos1.y);
-      ctx.lineTo(pos2.x, pos2.y);
+      ctx.quadraticCurveTo(cx1, cy1, pos2.x, pos2.y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
     }
 
     // Point labels & metadata (responsive sizing)
@@ -99,37 +128,40 @@ export function render(canvas, data, _internalPass = false) {
       const p = mapped[id];
       if (!p) return;
       let vx = p.x - cx; let vy = p.y - cy; let vlen = Math.hypot(vx, vy) || 1; vx /= vlen; vy /= vlen;
-      const baseDist = 40 * paddingScale;
-      const lineSpacingLarge = 28 * fontScale;
-      const lineSpacingSmall = 18 * fontScale;
+      const baseDist = 50;
+      const lineSpacingLarge = 24;
+      const lineSpacingSmall = 16;
       const anchorX = p.x + vx * baseDist;
       const anchorY = p.y + vy * baseDist;
-      const perpX = -vy; const perpY = vx; const lateral = 10 * paddingScale;
-      const labelX = anchorX + perpX * lateral * 0.2;
-      const labelY = anchorY + perpY * lateral * 0.2;
+      const perpX = -vx; const perpY = vy; const lateral = 2 * paddingScale;
+      const labelX = anchorX + perpX * lateral * 0.2 - 50;
+      const labelY = anchorY + perpY * lateral * 0.2 - 50;
 
       // Point circle (with reflex angle highlight if provided)
       const isReflex = attributes.reflexAngleValues && attributes.reflexAngleValues[id] != null;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, (isReflex ? 10 : 6) * baseScale, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, (isReflex ? 8 : 5), 0, Math.PI * 2);
       ctx.fillStyle = isReflex ? '#dc2626' : '#2563eb';
       ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * baseScale; ctx.stroke();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
 
       ctx.fillStyle = '#000';
-      ctx.font = `bold ${Math.round(28 * fontScale)}px Arial`;
-      ctx.fillText(`Point ${id}`, labelX, labelY);
+      ctx.font = `bold 32px Arial`;
+      ctx.fillText(`${id}`, labelX, labelY);
+      
+      ctx.font = `bold 12px Arial`;
+
+      let nextY = labelY + lineSpacingLarge;
       if (points[id] && points[id].height !== undefined && points[id].height !== '') {
-        ctx.fillText(`Height: ${points[id].height}`, labelX, labelY + lineSpacingLarge);
+        ctx.fillText(`Height: ${points[id].height}`, labelX, nextY); nextY += lineSpacingSmall;
       }
-      let nextY = labelY + lineSpacingLarge * 2;
+      
       if (!data.discrepancyChecker) {
-        ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`;
         ctx.fillText(`Fitting: ${points[id]?.cornerFitting ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
         ctx.fillText(`Hardware: ${points[id]?.tensionHardware ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
         ctx.fillText(`Allowance: ${points[id]?.tensionAllowance ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
       }
-      ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`;
+      ctx.font = `bold 12px Arial`;
       ctx.fillStyle = '#F00';
       if (attributes.exitPoint === id && !data.discrepancyChecker) { ctx.fillText('Exit Point', labelX, nextY); nextY += lineSpacingSmall; }
       if (attributes.logoPoint === id && !data.discrepancyChecker) { ctx.fillText('Logo', labelX, nextY); nextY += lineSpacingSmall; }
@@ -140,7 +172,7 @@ export function render(canvas, data, _internalPass = false) {
     });
 
     // Dimensions (edges + diagonals) with rotated labels
-    ctx.lineWidth = 1 * baseScale; ctx.fillStyle = '#333'; ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
+    ctx.lineWidth = 1; ctx.fillStyle = '#333'; ctx.font = `bold 14px Arial`;
     const drawnLines = new Set();
     const isPerimeterEdge = (p1, p2) => {
       const i1 = ordered.indexOf(p1); const i2 = ordered.indexOf(p2);
@@ -165,69 +197,75 @@ export function render(canvas, data, _internalPass = false) {
         ctx.strokeStyle = isProblematicLine ? '#F00' : '#999';
         ctx.lineWidth = 1 * baseScale; ctx.beginPath(); ctx.moveTo(pos1.x, pos1.y); ctx.lineTo(pos2.x, pos2.y); ctx.stroke();
       }
-      const midX = (pos1.x + pos2.x) / 2; const midY = (pos1.y + pos2.y) / 2; const angle = Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x);
+      const midX = (pos1.x + pos2.x) / 2; const midY = (pos1.y + pos2.y) / 2; 
+      let angle = Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x);
+      // Flip if upside down (angle between π/2 and 3π/2)
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+        angle += Math.PI;
+      }
       const label = `${edgeKey}: ${dimValue}mm`;
-      ctx.save(); ctx.translate(midX, midY); ctx.rotate(angle); ctx.fillText(label, 0, -5 * baseScale); ctx.restore();
+
+      console.log("Drawing dimension label:", label, "at", midX, midY, "angle", angle);
+
+      ctx.save(); ctx.translate(midX, midY); ctx.rotate(angle); ctx.fillText(label, 0, -6); ctx.restore();
     }
 
     // Summary metrics (responsive positioning and sizing)
     attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
-    let yPos = topOffset + pad + shapeH * scale + 40 * fontScale;
+    //let yPos = topOffset + pad + shapeH * scale + 30;
 
-    ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`; 
 
-    if (data.discrepancyChecker) {
-      yPos = 1100  
-    }
-    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, pad, yPos);
-    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, pad, yPos + 30 * fontScale);
+    ctx.font = `bold 12px Arial`; 
+    let yPos = topOffset + 650;
+    console.log("ypos:", yPos);
+    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, 50, yPos);
+    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, 50, yPos + 20 * fontScale);
+
 
     if ((attributes.pointCount || 0) >= 5) {
-      yPos += 60 * fontScale;
-      ctx.fillText('Discrepancies', pad, yPos); yPos += 30 * fontScale;
+      yPos += 40;
+      ctx.fillText('Discrepancies', 50, yPos); yPos += 30 * fontScale;
       const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
         .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
         .slice(0, isMobile ? 5 : 10);
       sortedDiscrepancies.forEach(([edge, value]) => { 
-        if (value > 0) { ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, pad, yPos); yPos += 30 * fontScale; } 
+        if (value > 0) { ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, 70, yPos); yPos += 18; } 
       });
-      ctx.fillText('Blame', pad, yPos); yPos += 30 * fontScale;
+      yPos += 10 * fontScale;
+
+      
       const blameEntries = Object.entries(attributes.blame || {});
-      const blameGroups = new Map();
-      blameEntries.forEach(([key, val]) => {
-        const rounded = Math.abs(Number(val) || 0).toFixed(2);
-        if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
-        blameGroups.get(rounded).push(key);
-      });
-      const groupedSorted = Array.from(blameGroups.entries())
-        .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
-        .slice(0, isMobile ? 5 : 10);
-      groupedSorted.forEach(([rounded, keys]) => {
-        if (rounded > 1) {
-          keys.sort(); const label = keys.join(', ');
-          ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, pad, yPos); yPos += 30 * fontScale;
+
+      console.log("Blame entries:", blameEntries);
+
+      if (blameEntries.length > 0) {
+        const blameGroups = new Map();
+        blameEntries.forEach(([key, val]) => {
+          const rounded = Math.abs(Number(val) || 0).toFixed(2);
+          if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
+          blameGroups.get(rounded).push(key);
+        });
+        const groupedSorted = Array.from(blameGroups.entries())
+          .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+          .slice(0, isMobile ? 5 : 10)
+          .filter(([rounded]) => parseFloat(rounded) > 1);
+        
+        if (groupedSorted.length > 0) {
+          let yPosBlame = topOffset + 700;
+          ctx.fillText('Blame', 380, yPosBlame); yPosBlame += 30 * fontScale;
+          groupedSorted.forEach(([rounded, keys]) => {
+            keys.sort(); const label = keys.join(', ');
+            ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, 400, yPosBlame); yPosBlame += 18;
+          });
         }
-      });
+      }
     }
     
-    // Update currentY for next sail - ensure at least minShapeSpace height per sail (reduced padding)
-    const usedHeight = Math.max(shapeH * scale + metadataHeight + pad * 2, minShapeSpace + metadataHeight + pad * 2);
-    currentY += usedHeight;
+    // No need to update currentY; we use idx * perSailHeight for block layout
   });
 
   ctx.restore();
 
-  // Dynamic height expansion (only expand, never shrink)
-  const required = Math.ceil(currentY + 40 * paddingScale); // add bottom padding
-  if (!_internalPass && required > canvasHeight) {
-    // Resize canvas element
-    canvas.height = required;
-    // Preserve CSS width; set explicit pixel height to avoid stretching
-    if (!canvas.style.height || /px$/.test(canvas.style.height)) {
-      canvas.style.height = required + 'px';
-    }
-    // Re-run render on second internal pass (guarded to prevent loops)
-    render(canvas, data, true);
-  }
+
 }
 

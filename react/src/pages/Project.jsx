@@ -14,6 +14,7 @@ import { useSelector } from 'react-redux';
 
 
 
+
 /* ============================================================================
  *  MODULE LOADER (per-project-type)
  *  - Loads Form component for the product type
@@ -26,8 +27,11 @@ async function loadTypeResources(type) {
 }
 
 export default function ProjectDetailsPage() {
+
+  const containerRef = useRef(null);
+
   // Get devMode from Redux
-const devMode = useSelector(state => state.toggles.devMode);
+  const devMode = useSelector(state => state.toggles.devMode);
   /* ==========================================================================
    *  ROUTING / PARAMS
    *  - [Extract] into a helper like useProjectIdFromLocation()
@@ -402,7 +406,7 @@ const devMode = useSelector(state => state.toggles.devMode);
         >
           {/* Buttons: only for staff, and only when it's a cover or shade sail */}
           {(role === 'estimator'|| role === 'designer' || role === 'admin') && (project?.product?.name === 'COVER' || project?.product?.name === 'SHADE_SAIL') && (
-            <div>
+            <div className="space-x-2">
               <button 
                 onClick={() => fetchDXF(project.id)} 
                 className="buttonStyle"
@@ -411,12 +415,18 @@ const devMode = useSelector(state => state.toggles.devMode);
               >
                 Download DXF
               </button>
+              
+              {/* BOM option only for PDF 
+              
               <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
                 Download PDF
               </button>
               <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
                 Download PDF with BOM
               </button>
+              
+              */}
+
               {!canGenerateDXF && project?.product?.name === 'COVER' && (
                 <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
                   DXF requires nesting data. Click "Quick Check" first.
@@ -449,11 +459,13 @@ const devMode = useSelector(state => state.toggles.devMode);
 
           {/* Canvas: all staff (designer, admin, estimator) */}
           {(role === 'estimator'|| role === 'designer' || role === 'admin' || role === 'client') && (
-            <div className="scroll-x" style={{ marginTop: 24 }}>
-              <canvas
-                ref={canvasRef}
-                width={1000}
-                height={2000}
+            
+            <div ref={containerRef} className="flex-1">
+              <canvas 
+                ref={canvasRef} 
+                width={800}
+                height={500} 
+                className="border shadow bg-white max-w-full"
               />
             </div>
           )}

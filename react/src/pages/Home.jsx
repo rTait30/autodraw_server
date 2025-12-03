@@ -83,7 +83,7 @@ const handleCreate = async (e) => {
 
   return (
     <div>
-      <h1>Hello {name}, you are {role}</h1>
+      <h1 className= "p-[100px] text-center font-Cambria text-2xl">Hello {name}, you are {role}</h1>
 
       {role === 'admin' && (
         <div style={{ marginTop: '40px' }}>

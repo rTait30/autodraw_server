@@ -480,110 +480,108 @@ const setPointField = (p, key, value) =>
 
       {/* Fabric Category (minimal) */}
       <section className="space-y-2">
-        <label className="block text-sm font-medium">Fabric Category</label>
-        <select
-          className="inputCompact"
-          value={attributes.fabricCategory ?? ""}
-          onChange={(e) =>
-            setAttributes((prev) => {
-              const nextCat = e.target.value;
-              const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
-              return { ...prev, fabricCategory: nextCat, fabricType: firstType };
-            })
-          }
-        >
-          <option value="PVC">PVC</option>
-          <option value="ShadeCloth">ShadeCloth</option>
-        </select>
-
-
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Fabric Category</label>
+          <select
+            className="inputCompact"
+            value={attributes.fabricCategory ?? ""}
+            onChange={(e) =>
+              setAttributes((prev) => {
+                const nextCat = e.target.value;
+                const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
+                return { ...prev, fabricCategory: nextCat, fabricType: firstType };
+              })
+            }
+          >
+            <option value="PVC">PVC</option>
+            <option value="ShadeCloth">ShadeCloth</option>
+          </select>
+        </div>
 
         {/* Fabric Type (dependent on category) */}
-        <label className="block text-sm font-medium">Fabric Type</label>
-        <select
-          className="inputCompact"
-          value={attributes.fabricType ?? ""}
-          onChange={(e) =>
-            setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
-          }
-        >
-          {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
-            <option key={ft} value={ft}>
-              {ft}
-            </option>
-          ))}
-        </select>
-
-
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Fabric Type</label>
+          <select
+            className="inputCompact"
+            value={attributes.fabricType ?? ""}
+            onChange={(e) =>
+              setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
+            }
+          >
+            {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
+              <option key={ft} value={ft}>
+                {ft}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Colour*/}
         {!discrepancyChecker && (
-          <>
-            <label className="block text-sm font-medium">Colour</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Colour</label>
             <input
               list="colourOptions"
               className="inputCompact"
               type="text"
-          value={attributes.colour ?? ""}
-          onChange={(e) => setAttributes((prev) => ({ ...prev, colour: e.target.value }))}
-          />
-          <datalist id="colourOptions">
-            {COLOUR_OPTIONS.map((colour) => (
-              <option key={colour} value={colour} />
-            ))}
-          </datalist>
-
-          </>
+              value={attributes.colour ?? ""}
+              onChange={(e) => setAttributes((prev) => ({ ...prev, colour: e.target.value }))}
+            />
+            <datalist id="colourOptions">
+              {COLOUR_OPTIONS.map((colour) => (
+                <option key={colour} value={colour} />
+              ))}
+            </datalist>
+          </div>
         )}
 
         {/* Fold side */}
         {!discrepancyChecker && (
-          <>
-        
-        <label className="block text-sm font-medium">Fold Side</label>
-        <select
-          className="inputCompact"
-          value={attributes.foldSide ?? ""}
-          onChange={(e) => setAttributes((prev) => ({ ...prev, foldSide: e.target.value }))}
-        >
-          {FOLD_SIDES.map((fs) => (
-            <option key={fs} value={fs}>
-              {fs}
-            </option>
-          ))}
-        </select>
-        
-          </>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Fold Side</label>
+            <select
+              className="inputCompact"
+              value={attributes.foldSide ?? ""}
+              onChange={(e) => setAttributes((prev) => ({ ...prev, foldSide: e.target.value }))}
+            >
+              {FOLD_SIDES.map((fs) => (
+                <option key={fs} value={fs}>
+                  {fs}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </section>
 
         {/* Fold side */}
         {!discrepancyChecker && (
           <section className="space-y-2">
-            <label className="block text-sm font-medium">Cable Size (mm)</label>
-            <select
-              className="inputCompact"
-              value={attributes.cableSize ?? ""}
-              onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
-            >
-              {CABLE_SIZE_OPTIONS.map((cs) => (
-                <option key={cs} value={cs}>
-                  {cs}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Cable Size (mm)</label>
+              <select
+                className="inputCompact"
+                value={attributes.cableSize ?? ""}
+                onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
+              >
+                {CABLE_SIZE_OPTIONS.map((cs) => (
+                  <option key={cs} value={cs}>
+                    {cs}
+                  </option>
+                ))}
+              </select>
+            </div>
           </section>
         )}
 
+      <hr className="my-8 border-gray-300 opacity-50" />
+
       {/* Point count */}
       <section className="space-y-2">
-        <label className="block text-sm font-medium">Points</label>
-
-        <div className="flex items-center gap-2 max-w-[260px]">
-
-
+        <div className="flex items-center gap-2 max-w-[200px]">
+          <label className="text-sm font-medium">Points</label>
           <input
-            className="inputCompact h-9 text-center w-full"
+            className="inputCompact h-9 text-center w-20"
             type="number"
             inputMode="numeric"
             step={1}
@@ -640,9 +638,8 @@ const setPointField = (p, key, value) =>
 
       {!discrepancyChecker && (
         <section className="flex items-end gap-4">
-          {/* Exit Point */}
-          <div className="flex flex-col items-center">
-            <label className="text-sm font-medium mb-1">Exit Point</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Exit Point</label>
             {(() => {
               const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
               const allowBlankExit = (attributes.sailTracks || []).length > 0;
@@ -663,9 +660,8 @@ const setPointField = (p, key, value) =>
             })()}
           </div>
 
-          {/* Logo Point */}
-          <div className="flex flex-col items-center">
-            <label className="text-sm font-medium mb-1">Logo</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Logo</label>
             {(() => {
               const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
               return (
@@ -687,7 +683,7 @@ const setPointField = (p, key, value) =>
         </section>)}
 
       {/* Dimensions (Edges first, then Diagonals) */}
-      <section className="space-y-3">
+      <section>
 
         {(() => {
           const dims = attributes.dimensions || {};
@@ -757,33 +753,29 @@ const setPointField = (p, key, value) =>
                 <h5 className="text-sm font-medium opacity-70">Edges</h5>
                 {edges.map(([label, value]) => (
                   <div key={label} className="flex items-start gap-2">
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 flex items-center gap-2">
                       <label className="text-sm">{label}</label>
-                      <div className="flex items-center gap-2">
+                      <input
+                        ref={(el) => (edgeRefs.current[label] = el)}
+                        className="inputCompact"
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={value}
+                        onChange={(e) => setDimension(label, e.target.value)}
+                       onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
+                      />
+                      {!discrepancyChecker && (
+                      <label className="flex items-center gap-2 text-xs">
                         <input
-                          ref={(el) => (edgeRefs.current[label] = el)}
-                          className="inputCompact"
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
-                          value={value}
-                          onChange={(e) => setDimension(label, e.target.value)}
-                         onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
+                          type="checkbox"
+                          checked={(attributes.sailTracks || []).includes(label)}
+                          onChange={() => toggleSailTrack(label)}
+                          aria-label={`Sailtrack ${label}`}
                         />
-
-                        {!discrepancyChecker && (
-
-                        <label className="flex items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            checked={(attributes.sailTracks || []).includes(label)}
-                            onChange={() => toggleSailTrack(label)}
-                            aria-label={`Sailtrack ${label}`}
-                          />
-                          <span>Sailtrack</span>
-                        </label>
-                        )}
-                      </div>
+                        <span>Sailtrack</span>
+                      </label>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -820,8 +812,8 @@ const setPointField = (p, key, value) =>
                   <h5 className="text-sm font-medium opacity-70">Required diagonals</h5>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {mandatoryDiagonals.map(([label, value]) => (
-                      <div key={label} className="space-y-3">
-                        <label className="text-sm block mb-2">{label} <span className="text-xs opacity-60">(required)</span></label>
+                      <div key={label} className="flex items-center gap-2">
+                        <label className="text-sm">{label} <span className="text-xs opacity-60"></span></label>
                         <input
                           ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28"
@@ -838,13 +830,15 @@ const setPointField = (p, key, value) =>
                 </div>
               )}
 
+              <br></br>
+
               {optionalDiagonals.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-sm font-medium opacity-70">Optional diagonals (Please provide as many as possible)</h5>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {optionalDiagonals.map(([label, value]) => (
-                      <div key={label} className="space-y-3">
-                        <label className="text-sm block mb-2">{label}</label>
+                      <div key={label} className="flex items-center gap-2">
+                        <label className="text-sm">{label}</label>
                         <input
                           ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28"
@@ -878,184 +872,187 @@ const setPointField = (p, key, value) =>
         })()}
       </section>
 
-      <section className="space-y-2">
+      <section className="space-y-2 w-full md:max-w-4xl md:mx-auto">
         <br></br>
         <h5 className="text-sm font-medium opacity-70">Points</h5>
 
-      {/* Compact header — visible on all screen sizes */}
-      <div className="grid grid-cols-12 text-[11px] font-medium opacity-70 mb-1">
-        <div className="col-span-1">Pt</div>
-        <div className="col-span-2">Height&nbsp;(m)</div>
+        {/* Compact header — visible on desktop only */}
+        <div className="hidden md:grid grid-cols-11 text-[11px] font-medium opacity-70 mb-1">
+          <div className="col-span-3">Height&nbsp;(m)</div>
 
-          {!discrepancyChecker && (
-            <>
-              <div className="col-span-3">Corner Fitting</div>
-              <div className="col-span-3">Tensioning Hardware</div>
-              <div className="col-span-2">Tension&nbsp;(mm)</div>
-            </>
-          )}
+            {!discrepancyChecker && (
+              <>
+                <div className="col-span-3">Corner Fitting</div>
+                <div className="col-span-3">Tensioning Hardware</div>
+                <div className="col-span-2">Tension&nbsp;(mm)</div>
+              </>
+            )}
 
-      </div>
+        </div>
 
-      <div className="space-y-1">
-        {Object.entries(attributes.points).map(([p, vals]) => (
-          <div
-            key={p}
-            className="grid grid-cols-12 items-center gap-1 text-xs"
+        <div className="space-y-1">
+          {Object.entries(attributes.points).map(([p, vals]) => (
+            <div
+              key={p}
+              className="flex flex-col md:flex-row md:items-center gap-1"
+            >
+              {/* Point label */}
+              <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
+
+              {/* Inputs grid */}
+              <div className="grid grid-cols-11 items-center gap-1 text-xs flex-1">
+                {/* Height */}
+                <input
+                  ref={(el) => (heightRefs.current[p] = el)}
+                  className={`inputCompact ${discrepancyChecker ? 'col-span-11 md:w-28' : 'col-span-3 md:w-28'}`}
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="numeric"
+                  value={vals.height}
+                  onChange={(e) => setPointField(p, "height", e.target.value)}
+                  onKeyDown={(e) => handleEnterFocus(e, "height", p)}
+                />
+
+                {/* Corner Fitting */}
+                {!discrepancyChecker && (
+                  <select
+                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                    value={vals.cornerFitting ?? ""}
+                    onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
+                  >
+                    {CORNER_FITTING_OPTIONS.map((cf) => (
+                      <option key={cf} value={cf}>
+                        {cf}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Tension Hardware */}
+                {!discrepancyChecker && (
+                  <select
+                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                    value={vals.tensionHardware ?? ""}
+                    onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
+                  >
+                    {TENSION_HARDWARE_OPTIONS.map((th) => (
+                      <option key={th} value={th}>
+                        {th}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Tension allowance */}
+                {!discrepancyChecker && (
+                  <input
+                    className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="numeric"
+                    value={vals.tensionAllowance}
+                    onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Clear heights button */}
+        <div className="mt-2">
+          <button
+            type="button"
+            className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+            onClick={clearAllHeights}
           >
-            {/* Point label */}
-            <div className="col-span-1 text-[11px] opacity-80">{p}</div>
-
-            {/* Height */}
-            <input
-              ref={(el) => (heightRefs.current[p] = el)}
-              className={`inputCompact ${discrepancyChecker ? 'col-span-5 md:col-span-11 md:w-28' : 'col-span-2 md:w-28'}`}
-              type="number"
-              min={0}
-              step="any"
-              inputMode="numeric"
-              value={vals.height}
-              onChange={(e) => setPointField(p, "height", e.target.value)}
-              onKeyDown={(e) => handleEnterFocus(e, "height", p)}
-            />
-
-            {/* Corner Fitting */}
-            {!discrepancyChecker && (
-              <select
-                className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                value={vals.cornerFitting ?? ""}
-                onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
-              >
-                {CORNER_FITTING_OPTIONS.map((cf) => (
-                  <option key={cf} value={cf}>
-                    {cf}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {/* Tension Hardware */}
-            {!discrepancyChecker && (
-              <select
-                className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                value={vals.tensionHardware ?? ""}
-                onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
-              >
-                {TENSION_HARDWARE_OPTIONS.map((th) => (
-                  <option key={th} value={th}>
-                    {th}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {/* Tension allowance */}
-            {!discrepancyChecker && (
-              <input
-                className="inputCompact h-8 px-2 text-xs w-full col-span-2"
-                type="number"
-                min={0}
-                step="any"
-                inputMode="numeric"
-                value={vals.tensionAllowance}
-                onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      {/* Clear heights button */}
-      <div className="mt-2">
-        <button
-          type="button"
-          className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
-          onClick={clearAllHeights}
-        >
-          Clear Heights
-        </button>
-      </div>
+            Clear Heights
+          </button>
+        </div>
       </section>
 
       {/* Clear all button */}
-      <div className="mt-2">
+      <div className="mt-2 flex justify-center md:block">
         <button
           type="button"
-          className="h-16 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
+          className="h-8 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
           onClick={clearAllMeasurements}
         >
           Clear Measurements
         </button>
       </div>
 
-        {/* Trace cables - separate section (keeps points compact on mobile) */}
       {!discrepancyChecker && (
-        <section className="space-y-2">
-          <h5 className="text-sm font-medium opacity-70">Trace Cables</h5>
+        <details className="space-y-2">
+          <summary className="cursor-pointer text-2xl font-medium opacity-70">Extras</summary>
 
-          {/* Single add control: select a point + enter length */}
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs opacity-70">From</label>
-            <select
-              className="inputCompact h-8 text-xs"
-              value={pendingTrace.point}
-              onChange={(e) => setPendingTrace((s) => ({ ...s, point: e.target.value }))}
-            >
-              {makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((pt) => (
-                <option key={pt} value={pt}>
-                  {pt}
-                </option>
-              ))}
-            </select>
+          {/* Trace cables - separate section (keeps points compact on mobile) */}
+          <section className="space-y-2">
+            <h5 className="text-sm font-medium opacity-70">Trace Cables</h5>
 
-            <label className="text-xs opacity-70">Length</label>
-            <input
-              className="inputCompact h-8 w-28 text-xs"
-              type="number"
-              min={0}
-              inputMode="numeric"
-              placeholder="mm"
-              value={pendingTrace.length}
-              onChange={(e) => setPendingTrace((s) => ({ ...s, length: e.target.value }))}
-            />
-            <button
-              type="button"
-              className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              onClick={addTraceCable}
-              aria-label={`Add trace from ${pendingTrace.point}`}
-            >
-              Add
-            </button>
-          </div>
+            {/* Single add control: select a point + enter length */}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs opacity-70">From</label>
+              <select
+                className="inputCompact h-8 text-xs"
+                value={pendingTrace.point}
+                onChange={(e) => setPendingTrace((s) => ({ ...s, point: e.target.value }))}
+              >
+                {makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((pt) => (
+                  <option key={pt} value={pt}>
+                    {pt}
+                  </option>
+                ))}
+              </select>
 
-          {/* Existing trace cables list */}
-          {(attributes.traceCables || []).length > 0 && (
-            <div className="space-y-2 mt-2 text-xs">
-              {(attributes.traceCables || []).map((tc, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-6 opacity-80">{tc.point}</div>
-                  <input
-                    className="inputCompact h-8 w-28 text-xs"
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={tc.length}
-                    onChange={(e) => updateTraceCableLength(i, e.target.value)}
-                  />
-                  <div className="opacity-70">mm</div>
-                  <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeTraceCable(i)}>
-                    Remove
-                  </button>
-                </div>
-              ))}
+              <label className="text-xs opacity-70">Length</label>
+              <input
+                className="inputCompact h-8 w-28 text-xs"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="mm"
+                value={pendingTrace.length}
+                onChange={(e) => setPendingTrace((s) => ({ ...s, length: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                onClick={addTraceCable}
+                aria-label={`Add trace from ${pendingTrace.point}`}
+              >
+                Add
+              </button>
             </div>
-          )}
-        </section>
-      )}
 
-      {/* UFCs - similar to Trace Cables: diagonal + optional size (5 or 6) */}
-      {!discrepancyChecker && (
-        <section className="space-y-2">
-          <h5 className="text-sm font-medium opacity-70">UFCs</h5>
+            {/* Existing trace cables list */}
+            {(attributes.traceCables || []).length > 0 && (
+              <div className="space-y-2 mt-2 text-xs">
+                {(attributes.traceCables || []).map((tc, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-6 opacity-80">{tc.point}</div>
+                    <input
+                      className="inputCompact h-8 w-28 text-xs"
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={tc.length}
+                      onChange={(e) => updateTraceCableLength(i, e.target.value)}
+                    />
+                    <div className="opacity-70">mm</div>
+                    <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeTraceCable(i)}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* UFCs - similar to Trace Cables: diagonal + optional size (5 or 6) */}
+          <section className="space-y-2">
+            <h5 className="text-sm font-medium opacity-70">UFCs</h5>
 
 <div className="flex flex-wrap items-center gap-2">
   <label className="text-xs opacity-70">Diagonal</label>
@@ -1113,63 +1110,64 @@ const setPointField = (p, key, value) =>
   </button>
 </div>
 
-          {(attributes.ufcs || []).length > 0 && (
-            <div className="space-y-2 mt-2 text-xs">
-              {(attributes.ufcs || []).map((u, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  {/* Diagonal label */}
-                  <div className="w-10 opacity-80">{u.diagonal}</div>
+            {(attributes.ufcs || []).length > 0 && (
+              <div className="space-y-2 mt-2 text-xs">
+                {(attributes.ufcs || []).map((u, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    {/* Diagonal label */}
+                    <div className="w-10 opacity-80">{u.diagonal}</div>
 
-                  {/* Size selector */}
-                  <select
-                    className="inputCompact h-8 w-20 text-xs"
-                    value={u.size ?? ""}
-                    onChange={(e) => updateUfcSize(i, e.target.value)}
-                  >
-                    <option value="">(auto)</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                  </select>
-                  <div className="opacity-70">mm</div>
+                    {/* Size selector */}
+                    <select
+                      className="inputCompact h-8 w-20 text-xs"
+                      value={u.size ?? ""}
+                      onChange={(e) => updateUfcSize(i, e.target.value)}
+                    >
+                      <option value="">(auto)</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                    </select>
+                    <div className="opacity-70">mm</div>
 
-                  {/* Internal Pocket selector */}
-                  <select
-                    className="inputCompact h-8 w-20 text-xs"
-                    value={u.internalPocket ? "yes" : "no"}
-                    onChange={(e) =>
-                      updateUfcField(i, "internalPocket", e.target.value === "yes")
-                    }
-                  >
-                    <option value="no">No Pocket</option>
-                    <option value="yes">Pocket</option>
-                  </select>
+                    {/* Internal Pocket selector */}
+                    <select
+                      className="inputCompact h-8 w-20 text-xs"
+                      value={u.internalPocket ? "yes" : "no"}
+                      onChange={(e) =>
+                        updateUfcField(i, "internalPocket", e.target.value === "yes")
+                      }
+                    >
+                      <option value="no">No Pocket</option>
+                      <option value="yes">Pocket</option>
+                    </select>
 
-                  {/* Coated Cable selector */}
-                  <select
-                    className="inputCompact h-8 w-20 text-xs"
-                    value={u.coatedCable ? "yes" : "no"}
-                    onChange={(e) =>
-                      updateUfcField(i, "coatedCable", e.target.value === "yes")
-                    }
-                  >
-                    <option value="no">Uncoated</option>
-                    <option value="yes">Coated</option>
-                  </select>
+                    {/* Coated Cable selector */}
+                    <select
+                      className="inputCompact h-8 w-20 text-xs"
+                      value={u.coatedCable ? "yes" : "no"}
+                      onChange={(e) =>
+                        updateUfcField(i, "coatedCable", e.target.value === "yes")
+                      }
+                    >
+                      <option value="no">Uncoated</option>
+                      <option value="yes">Coated</option>
+                    </select>
 
-                  {/* Remove button */}
-                  <button
-                    type="button"
-                    className="text-xs text-red-600 ml-2"
-                    onClick={() => removeUfc(i)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      className="text-xs text-red-600 ml-2"
+                      onClick={() => removeUfc(i)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </details>
       )}
     </div>
   );

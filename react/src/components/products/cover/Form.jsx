@@ -101,6 +101,8 @@ export function ProductForm({ formRef, attributesHydrate = {} }) {
     [attributes]
   );
 
+  let role = localStorage.getItem("role");
+
   return (
     <div>
       <label className="block text-sm font-medium mb-1">Length (mm)</label>
@@ -203,23 +205,29 @@ export function ProductForm({ formRef, attributesHydrate = {} }) {
         </label>
       </div>
 
-      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Width (mm) </label>
-      <input
-        className="inputCompact"
-        type="number"
-        value={attributes.fabricWidth}
-        onChange={(e) => setAttr("fabricWidth")(e.target.value)}
-        inputMode="numeric"
-      />
+      {(role === "admin" || role === "estimator" || role === "designer") && (
 
-      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Roll Length (mm) </label>
-      <input
-        className="inputCompact"
-        type="number"
-        value={attributes.fabricRollLength}
-        onChange={(e) => setAttr("fabricRollLength")(e.target.value)}
-        inputMode="numeric"
-      />
+      <>
+
+      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Width (mm) </label>
+        <input
+          className="inputCompact"
+          type="number"
+          value={attributes.fabricWidth}
+          onChange={(e) => setAttr("fabricWidth")(e.target.value)}
+          inputMode="numeric"
+        />
+
+        <label className="block text-sm font-medium mb-1 mt-2"> Fabric Roll Length (mm) </label>
+        <input
+          className="inputCompact"
+          type="number"
+          value={attributes.fabricRollLength}
+          onChange={(e) => setAttr("fabricRollLength")(e.target.value)}
+          inputMode="numeric"
+        />
+      </>
+      )}
     </div>
   );
 }

@@ -228,6 +228,8 @@ export default function ProjectForm({
   // Do not overwrite blank tab names; just show default visually
   const handleTabNameBlur = () => {};
 
+  let role = localStorage.getItem("role");
+
   return (
   <div key={instanceKey} className="p-3 space-y-4">
 
@@ -412,17 +414,21 @@ export default function ProjectForm({
         )}
       </section>
 
+      {(role === "admin" || role === "estimator" || role === "designer") && (
 
-      <div className="flex items-center mb-2">
-        <input
-          type="checkbox"
-          id="submitToWG"
-          checked={submitToWG}
-          onChange={e => setSubmitToWG(e.target.checked)}
-          style={{ marginRight: '8px' }}
-        />
-        <label htmlFor="submitToWG" style={{ fontWeight: 500 }}>Submit to WG</label>
-      </div>
+      <>
+        <div className="flex items-center mb-2">
+          <input
+            type="checkbox"
+            id="submitToWG"
+            checked={submitToWG}
+            onChange={e => setSubmitToWG(e.target.checked)}
+            style={{ marginRight: '8px' }}
+          />
+          <label htmlFor="submitToWG" style={{ fontWeight: 500 }}>Submit to WG</label>
+        </div>
+      </>
+      )}
     </div>
   );
 }

@@ -17,6 +17,10 @@ export default function NewProject() {
   const [createdProject, setCreatedProject] = useState(null);
 
   const role = localStorage.getItem("role") || "guest";
+  const isStaff = ['estimator', 'admin', 'designer'].includes(role);
+
+  // Filter products based on user role
+  const visibleProducts = PRODUCTS.filter(p => !p.staffOnly || isStaff);
 
   // No longer needed: ProductFormComponent
 
@@ -162,7 +166,7 @@ export default function NewProject() {
         setOpen={setSidebarOpen}
         selectedProduct={product}
         setSelectedProduct={setProduct}
-        products={PRODUCTS}
+        products={visibleProducts}
       />
 
       {toast && (

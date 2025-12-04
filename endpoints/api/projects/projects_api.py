@@ -25,7 +25,7 @@ from reportlab.pdfgen import canvas
 
 from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
-from endpoints.api.projects.projects_calc import dispatch
+from endpoints.api.projects.products import dispatch_calculation as dispatch
 from endpoints.api.projects.products import dispatch_dxf
 
 from WG.workGuru import wg_get
@@ -225,6 +225,7 @@ def save_project_config():
         project.project_attributes = project_attributes
     
     # ---------- Check for discrepancy problems in shade_sail (product_id == 2) on create ----------
+    '''
     if not project_id and product_id == 2:  # Only on create for shade_sail
         discrepancy_sails = []
         for idx, p in enumerate(products_payload):
@@ -233,6 +234,7 @@ def save_project_config():
                 discrepancy_sails.append(label)
         if discrepancy_sails:
             return jsonify({"error": f"Discrepancy problems in sails: {', '.join(discrepancy_sails)}"}), 400
+    '''
     
     # Deprecated: keep project_calculated for backward compat but consider empty
     project.project_calculated = project_calculated or {}

@@ -166,6 +166,26 @@ def _get_dist_xy(a: str, b: str, xy_distances: Dict[str, float]) -> float:
     return xy_distances.get(k, 0.0)
 
 
+def _calculate_tr_angle_from_coords(tr: Dict[str, float], br: Dict[str, float], global_angle_rad: float) -> float:
+    # Vector for Right edge (TR -> BR)
+    dx = br["x"] - tr["x"]
+    dy = br["y"] - tr["y"]
+    # If edge length is effectively 0, fallback to 0 degrees
+    if math.hypot(dx, dy) < 1e-9:
+        return 0.0
+    
+    ang_right = math.atan2(dy, dx)
+    ang_top = global_angle_rad
+    
+    diff = ang_right - ang_top
+    diff_deg = math.degrees(diff)
+    # Normalize to -180..180
+    diff_deg = (diff_deg + 180) % 360 - 180
+    
+    # Internal angle is 180 - abs(diff)
+    return 180.0 - abs(diff_deg)
+
+
 def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) -> Dict[str, Dict[str, float]]:
     positions: Dict[str, Dict[str, float]] = {}
     boxes = _generate_boxes(N)
@@ -194,7 +214,7 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 for k, v in mapped.items():
                     positions[k] = v
                 current_anchor = mapped[TR]
-                prev_TR_angle = angle_TR
+                prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
                 first_box = True
             else:
                 hinge_deg = 180.0 - (prev_TR_angle + angle_TL)
@@ -210,7 +230,7 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                             continue
                     positions[k] = p
                 current_anchor = mapped[TR]
-                prev_TR_angle = angle_TR
+                prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
 
         elif len(pts) == 3:  # triangle terminal
             A, B, C = pts

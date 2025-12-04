@@ -88,13 +88,16 @@ def generate_dxf(project, download_name: str):
 
         post_xy = {}
 
-        product_desc = f"Sail: {pp.get('productIndex', idx)} | {pp.get('name') or 'Unnamed'} | Points: {point_count} | Material: {attrs.get('fabricType')} {attrs.get('colour')}"
-        if attrs.get("exitPoint"):
-            product_desc += f" | Exit: {attrs['exitPoint']}"
-        if attrs.get("logoPoint"):
-            product_desc += f" | Logo: {attrs['logoPoint']}"
-
-        msp.add_text(product_desc, dxfattribs={"layer": "PEN", "height": 300}).set_placement((x_offset - 3000, 2000))
+        edge_meter = attrs.get('edgeMeter', 0)
+        perimeter = attrs.get('perimeter', 0)
+        
+        # Main product title
+        product_title = f"Sail: {pp.get('productIndex', idx)} | {pp.get('name') or 'Unnamed'} | Points: {point_count}"
+        msp.add_text(product_title, dxfattribs={"layer": "PEN", "height": 300}).set_placement((x_offset - 3000, 2000))
+        
+        # Details on separate line, smaller text
+        product_details = f"Material: {attrs.get('fabricType')} {attrs.get('colour')} | Perimeter: {int(perimeter)}mm | Edge Meter: {edge_meter}m"
+        msp.add_text(product_details, dxfattribs={"layer": "PEN", "height": 200}).set_placement((x_offset - 3000, 1600))
 
         # Compute center in 3D (average of post XYZ) - do this first
         cx, cy, cz = 0.0, 0.0, 0.0
@@ -170,13 +173,45 @@ def generate_dxf(project, download_name: str):
             msp.add_point((cx, cy, cz), dxfattribs={"layer": "MARK"})
             msp.add_circle((cx, cy, cz), 35.0, dxfattribs={"layer": "MARK"})
 
-        # Perimeter in 3D using A..N order
+        # Perimeter in 3D using A..N order with edge labels
         order = [chr(65 + i) for i in range(point_count)]
+        dimensions = attrs.get('dimensions') or {}
         for i in range(point_count):
             a = order[i]
             b = order[(i + 1) % point_count]
             if a in post_xy and b in post_xy:
+                # Draw perimeter edge
                 msp.add_line(post_xy[a], post_xy[b], dxfattribs={"layer": "MARK"})
+                # Add edge label at midpoint
+                edge_key = f"{a}{b}"
+                edge_length = _safe_num(dimensions.get(edge_key))
+                if edge_length:
+                    mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
+                    mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
+                    mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
+                    edge_label = f"{edge_key}\n{int(round(edge_length))}mm"
+                    msp.add_mtext(edge_label, dxfattribs={"layer": "PEN", "char_height": 80, "color": 3, "bg_fill": 1, "bg_fill_color": 7}).set_location((mid_x, mid_y, mid_z), attachment_point=5)
+
+        # Draw diagonal lines (thinner, less apparent) with labels
+        for i in range(point_count):
+            for j in range(i + 2, point_count):
+                # Skip adjacent edges (already drawn as perimeter)
+                if j == (i + 1) % point_count or i == (j + 1) % point_count:
+                    continue
+                a = order[i]
+                b = order[j]
+                diag_key_ab = f"{a}{b}"
+                diag_key_ba = f"{b}{a}"
+                diag_length = _safe_num(dimensions.get(diag_key_ab)) or _safe_num(dimensions.get(diag_key_ba))
+                if diag_length and a in post_xy and b in post_xy:
+                    # Draw thin diagonal line
+                    msp.add_line(post_xy[a], post_xy[b], dxfattribs={"layer": "PEN", "color": 8, "lineweight": -1})  # color 8 = gray, thin line
+                    # Add diagonal label at midpoint
+                    mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
+                    mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
+                    mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
+                    diag_label = f"{a}{b}\n{int(round(diag_length))}mm"
+                    msp.add_mtext(diag_label, dxfattribs={"layer": "PEN", "char_height": 60, "color": 8, "bg_fill": 1, "bg_fill_color": 7}).set_location((mid_x, mid_y, mid_z), attachment_point=5)
 
         # Workpoints: 3D offset from each post toward 3D center by tensionAllowance
         workpoints = {}

@@ -166,6 +166,26 @@ def _get_dist_xy(a: str, b: str, xy_distances: Dict[str, float]) -> float:
     return xy_distances.get(k, 0.0)
 
 
+def _calculate_tr_angle_from_coords(tr: Dict[str, float], br: Dict[str, float], global_angle_rad: float) -> float:
+    # Vector for Right edge (TR -> BR)
+    dx = br["x"] - tr["x"]
+    dy = br["y"] - tr["y"]
+    # If edge length is effectively 0, fallback to 0 degrees
+    if math.hypot(dx, dy) < 1e-9:
+        return 0.0
+    
+    ang_right = math.atan2(dy, dx)
+    ang_top = global_angle_rad
+    
+    diff = ang_right - ang_top
+    diff_deg = math.degrees(diff)
+    # Normalize to -180..180
+    diff_deg = (diff_deg + 180) % 360 - 180
+    
+    # Internal angle is 180 - abs(diff)
+    return 180.0 - abs(diff_deg)
+
+
 def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) -> Dict[str, Dict[str, float]]:
     positions: Dict[str, Dict[str, float]] = {}
     boxes = _generate_boxes(N)
@@ -194,7 +214,7 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 for k, v in mapped.items():
                     positions[k] = v
                 current_anchor = mapped[TR]
-                prev_TR_angle = angle_TR
+                prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
                 first_box = True
             else:
                 hinge_deg = 180.0 - (prev_TR_angle + angle_TL)
@@ -210,7 +230,7 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                             continue
                     positions[k] = p
                 current_anchor = mapped[TR]
-                prev_TR_angle = angle_TR
+                prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
 
         elif len(pts) == 3:  # triangle terminal
             A, B, C = pts
@@ -296,8 +316,20 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
         dBD = xy_distances.get("BD", 0.0)
         dCD = xy_distances.get("CD", 0.0)
         quad = _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD)
-        return {"A": quad["A"], "B": quad["B"], "C": quad["C"], "D": quad["D"]}
-    return _compute_positions_for_many_sided(point_count, xy_distances)
+        # Flip Y to ensure Clockwise winding (standard for this product)
+        # _place_quadrilateral produces CCW (C at +y). We want CW (C at -y).
+        return {
+            "A": {"x": quad["A"]["x"], "y": -quad["A"]["y"]},
+            "B": {"x": quad["B"]["x"], "y": -quad["B"]["y"]},
+            "C": {"x": quad["C"]["x"], "y": -quad["C"]["y"]},
+            "D": {"x": quad["D"]["x"], "y": -quad["D"]["y"]}
+        }
+    
+    # For >4 points, we also need to flip the result
+    positions = _compute_positions_for_many_sided(point_count, xy_distances)
+    for k, p in positions.items():
+        positions[k] = {"x": p["x"], "y": -p["y"]}
+    return positions
 
 
 # ---------------------------------------------------------------------------
@@ -345,8 +377,22 @@ def _compute_discrepancy_xy(dimensions: Dict[str, float]) -> Dict[str, Any]:
     B = {"x": AB * math.cos(angleA_ABC), "y": AB * math.sin(angleA_ABC)}
     cosA_ADC = (AD * AD + AC * AC - CD * CD) / (2 * AD * AC) if AD and AC and CD else 0.0
     angleA_ADC = safe_acos(cosA_ADC) if AD and AC and CD else 0.0
-    D = {"x": AD * math.cos(angleA_ADC), "y": -AD * math.sin(angleA_ADC)}
-    BD_theory = math.hypot(B["x"] - D["x"], B["y"] - D["y"]) if BD else 0.0
+    
+    # Try both positions for D (opposite side of AC as B, or same side)
+    # B is at +y. D1 is -y (convex-ish), D2 is +y (reflex-ish/arrowhead)
+    D1 = {"x": AD * math.cos(angleA_ADC), "y": -AD * math.sin(angleA_ADC)}
+    D2 = {"x": AD * math.cos(angleA_ADC), "y": AD * math.sin(angleA_ADC)}
+    
+    bd1 = math.hypot(B["x"] - D1["x"], B["y"] - D1["y"]) if BD else 0.0
+    bd2 = math.hypot(B["x"] - D2["x"], B["y"] - D2["y"]) if BD else 0.0
+    
+    if abs(bd2 - BD) < abs(bd1 - BD):
+        D = D2
+        BD_theory = bd2
+    else:
+        D = D1
+        BD_theory = bd1
+
     discrepancy = abs(BD_theory - BD)
 
     def angle_at(P: Dict[str, float], Q: Dict[str, float], R: Dict[str, float]) -> float:
@@ -360,16 +406,47 @@ def _compute_discrepancy_xy(dimensions: Dict[str, float]) -> Dict[str, Any]:
         ang = math.acos(max(-1.0, min(1.0, dot / (m1 * m2))))
         return ang
 
+    # Determine winding of the constructed shape to correctly identify reflex angles
+    pts = [A, B, C, D]
+    area = 0.0
+    for i in range(4):
+        p1 = pts[i]
+        p2 = pts[(i + 1) % 4]
+        area += (p1["x"] * p2["y"] - p2["x"] * p1["y"])
+    is_ccw = area > 0
+
+    def is_reflex_vertex(P, Q, R, is_poly_ccw):
+        # Cross product of PQ and QR
+        v1x = Q["x"] - P["x"]
+        v1y = Q["y"] - P["y"]
+        v2x = R["x"] - Q["x"]
+        v2y = R["y"] - Q["y"]
+        cross = v1x * v2y - v1y * v2x
+        is_left = cross > 0
+        if is_poly_ccw:
+            return not is_left # CCW: Right turn is reflex
+        else:
+            return is_left # CW: Left turn is reflex
+
     Aang = angle_at(D, A, B)
     Bang = angle_at(A, B, C)
     Cang = angle_at(B, C, D)
     Dang = angle_at(C, D, A)
 
-    def is_reflex(rad: float) -> bool:
-        return rad > math.pi
+    # Check reflex status
+    refA = is_reflex_vertex(D, A, B, is_ccw)
+    refB = is_reflex_vertex(A, B, C, is_ccw)
+    refC = is_reflex_vertex(B, C, D, is_ccw)
+    refD = is_reflex_vertex(C, D, A, is_ccw)
+
+    # Adjust angles if reflex
+    if refA: Aang = 2 * math.pi - Aang
+    if refB: Bang = 2 * math.pi - Bang
+    if refC: Cang = 2 * math.pi - Cang
+    if refD: Dang = 2 * math.pi - Dang
 
     angles = {"A": math.degrees(Aang), "B": math.degrees(Bang), "C": math.degrees(Cang), "D": math.degrees(Dang)}
-    reflex = {k: is_reflex(v) for k, v in zip(["A", "B", "C", "D"], [Aang, Bang, Cang, Dang])}
+    reflex = {"A": refA, "B": refB, "C": refC, "D": refD}
     reflex_angles = {k: v for k, v in angles.items() if reflex.get(k)}
     return {"discrepancy": discrepancy, "reflex": reflex, "angles": angles, "reflexAngles": reflex_angles}
 

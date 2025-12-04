@@ -74,13 +74,13 @@ export function render(canvas, data) {
     // Reserve ~600px for the sail shape itself, rest for metadata
     const maxShapeHeight = 600;
     const scale = Math.min(innerW / shapeW, maxShapeHeight / shapeH);
-    const topOffset = 100 + idx * (perSailHeight);
+    const topOffset = (idx-1) * (perSailHeight) + 700;
 
     const mapped = {};
-    // Map coordinates ensuring positive X -> right, positive Y -> down
+    // Map coordinates ensuring positive X -> right, positive Y -> up
     for (const [id, p] of Object.entries(positions)) {
       const mappedX = pad + (p.x - minX) * scale;
-      const mappedY = topOffset + pad + (p.y - maxY) * scale + 400; // invert Y so positive goes downward
+      const mappedY = topOffset + pad + (maxY - p.y) * scale + 400; // positive Y goes upward
       mapped[id] = { x: mappedX, y: mappedY };
     }
 
@@ -185,10 +185,14 @@ export function render(canvas, data) {
       ctx.fillStyle = '#F00';
       if (attributes.exitPoint === id && !data.discrepancyChecker) { ctx.fillText('Exit Point', labelX, nextY); nextY += lineSpacingSmall; }
       if (attributes.logoPoint === id && !data.discrepancyChecker) { ctx.fillText('Logo', labelX, nextY); nextY += lineSpacingSmall; }
+      
+      /*
+      reflex not working yet
       if (isReflex) {
         ctx.fillStyle = '#dc2626'; ctx.font = `bold ${Math.round(16 * fontScale)}px Arial`;
         ctx.fillText(`${Math.round(attributes.reflexAngleValues[id])}°`, labelX, nextY);
       }
+      */
     });
 
     // Dimensions (edges + diagonals) with rotated labels

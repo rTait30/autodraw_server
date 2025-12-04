@@ -194,6 +194,11 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
     prev_TR_angle = 0.0
     first_box = False
     tolerance = 1e-3
+    
+    # Keep track of the "previous" points to help with orientation (e.g. D in D-E-G-H)
+    # For the first box, there are no previous points.
+    # For subsequent boxes/triangles, we can use points from the last processed box.
+    last_box_points = []
 
     for box_name, pts in boxes.items():
         if len(pts) == 4:
@@ -231,30 +236,126 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                     positions[k] = p
                 current_anchor = mapped[TR]
                 prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
+            
+            last_box_points = [TL, TR, BR, BL]
 
         elif len(pts) == 3:  # triangle terminal
             A, B, C = pts
-            AB = _get_dist_xy(A, B, xy_distances)
-            BC = _get_dist_xy(B, C, xy_distances)
-            AC = _get_dist_xy(A, C, xy_distances)
-            tri = {"A": {"x": 0.0, "y": 0.0}, "B": {"x": AB, "y": 0.0}}
-            if AB and AC:
-                Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB)
-                Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
-                tri["C"] = {"x": Cx, "y": Cy}
-            angle_A = _law_cosine(AB, AC, BC)
-            hinge_deg = 180.0 - (prev_TR_angle + angle_A)
-            hinge_rad = math.radians(hinge_deg)
-            global_angle += hinge_rad
-            mapped = {}
-            for label, p in tri.items():
-                rotated = _rotate_ccw(p["x"], p.get("y", 0.0), global_angle)
-                real_label = A if label == "A" else B if label == "B" else C
-                mapped[real_label] = {"x": rotated["x"] + current_anchor["x"], "y": rotated["y"] + current_anchor["y"]}
-            for k, v in mapped.items():
-                positions[k] = v
-            current_anchor = mapped[B]
-            prev_TR_angle = angle_A
+            # A and C should already be in positions (connected to previous box)
+            # B is the new point (tip)
+            if A in positions and C in positions:
+                pA = positions[A]
+                pC = positions[C]
+                dAB = _get_dist_xy(A, B, xy_distances)
+                dBC = _get_dist_xy(B, C, xy_distances)
+                dAC = _get_dist_xy(A, C, xy_distances)
+                
+                # Angle at A (BAC)
+                angle_A = _law_cosine(dAB, dAC, dBC)
+                angle_A_rad = math.radians(angle_A)
+                
+                # Angle of vector A->C
+                dx = pC["x"] - pA["x"]
+                dy = pC["y"] - pA["y"]
+                angle_AC = math.atan2(dy, dx)
+                
+                # Two candidates for B
+                ang1 = angle_AC + angle_A_rad
+                ang2 = angle_AC - angle_A_rad
+                
+                B1 = {"x": pA["x"] + dAB * math.cos(ang1), "y": pA["y"] + dAB * math.sin(ang1)}
+                B2 = {"x": pA["x"] + dAB * math.cos(ang2), "y": pA["y"] + dAB * math.sin(ang2)}
+                
+                # 1. Check diagonals to any existing points
+                best_B = None
+                best_err = float('inf')
+                
+                # Gather all diagonals involving B
+                diagonals = []
+                for P_label, P_pos in positions.items():
+                    if P_label in (A, C): continue
+                    dist = _get_dist_xy(B, P_label, xy_distances)
+                    if dist > 0:
+                        diagonals.append((P_pos, dist))
+                
+                if diagonals:
+                    # Evaluate B1
+                    err1 = 0.0
+                    for P_pos, dist in diagonals:
+                        d = math.hypot(B1["x"] - P_pos["x"], B1["y"] - P_pos["y"])
+                        err1 += abs(d - dist)
+                    
+                    # Evaluate B2
+                    err2 = 0.0
+                    for P_pos, dist in diagonals:
+                        d = math.hypot(B2["x"] - P_pos["x"], B2["y"] - P_pos["y"])
+                        err2 += abs(d - dist)
+                        
+                    best_B = B1 if err1 < err2 else B2
+                
+                # 2. Fallback: Orientation check relative to previous box
+                if best_B is None:
+                    # Find a reference point from the previous box (not A or C)
+                    # A and C are likely TR and BR of previous box.
+                    # So TL or BL of previous box are good references.
+                    ref_point = None
+                    for p_label in last_box_points:
+                        if p_label not in (A, C) and p_label in positions:
+                            ref_point = positions[p_label]
+                            break
+                    
+                    if ref_point:
+                        # Check which side of line AC the ref_point is on
+                        # Cross product (C-A) x (Ref-A)
+                        vACx = pC["x"] - pA["x"]
+                        vACy = pC["y"] - pA["y"]
+                        vRefx = ref_point["x"] - pA["x"]
+                        vRefy = ref_point["y"] - pA["y"]
+                        cp_ref = vACx * vRefy - vACy * vRefx
+                        
+                        # Check B1
+                        vB1x = B1["x"] - pA["x"]
+                        vB1y = B1["y"] - pA["y"]
+                        cp_B1 = vACx * vB1y - vACy * vB1x
+                        
+                        # We want B to be on the OPPOSITE side of AC as Ref
+                        # So cp_B1 and cp_ref should have opposite signs
+                        if (cp_B1 > 0) != (cp_ref > 0):
+                            best_B = B1
+                        else:
+                            best_B = B2
+                    else:
+                        # No reference? Default to B1 (arbitrary)
+                        best_B = B1
+
+                positions[B] = best_B
+                
+                # Update anchor/angle if needed (though triangle is usually terminal)
+                current_anchor = positions[B]
+                # prev_TR_angle update is ambiguous for triangle tip, but usually not needed after terminal
+            else:
+                # Fallback to old logic if A/C not found (shouldn't happen in strip)
+                AB = _get_dist_xy(A, B, xy_distances)
+                BC = _get_dist_xy(B, C, xy_distances)
+                AC = _get_dist_xy(A, C, xy_distances)
+                tri = {"A": {"x": 0.0, "y": 0.0}, "B": {"x": AB, "y": 0.0}}
+                if AB and AC:
+                    Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB)
+                    Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
+                    tri["C"] = {"x": Cx, "y": Cy}
+                angle_A = _law_cosine(AB, AC, BC)
+                hinge_deg = 180.0 - (prev_TR_angle + angle_A)
+                hinge_rad = math.radians(hinge_deg)
+                global_angle += hinge_rad
+                mapped = {}
+                for label, p in tri.items():
+                    rotated = _rotate_ccw(p["x"], p.get("y", 0.0), global_angle)
+                    real_label = A if label == "A" else B if label == "B" else C
+                    mapped[real_label] = {"x": rotated["x"] + current_anchor["x"], "y": rotated["y"] + current_anchor["y"]}
+                for k, v in mapped.items():
+                    positions[k] = v
+                current_anchor = mapped[B]
+                prev_TR_angle = angle_A
 
     return positions
 

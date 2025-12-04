@@ -110,7 +110,7 @@ def generate_dxf(project, download_name: str):
                 rx = _safe_num(pos.get("x")) or 0.0
                 ry = _safe_num(pos.get("y")) or 0.0
                 x_post = x_offset + (rx - min_x)
-                y_post = - (ry)
+                y_post = ry  # positive Y upward
                 z_post = _safe_num((points.get(label) or {}).get("height")) or 0.0
                 sum_x += x_post
                 sum_y += y_post
@@ -124,9 +124,9 @@ def generate_dxf(project, download_name: str):
         for label, pos in positions.items():
             rx = _safe_num(pos.get("x")) or 0.0
             ry = _safe_num(pos.get("y")) or 0.0
-            # Use raw units; flip Y for plan orientation
+            # Use raw units; positive Y upward
             x = x_offset + (rx - min_x)
-            y = - (ry)
+            y = ry
 
             # Z from points height
             h_raw = (points.get(label) or {}).get("height")
@@ -219,7 +219,7 @@ def generate_dxf(project, download_name: str):
             rx = _safe_num(pos.get("x")) or 0.0
             ry = _safe_num(pos.get("y")) or 0.0
             x_post = x_offset + (rx - min_x)
-            y_post = - (ry)
+            y_post = ry  # positive Y upward
             z_post = _safe_num((points.get(label) or {}).get("height")) or 0.0
             ta_raw = (points.get(label) or {}).get("tensionAllowance")
             ta = _safe_num(ta_raw) or 0.0

@@ -30,7 +30,7 @@ import { GeneralSection } from "../../GeneralSection";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
-const MAX_POINTS = 11;
+const MAX_POINTS = 21;
 
 const TENSION_HARDWARE_OPTIONS = [
   "M8 Bowshackle",
@@ -742,8 +742,21 @@ const setPointField = (p, key, value) =>
           }
 
           const mandatoryDiagonals = diagonals.filter(([lbl]) => mandatorySet.has(lbl));
-          const optionalDiagonals = diagonals.filter(([lbl]) => !mandatorySet.has(lbl));
- 
+          
+          // For odd-numbered points (>=5), identify the "tip" vertex (middle index).
+          // We need at least one diagonal connected to this tip to stabilize the reflex/convex orientation.
+          let tipDiagonals = [];
+          let otherDiagonals = diagonals.filter(([lbl]) => !mandatorySet.has(lbl));
+          
+          if (count >= 5 && count % 2 !== 0) {
+            const tipVertex = verts[Math.floor(count / 2)];
+            // Filter out diagonals connected to the tip from the general optional list
+            const connectedToTip = otherDiagonals.filter(([lbl]) => lbl.includes(tipVertex));
+            const notConnected = otherDiagonals.filter(([lbl]) => !lbl.includes(tipVertex));
+            
+            tipDiagonals = connectedToTip;
+            otherDiagonals = notConnected;
+          }
 
           return (
             <>
@@ -832,11 +845,39 @@ const setPointField = (p, key, value) =>
 
               <br></br>
 
-              {optionalDiagonals.length > 0 && (
+              {/* Tip Diagonals (for odd points) */}
+              {tipDiagonals.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-sm font-medium opacity-70 text-blue-700">
+                    Tip diagonals (Provide at least one)
+                  </h5>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 p-2 bg-blue-50 rounded border border-blue-100">
+                    {tipDiagonals.map(([label, value]) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-blue-800">{label}</label>
+                        <input
+                          ref={(el) => (diagRefs.current[label] = el)}
+                          className="inputCompact w-28 border-blue-300 focus:border-blue-500"
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={value}
+                          onChange={(e) => setDimension(label, e.target.value)}
+                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tipDiagonals.length > 0 && <br></br>}
+
+              {otherDiagonals.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-sm font-medium opacity-70">Optional diagonals (Please provide as many as possible)</h5>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
-                    {optionalDiagonals.map(([label, value]) => (
+                    {otherDiagonals.map(([label, value]) => (
                       <div key={label} className="flex items-center gap-2">
                         <label className="text-sm">{label}</label>
                         <input
@@ -856,7 +897,7 @@ const setPointField = (p, key, value) =>
               )}
 
               {/* Clear diagonals button */}
-              {(mandatoryDiagonals.length > 0 || optionalDiagonals.length > 0) && (
+              {(mandatoryDiagonals.length > 0 || tipDiagonals.length > 0 || otherDiagonals.length > 0) && (
                 <div className="mt-3">
                   <button
                     type="button"

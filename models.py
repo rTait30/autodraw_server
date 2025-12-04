@@ -32,14 +32,20 @@ class Product(db.Model):
     schemas = db.relationship('EstimatingSchema', backref='product', lazy='dynamic', foreign_keys='EstimatingSchema.product_id')
 
 class ProjectStatus(enum.Enum):
-    quoting = "quoting"
-    estimating = "estimating"
-    design = "design"
-    production = "production"
-    quality_checking = "quality_checking"
-    completed = "completed"
-    dispatched = "dispatched"
-    # Add more statuses as needed
+    awaiting_deposit = "1.1 Awaiting Deposit"
+    on_hold = "1.2 On Hold"
+    request_deposit = "1.3 Request Deposit"
+    in_design = "2.1 In Design"
+    sent_for_approval = "2.2 Sent for approval"
+    customer_approved = "2.3 Customer Approved"
+    awaiting_materials = "3.1 Awaiting Materials"
+    waiting_to_start = "3.2 Waiting to Start"
+    in_progress = "4.1 In Progress"
+    completion_invoice = "4.2 Completion Invoice"
+    awaiting_final_payment = "5.1 Awaiting Final Payment"
+    ready_for_despatch = "5.2 Ready For Despatch"
+    cancelled = "5.3 Cancelled"
+    completed = "5.4 Completed"
 
 class Project(db.Model):
     __tablename__ = "projects"
@@ -50,7 +56,7 @@ class Project(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     product = db.relationship("Product", backref="projects")
 
-    status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.quoting)
+    status = db.Column(SqlEnum(ProjectStatus), nullable=False, default=ProjectStatus.awaiting_deposit)
     due_date = db.Column(db.Date)
     info = db.Column(db.Text)
     client_id = db.Column(db.Integer, db.ForeignKey("users.id"))

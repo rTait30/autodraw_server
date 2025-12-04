@@ -124,7 +124,7 @@ export default function EstimateTable({
 
       Object.entries(schema).forEach(([section, rows]) => {
         if (!Array.isArray(rows)) return; // skip _constants or non-array entries
-        // Build computation context incrementally (attributes first; inputs will be added below)
+        // Build computation context - use functional state getter to avoid stale closure
         newRowState[productIndex][section] = rows
           .filter((r) => r.type === 'row' || r.type === 'sku')
           .map((row) => {
@@ -133,8 +133,8 @@ export default function EstimateTable({
               inputs: newInputState[productIndex],
               rows: newRowState[productIndex],
               global: {
-                contingencyPercent: contingencyPercents[productIndex] ?? initialContingency,
-                marginPercent: marginPercents[productIndex] ?? initialMargin,
+                contingencyPercent: initialContingency,
+                marginPercent: initialMargin,
               },
             };
 
@@ -175,24 +175,44 @@ export default function EstimateTable({
 
     setRowState(newRowState);
     setInputState(newInputState);
-    // Initialize per-product margin/contingency if not set
+    
+    // Initialize per-product margin/contingency ONLY if product indexes changed
+    const productIndexes = sortedProducts.map(p => p.productIndex || 0);
     setContingencyPercents((prev) => {
-      const updated = { ...prev };
-      sortedProducts.forEach((product) => {
-        const productIndex = product.productIndex || 0;
-        if (updated[productIndex] === undefined) updated[productIndex] = initialContingency;
+      const existingIndexes = Object.keys(prev).map(Number).sort();
+      const newIndexes = [...productIndexes].sort();
+      
+      // Only update if indexes actually changed
+      if (existingIndexes.length === newIndexes.length && 
+          existingIndexes.every((val, i) => val === newIndexes[i])) {
+        return prev;
+      }
+      
+      const updated = {};
+      productIndexes.forEach((productIndex) => {
+        updated[productIndex] = prev[productIndex] ?? initialContingency;
       });
       return updated;
     });
+    
     setMarginPercents((prev) => {
-      const updated = { ...prev };
-      sortedProducts.forEach((product) => {
-        const productIndex = product.productIndex || 0;
-        if (updated[productIndex] === undefined) updated[productIndex] = initialMargin;
+      const existingIndexes = Object.keys(prev).map(Number).sort();
+      const newIndexes = [...productIndexes].sort();
+      
+      // Only update if indexes actually changed
+      if (existingIndexes.length === newIndexes.length && 
+          existingIndexes.every((val, i) => val === newIndexes[i])) {
+        return prev;
+      }
+      
+      const updated = {};
+      productIndexes.forEach((productIndex) => {
+        updated[productIndex] = prev[productIndex] ?? initialMargin;
       });
       return updated;
     });
-  }, [schema, products, skuProducts, skuLoading, skuFetchKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema, skuProducts, skuLoading, skuFetchKey, products.length]);
 
   // --- Handlers (now take productIndex) ---
   const handleRowChange = (productIndex, section, idx, field, value) => {

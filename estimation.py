@@ -129,7 +129,11 @@ def _evaluate_value(val: Any, attrs: Dict[str, Any]) -> float:
         try:
             return float(val)
         except Exception:
-            return _safe_eval_expr(val, attrs or {})
+            try:
+                return _safe_eval_expr(val, attrs or {})
+            except Exception:
+                # If expression evaluation fails, return 0 to avoid breaking the entire calculation
+                return 0.0
     return 0.0
 
 

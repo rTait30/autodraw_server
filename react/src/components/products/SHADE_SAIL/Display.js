@@ -37,6 +37,26 @@ export function render(canvas, data) {
     const ids = Object.keys(positions);
     if (!ids.length) return;
 
+    // Build a set of problematic line keys (unordered pairs) from boxProblems
+    // For any box like ABCD, mark AB, BC, CD, DA and diagonals AC, BD as problematic
+    const problematicLines = new Set();
+    if (attributes.boxProblems) {
+      Object.entries(attributes.boxProblems).forEach(([boxKey, isProblem]) => {
+        if (!isProblem || !boxKey || boxKey.length < 4) return;
+        const corners = boxKey.replace(/[^A-Za-z]/g, '').split('');
+        if (corners.length < 4) return;
+        const [A, B, C, D] = corners;
+        const pairs = [
+          [A, B], [B, C], [C, D], [D, A], // edges
+          [A, C], [B, D],                  // diagonals
+        ];
+        pairs.forEach(([p1, p2]) => {
+          const key = [p1, p2].sort().join('');
+          problematicLines.add(key);
+        });
+      });
+    }
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const id of ids) {
       const p = positions[id];
@@ -64,25 +84,25 @@ export function render(canvas, data) {
       mapped[id] = { x: mappedX, y: mappedY };
     }
 
-    const ordered = [...ids].sort();
+    // Compute centroid
     let cx = 0, cy = 0;
-    ordered.forEach(id => { cx += mapped[id].x; cy += mapped[id].y; });
-    cx /= ordered.length || 1; cy /= ordered.length || 1;
+    ids.forEach(id => { cx += mapped[id].x; cy += mapped[id].y; });
+    cx /= (ids.length || 1); cy /= (ids.length || 1);
 
-    // Draw outer perimeter edges with problematic coloring and catenary curves
+    // Order points by polar angle around centroid to approximate perimeter order
+    const angles = Object.fromEntries(ids.map(id => [id, Math.atan2(mapped[id].y - cy, mapped[id].x - cx)]));
+    const ordered = [...ids].sort((a, b) => angles[a] - angles[b]);
+
+    // Draw outer perimeter edges with catenary curves only; color red if problematic
     for (let i = 0; i < ordered.length; i++) {
       const p1 = ordered[i];
       const p2 = ordered[(i + 1) % ordered.length];
       const pos1 = mapped[p1];
       const pos2 = mapped[p2];
       if (!pos1 || !pos2) continue;
-      let isProblematicEdge = false;
-      for (const boxKey in attributes.boxProblems || {}) {
-        if (attributes.boxProblems[boxKey] && boxKey.includes(p1) && boxKey.includes(p2)) {
-          isProblematicEdge = true;
-          break;
-        }
-      }
+
+      const lineKey = [p1, p2].sort().join('');
+      const isProblematicPerimeter = problematicLines.has(lineKey);
 
       // Draw catenary curve (visual only, 5% dip)
       // Find midpoint
@@ -113,7 +133,7 @@ export function render(canvas, data) {
       const cy1 = my + dipDirY * dip;
       // Draw catenary as quadratic curve
       ctx.save();
-      ctx.strokeStyle = '#0000FF'; // red for catenary
+      ctx.strokeStyle = isProblematicPerimeter ? '#F00' : '#0000FF'; // red if problematic, else catenary blue
       ctx.lineWidth = 4; // thicker but constant
       ctx.beginPath();
       ctx.moveTo(pos1.x, pos1.y);
@@ -190,10 +210,7 @@ export function render(canvas, data) {
       const pos1 = mapped[p1]; const pos2 = mapped[p2];
       if (!pos1 || !pos2) continue;
       if (!isPerimeterEdge(p1, p2)) {
-        let isProblematicLine = false;
-        for (const boxKey in attributes.boxProblems || {}) {
-          if (attributes.boxProblems[boxKey] && boxKey.includes(p1) && boxKey.includes(p2)) { isProblematicLine = true; break; }
-        }
+        const isProblematicLine = problematicLines.has(lineKey);
         ctx.strokeStyle = isProblematicLine ? '#F00' : '#999';
         ctx.lineWidth = 1 * baseScale; ctx.beginPath(); ctx.moveTo(pos1.x, pos1.y); ctx.lineTo(pos2.x, pos2.y); ctx.stroke();
       }

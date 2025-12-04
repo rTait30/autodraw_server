@@ -26,12 +26,46 @@ async function loadTypeResources(type) {
   };
 }
 
+// Helper function to get color based on status
+function getStatusColor(status) {
+  const statusLower = (status || '').toLowerCase();
+  const colors = {
+    // Phase 1: Initial/Quote
+    'awaiting_deposit': '#f59e0b',      // amber
+    'on_hold': '#6b7280',               // gray
+    'request_deposit': '#f97316',       // orange
+    
+    // Phase 2: Design
+    'in_design': '#ec4899',             // pink
+    'sent_for_approval': '#8b5cf6',     // purple
+    'customer_approved': '#10b981',     // green
+    
+    // Phase 3: Pre-Production
+    'awaiting_materials': '#f59e0b',    // amber
+    'waiting_to_start': '#3b82f6',      // blue
+    
+    // Phase 4: Production
+    'in_progress': '#3b82f6',           // blue
+    'completion_invoice': '#8b5cf6',    // purple
+    
+    // Phase 5: Final
+    'awaiting_final_payment': '#f59e0b', // amber
+    'ready_for_despatch': '#10b981',    // green
+    'cancelled': '#ef4444',             // red
+    'completed': '#059669',             // dark green
+  };
+  return colors[statusLower] || '#6366f1'; // default indigo
+}
+
 export default function ProjectDetailsPage() {
 
   const containerRef = useRef(null);
 
   // Get devMode from Redux
   const devMode = useSelector(state => state.toggles.devMode);
+
+  // New: force canvas rerender after data changes
+  const [displayVersion, setDisplayVersion] = useState(0);
   /* ==========================================================================
    *  ROUTING / PARAMS
    *  - [Extract] into a helper like useProjectIdFromLocation()
@@ -114,10 +148,9 @@ export default function ProjectDetailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // Render canvas using Display module when project data changes
+  // Render canvas using Display module when project data changes or displayVersion bumps
   useEffect(() => {
     if (!editedProject || !canvasRef.current) return;
-    
     const productName = (editedProject.product?.name || editedProject.type?.name || '').toUpperCase();
     if (!productName) return;
 
@@ -136,7 +169,7 @@ export default function ProjectDetailsPage() {
       .catch(e => {
         console.warn(`No Display module for ${productName}:`, e.message);
       });
-  }, [editedProject]);
+  }, [editedProject, displayVersion]);
 
   /* ==========================================================================
    *  ACTIONS: UI event handlers
@@ -202,6 +235,9 @@ export default function ProjectDetailsPage() {
         products: result.products || [],
       });
 
+      // Bump displayVersion to force canvas rerender
+      setDisplayVersion(v => v + 1);
+
       console.log("Recalculation result:", result);
       alert('Calculation complete!');
     } catch (err) {
@@ -249,9 +285,10 @@ export default function ProjectDetailsPage() {
       };
 
       console.log('Updated project:', updatedProject);
-      setProject(updatedProject);
-      setEditedProject(updatedProject);
       alert('Project updated successfully.');
+      
+      // Refresh the page to ensure clean state
+      window.location.reload();
     } catch (e) {
       console.error('Submit error:', e);
       alert(`Error submitting project: ${e.message}`);
@@ -269,6 +306,55 @@ export default function ProjectDetailsPage() {
     const primary = working?.products?.[0];
     const mats = primary?.calculated?.materials;
     alert(mats ? JSON.stringify(mats, null, 2) : 'No materials data available.');
+  };
+
+  // Handle status change and submit immediately
+  const handleStatusChange = async (e) => {
+    const newStatus = e.target.value;
+    
+    try {
+      const payload = {
+        id: project.id,
+        general: {
+          ...project.general,
+          status: newStatus,
+        },
+      };
+
+      const res = await apiFetch(`/products/edit/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok || json?.error) {
+        alert(`Status update failed: ${json?.error || res.statusText}`);
+        return;
+      }
+
+      // Update local state
+      setProject({
+        ...project,
+        general: {
+          ...project.general,
+          status: newStatus,
+        },
+      });
+      
+      setEditedProject({
+        ...editedProject,
+        general: {
+          ...editedProject.general,
+          status: newStatus,
+        },
+      });
+
+      console.log('Status updated to:', newStatus);
+    } catch (e) {
+      console.error('Status update error:', e);
+      alert(`Error updating status: ${e.message}`);
+    }
   };
 
   // handlers
@@ -404,6 +490,60 @@ export default function ProjectDetailsPage() {
             gap: '24px',
           }}
         >
+          {/* Status Badge */}
+          {project?.general?.status && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: getStatusColor(project.general.status),
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              borderRadius: '6px',
+              textAlign: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              alignSelf: 'flex-start',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}>
+              <span>Status:</span>
+              {(role === 'estimator' || role === 'designer' || role === 'admin') ? (
+                <select
+                  value={project.general.status}
+                  onChange={handleStatusChange}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="awaiting_deposit" style={{ color: '#000', backgroundColor: '#fff' }}>1.1 AWAITING DEPOSIT</option>
+                  <option value="on_hold" style={{ color: '#000', backgroundColor: '#fff' }}>1.2 ON HOLD</option>
+                  <option value="request_deposit" style={{ color: '#000', backgroundColor: '#fff' }}>1.3 REQUEST DEPOSIT</option>
+                  <option value="in_design" style={{ color: '#000', backgroundColor: '#fff' }}>2.1 IN DESIGN</option>
+                  <option value="sent_for_approval" style={{ color: '#000', backgroundColor: '#fff' }}>2.2 SENT FOR APPROVAL</option>
+                  <option value="customer_approved" style={{ color: '#000', backgroundColor: '#fff' }}>2.3 CUSTOMER APPROVED</option>
+                  <option value="awaiting_materials" style={{ color: '#000', backgroundColor: '#fff' }}>3.1 AWAITING MATERIALS</option>
+                  <option value="waiting_to_start" style={{ color: '#000', backgroundColor: '#fff' }}>3.2 WAITING TO START</option>
+                  <option value="in_progress" style={{ color: '#000', backgroundColor: '#fff' }}>4.1 IN PROGRESS</option>
+                  <option value="completion_invoice" style={{ color: '#000', backgroundColor: '#fff' }}>4.2 COMPLETION INVOICE</option>
+                  <option value="awaiting_final_payment" style={{ color: '#000', backgroundColor: '#fff' }}>5.1 AWAITING FINAL PAYMENT</option>
+                  <option value="ready_for_despatch" style={{ color: '#000', backgroundColor: '#fff' }}>5.2 READY FOR DESPATCH</option>
+                  <option value="cancelled" style={{ color: '#000', backgroundColor: '#fff' }}>5.3 CANCELLED</option>
+                  <option value="completed" style={{ color: '#000', backgroundColor: '#fff' }}>5.4 COMPLETED</option>
+                </select>
+              ) : (
+                <span>{project.general.status.toUpperCase()}</span>
+              )}
+            </div>
+          )}
+
           {/* Buttons: only for staff, and only when it's a cover or shade sail */}
           {(role === 'estimator'|| role === 'designer' || role === 'admin') && (project?.product?.name === 'COVER' || project?.product?.name === 'SHADE_SAIL') && (
             <div className="space-x-2">

@@ -1,7 +1,21 @@
-"""COVER DXF generation."""
+"""COVER DXF generation.
+
+Draws nested panels for cover products showing fold lines, seam marks, and dimension labels.
+Accepts a standalone project dict (similar to SHADE_SAIL approach).
+"""
 import tempfile
 from flask import send_file
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm, snap as _snap, merge_intervals
+
+
+def _safe_num(v):
+    """Convert value to float, returning None if invalid."""
+    if v in (None, "", " "):
+        return None
+    try:
+        return float(str(v).strip())
+    except (ValueError, TypeError):
+        return None
 
 
 def _basename(panel_key: str) -> str:
@@ -97,19 +111,60 @@ def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, se
         msp.add_point((fold_x, actual_y_2), dxfattribs={"layer": "PEN"})
 
 
-def generate_dxf(nest: dict, nested_panels: dict, download_name: str, product_dims: dict):
+def generate_dxf(project, download_name: str):
     """Generate DXF file for COVER product type.
     
+    Accepts a standalone plain project dict and draws nested panels.
+    
+    Expected structure:
+      project = {
+        "general": { "name": str, ... },
+        "products": [ { "name": str, "productIndex": int, "attributes": { ... }, "calculated": { ... } }, ... ],
+        "project_attributes": { "nest": {...}, "nested_panels": {...}, ... },
+        "project_calculated": { ... }
+      }
+    
     Args:
-        nest: Nesting result with 'panels', 'bin_height'/'fabric_height', 'total_width'/'required_width'
-        nested_panels: Panel metadata map with width, height, hasSeam, productIndex
+        project: Full project dict with general, products, project_attributes, project_calculated
         download_name: Filename for the DXF download
-        product_dims: Dict mapping product index to {length, width, height, stayputs}
     
     Returns:
         Flask send_file response with DXF file
     """
     doc, msp = new_doc_mm()
+    
+    # Validate project structure
+    if not isinstance(project, dict):
+        msp.add_text("COVER DXF: Invalid project structure", dxfattribs={"layer": "PEN", "height": 60}).set_placement((100, 200))
+        tmp = tempfile.NamedTemporaryFile(suffix=".dxf", delete=False)
+        tmp_path = tmp.name
+        tmp.close()
+        doc.saveas(tmp_path)
+        return send_file(tmp_path, mimetype="application/dxf", as_attachment=True, download_name=download_name,
+                         max_age=0, etag=False, conditional=False, last_modified=None)
+    
+    # Extract data from project structure
+    project_attrs = project.get("project_attributes") or {}
+    nest = project_attrs.get("nest") or {}
+    nested_panels = project_attrs.get("nested_panels") or {}
+    products_list = project.get("products") or []
+    
+    # Build product_dims map from products
+    product_dims = {}
+    for prod in products_list:
+        prod_idx = prod.get("productIndex", 0)
+        attrs = prod.get("attributes") or {}
+        product_dims[prod_idx] = {
+            "length": _safe_num(attrs.get("length")) or 0,
+            "width": _safe_num(attrs.get("width")) or 0,
+            "height": _safe_num(attrs.get("height")) or 0,
+            "stayputs": attrs.get("stayputs", False),
+        }
+    
+    print("[DXF] COVER project structure:", type(project))
+    print("[DXF] Products count:", len(products_list))
+    print("[DXF] Nest panels count:", len(nest.get("panels") or {}))
+    
     dims = _dims_map_from_raw(nested_panels)
     panels = nest.get("panels") or {}
     bin_h = float(nest.get("bin_height") or nest.get("fabric_height") or 0)

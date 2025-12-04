@@ -164,7 +164,7 @@ def save_project_config():
         # --- CREATE ---
         project = Project(
             name=project_data["name"],
-            status=project_data.get("status") or ProjectStatus.quoting,
+            status=project_data.get("status") or ProjectStatus.awaiting_deposit,
             due_date=project_data.get("due_date"),
             info=project_data.get("info"),
             client_id=target_client_id,
@@ -406,6 +406,19 @@ def upsert_project_and_attributes(project_id):
                 project.due_date = dd
         if "info" in general:
             project.info = general["info"]
+        if "status" in general:
+            st = general["status"]
+            if st is not None:
+                if isinstance(st, ProjectStatus):
+                    project.status = st
+                elif isinstance(st, str):
+                    try:
+                        project.status = ProjectStatus[st]
+                    except KeyError:
+                        try:
+                            project.status = ProjectStatus(st)
+                        except ValueError:
+                            return jsonify({"error": f"Invalid status: {st}"}), 400
     # ---------- Optional product change ----------
     if new_product_id is not None and new_product_id != project.product_id:
         if not db.session.get(Product, new_product_id):

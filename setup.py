@@ -15,7 +15,7 @@ run_command("pip install -r requirements.txt")
 
 # 2. Install Node dependencies
 print("Installing React dependencies...")
-#run_command("npm install", cwd="react")
+run_command("npm install", cwd="react")
 
 # 3. Build and deploy React frontend
 print("Building and deploying React frontend...")

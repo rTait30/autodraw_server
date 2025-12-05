@@ -130,8 +130,8 @@ export default function Discrepancy() {
             <canvas
               ref={canvasRef}
               data-dynamic-sail="true"
-              width={1000}
-              height={1500}
+              width={800}
+              height={500}
               style={{
                 border: "1px solid #d1d5db",
                 marginTop: "20px",

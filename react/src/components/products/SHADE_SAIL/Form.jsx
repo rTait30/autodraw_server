@@ -915,37 +915,32 @@ const setPointField = (p, key, value) =>
 
       <section className="space-y-2 w-full md:max-w-4xl md:mx-auto">
         <br></br>
-        <h5 className="text-sm font-medium opacity-70">Points</h5>
+        <h5 className="text-sm font-medium opacity-70">{discrepancyChecker ? "Heights" : "Points"}</h5>
 
         {/* Compact header — visible on desktop only */}
-        <div className="hidden md:grid grid-cols-11 text-[11px] font-medium opacity-70 mb-1">
-          <div className="col-span-3">Height&nbsp;(m)</div>
+        {!discrepancyChecker && (
+          <div className="hidden md:grid grid-cols-11 text-[11px] font-medium opacity-70 mb-1">
+            <div className="col-span-3">Height&nbsp;(m)</div>
 
-            {!discrepancyChecker && (
-              <>
-                <div className="col-span-3">Corner Fitting</div>
-                <div className="col-span-3">Tensioning Hardware</div>
-                <div className="col-span-2">Tension&nbsp;(mm)</div>
-              </>
-            )}
+              {!discrepancyChecker && (
+                <>
+                  <div className="col-span-3">Corner Fitting</div>
+                  <div className="col-span-3">Tensioning Hardware</div>
+                  <div className="col-span-2">Tension&nbsp;(mm)</div>
+                </>
+              )}
 
-        </div>
+          </div>
+        )}
 
         <div className="space-y-1">
           {Object.entries(attributes.points).map(([p, vals]) => (
-            <div
-              key={p}
-              className="flex flex-col md:flex-row md:items-center gap-1"
-            >
-              {/* Point label */}
-              <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
-
-              {/* Inputs grid */}
-              <div className="grid grid-cols-11 items-center gap-1 text-xs flex-1">
-                {/* Height */}
+            discrepancyChecker ? (
+              <div key={p} className="flex items-center gap-2">
+                <label className="text-sm w-6 text-right">{p}</label>
                 <input
                   ref={(el) => (heightRefs.current[p] = el)}
-                  className={`inputCompact ${discrepancyChecker ? 'col-span-11 md:w-28' : 'col-span-3 md:w-28'}`}
+                  className="inputCompact w-28"
                   type="number"
                   min={0}
                   step="any"
@@ -954,51 +949,75 @@ const setPointField = (p, key, value) =>
                   onChange={(e) => setPointField(p, "height", e.target.value)}
                   onKeyDown={(e) => handleEnterFocus(e, "height", p)}
                 />
+              </div>
+            ) : (
+              <div
+                key={p}
+                className="flex flex-col md:flex-row md:items-center gap-1"
+              >
+                {/* Point label */}
+                <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
 
-                {/* Corner Fitting */}
-                {!discrepancyChecker && (
-                  <select
-                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                    value={vals.cornerFitting ?? ""}
-                    onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
-                  >
-                    {CORNER_FITTING_OPTIONS.map((cf) => (
-                      <option key={cf} value={cf}>
-                        {cf}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Tension Hardware */}
-                {!discrepancyChecker && (
-                  <select
-                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                    value={vals.tensionHardware ?? ""}
-                    onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
-                  >
-                    {TENSION_HARDWARE_OPTIONS.map((th) => (
-                      <option key={th} value={th}>
-                        {th}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Tension allowance */}
-                {!discrepancyChecker && (
+                {/* Inputs grid */}
+                <div className="grid grid-cols-11 items-center gap-1 text-xs flex-1">
+                  {/* Height */}
                   <input
-                    className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+                    ref={(el) => (heightRefs.current[p] = el)}
+                    className={`inputCompact ${discrepancyChecker ? 'col-span-11 md:w-28' : 'col-span-3 md:w-28'}`}
                     type="number"
                     min={0}
                     step="any"
                     inputMode="numeric"
-                    value={vals.tensionAllowance}
-                    onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+                    value={vals.height}
+                    onChange={(e) => setPointField(p, "height", e.target.value)}
+                    onKeyDown={(e) => handleEnterFocus(e, "height", p)}
                   />
-                )}
+
+                  {/* Corner Fitting */}
+                  {!discrepancyChecker && (
+                    <select
+                      className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                      value={vals.cornerFitting ?? ""}
+                      onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
+                    >
+                      {CORNER_FITTING_OPTIONS.map((cf) => (
+                        <option key={cf} value={cf}>
+                          {cf}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Tension Hardware */}
+                  {!discrepancyChecker && (
+                    <select
+                      className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                      value={vals.tensionHardware ?? ""}
+                      onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
+                    >
+                      {TENSION_HARDWARE_OPTIONS.map((th) => (
+                        <option key={th} value={th}>
+                          {th}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Tension allowance */}
+                  {!discrepancyChecker && (
+                    <input
+                      className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="numeric"
+                      value={vals.tensionAllowance}
+                      onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )
           ))}
         </div>
         {/* Clear heights button */}

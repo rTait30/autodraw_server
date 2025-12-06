@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../styles/index.css';
 
 import { apiFetch } from '../services/auth';
 
@@ -82,18 +83,18 @@ const handleCreate = async (e) => {
 
 
   return (
-    <div>
-      <h1 className= "p-[100px] text-center font-Cambria text-2xl">Hello {name}, you are {role}</h1>
+    <div className="page p-8">
+      <h1 className= "text-center font-Cambria text-2xl mb-10 dark:text-white">Hello {name}, you are {role}</h1>
 
       {role === 'admin' && (
-        <div style={{ marginTop: '40px' }}>
-          <h3>All Users</h3>
+        <div className="mt-10">
+          <h3 className="text-xl font-bold mb-4 dark:text-white">All Users</h3>
           {loading ? (
-            <p>Loading users...</p>
+            <p className="dark:text-gray-300">Loading users...</p>
           ) : users.length === 0 ? (
-            <p>No users found.</p>
+            <p className="dark:text-gray-300">No users found.</p>
           ) : (
-            <table border="1" style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <table className="tableBase">
               <thead>
                 <tr>
                   <th>Username</th>
@@ -110,7 +111,7 @@ const handleCreate = async (e) => {
                     <td>{user.verified ? 'Yes' : 'No'}</td>
                     <td>
                       {!user.verified && (
-                        <button onClick={() => handleVerify(user.username)}>Verify</button>
+                        <button onClick={() => handleVerify(user.username)} className="text-blue-600 hover:underline dark:text-blue-400">Verify</button>
                       )}
                     </td>
                   </tr>
@@ -119,16 +120,17 @@ const handleCreate = async (e) => {
             </table>
           )}
 
-          <hr style={{ margin: '40px 0' }} />
+          <hr className="my-10 border-gray-300 dark:border-gray-700" />
 
-          <h3>Create Staff User</h3>
-          <form onSubmit={handleCreate}>
+          <h3 className="text-xl font-bold mb-4 dark:text-white">Create Staff User</h3>
+          <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-md">
             <input
               type="text"
               placeholder="Username"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
               required
+              className="inputStyle"
             />
             <input
               type="password"
@@ -136,19 +138,21 @@ const handleCreate = async (e) => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
+              className="inputStyle"
             />
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value)}
               required
+              className="inputStyle"
             >
               <option value="">Select Role</option>
               <option value="designer">Designer</option>
               <option value="estimator">Estimator</option>
             </select>
-            <button type="submit">Create</button>
+            <button type="submit" className="buttonStyle">Create</button>
           </form>
-          {createMsg && <div>{createMsg}</div>}
+          {createMsg && <div className="mt-4 text-sm dark:text-white">{createMsg}</div>}
         </div>
       )}
     </div>

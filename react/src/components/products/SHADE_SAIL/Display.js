@@ -11,7 +11,7 @@ export function render(canvas, data) {
   const sails = data.products || [];
 
   // Fixed per-sail block height so we avoid re-scaling complexities
-  const perSailHeight = 1000; 
+  const perSailHeight = 800; 
   canvas.height = perSailHeight * sails.length;
 
   // Responsive scale factors based on viewport width
@@ -74,7 +74,7 @@ export function render(canvas, data) {
     // Reserve ~600px for the sail shape itself, rest for metadata
     const maxShapeHeight = 600;
     const scale = Math.min(innerW / shapeW, maxShapeHeight / shapeH);
-    const topOffset = (idx-1) * (perSailHeight) + 700;
+    const topOffset = (idx-1) * (perSailHeight) + 400;
 
     const mapped = {};
     // Map coordinates ensuring positive X -> right, positive Y -> up
@@ -237,7 +237,7 @@ export function render(canvas, data) {
 
 
     ctx.font = `bold 12px Arial`; 
-    let yPos = topOffset + 650;
+    let yPos = topOffset + 1000;
     console.log("ypos:", yPos);
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, 50, yPos);
     ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, 50, yPos + 20 * fontScale);

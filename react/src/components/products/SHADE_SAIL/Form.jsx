@@ -607,7 +607,7 @@ const setPointField = (p, key, value) =>
           {/* Mobile +/- buttons (hide on md+) */}
           <button
             type="button"
-            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors"
+            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-500 md:hidden"
             onClick={() => {
               const cur = attributes.pointCount;
               if (cur === "" || cur == null) return; // keep empty on minus
@@ -620,7 +620,7 @@ const setPointField = (p, key, value) =>
           </button>
           <button
             type="button"
-            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors"
+            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-500 md:hidden"
             onClick={() => {
               const cur = attributes.pointCount;
               const base = cur === "" || cur == null ? 0 : Number(cur);
@@ -808,7 +808,7 @@ const setPointField = (p, key, value) =>
                   <div className="mt-3">
                     <button
                       type="button"
-                      className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+                      className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
                       onClick={clearAllEdges}
                     >
                       Clear Edges
@@ -901,7 +901,7 @@ const setPointField = (p, key, value) =>
                 <div className="mt-3">
                   <button
                     type="button"
-                    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+                    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
                     onClick={clearAllDiagonals}
                   >
                     Clear Diagonals
@@ -1024,7 +1024,7 @@ const setPointField = (p, key, value) =>
         <div className="mt-2">
           <button
             type="button"
-            className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs"
+            className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
             onClick={clearAllHeights}
           >
             Clear Heights

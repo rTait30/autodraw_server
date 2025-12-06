@@ -57,7 +57,7 @@ export function GeneralSection({ data, setData = () => {} }) {
   return (
     <div className="space-y-2">
       <div>
-        <label className="block text-sm font-medium mb-1">Project Name</label>
+        <label className="block text-sm font-medium mb-1 dark:text-white">Project Name</label>
         <input
           name="name"
           type="text"
@@ -69,7 +69,7 @@ export function GeneralSection({ data, setData = () => {} }) {
 
       {shouldShowClient && (
         <div>
-          <label className="block text-sm font-medium mb-1">Client</label>
+          <label className="block text-sm font-medium mb-1 dark:text-white">Client</label>
           <select
             name="client_id"
             className="inputStyle"
@@ -92,7 +92,7 @@ export function GeneralSection({ data, setData = () => {} }) {
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1">Due Date</label>
+        <label className="block text-sm font-medium mb-1 dark:text-white">Due Date</label>
         <input
           name="due_date"
           type="date"
@@ -103,7 +103,7 @@ export function GeneralSection({ data, setData = () => {} }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Info</label>
+        <label className="block text-sm font-medium mb-1 dark:text-white">Info</label>
         <input
           name="info"
           type="text"

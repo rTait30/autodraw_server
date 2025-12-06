@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
+import { logout } from '../services/auth';
 
 function TopBar() {
   const name = localStorage.getItem('username');
@@ -11,7 +12,8 @@ function TopBar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Logout function: clears localStorage and navigates
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     localStorage.clear();
     navigate('/copelands');
   };
@@ -23,44 +25,11 @@ function TopBar() {
 
   const handleDarkModeToggle = () => {
     dispatch(toggleDarkMode());
-    // TODO: Implement dark mode logic
   };
 
   const handleDevModeToggle = () => {
     dispatch(toggleDevMode());
-    // TODO: Implement dev mode logic
   };
-
-  const headerStyle = {
-    backgroundColor: '#1b1c3a',
-    padding: '0 20px',
-    height: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    color: 'white',
-    width: '100%',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    boxSizing: 'border-box',
-  };
-
-  const navLinks = (
-    <>
-      <Link to="/copelands/home" style={linkStyle} onClick={() => setMenuOpen(false)}>Home</Link>
-      <Link to="/copelands/newproject" style={linkStyle} onClick={() => setMenuOpen(false)}>New Project</Link>
-      <Link to="/copelands/projects" style={linkStyle} onClick={() => setMenuOpen(false)}>Projects</Link>
-      {role === 'admin' && (
-          <Link to="/copelands/database" style={linkStyle} onClick={() => setMenuOpen(false)}>Database</Link>
-      )}
-      {role !== 'client' && (
-        <>
-          <Link to="/copelands/analytics" style={linkStyle} onClick={() => setMenuOpen(false)}>Analytics</Link>
-        </>
-      )}
-    </>
-  );
 
   const toggleBtnStyle = (active) => ({
     background: active ? '#eeeeee' : '#23244a',
@@ -76,35 +45,34 @@ function TopBar() {
     transition: 'background 0.2s',
   });
 
+  const navLinks = (
+    <>
+      <Link to="/copelands/home" className="linkStyle" onClick={() => setMenuOpen(false)}>Home</Link>
+      <Link to="/copelands/newproject" className="linkStyle" onClick={() => setMenuOpen(false)}>New Project</Link>
+      <Link to="/copelands/projects" className="linkStyle" onClick={() => setMenuOpen(false)}>Projects</Link>
+      {role === 'admin' && (
+          <Link to="/copelands/database" className="linkStyle" onClick={() => setMenuOpen(false)}>Database</Link>
+      )}
+      {role !== 'client' && (
+        <>
+          <Link to="/copelands/analytics" className="linkStyle" onClick={() => setMenuOpen(false)}>Analytics</Link>
+        </>
+      )}
+    </>
+  );
+
   const mobileMenu = (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      right: 0,
-      width: 'min(75vw, 320px)',
-      height: '100dvh',
-      background: '#23244a',
-      boxShadow: '-2px 0 8px rgba(0,0,0,0.2)',
-      display: menuOpen ? 'flex' : 'none',
-      flexDirection: 'column',
-      padding: '24px 18px',
-      zIndex: 200,
-      transition: 'transform 0.2s',
-      willChange: 'transform',
-    }}>
+    <div className="fixed top-0 right-0 w-[min(75vw,320px)] h-[100dvh] bg-[#1b1c3a] dark:bg-gray-900 shadow-[-2px_0_8px_rgba(0,0,0,0.2)] flex flex-col p-6 z-[200] transition-transform duration-200"
+      style={{
+        display: menuOpen ? 'flex' : 'none',
+      }}
+    >
       <button
         onClick={() => setMenuOpen(false)}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'white',
-          fontSize: 28,
-          alignSelf: 'flex-end',
-          marginBottom: 16,
-          cursor: 'pointer'
-        }}
+        className="bg-none border-none text-white text-3xl self-end mb-4 cursor-pointer"
         aria-label="Close menu"
       >×</button>
+      
       {/* Toggle buttons row */}
       <div style={{ display: 'flex', flexDirection: 'row', gap: 0, marginBottom: 18, justifyContent: 'flex-start' }}>
         <button
@@ -116,6 +84,7 @@ function TopBar() {
           style={toggleBtnStyle(devMode)}
         >Dev</button>
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {navLinks}
         <button
@@ -157,36 +126,25 @@ function TopBar() {
 
   return (
     <>
-      <header style={headerStyle} className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
+      <header className="topbar flex items-center justify-between px-5 h-[60px] w-full sticky top-0 z-[100] bg-[#1b1c3a] dark:bg-gray-900 text-white transition-colors duration-200">
+        <div className="flex items-center gap-6 flex-1">
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
             alt="Logo"
-            style={{ height: '36px', marginRight: '20px' }}
+            className="h-9 mr-5"
           />
-          <div className="topbar-links" style={{ display: 'none', gap: '24px' }}>
+          <div className="topbar-links hidden gap-6">
             {navLinks}
           </div>
         </div>
 
         {/* Right side: name, role, burger icon */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <span style={roleStyle}>{name}</span>
-          <span style={roleStyle}>{role}</span>
+          <span className="roleStyle">{name}</span>
+          <span className="roleStyle">{role}</span>
           <button
             onClick={() => setMenuOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'white',
-              fontSize: 32,
-              cursor: 'pointer',
-              display: 'block',
-              marginRight: 0,
-              padding: 0,
-              lineHeight: 1
-            }}
-            className="burger"
+            className="bg-none border-none text-white text-3xl cursor-pointer block mr-0 p-0 leading-none burger"
             aria-label="Open menu"
           >
             {/* SVG burger icon for crisp white look */}
@@ -251,18 +209,5 @@ function TopBar() {
     </>
   );
 }
-
-const linkStyle = {
-  color: 'white',
-  textDecoration: 'none',
-  fontWeight: 500,
-  fontSize: '15px'
-};
-
-const roleStyle = {
-  fontWeight: 500,
-  fontSize: '14px',
-  opacity: 0.8
-};
 
 export default TopBar;

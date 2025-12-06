@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 import { getBaseUrl } from './utils/baseUrl';
 
@@ -23,12 +24,19 @@ import Analytics from './pages/Analytics';
 import './styles/index.css';
 
 function App() {
+  const darkMode = useSelector((state) => state.toggles.darkMode);
+
   useEffect(() => {
     const favicon = document.querySelector("link[rel~='icon']");
     if (favicon) {
       favicon.href = getBaseUrl('static/favicon/favicon-96x96.png');
     }
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
   return (
     <Router>
       <Routes>

@@ -34,19 +34,7 @@ export default function Landing() {
     >
       <Authentication />
 
-      <div
-        style={{
-          marginTop: 24,
-          background: '#fff',
-          borderRadius: 20,
-          padding: '32px 40px',
-          width: 320,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px',
-        }}
-      >
+      <div className="mt-6 bg-white dark:bg-gray-900 rounded-[20px] p-8 w-80 flex flex-col items-center gap-4 shadow-lg">
         <Link to="/copelands/discrepancy">
           <button className="buttonStyle">
             Open Discrepancy Calculator

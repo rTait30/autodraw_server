@@ -30,7 +30,7 @@ function Projects() {
   if (loading) return <p>Loading projects...</p>;
 
   return (
-    <div style={{ padding: "1rem" }}>
+    <div style={{ padding: "1rem" }} className="page">
 
       {/* Horizontal scroll wrapper */}
       <div className="table-scroll">
@@ -51,11 +51,11 @@ function Projects() {
                 className="clickable-row"
                 onClick={() => navigate(`/copelands/projects/${project.id}`)}
               >
-                <td style={td}>{project.id}</td>
-                <td style={td}>{project.client}</td>
-                <td style={td}>{project.name}</td>
-                <td style={td}>{project.type}</td>
-                <td style={td}>{project.status}</td>
+                <td>{project.id}</td>
+                <td>{project.client}</td>
+                <td>{project.name}</td>
+                <td>{project.type}</td>
+                <td>{project.status}</td>
               </tr>
             ))}
           </tbody>
@@ -96,11 +96,6 @@ function Projects() {
     </div>
   );
 }
-
-const td = {
-  padding: "0.5rem",
-  borderBottom: "1px solid #ddd"
-};
 
 function formatDate(isoString) {
   if (!isoString) return "";

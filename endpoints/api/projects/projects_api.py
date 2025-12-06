@@ -132,7 +132,9 @@ def save_project_config():
     else:
         target_client_id = _as_int(project_data.get("client_id"))
         if target_client_id is None and not project_id:
-            return jsonify({"error": "client_id is required for staff creates"}), 400
+            # Fallback: if staff creates a project without specifying a client, assign it to themselves
+            target_client_id = user.id
+            # return jsonify({"error": "client_id is required for staff creates"}), 400
 
     # ---------- CREATE or UPDATE ----------
     if project_id:
@@ -225,7 +227,7 @@ def save_project_config():
         project.project_attributes = project_attributes
     
     # ---------- Check for discrepancy problems in shade_sail (product_id == 2) on create ----------
-    '''
+    
     if not project_id and product_id == 2:  # Only on create for shade_sail
         discrepancy_sails = []
         for idx, p in enumerate(products_payload):
@@ -234,7 +236,7 @@ def save_project_config():
                 discrepancy_sails.append(label)
         if discrepancy_sails:
             return jsonify({"error": f"Discrepancy problems in sails: {', '.join(discrepancy_sails)}"}), 400
-    '''
+    
     
     # Deprecated: keep project_calculated for backward compat but consider empty
     project.project_calculated = project_calculated or {}

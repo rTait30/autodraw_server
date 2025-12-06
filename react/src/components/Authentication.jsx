@@ -99,7 +99,7 @@ export default function Authentication() {
   return (
     <div className="auth-container">
       <div className="w-full flex items-center justify-center">
-        <div className="auth-box">
+        <div className="auth-box dark:bg-gray-800">
           <div className="auth-logo">
             <img
               src={getBaseUrl('/static/img/DRlogo.png')}

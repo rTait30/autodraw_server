@@ -35,7 +35,7 @@ export default function NewProject() {
 
   const devMode = useSelector(state => state.toggles.devMode);
 
-  const handleQuickCheck = async () => {
+  const handleCheck = async () => {
     if (!product) {
       showToast("Please select a project type first.");
       return;
@@ -45,7 +45,7 @@ export default function NewProject() {
       // Find selected product's meta to retrieve numeric dbId
       const productMeta = PRODUCTS.find(p => p.id === product);
       if (!productMeta || productMeta.dbId == null) {
-        showToast("Quick Check unsupported: product has no product_id (dbId).");
+        showToast("Check unsupported: product has no product_id (dbId).");
         return;
       }
 
@@ -73,10 +73,10 @@ export default function NewProject() {
         project_attributes: result.project_attributes || {},
       });
       
-      showToast("Quick check complete! See visualization.");
+      showToast("Check complete");
       console.log("Calculation result:", result);
     } catch (err) {
-      console.error("Quick check error:", err);
+      console.error("Check error:", err);
       showToast(`Error: ${err.message}`, { duration: 8000 });
     }
   };
@@ -132,7 +132,7 @@ export default function NewProject() {
       setCreatedProject(res);
     } catch (err) {
       console.error("Submission error:", err);
-      showToast(`Error submitting project: ${err.message}`, { duration: 8000 });
+      showToast(`Error: ${err.message}`, { duration: 8000 });
     }
   };
 
@@ -160,7 +160,7 @@ export default function NewProject() {
   }, [createdProject]);
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900">
       <ProjectSidebar
         open={sidebarOpen}
         setOpen={setSidebarOpen}
@@ -189,7 +189,7 @@ export default function NewProject() {
       )}
 
       <main className="flex-1 p-6">
-  {product ? (
+        {product ? (
           <div className="flex flex-col lg:flex-row gap-10">
             <div className="flex-1 lg:max-w-xl">
               <Suspense fallback={<div className="p-3"></div>}>
@@ -201,8 +201,8 @@ export default function NewProject() {
               </Suspense>
               {devMode && <button onClick={printValues} className="devStyle">Print values</button>}
               <div className="flex gap-3 mt-6">
-                <button onClick={handleQuickCheck} className="buttonStyle bg-blue-600 hover:bg-blue-700">
-                  Quick Check
+                <button onClick={handleCheck} className="buttonStyle">
+                  Check Specifications
                 </button>
                 <button onClick={handleSubmit} className="buttonStyle">
                   {['estimator', 'admin', 'designer'].includes(role)

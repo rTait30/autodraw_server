@@ -37,6 +37,7 @@ export default function ProjectForm({
   product,
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
+  productProps = {},
 }) {
   // Top-level WG submit state
   const [submitToWG, setSubmitToWG] = useState(false);
@@ -326,6 +327,7 @@ export default function ProjectForm({
                         onGeneralDataChange={setGeneralData}
                         attributesHydrate={it.attributesHydrate}
                         hideGeneralSection={true}
+                        {...productProps}
                       />
                     </Suspense>
                   </div>

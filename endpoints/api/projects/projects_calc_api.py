@@ -17,7 +17,7 @@ projects_calc_api_bp = Blueprint("projects_calc_api", __name__)
 
 
 @projects_calc_api_bp.route("/projects/calculate", methods=["POST"])
-@jwt_required()
+# @jwt_required()
 def calculate():
     """Single-mode project calculation.
 
@@ -45,9 +45,9 @@ def calculate():
         source: "direct"
       }
     """
-    user = current_user(required=True)
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    # user = current_user(required=True)
+    # if not user:
+    #     return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
     product_id = data.get("product_id")

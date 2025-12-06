@@ -414,7 +414,7 @@ export default function ProjectDetailsPage() {
         {/* LEFT */}
         <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
           <div>
-            <div style={{ maxWidth: '800px' }}>
+            <div>
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>
                   <ProjectForm
@@ -443,12 +443,14 @@ export default function ProjectDetailsPage() {
                     >
                       Submit changes
                     </button>
+                    {/*
                     <button
                       onClick={handleMaterials}
                       className="buttonStyle" 
                     >
                       Check Materials
                     </button>
+                    */}
                     
                     {devMode && (
                       <button
@@ -623,14 +625,14 @@ export default function ProjectDetailsPage() {
           /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
           @media (max-width: 799px) {
             html, body { 
-              overflow-x: hidden; 
-              overflow-y: auto;
-              height: 100%;
+              overflow-x: hidden;
+              /* Allow the document to scroll naturally */
+              height: auto;
+              min-height: 100%;
             }
             .layout { 
               overflow-x: hidden; 
               overflow-y: visible; 
-              touch-action: auto; /* allow natural vertical scroll on the page */
               padding-bottom: 100px; /* Space for sticky action bar */
             }
 

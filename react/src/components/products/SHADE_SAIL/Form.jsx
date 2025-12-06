@@ -1036,7 +1036,7 @@ const setPointField = (p, key, value) =>
       <div className="mt-2 flex justify-center md:block">
         <button
           type="button"
-          className="h-8 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
+          className="h-17 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
           onClick={clearAllMeasurements}
         >
           Clear Measurements

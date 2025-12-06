@@ -31,8 +31,11 @@ const togglesSlice = createSlice({
       state.devMode = action.payload; 
       localStorage.setItem('devMode', state.devMode);
     },
+    syncDarkMode: (state, action) => {
+      state.darkMode = action.payload;
+    },
   },
 });
 
-export const { toggleDarkMode, toggleDevMode, setDarkMode, setDevMode } = togglesSlice.actions;
+export const { toggleDarkMode, toggleDevMode, setDarkMode, setDevMode, syncDarkMode } = togglesSlice.actions;
 export default togglesSlice.reducer;

@@ -413,7 +413,7 @@ export default function ProjectDetailsPage() {
       >
         {/* LEFT */}
         <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <div className="scroll-x">
+          <div>
             <div style={{ maxWidth: '800px' }}>
               {Form ? (
                 <Suspense fallback={<div>Loading form…</div>}>

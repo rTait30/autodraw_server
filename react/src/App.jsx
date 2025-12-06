@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { syncDarkMode } from './store/togglesSlice';
 
 import { getBaseUrl } from './utils/baseUrl';
+
 
 import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
@@ -25,6 +27,7 @@ import './styles/index.css';
 
 function App() {
   const darkMode = useSelector((state) => state.toggles.darkMode);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const favicon = document.querySelector("link[rel~='icon']");
@@ -32,6 +35,21 @@ function App() {
       favicon.href = getBaseUrl('static/favicon/favicon-96x96.png');
     }
   }, []);
+
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = (e) => {
+      // Only update if user hasn't manually overridden
+      if (localStorage.getItem('darkMode') === null) {
+        dispatch(syncDarkMode(e.matches));
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [dispatch]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);

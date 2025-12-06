@@ -240,7 +240,7 @@ export default function ProjectForm({
       {toast && (
         <div
           role="status"
-          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
         >
           <div className="flex justify-between items-start gap-2">
             <div className="text-left font-medium">Message</div>

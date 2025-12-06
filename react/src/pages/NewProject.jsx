@@ -12,7 +12,6 @@ export default function NewProject() {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
 
@@ -160,10 +159,8 @@ export default function NewProject() {
   }, [createdProject]);
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 layout">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900">
       <ProjectSidebar
-        open={sidebarOpen}
-        setOpen={setSidebarOpen}
         selectedProduct={product}
         setSelectedProduct={setProduct}
         products={visibleProducts}
@@ -172,7 +169,7 @@ export default function NewProject() {
       {toast && (
         <div
           role="status"
-          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
         >
           <div className="flex justify-between items-start gap-2">
             <div className="text-left font-medium">Message</div>
@@ -228,12 +225,6 @@ export default function NewProject() {
 
       <style>
         {`
-          /* Mobile-first: stacked */
-          .layout { 
-            flex-direction: column;
-            padding-bottom: 48px; /* gives users an easy thumb area to scroll */
-          }
-
           /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
           @media (max-width: 799px) {
             html, body { 
@@ -241,11 +232,6 @@ export default function NewProject() {
               /* Allow the document to scroll naturally */
               height: auto;
               min-height: 100%;
-            }
-            .layout { 
-              overflow-x: hidden; 
-              overflow-y: visible; 
-              padding-bottom: 100px; /* Space for sticky action bar */
             }
 
             .action-bar {

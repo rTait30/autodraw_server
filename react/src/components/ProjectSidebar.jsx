@@ -1,51 +1,30 @@
 // components/ProjectSidebar.jsx
 import React from 'react';
-import { Menu } from 'lucide-react';
 
-export default function ProjectSidebar({ open, setOpen, selectedProduct, setSelectedProduct, products }) {
+export default function ProjectSidebar({ selectedProduct, setSelectedProduct, products }) {
   const handleSelect = (id) => {
     setSelectedProduct(id);
-    setOpen(false);
   };
 
   return (
-    <>
-      {/* Mobile Top Bar */}
-      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow-md md:hidden">
-        <h3 className="text-lg font-bold dark:text-white">Products</h3>
-        <button onClick={() => setOpen(!open)} className="dark:text-white">
-          <Menu className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* Sidebar */}
-      <aside
-        className={`
-            h-screen md:h-auto
-            bg-white dark:bg-gray-800 shadow-md p-6 w-56 z-50
-            md:relative md:translate-x-0 md:block
-            fixed top-0 left-0 transform transition-transform duration-300 ease-in-out
-            ${open ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        <h3 className="text-lg font-bold mb-4 dark:text-white">Select product</h3>
-        <ul className="list-none p-0">
-          {products.map(({ name, id }) => (
-            <li key={id} className="mb-2">
-              <button
-                onClick={() => handleSelect(id)}
-                className={`block w-full text-left py-1 px-2 rounded transition ${
-                  selectedProduct === id
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 font-semibold underline'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300'
-                }`}
-              >
-                {name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-    </>
+    <aside className="bg-white dark:bg-gray-800 shadow-md p-4 md:p-6 md:w-64 md:min-h-screen flex-shrink-0">
+      <h3 className="text-lg font-bold mb-4 dark:text-white">Select product</h3>
+      <ul className="list-none p-0 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+        {products.map(({ name, id }) => (
+          <li key={id} className="flex-shrink-0">
+            <button
+              onClick={() => handleSelect(id)}
+              className={`block w-full text-left py-2 px-3 rounded transition whitespace-nowrap ${
+                selectedProduct === id
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 font-semibold'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {name}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }

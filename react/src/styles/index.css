@@ -36,12 +36,10 @@
 
 
   .inputStyle {
-    @apply p-3 border border-blue-300 rounded-lg text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+    @apply p-3 border border-blue-300 rounded-lg text-base md:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white;
   }
   .inputCompact {
-    @apply p-2 border border-blue-300 rounded text-left h-8 px-2 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white;
-
-    
+    @apply p-2 border border-blue-300 rounded text-left h-10 md:h-8 px-2 text-base md:text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white;
   }
   .formStyle {
     @apply flex flex-col items-center gap-y-2;

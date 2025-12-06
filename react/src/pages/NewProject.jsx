@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
+import StickyActionBar from "../components/StickyActionBar";
 import { PRODUCTS } from "../config/productRegistry";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
@@ -169,7 +170,7 @@ export default function NewProject() {
       {toast && (
         <div
           role="status"
-          className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+          className="fixed left-1/2 bottom-30 z-[60] w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
         >
           <div className="flex justify-between items-start gap-2">
             <div className="text-left font-medium">Message</div>
@@ -196,7 +197,7 @@ export default function NewProject() {
                   formRef={formRef}
                 />
               </Suspense>
-              <div className="action-bar" style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <StickyActionBar>
                 <button onClick={handleCheck} className="buttonStyle bg-blue-600 hover:bg-blue-700">
                   Check
                 </button>
@@ -206,7 +207,7 @@ export default function NewProject() {
                     : 'Get Quote'}
                 </button>
                 {devMode && <button onClick={printValues} className="buttonStyle">Print values</button>}
-              </div>
+              </StickyActionBar>
             </div>
             {/* Canvas visualization rendered by Display.js after project creation */}
               <div ref={containerRef} className="flex-1">
@@ -234,25 +235,6 @@ export default function NewProject() {
               min-height: 100%;
             }
 
-            .action-bar {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
-              background-color: white;
-              border-top: 1px solid #e5e7eb;
-              padding: 12px;
-              z-index: 50;
-              justify-content: space-around;
-              margin-top: 0 !important;
-              box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-              overflow-x: auto;
-            }
-            
-            .dark .action-bar {
-               background-color: #111827;
-               border-top-color: #374151;
-            }
           }
         `}
       </style>

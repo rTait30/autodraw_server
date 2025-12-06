@@ -6,6 +6,7 @@ import EstimateTable from '../components/products/EstimateTable';
 import SchemaEditor from '../components/products/SchemaEditor';
 
 import ProjectForm from "../components/ProjectForm";
+import StickyActionBar from "../components/StickyActionBar";
 
 import { apiFetch } from '../services/auth';
 
@@ -432,7 +433,7 @@ export default function ProjectDetailsPage() {
                   />
                 
 
-                  <div className="action-bar" style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                  <StickyActionBar>
                     <button
                       onClick={handleCheck}
                       className="buttonStyle bg-blue-600 hover:bg-blue-700"
@@ -462,7 +463,7 @@ export default function ProjectDetailsPage() {
                         {toggleData ? 'Hide' : 'Show'} JSON
                       </button>
                     )}
-                  </div>
+                  </StickyActionBar>
                   
                   {toggleData && (
                     <div className="mt-4 p-3 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-800 max-h-[500px] overflow-auto">
@@ -497,7 +498,7 @@ export default function ProjectDetailsPage() {
           {toast && (
             <div
               role="status"
-              className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+              className="fixed left-1/2 bottom-30 z-[60] w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white text-black p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
             >
               <div className="flex justify-between items-start gap-2">
                 <div className="text-left font-medium">Message</div>
@@ -655,26 +656,6 @@ export default function ProjectDetailsPage() {
               overflow-x: hidden; 
               overflow-y: visible; 
               padding-bottom: 100px; /* Space for sticky action bar */
-            }
-
-            .action-bar {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
-              background-color: white;
-              border-top: 1px solid #e5e7eb;
-              padding: 12px;
-              z-index: 50;
-              justify-content: space-around;
-              margin-top: 0 !important;
-              box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-              overflow-x: auto;
-            }
-            
-            .dark .action-bar {
-               background-color: #111827;
-               border-top-color: #374151;
             }
 
             /* Each section can scroll horizontally without hijacking vertical swipes */

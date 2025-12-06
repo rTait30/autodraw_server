@@ -10,6 +10,8 @@ user preferences
 
 checker pipeline
 
+canvas ghosts
+
 test suite
 
 

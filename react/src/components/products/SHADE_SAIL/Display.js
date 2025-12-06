@@ -10,8 +10,11 @@ export function render(canvas, data) {
 
   const sails = data.products || [];
 
-  // Fixed per-sail block height so we avoid re-scaling complexities
-  const perSailHeight = 800; 
+  // Layout configuration
+  const sailDrawingHeight = 600;
+  const textSectionHeight = 300; // Space for discrepancy text
+  const perSailHeight = sailDrawingHeight + textSectionHeight;
+  
   canvas.height = perSailHeight * sails.length;
 
   // Responsive scale factors based on viewport width
@@ -28,9 +31,11 @@ export function render(canvas, data) {
   ctx.lineWidth = 2 * baseScale;
   ctx.strokeStyle = '#1a1a1a';
 
-  const pad = isMobile ? 100 : 150;
+  const pad = isMobile ? 50 : 100;
 
   sails.forEach((sail, idx) => {
+    const startY = idx * perSailHeight + 100;
+    
     const attributes = sail.attributes || {};
     const positions = attributes.positions || {};
     const points = attributes.points || {};
@@ -68,19 +73,23 @@ export function render(canvas, data) {
     }
     const shapeW = maxX - minX || 1;
     const shapeH = maxY - minY || 1;
-    const innerW = canvas.width - pad * 2;
     
-    // Use consistent shape drawing area regardless of metadata size
-    // Reserve ~600px for the sail shape itself, rest for metadata
-    const maxShapeHeight = 600;
-    const scale = Math.min(innerW / shapeW, maxShapeHeight / shapeH);
-    const topOffset = (idx-1) * (perSailHeight) + 400;
+    const innerW = canvas.width - pad * 2;
+    const innerH = sailDrawingHeight - pad * 2;
+    
+    const scale = Math.min(innerW / shapeW, innerH / shapeH);
+    
+    // Center in the drawing area
+    const drawnW = shapeW * scale;
+    const drawnH = shapeH * scale;
+    const offsetX = (canvas.width - drawnW) / 2;
+    const offsetY = (sailDrawingHeight - drawnH) / 2;
 
     const mapped = {};
     // Map coordinates ensuring positive X -> right, positive Y -> up
     for (const [id, p] of Object.entries(positions)) {
-      const mappedX = pad + (p.x - minX) * scale;
-      const mappedY = topOffset + pad + (maxY - p.y) * scale + 400; // positive Y goes upward
+      const mappedX = offsetX + (p.x - minX) * scale;
+      const mappedY = startY + offsetY + (maxY - p.y) * scale; 
       mapped[id] = { x: mappedX, y: mappedY };
     }
 
@@ -233,32 +242,34 @@ export function render(canvas, data) {
 
     // Summary metrics (responsive positioning and sizing)
     attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
-    //let yPos = topOffset + pad + shapeH * scale + 30;
 
-
-    ctx.font = `bold 12px Arial`; 
-    let yPos = topOffset + 1000;
-    console.log("ypos:", yPos);
+    ctx.font = `bold 14px Arial`; 
+    let yPos = startY + sailDrawingHeight + 30;
+    
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, 50, yPos);
-    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, 50, yPos + 20 * fontScale);
-
+    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, 300, yPos);
+    yPos += 25;
 
     if ((attributes.pointCount || 0) >= 5) {
-      yPos += 40;
-      ctx.fillText('Discrepancies', 50, yPos); yPos += 30 * fontScale;
+      const col1X = 50;
+      const col2X = 300;
+      
+      let yPosDiscrep = yPos;
+      ctx.fillText('Discrepancies:', col1X, yPosDiscrep); yPosDiscrep += 20;
+      
       const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
         .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-        .slice(0, isMobile ? 5 : 10);
+        .slice(0, 10);
+        
       sortedDiscrepancies.forEach(([edge, value]) => { 
-        if (value > 0) { ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, 70, yPos); yPos += 18; } 
+        if (value > 0) { 
+            ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, col1X + 10, yPosDiscrep); 
+            yPosDiscrep += 18; 
+        } 
       });
-      yPos += 10 * fontScale;
 
-      
+      let yPosBlame = yPos;
       const blameEntries = Object.entries(attributes.blame || {});
-
-      console.log("Blame entries:", blameEntries);
-
       if (blameEntries.length > 0) {
         const blameGroups = new Map();
         blameEntries.forEach(([key, val]) => {
@@ -268,25 +279,20 @@ export function render(canvas, data) {
         });
         const groupedSorted = Array.from(blameGroups.entries())
           .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
-          .slice(0, isMobile ? 5 : 10)
+          .slice(0, 10)
           .filter(([rounded]) => parseFloat(rounded) > 1);
         
         if (groupedSorted.length > 0) {
-          let yPosBlame = topOffset + 700;
-          ctx.fillText('Blame', 380, yPosBlame); yPosBlame += 30 * fontScale;
+          ctx.fillText('Blame:', col2X, yPosBlame); yPosBlame += 20;
           groupedSorted.forEach(([rounded, keys]) => {
             keys.sort(); const label = keys.join(', ');
-            ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, 400, yPosBlame); yPosBlame += 18;
+            ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, col2X + 10, yPosBlame); yPosBlame += 18;
           });
         }
       }
     }
-    
-    // No need to update currentY; we use idx * perSailHeight for block layout
   });
 
   ctx.restore();
-
-
 }
 

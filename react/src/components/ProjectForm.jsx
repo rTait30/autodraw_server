@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSelector } from 'react-redux';
 
 import { GeneralSection } from "./GeneralSection";
+import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 
 // normalizeAttributes supports:
@@ -99,10 +100,12 @@ export default function ProjectForm({
   const [rehydrateText, setRehydrateText] = useState("");
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef();
-  const showToast = (msg, opts = {}) => {
-    setToast({ msg: String(msg), ...opts });
+  const showToast = (tagOrMsg, opts = {}) => {
+    const { args = [], ...restOpts } = opts;
+    const msg = resolveToastMessage(tagOrMsg, ...args);
+    setToast({ msg: String(msg), ...restOpts });
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), opts.duration || 30000);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), restOpts.duration || 30000);
   };
 
   // Get devMode from Redux
@@ -391,9 +394,9 @@ export default function ProjectForm({
                           setItems(newItems);
                           setActiveIndex(newItems?.[0]?.productIndex ?? 0);
                         }
-                        showToast("Rehydration applied.");
+                        showToast(TOAST_TAGS.REHYDRATION_APPLIED);
                       } catch (e) {
-                        showToast("Invalid JSON: " + e.message, { duration: 8000 });
+                        showToast(TOAST_TAGS.INVALID_JSON, { args: [e.message], duration: 8000 });
                       }
                     }}
                   >

@@ -10,6 +10,7 @@ import ProjectForm from "../components/ProjectForm";
 import { apiFetch } from '../services/auth';
 
 import { useParams } from 'react-router-dom';
+import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 
 
@@ -99,6 +100,17 @@ export default function ProjectDetailsPage() {
 
   const [estimateVersion, setEstimateVersion] = useState(0);
   const [toggleData, setToggleData] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState(null);
+  const toastTimeoutRef = useRef();
+  const showToast = (tagOrMsg, opts = {}) => {
+    const { args = [], ...restOpts } = opts;
+    const msg = resolveToastMessage(tagOrMsg, ...args);
+    setToast({ msg: String(msg), ...restOpts });
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), restOpts.duration || 30000);
+  };
 
   /* ==========================================================================
    *  CANVAS
@@ -197,11 +209,11 @@ export default function ProjectDetailsPage() {
   };
 
   // Recalculate project on server
-  const handleQuickCheck = async () => {
+  const handleCheck = async () => {
     try {
       const base = syncEditedFromForm() || editedProject || project;
       if (!base) {
-        alert('No values to check.');
+        showToast("No values to check.");
         return;
       }
 
@@ -212,7 +224,7 @@ export default function ProjectDetailsPage() {
         products: base.products || [],
       };
 
-      console.log('Quick check payload:', payload);
+      console.log('Check payload:', payload);
 
       const response = await apiFetch("/projects/calculate", {
         method: "POST",
@@ -239,10 +251,10 @@ export default function ProjectDetailsPage() {
       setDisplayVersion(v => v + 1);
 
       console.log("Recalculation result:", result);
-      alert('Calculation complete!');
+      showToast(TOAST_TAGS.CALCULATION_COMPLETE);
     } catch (err) {
-      console.error("Quick check error:", err);
-      alert(`Error: ${err.message}`);
+      console.error("Check error:", err);
+      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [err.message] });
     }
   };
 
@@ -251,7 +263,7 @@ export default function ProjectDetailsPage() {
     try {
       const base = syncEditedFromForm() || editedProject || project;
       if (!base) {
-        alert('No edited values to submit.');
+        showToast('No edited values to submit.');
         return;
       }
 
@@ -273,7 +285,7 @@ export default function ProjectDetailsPage() {
 
       const json = await res.json();
       if (!res.ok || json?.error) {
-        alert(`Update failed: ${json?.error || res.statusText}`);
+        showToast(`Update failed: ${json?.error || res.statusText}`);
         return;
       }
 
@@ -285,27 +297,23 @@ export default function ProjectDetailsPage() {
       };
 
       console.log('Updated project:', updatedProject);
-      alert('Project updated successfully.');
+      showToast('Project updated successfully.');
       
       // Refresh the page to ensure clean state
       window.location.reload();
     } catch (e) {
       console.error('Submit error:', e);
-      alert(`Error submitting project: ${e.message}`);
+      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`submitting project: ${e.message}`] });
     }
   };
 
-  const handleCheck = () => {
-    const v = syncEditedFromForm();
-    console.log('Form values (synced to editedProject):', v);
-    if (v) alert(JSON.stringify(v, null, 2));
-  };
+
 
   const handleMaterials = () => {
     const working = editedProject || project;
     const primary = working?.products?.[0];
     const mats = primary?.calculated?.materials;
-    alert(mats ? JSON.stringify(mats, null, 2) : 'No materials data available.');
+    showToast(mats ? TOAST_TAGS.MATERIALS_DATA : TOAST_TAGS.NO_MATERIALS_DATA, { args: [mats] });
   };
 
   // Handle status change and submit immediately
@@ -329,7 +337,7 @@ export default function ProjectDetailsPage() {
 
       const json = await res.json();
       if (!res.ok || json?.error) {
-        alert(`Status update failed: ${json?.error || res.statusText}`);
+        showToast(`Status update failed: ${json?.error || res.statusText}`);
         return;
       }
 
@@ -353,7 +361,7 @@ export default function ProjectDetailsPage() {
       console.log('Status updated to:', newStatus);
     } catch (e) {
       console.error('Status update error:', e);
-      alert(`Error updating status: ${e.message}`);
+      showToast(`Error updating status: ${e.message}`);
     }
   };
 
@@ -363,7 +371,7 @@ export default function ProjectDetailsPage() {
   const handleSchemaSubmit = (next) => {
     // stub — persist later
     console.log('[Schema submit] (stub):', next);
-    alert('Schema submit not implemented yet; preview uses the edited schema.');
+    showToast(TOAST_TAGS.SCHEMA_SUBMIT_NOT_IMPLEMENTED);
   };
 
   // bump estimate version if you want a hard reset on schema change
@@ -427,15 +435,9 @@ export default function ProjectDetailsPage() {
                   <div className="action-bar" style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                     <button
                       onClick={handleCheck}
-                      className="buttonStyle"
-                    >
-                      Check Values
-                    </button>
-                    <button
-                      onClick={handleQuickCheck}
                       className="buttonStyle bg-blue-600 hover:bg-blue-700"
                     >
-                      Quick Check
+                      Check
                     </button>
                     <button
                       onClick={handleSubmit}
@@ -492,6 +494,25 @@ export default function ProjectDetailsPage() {
             gap: '24px',
           }}
         >
+          {toast && (
+            <div
+              role="status"
+              className="fixed left-1/2 bottom-6 z-50 w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white p-3 shadow-lg text-sm break-words whitespace-pre-wrap"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <div className="text-left font-medium">Message</div>
+                <button
+                  className="text-xs opacity-70"
+                  onClick={() => setToast(null)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <pre className="mt-2 text-xs overflow-auto max-h-60">{toast.msg}</pre>
+            </div>
+          )}
+
           {/* Status Badge */}
           {project?.general?.status && (
             <div style={{
@@ -700,112 +721,7 @@ export default function ProjectDetailsPage() {
 
 
 
-// cover dxf
 
-async function fetchDXF(projectId) {
-  try {
-    const response = await apiFetch('/project/get_dxf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: projectId }),
-    });
-
-    if (!response.ok) {
-      let msg = `Request failed with status ${response.status}`;
-      try {
-        const errData = await response.json();
-        if (errData.error) msg = errData.error;
-      } catch {
-        // ignore
-      }
-      throw new Error(msg);
-    }
-
-    // Get the file blob
-    const blob = await response.blob();
-
-    // Try to extract filename from headers
-    let filename = `project_${projectId}.dxf`;
-    const cd = response.headers.get('Content-Disposition');
-    if (cd) {
-      const match = cd.match(/filename="?([^"]+)"?/);
-      if (match && match[1]) filename = match[1];
-    }
-
-    // Trigger download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-
-  } catch (error) {
-    console.error('Error fetching DXF:', error);
-    alert(error.message || 'Failed to download DXF');
-  }
-}
-
-
-async function fetchPDF(projectId, include_bom) {
-  try {
-    const response = await apiFetch('/project/get_pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: projectId, include_bom: include_bom }),
-    });
-
-    if (!response.ok) {
-      let msg = `Request failed with status ${response.status}`;
-      try {
-        const errData = await response.json();
-        if (errData?.error) msg = errData.error;
-      } catch {
-        // ignore JSON parse issues
-      }
-      throw new Error(msg);
-    }
-
-    const blob = await response.blob();
-
-    // Default filename
-    let filename = `project_${projectId}.pdf`;
-
-    // Try to extract filename from Content-Disposition
-    const cd = response.headers.get('Content-Disposition');
-    if (cd) {
-      // Prefer RFC 5987 filename* first
-      // e.g., Content-Disposition: attachment; filename*=UTF-8''project_123_sheet.pdf
-      let matchStar = cd.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)\s*;?/i);
-      if (matchStar && matchStar[2]) {
-        try {
-          filename = decodeURIComponent(matchStar[2]);
-        } catch {
-          filename = matchStar[2];
-        }
-      } else {
-        // Fallback to basic filename="..."
-        const match = cd.match(/filename\s*=\s*"?([^"]+)"?/i);
-        if (match && match[1]) filename = match[1];
-      }
-    }
-
-    // Trigger browser download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || `project_${projectId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Error fetching PDF:', error);
-    alert(error.message || 'Failed to download PDF');
-  }
-}
 
 
 /* ============================================================================
@@ -860,3 +776,108 @@ function JsonViewer({ data, level = 0 }) {
   
   return <span>{String(data)}</span>;
 }
+
+// cover dxf
+const fetchDXF = async (projectId) => {
+  try {
+    const response = await apiFetch('/project/get_dxf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+
+    if (!response.ok) {
+      let msg = `Request failed with status ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData.error) msg = errData.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+
+    // Get the file blob
+    const blob = await response.blob();
+
+    // Try to extract filename from headers
+    let filename = `project_${projectId}.dxf`;
+    const cd = response.headers.get('Content-Disposition');
+    if (cd) {
+      const match = cd.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error('Error fetching DXF:', error);
+    showToast(TOAST_TAGS.DXF_DOWNLOAD_FAILED, { args: [error.message] });
+  }
+};
+
+const fetchPDF = async (projectId, include_bom) => {
+  try {
+    const response = await apiFetch('/project/get_pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, include_bom: include_bom }),
+    });
+
+    if (!response.ok) {
+      let msg = `Request failed with status ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.error) msg = errData.error;
+      } catch {
+        // ignore JSON parse issues
+      }
+      throw new Error(msg);
+    }
+
+    const blob = await response.blob();
+
+    // Default filename
+    let filename = `project_${projectId}.pdf`;
+
+    // Try to extract filename from Content-Disposition
+    const cd = response.headers.get('Content-Disposition');
+    if (cd) {
+      // Prefer RFC 5987 filename* first
+      // e.g., Content-Disposition: attachment; filename*=UTF-8''project_123_sheet.pdf
+      let matchStar = cd.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)\s*;?/i);
+      if (matchStar && matchStar[2]) {
+        try {
+          filename = decodeURIComponent(matchStar[2]);
+        } catch {
+          filename = matchStar[2];
+        }
+      } else {
+        // Fallback to basic filename="..."
+        const match = cd.match(/filename\s*=\s*"?([^"]+)"?/i);
+        if (match && match[1]) filename = match[1];
+      }
+    }
+
+    // Trigger browser download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `project_${projectId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error fetching PDF:', error);
+    showToast(TOAST_TAGS.PDF_DOWNLOAD_FAILED, { args: [error.message] });
+  }
+};

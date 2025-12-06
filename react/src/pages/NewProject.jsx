@@ -1,10 +1,10 @@
-
 import React, { useState, useRef, Suspense, useEffect } from "react";
 import { useSelector } from 'react-redux';
 import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import { PRODUCTS } from "../config/productRegistry";
+import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 export default function NewProject() {
 
@@ -27,17 +27,19 @@ export default function NewProject() {
   // Mobile-friendly toast (replaces alert)
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef();
-  const showToast = (msg, opts = {}) => {
-    setToast({ msg: String(msg), ...opts });
+  const showToast = (tagOrMsg, opts = {}) => {
+    const { args = [], ...restOpts } = opts;
+    const msg = resolveToastMessage(tagOrMsg, ...args);
+    setToast({ msg: String(msg), ...restOpts });
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), opts.duration || 30000);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), restOpts.duration || 30000);
   };
 
   const devMode = useSelector(state => state.toggles.devMode);
 
   const handleCheck = async () => {
     if (!product) {
-      showToast("Please select a project type first.");
+      showToast(TOAST_TAGS.PROJECT_TYPE_REQUIRED);
       return;
     }
     try {
@@ -45,7 +47,7 @@ export default function NewProject() {
       // Find selected product's meta to retrieve numeric dbId
       const productMeta = PRODUCTS.find(p => p.id === product);
       if (!productMeta || productMeta.dbId == null) {
-        showToast("Check unsupported: product has no product_id (dbId).");
+        showToast(TOAST_TAGS.CHECK_UNSUPPORTED);
         return;
       }
 
@@ -73,11 +75,11 @@ export default function NewProject() {
         project_attributes: result.project_attributes || {},
       });
       
-      showToast("Check complete");
+      showToast(TOAST_TAGS.CHECK_COMPLETE);
       console.log("Calculation result:", result);
     } catch (err) {
       console.error("Check error:", err);
-      showToast(`Error: ${err.message}`, { duration: 8000 });
+      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [err.message], duration: 8000 });
     }
   };
 
@@ -90,9 +92,7 @@ export default function NewProject() {
     console.log("Printing form values...");
     const all = formRef.current?.getValues?.() ?? {};
     console.log("Form values:", all);
-    showToast(
-        JSON.stringify(all ?? {}, null, 2)
-    );
+    showToast(TOAST_TAGS.DEBUG_INFO, { args: [all] });
   };
 
   // NEW: expose a button handler that calls runAll with current form values
@@ -101,14 +101,14 @@ export default function NewProject() {
 
   const handleSubmit = async () => {
     if (!product) {
-      showToast("Please select a project type first.");
+      showToast(TOAST_TAGS.PROJECT_TYPE_REQUIRED);
       return;
     }
     try {
       const formData = formRef.current?.getValues?.() ?? {};
       const productMeta = PRODUCTS.find(p => p.id === product);
       if (!productMeta || productMeta.dbId == null) {
-        showToast("This product cannot be created yet (missing product_id).");
+        showToast(TOAST_TAGS.PRODUCT_MISSING_ID);
         return;
       }
       const payload = {
@@ -127,12 +127,12 @@ export default function NewProject() {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const res = await response.json();
-      showToast("Project submitted successfully!");
+      showToast(TOAST_TAGS.PROJECT_SUBMITTED);
       console.log("Submitted:", res);
       setCreatedProject(res);
     } catch (err) {
       console.error("Submission error:", err);
-      showToast(`Error: ${err.message}`, { duration: 8000 });
+      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [err.message], duration: 8000 });
     }
   };
 
@@ -160,7 +160,7 @@ export default function NewProject() {
   }, [createdProject]);
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 layout">
       <ProjectSidebar
         open={sidebarOpen}
         setOpen={setSidebarOpen}
@@ -199,16 +199,16 @@ export default function NewProject() {
                   formRef={formRef}
                 />
               </Suspense>
-              {devMode && <button onClick={printValues} className="devStyle">Print values</button>}
-              <div className="flex gap-3 mt-6">
-                <button onClick={handleCheck} className="buttonStyle">
-                  Check Specifications
+              <div className="action-bar" style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button onClick={handleCheck} className="buttonStyle bg-blue-600 hover:bg-blue-700">
+                  Check
                 </button>
                 <button onClick={handleSubmit} className="buttonStyle">
                   {['estimator', 'admin', 'designer'].includes(role)
                     ? 'Make Lead'
                     : 'Get Quote'}
                 </button>
+                {devMode && <button onClick={printValues} className="buttonStyle">Print values</button>}
               </div>
             </div>
             {/* Canvas visualization rendered by Display.js after project creation */}
@@ -225,6 +225,51 @@ export default function NewProject() {
           <p className="text-gray-500">Select a project type to begin.</p>
         )}
       </main>
+
+      <style>
+        {`
+          /* Mobile-first: stacked */
+          .layout { 
+            flex-direction: column;
+            padding-bottom: 48px; /* gives users an easy thumb area to scroll */
+          }
+
+          /* Stop the PAGE from scrolling sideways on mobile, but keep vertical scroll smooth */
+          @media (max-width: 799px) {
+            html, body { 
+              overflow-x: hidden;
+              /* Allow the document to scroll naturally */
+              height: auto;
+              min-height: 100%;
+            }
+            .layout { 
+              overflow-x: hidden; 
+              overflow-y: visible; 
+              padding-bottom: 100px; /* Space for sticky action bar */
+            }
+
+            .action-bar {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              background-color: white;
+              border-top: 1px solid #e5e7eb;
+              padding: 12px;
+              z-index: 50;
+              justify-content: space-around;
+              margin-top: 0 !important;
+              box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+              overflow-x: auto;
+            }
+            
+            .dark .action-bar {
+               background-color: #111827;
+               border-top-color: #374151;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 }

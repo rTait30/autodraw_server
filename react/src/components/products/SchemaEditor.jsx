@@ -70,7 +70,7 @@ export default function SchemaEditor({
           boxSizing: 'border-box',
           padding: 8,
           resize: 'vertical',
-          border: '1px solid #ccc',
+          border: '1px solid var(--color-warm-grey)',
           borderRadius: 6,
           background: '#fff',
         }}
@@ -78,7 +78,7 @@ export default function SchemaEditor({
       />
 
       {error ? (
-        <div style={{ color: '#b91c1c', marginTop: 6, fontSize: 12 }}>{error}</div>
+        <div style={{ color: 'var(--color-error)', marginTop: 6, fontSize: 12 }}>{error}</div>
       ) : null}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>

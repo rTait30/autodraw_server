@@ -32,7 +32,7 @@ function TopBar() {
   };
 
   const toggleBtnStyle = (active) => ({
-    background: active ? '#eeeeee' : '#23244a',
+    background: active ? 'var(--color-toggle-active)' : 'var(--color-toggle-inactive)',
     color: active ? 'black' : 'white',
     border: '1px solid white',
     fontSize: 13,
@@ -62,7 +62,7 @@ function TopBar() {
   );
 
   const mobileMenu = (
-    <div className="fixed top-0 right-0 w-[min(75vw,320px)] h-[100dvh] bg-[#1b1c3a] dark:bg-gray-900 shadow-[-2px_0_8px_rgba(0,0,0,0.2)] flex flex-col p-6 z-[200] transition-transform duration-200"
+    <div className="fixed top-0 right-0 w-[min(75vw,320px)] h-[100dvh] bg-primary dark:bg-gray-900 shadow-[-2px_0_8px_rgba(0,0,0,0.2)] flex flex-col p-6 z-[200] transition-transform duration-200"
       style={{
         display: menuOpen ? 'flex' : 'none',
       }}
@@ -126,7 +126,7 @@ function TopBar() {
 
   return (
     <>
-      <header className="topbar flex items-center justify-between px-5 h-[60px] w-full sticky top-0 z-[100] bg-[#1b1c3a] dark:bg-gray-900 text-white transition-colors duration-200">
+      <header className="topbar flex items-center justify-between px-5 h-[60px] w-full sticky top-0 z-[100] bg-primary dark:bg-gray-900 text-white transition-colors duration-200">
         <div className="flex items-center gap-6 flex-1">
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
@@ -142,6 +142,10 @@ function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           <span className="roleStyle">{name}</span>
           <span className="roleStyle">{role}</span>
+
+          
+          
+          <span className="roleStyle"> | MENU</span>
           <button
             onClick={() => setMenuOpen(true)}
             className="bg-none border-none text-white text-3xl cursor-pointer block mr-0 p-0 leading-none burger"

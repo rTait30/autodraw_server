@@ -93,21 +93,86 @@ export function render(canvas, data) {
       mapped[id] = { x: mappedX, y: mappedY };
     }
 
-    // Compute centroid
+    // Map workpoints (tension points) if available
+    const mappedWorkpoints = {};
+    const workpoints = attributes.workpoints || {};
+    const hasWorkpoints = Object.keys(workpoints).length > 0;
+    
+    if (hasWorkpoints) {
+      for (const [id, wp] of Object.entries(workpoints)) {
+        const mappedX = offsetX + (wp.x - minX) * scale;
+        const mappedY = startY + offsetY + (maxY - wp.y) * scale;
+        mappedWorkpoints[id] = { x: mappedX, y: mappedY };
+      }
+    }
+
+    // Determine which points define the sail perimeter (workpoints if available, else posts)
+    const perimeterPoints = hasWorkpoints ? mappedWorkpoints : mapped;
+
+    // Use pre-calculated centroid from backend if available, mapped to canvas
     let cx = 0, cy = 0;
-    ids.forEach(id => { cx += mapped[id].x; cy += mapped[id].y; });
-    cx /= (ids.length || 1); cy /= (ids.length || 1);
+    if (attributes.centroid) {
+        cx = offsetX + (attributes.centroid.x - minX) * scale;
+        cy = startY + offsetY + (maxY - attributes.centroid.y) * scale;
+    } else {
+        // Fallback if not present (e.g. old data)
+        ids.forEach(id => { 
+            const p = perimeterPoints[id] || mapped[id];
+            cx += p.x; cy += p.y; 
+        });
+        cx /= (ids.length || 1); cy /= (ids.length || 1);
+    }
 
     // Order points by polar angle around centroid to approximate perimeter order
-    const angles = Object.fromEntries(ids.map(id => [id, Math.atan2(mapped[id].y - cy, mapped[id].x - cx)]));
+    const angles = Object.fromEntries(ids.map(id => [id, Math.atan2((perimeterPoints[id] || mapped[id]).y - cy, (perimeterPoints[id] || mapped[id]).x - cx)]));
     const ordered = [...ids].sort((a, b) => angles[a] - angles[b]);
+
+    // Draw tensioners (lines from post to workpoint)
+    if (hasWorkpoints) {
+        ctx.save();
+        ctx.strokeStyle = '#666'; 
+        ctx.lineWidth = 1 * baseScale;
+        ctx.setLineDash([5, 5]); 
+        ids.forEach(id => {
+            const post = mapped[id];
+            const wp = mappedWorkpoints[id];
+            if (post && wp) {
+                ctx.beginPath();
+                ctx.moveTo(post.x, post.y);
+                ctx.lineTo(wp.x, wp.y);
+                ctx.stroke();
+                
+                // Draw small circle at workpoint
+                ctx.beginPath();
+                ctx.arc(wp.x, wp.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#666';
+                ctx.fill();
+            }
+        });
+        ctx.restore();
+    }
 
     // Draw outer perimeter edges with catenary curves only; color red if problematic
     for (let i = 0; i < ordered.length; i++) {
       const p1 = ordered[i];
       const p2 = ordered[(i + 1) % ordered.length];
-      const pos1 = mapped[p1];
-      const pos2 = mapped[p2];
+
+      // Draw straight red line between posts (measured points)
+      const post1 = mapped[p1];
+      const post2 = mapped[p2];
+      if (post1 && post2) {
+          ctx.save();
+          ctx.strokeStyle = '#000'; 
+          ctx.lineWidth = 1 * baseScale;
+          ctx.beginPath();
+          ctx.moveTo(post1.x, post1.y);
+          ctx.lineTo(post2.x, post2.y);
+          ctx.stroke();
+          ctx.restore();
+      }
+
+      const pos1 = perimeterPoints[p1];
+      const pos2 = perimeterPoints[p2];
       if (!pos1 || !pos2) continue;
 
       const lineKey = [p1, p2].sort().join('');
@@ -142,7 +207,7 @@ export function render(canvas, data) {
       const cy1 = my + dipDirY * dip;
       // Draw catenary as quadratic curve
       ctx.save();
-      ctx.strokeStyle = isProblematicPerimeter ? '#F00' : '#0000FF'; // red if problematic, else catenary blue
+      ctx.strokeStyle = isProblematicPerimeter ? '#EB1C24' : '#004A7C'; // red if problematic, else catenary blue
       ctx.lineWidth = 4; // thicker but constant
       ctx.beginPath();
       ctx.moveTo(pos1.x, pos1.y);
@@ -172,7 +237,7 @@ export function render(canvas, data) {
       ctx.arc(p.x, p.y, (isReflex ? 8 : 5), 0, Math.PI * 2);
       ctx.fillStyle = isReflex ? '#dc2626' : '#2563eb';
       ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = '#004A7C'; ctx.lineWidth = 1; ctx.stroke();
 
       ctx.fillStyle = '#000';
       ctx.font = `bold 32px Arial`;
@@ -191,7 +256,7 @@ export function render(canvas, data) {
         ctx.fillText(`Allowance: ${points[id]?.tensionAllowance ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
       }
       ctx.font = `bold 12px Arial`;
-      ctx.fillStyle = '#F00';
+      ctx.fillStyle = '#EB1C24';
       if (attributes.exitPoint === id && !data.discrepancyChecker) { ctx.fillText('Exit Point', labelX, nextY); nextY += lineSpacingSmall; }
       if (attributes.logoPoint === id && !data.discrepancyChecker) { ctx.fillText('Logo', labelX, nextY); nextY += lineSpacingSmall; }
       
@@ -224,7 +289,7 @@ export function render(canvas, data) {
       if (!pos1 || !pos2) continue;
       if (!isPerimeterEdge(p1, p2)) {
         const isProblematicLine = problematicLines.has(lineKey);
-        ctx.strokeStyle = isProblematicLine ? '#F00' : '#999';
+        ctx.strokeStyle = isProblematicLine ? '#EB1C24' : '#999';
         ctx.lineWidth = 1 * baseScale; ctx.beginPath(); ctx.moveTo(pos1.x, pos1.y); ctx.lineTo(pos2.x, pos2.y); ctx.stroke();
       }
       const midX = (pos1.x + pos2.x) / 2; const midY = (pos1.y + pos2.y) / 2; 

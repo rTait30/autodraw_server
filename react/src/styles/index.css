@@ -1,11 +1,35 @@
 @import "tailwindcss";
 
-@tailwindcss preflight;
-@tailwindcss utilities;
+@theme {
+  --font-gill: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+
+  /* Centralized Color Palette */
+  --color-primary: #004A7C;
+  --color-primary-hover: #105A8C;
+
+  --color-secondary: #0075EB;
+  --color-secondary-hover: #1085FB;
+
+  --color-tertiary: #EB1C24;
+  --color-tertiary-hover: #FB2C34;
+
+  --color-warm-grey: #DBEAFE;
+
+  /* Status Colors */
+  --color-success: #16A34A; /* green-600 */
+  --color-error: #DC2626;   /* red-600 */
+
+  /* Header & Navigation */
+  --color-toggle-inactive: #23244a;
+  --color-toggle-active: #eeeeee;
+  
+  /* Dark Mode Backgrounds */
+  --color-bg-dark: #111827; /* gray-900 */
+}
 
 @layer base {
   body {
-    @apply font-mono min-h-screen bg-white text-black dark:bg-gray-900 dark:text-white;
+    @apply font-gill min-h-screen bg-white text-black dark:bg-gray-900 dark:text-white;
   }
   #root {
     @apply min-h-screen;
@@ -24,11 +48,11 @@
 
 
   .buttonStyle {
-    @apply p-3 bg-[#2f2f6f] text-white text-base font-medium rounded-lg cursor-pointer mt-1 hover:bg-blue-900 dark:bg-gray-700;
+    @apply p-3 bg-secondary text-white text-base font-medium rounded-lg cursor-pointer mt-1 hover:bg-secondary-hover dark:bg-gray-700;
   }
 
   .buttonArray {
-    @apply p-2 bg-[#2f2f6f] text-white text-sm font-medium rounded-lg cursor-pointer mt-1 dark:bg-gray-700;
+    @apply p-2 bg-secondary text-white text-sm font-medium rounded-lg cursor-pointer mt-1 dark:bg-gray-700;
     display: flex;
     gap: 12px;
     margin-top: 20px;
@@ -36,16 +60,16 @@
 
 
   .inputStyle {
-    @apply p-3 border border-blue-300 rounded-lg text-base md:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+    @apply p-3 border border-warm-grey rounded-lg text-base md:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white;
   }
   .inputCompact {
-    @apply p-2 border border-blue-300 rounded text-left h-10 md:h-8 px-2 text-base md:text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+    @apply p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 text-base md:text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white;
   }
   .formStyle {
     @apply flex flex-col items-center gap-y-2;
   }
   .linkStyle {
-    @apply text-white no-underline font-medium text-sm dark:text-gray-300;
+    @apply text-white no-underline font-medium text-lg dark:text-gray-300;
   }
   .roleStyle {
     @apply font-medium text-sm opacity-80 dark:text-gray-400;
@@ -55,13 +79,13 @@
 
   .tableBase {
     /* Converted from Tailwind @apply to plain CSS for lint compatibility */
-    border: 1px solid #D1D5DB; /* gray-300 */
+    border: 1px solid var(--color-warm-grey);
     background-color: #ffffff;
     width: 100%;
     border-collapse: collapse;
   }
   .tableBase.dark {
-    border-color: #4B5563; /* gray-600 */
+    border-color: var(--color-warm-grey);
     background-color: #111827; /* gray-900 */
   }
   .tableBase th {
@@ -69,49 +93,49 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 1rem;
     font-weight: 600;
-    color: #1E3A8A; /* blue-900 */
+    color: var(--color-secondary);
     letter-spacing: 0.5px;
-    background-color: #DBEAFE; /* blue-100 */
-    border-bottom: 1px solid #BFDBFE; /* blue-200 */
+    background-color: var(--color-warm-grey);
+    border-bottom: 1px solid var(--color-warm-grey);
     padding: 0.5rem 0.75rem;
   }
   .tableSection {
-    color: #7F1D1D; /* red-900 */
+    color: var(--color-tertiary);
     font-size: 1.5rem;
-    border-bottom: 1px solid #E5E7EB; /* gray-200 */
+    border-bottom: 1px solid var(--color-warm-grey);
     padding: 0.75rem 0;
     font-weight: 600;
   }
   .tableHeader {
-    background-color: #DBEAFE; /* blue-100 */
+    background-color: var(--color-warm-grey);
     text-align: left;
-    border-bottom: 1px solid #BFDBFE; /* blue-200 */
+    border-bottom: 1px solid var(--color-warm-grey);
   }
   .tableCalc {
-    background-color: #F3F4F6; /* gray-100 */
+    background-color: var(--color-warm-grey);
   }
 
   /* Zebra striping for table rows */
   .tableBase tbody tr:nth-child(even) {
-    background-color: #F9FAFB; /* gray-50 */
+    background-color: var(--color-warm-grey);
   }
   .tableBase tbody tr:nth-child(odd) {
     background-color: #FFFFFF;
   }
   /* Optional hover to improve readability */
   .tableBase tbody tr:hover {
-    background-color: #EFF6FF; /* blue-50 */
+    background-color: var(--color-warm-grey);
     transition: background-color .15s ease-in-out;
   }
 
 
   .btnRow { @apply flex gap-2 justify-end py-2; }
   .cellKey { @apply text-sm text-gray-700; }
-  .nestedTable { @apply w-full bg-gray-50 my-1 border border-gray-200; }
+  .nestedTable { @apply w-full bg-warm-grey my-1 border border-warm-grey; }
 
   .pageRow { @apply w-full mt-6 grid grid-cols-1 lg:grid-cols-2 gap-8; }
   .panel { @apply w-full max-w-[800px]; }
-  .canvasBox { @apply border border-gray-300 bg-white w-full max-w-[500px]; }
+  .canvasBox { @apply border border-warm-grey bg-white w-full max-w-[500px]; }
   .btnRow { @apply flex gap-2 justify-end py-2; }
   
   .auth-container {
@@ -124,10 +148,10 @@
     @apply flex justify-center w-full mb-5;
   }
   .auth-error {
-    @apply text-red-600 text-sm mt-2;
+    @apply text-error text-sm mt-2;
   }
   .auth-success {
-    @apply text-green-600 text-sm mt-2;
+    @apply text-success text-sm mt-2;
   }
   .auth-checkbox-row {
     @apply flex items-center mb-5 text-sm;

@@ -138,7 +138,7 @@ export default function Authentication() {
               <button
                   type="button"
                   onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
-                  className="buttonStyle"
+                  className="buttonStyle w-full"
                   disabled={submitting}
                 >
                   Register as client

@@ -22,7 +22,7 @@ export default function StickyActionBar({ children, className = '' }) {
             left: 0;
             right: 0;
             background-color: white;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--color-border-light);
             padding: 12px;
             z-index: 50;
             justify-content: space-around;
@@ -32,8 +32,8 @@ export default function StickyActionBar({ children, className = '' }) {
           }
           
           .dark .action-bar {
-             background-color: #111827;
-             border-top-color: #374151;
+             background-color: var(--color-bg-dark);
+             border-top-color: var(--color-border-dark);
           }
         }
       `}</style>

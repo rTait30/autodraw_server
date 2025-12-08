@@ -318,7 +318,7 @@ export default function ProjectForm({
                     <div className="flex items-center justify-between mb-2">
                       <div className="headingStyle">{it.name || `Item ${index + 1}`}</div>
                       {items.length > 1 && (
-                        <button type="button" className="buttonStyle bg-[#AA0000]" onClick={() => removeItem(it.productIndex)}>
+                        <button type="button" className="buttonStyle bg-error" onClick={() => removeItem(it.productIndex)}>
                           Remove Item
                         </button>
                       )}

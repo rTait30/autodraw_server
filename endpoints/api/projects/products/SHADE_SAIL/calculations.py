@@ -44,6 +44,8 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         attributes["xyDistances"] = _build_xy_distances(attributes.get("dimensions") or {}, attributes.get("points") or {})
         # Planar positions
         attributes["positions"] = _compute_sail_positions_from_xy(point_count, attributes["xyDistances"])
+        # 3D Geometry (Centroid, Workpoints)
+        _compute_3d_geometry(attributes)
         # Discrepancies & blame
         disc = _compute_discrepancies_and_blame(point_count, attributes["xyDistances"], sail)
         attributes["discrepancies"] = disc["discrepancies"]
@@ -431,6 +433,68 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
     for k, p in positions.items():
         positions[k] = {"x": p["x"], "y": -p["y"]}
     return positions
+
+
+def _compute_3d_geometry(attributes: Dict[str, Any]):
+    positions = attributes.get("positions") or {}
+    points_data = attributes.get("points") or {}
+    
+    if not positions:
+        return
+
+    # 1. Calculate Centroid
+    sum_x, sum_y, sum_z = 0.0, 0.0, 0.0
+    count = 0
+    
+    for label, pos in positions.items():
+        x = pos.get("x", 0.0)
+        y = pos.get("y", 0.0)
+        z = float(_num((points_data.get(label) or {}).get("height")) or 0.0)
+        
+        sum_x += x
+        sum_y += y
+        sum_z += z
+        count += 1
+        
+    if count == 0:
+        return
+
+    cx = sum_x / count
+    cy = sum_y / count
+    cz = sum_z / count
+    
+    attributes["centroid"] = {"x": cx, "y": cy, "z": cz}
+    
+    # 2. Calculate Workpoints (Tension Points)
+    workpoints = {}
+    
+    for label, pos in positions.items():
+        x = pos.get("x", 0.0)
+        y = pos.get("y", 0.0)
+        z = float(_num((points_data.get(label) or {}).get("height")) or 0.0)
+        
+        ta = float(_num((points_data.get(label) or {}).get("tensionAllowance")) or 0.0)
+        
+        # Vector from point to centroid
+        dx = cx - x
+        dy = cy - y
+        dz = cz - z
+        
+        mag = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
+        
+        # Unit vector
+        ux = dx / mag
+        uy = dy / mag
+        uz = dz / mag
+        
+        # Workpoint is point + direction * allowance
+        wx = x + ux * ta
+        wy = y + uy * ta
+        wz = z + uz * ta
+        
+        workpoints[label] = {"x": wx, "y": wy, "z": wz}
+        
+    attributes["workpoints"] = workpoints
 
 
 # ---------------------------------------------------------------------------

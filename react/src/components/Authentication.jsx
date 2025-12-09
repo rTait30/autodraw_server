@@ -193,16 +193,14 @@ export default function Authentication() {
                 autoComplete="new-password"
               />
 
-              <button type="submit" className="buttonStyle" disabled={submitting}>
+              <button type="submit" className="buttonStyle w-full" disabled={submitting}>
                 {submitting ? 'Registering…' : 'Register'}
               </button>
-
-              <div className="my-2" />
 
               <button
                 type="button"
                 onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
-                className="buttonStyle"
+                className="buttonStyle w-full"
                 disabled={submitting}
               >
                 Cancel

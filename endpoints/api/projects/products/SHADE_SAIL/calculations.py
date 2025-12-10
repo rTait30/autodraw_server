@@ -409,7 +409,7 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
         if AB and AC:
             Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB)
             Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
-            positions[C] = {"x": Cx, "y": Cy}
+            positions[C] = {"x": Cx, "y": -Cy}
         return positions
     if point_count == 4:
         dAB = xy_distances.get("AB", 0.0)

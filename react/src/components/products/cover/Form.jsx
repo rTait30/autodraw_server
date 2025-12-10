@@ -32,8 +32,6 @@ export default {
 
 import React, { useImperativeHandle, useState } from "react";
 
-
-
 export const PROJECT_DEFAULTS = Object.freeze({
   medical: false,
 });

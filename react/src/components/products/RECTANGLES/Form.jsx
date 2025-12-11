@@ -53,14 +53,14 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-4 p-4 bg-white rounded border">
+      <section className="space-y-4 p-5 rounded border">
         <h3 className="text-lg font-semibold">Nesting Configuration</h3>
 
         <div className="space-y-2">
           <label className="block text-sm font-medium">Fabric Width (mm)</label>
           <input
             type="number"
-            className="inputCompact"
+            className="inputStyle"
             value={projectData.fabricWidth}
             onChange={(e) =>
               setProjectData((prev) => ({
@@ -75,7 +75,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
           <label className="block text-sm font-medium">Fabric Roll Length (mm)</label>
           <input
             type="number"
-            className="inputCompact"
+            className="inputStyle"
             value={projectData.fabricRollLength}
             onChange={(e) =>
               setProjectData((prev) => ({
@@ -104,7 +104,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
         </div>
       </section>
 
-      <section className="space-y-4 p-4 bg-white rounded border">
+      <section className="space-y-4 p-5 rounded border">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Rectangles</h3>
           <button
@@ -120,7 +120,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
           {projectData.rectangles.map((rect, index) => (
             <div
               key={index}
-              className="grid grid-cols-12 gap-2 items-center p-3 bg-gray-50 rounded"
+              className="grid grid-cols-12 gap-2 items-center rounded"
             >
               <div className="col-span-2">
                 <label className="text-xs opacity-70">Label</label>

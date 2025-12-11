@@ -4,12 +4,12 @@ Auto-discovers product modules and provides unified dispatch for:
 - Calculations (pricing, nesting, etc.)
 - DXF generation
 
-Each product folder (COVER, RECTANGLES, SHADE_SAIL, etc.) should export:
-- calculate(data: dict) -> dict
-- generate_dxf(project, download_name: str) -> Flask response
+Each product folder (COVER, RECTANGLES, SHADE_SAIL, etc.) should contain:
+- calculations.py: exporting calculate(data: dict) -> dict
+- dxf.py: exporting generate_dxf(project, download_name: str) -> Flask response
 """
 import importlib
-import pkgutil
+import os
 from typing import Dict, Callable
 
 
@@ -17,25 +17,34 @@ from typing import Dict, Callable
 _CALCULATORS_BY_NAME: Dict[str, Callable[[dict], dict]] = {}
 _DXF_GENERATORS_BY_NAME: Dict[str, Callable] = {}
 
-for finder, name, ispkg in pkgutil.iter_modules(__path__, prefix=__name__ + "."):
-    if not ispkg:
-        continue
-    
-    module_name = name.split(".")[-1]
-    if module_name.startswith("_"):
-        continue
-    
-    try:
-        module = importlib.import_module(name)
-        product_type = module_name.upper()
+_PRODUCTS_DIR = os.path.dirname(__file__)
+
+for entry in os.scandir(_PRODUCTS_DIR):
+    if entry.is_dir() and not entry.name.startswith("_") and not entry.name == "__pycache__":
+        product_type = entry.name.upper()
         
-        if hasattr(module, "calculate"):
-            _CALCULATORS_BY_NAME[product_type] = module.calculate
-        
-        if hasattr(module, "generate_dxf"):
-            _DXF_GENERATORS_BY_NAME[product_type] = module.generate_dxf
-    except Exception as e:
-        print(f"[PRODUCTS] Failed to import {name}: {e}")
+        # Try to import calculations.py
+        try:
+            # Construct module path: endpoints.api.products.<PRODUCT>.calculations
+            calc_module_name = f"endpoints.api.products.{entry.name}.calculations"
+            calc_module = importlib.import_module(calc_module_name)
+            if hasattr(calc_module, "calculate"):
+                _CALCULATORS_BY_NAME[product_type] = calc_module.calculate
+        except ImportError:
+            pass # No calculations module or failed to import
+        except Exception as e:
+            print(f"[PRODUCTS] Failed to import calculations for {entry.name}: {e}")
+
+        # Try to import dxf.py
+        try:
+            dxf_module_name = f"endpoints.api.products.{entry.name}.dxf"
+            dxf_module = importlib.import_module(dxf_module_name)
+            if hasattr(dxf_module, "generate_dxf"):
+                _DXF_GENERATORS_BY_NAME[product_type] = dxf_module.generate_dxf
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[PRODUCTS] Failed to import dxf for {entry.name}: {e}")
 
 
 def dispatch_calculation(product_type: str, data: dict) -> dict:

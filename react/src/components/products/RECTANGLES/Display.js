@@ -53,11 +53,10 @@ export function render(canvas, data) {
     // This works for both Rectangles page and NewProject since both pass a canvas element.
     if (requiredHeight > canvas.height) {
       canvas.height = requiredHeight;
-      // Update CSS pixel height if explicit pixel width is used; avoid % width distortion.
-      if (!canvas.style.height || /px$/.test(canvas.style.height)) {
-        canvas.style.height = `${requiredHeight}px`;
-      }
     }
+    
+    // Clear fixed height to allow aspect-ratio scaling via CSS width (fixes mobile warping)
+    canvas.style.height = '';
 
     const canvasHeight = canvas.height;
     const scale = scaleByWidth;

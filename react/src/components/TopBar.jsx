@@ -74,14 +74,14 @@ function TopBar() {
       >×</button>
       
       {/* Toggle buttons row */}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 0, marginBottom: 18, justifyContent: 'flex-start' }}>
+      <div className="flex items-center mb-6 space-x-2">
         <button
           onClick={handleDarkModeToggle}
-          style={toggleBtnStyle(darkMode)}
+          className="buttonStyle"
         >🌙 Dark</button>
         <button
           onClick={handleDevModeToggle}
-          style={toggleBtnStyle(devMode)}
+          className="buttonStyle"
         >Dev</button>
       </div>
 
@@ -142,16 +142,13 @@ function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           <span className="roleStyle">{name}</span>
           <span className="roleStyle">{role}</span>
-
-          
-          
-          <span className="roleStyle"> | MENU</span>
           <button
             onClick={() => setMenuOpen(true)}
-            className="bg-none border-none text-white text-3xl cursor-pointer block mr-0 p-0 leading-none burger"
+            className="bg-none border-white rounded border p-1 text-white text-3xl cursor-pointer mr-0 leading-none burger"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             aria-label="Open menu"
           >
-            {/* SVG burger icon for crisp white look */}
+            <span className="text-lg">Menu</span>
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect y="7" width="32" height="3" rx="1.5" fill="white" />
               <rect y="14" width="32" height="3" rx="1.5" fill="white" />

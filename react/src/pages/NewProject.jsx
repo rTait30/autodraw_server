@@ -4,7 +4,6 @@ import ProjectSidebar from "../components/ProjectSidebar";
 import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import StickyActionBar from "../components/StickyActionBar";
-import { PRODUCTS } from "../config/productRegistry";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 export default function NewProject() {
@@ -15,12 +14,13 @@ export default function NewProject() {
 
   const [product, setProduct] = useState(null);
   const [createdProject, setCreatedProject] = useState(null);
+  const productsList = useSelector(state => state.products.list);
 
   const role = localStorage.getItem("role") || "guest";
   const isStaff = ['estimator', 'admin', 'designer'].includes(role);
 
   // Filter products based on user role
-  const visibleProducts = PRODUCTS.filter(p => !p.staffOnly || isStaff);
+  const visibleProducts = productsList;
 
   // No longer needed: ProductFormComponent
 
@@ -45,7 +45,7 @@ export default function NewProject() {
     try {
       const formData = formRef.current?.getValues?.() ?? {};
       // Find selected product's meta to retrieve numeric dbId
-      const productMeta = PRODUCTS.find(p => p.id === product);
+      const productMeta = productsList.find(p => p.id === product);
       if (!productMeta || productMeta.dbId == null) {
         showToast(TOAST_TAGS.CHECK_UNSUPPORTED);
         return;
@@ -106,7 +106,7 @@ export default function NewProject() {
     }
     try {
       const formData = formRef.current?.getValues?.() ?? {};
-      const productMeta = PRODUCTS.find(p => p.id === product);
+      const productMeta = productsList.find(p => p.id === product);
       if (!productMeta || productMeta.dbId == null) {
         showToast(TOAST_TAGS.PRODUCT_MISSING_ID);
         return;
@@ -198,7 +198,7 @@ export default function NewProject() {
                 />
               </Suspense>
               <StickyActionBar>
-                <button onClick={handleCheck} className="buttonStyle bg-blue-600 hover:bg-blue-700">
+                <button onClick={handleCheck} className="buttonStyle">
                   Check
                 </button>
                 <button onClick={handleSubmit} className="buttonStyle">
@@ -214,7 +214,7 @@ export default function NewProject() {
                 <canvas 
                   ref={canvasRef} 
                   width={800}
-                  height={500} 
+                  height={200} 
                   className="border shadow bg-white max-w-full"
                 />
               </div>

@@ -10,7 +10,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models import db, Product, Project, User
 from endpoints.api.auth.utils import current_user
-from endpoints.api.projects.products import dispatch_calculation
+from endpoints.api.products import dispatch_calculation
 
 
 projects_calc_api_bp = Blueprint("projects_calc_api", __name__)

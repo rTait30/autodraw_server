@@ -4,13 +4,13 @@
   --font-gill: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
 
   /* Centralized Color Palette */
-  --color-primary: #004A7C;
+  --color-primary: #004A7C; /*0, 74, 124*/
   --color-primary-hover: #105A8C;
 
-  --color-secondary: #0075EB;
+  --color-secondary: #0075EB; /*0, 117, 235*/
   --color-secondary-hover: #1085FB;
 
-  --color-tertiary: #EB1C24;
+  --color-tertiary: #EB1C24; /*235, 28, 36*/
   --color-tertiary-hover: #FB2C34;
 
   --color-warm-grey: #DBEAFE;

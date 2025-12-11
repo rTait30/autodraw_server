@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { syncDarkMode } from './store/togglesSlice';
+import { fetchProducts } from './store/productsSlice';
+
 
 import { getBaseUrl } from './utils/baseUrl';
 
@@ -30,6 +32,7 @@ function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
+    dispatch(fetchProducts());
     const favicon = document.querySelector("link[rel~='icon']");
     if (favicon) {
       favicon.href = getBaseUrl('static/favicon/favicon-96x96.png');

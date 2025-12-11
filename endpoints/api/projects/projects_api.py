@@ -25,8 +25,8 @@ from reportlab.pdfgen import canvas
 
 from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
-from endpoints.api.projects.products import dispatch_calculation as dispatch
-from endpoints.api.projects.products import dispatch_dxf
+from endpoints.api.products import dispatch_calculation as dispatch
+from endpoints.api.products import dispatch_dxf
 
 from WG.workGuru import wg_get
 
@@ -37,6 +37,20 @@ from WG.workGuru import dr_make_lead
 
 
 projects_api_bp = Blueprint("projects_api", __name__)
+
+
+@projects_api_bp.route('/products', methods=['GET'])
+def get_products():
+    """Get all products."""
+    products = Product.query.all()
+    return jsonify([{
+        'id': p.name,  # Use name as ID for frontend compatibility (e.g. "COVER")
+        'dbId': p.id,
+        'name': p.name.replace('_', ' ').title(),  # "SHADE_SAIL" -> "Shade Sail"
+        'description': p.description,
+        'default_schema_id': p.default_schema_id
+    } for p in products])
+
 
 # ---------- ADD THESE SMALL HELPERS (near your routes file top) ----------
 def _as_int(v):

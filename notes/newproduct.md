@@ -7,7 +7,7 @@ The product must exist in the database to be visible on the frontend.
 - **Link:** Update the product's `default_schema_id`.
 
 ## 2. Backend Logic
-Create a folder: `endpoints/api/products/<NAME>/` (Name should match the product name in DB).
+Create a folder: `endpoints/api/products/<NAME>/` (Name must match the product name in DB).
 
 - **`calculations.py`**:
   Must export a `calculate` function.
@@ -26,7 +26,7 @@ Create a folder: `endpoints/api/products/<NAME>/` (Name should match the product
   ```
 
 ## 3. Frontend Components
-Create a folder: `react/src/components/products/<NAME>/` (Name should match the product name in DB, usually UPPERCASE).
+Create a folder: `react/src/components/products/<NAME>/` (Name must match the product name in DB).
 
 - **`Form.jsx`**:
   Must export `ProductForm`.

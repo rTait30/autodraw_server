@@ -326,10 +326,7 @@ export default function ProjectForm({
                     <Suspense fallback={<div className="p-3"></div>}>
                       <ProductForm
                         formRef={ref}
-                        generalData={generalData}
-                        onGeneralDataChange={setGeneralData}
-                        attributesHydrate={it.attributesHydrate}
-                        hideGeneralSection={true}
+                        hydrate={it.attributesHydrate}
                         {...productProps}
                       />
                     </Suspense>

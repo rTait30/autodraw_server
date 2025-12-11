@@ -1,31 +1,4 @@
 import React, { useEffect, useState, useRef, useImperativeHandle } from "react";
-// Generic ProjectForm for global attributes (location)
-export function ProjectForm({ formRef, projectDataHydrate = {} }) {
-  const [projectData, setProjectData] = useState({
-    location: projectDataHydrate.location ?? ""
-  });
-
-  useImperativeHandle(
-    formRef,
-    () => ({
-      getValues: () => ({ project: projectData }),
-    }),
-    [projectData]
-  );
-
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium mb-1">Location</label>
-      <input
-        className="inputStyle"
-        type="text"
-        value={projectData.location}
-        onChange={e => setProjectData(prev => ({ ...prev, location: e.target.value }))}
-        placeholder="Enter location..."
-      />
-    </div>
-  );
-}
 import { GeneralSection } from "../../GeneralSection";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
@@ -75,26 +48,42 @@ const TENSION_HARDWARE_DEFAULTS = {
   "Sailtrack Corner": 0
 };
 
-function SailForm({
+// Generic ProjectForm for global attributes (location)
+export function ProjectForm({ formRef, projectDataHydrate = {} }) {
+  const [projectData, setProjectData] = useState({
+    location: projectDataHydrate.location ?? ""
+  });
+
+  useImperativeHandle(
+    formRef,
+    () => ({
+      getValues: () => ({ project: projectData }),
+    }),
+    [projectData]
+  );
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium mb-1">Location</label>
+      <input
+        className="inputStyle"
+        type="text"
+        value={projectData.location}
+        onChange={e => setProjectData(prev => ({ ...prev, location: e.target.value }))}
+        placeholder="Enter location..."
+      />
+    </div>
+  );
+}
+
+export function ProductForm({
   formRef,
-  generalDataHydrate = {},
-  attributesHydrate = {},
+  hydrate = {},
   discrepancyChecker = false,
-  generalData: generalDataProp,
-  onGeneralDataChange,
-  hideGeneralSection = false,
 }) {
   const [internalGeneralData, setInternalGeneralData] = useState(() => ({
     ...GENERAL_DEFAULTS,
-    ...(generalDataHydrate ?? {}),
   }));
-
-  const generalData = generalDataProp ?? internalGeneralData;
-  const setGeneralData = onGeneralDataChange
-    ? onGeneralDataChange
-    : generalDataProp
-      ? () => {}
-      : setInternalGeneralData;
 
   const heightRefs = useRef({});
   const edgeRefs = useRef({});
@@ -195,7 +184,7 @@ const addUfc = () => {
 
   // --- Attributes (now hydratable) ---
   const [attributes, setAttributes] = useState(() => {
-    const hyd = deepNumberify(attributesHydrate ?? {});
+    const hyd = deepNumberify(hydrate ?? {});
     const base = DEFAULT_ATTRIBUTES;
     return {
       ...base,
@@ -242,7 +231,6 @@ const addUfc = () => {
     if (!formRef) return;
     formRef.current = {
       getValues: () => ({
-        general: generalData,
         attributes: deepNumberify(attributes),
         calculated: {},
       }),
@@ -250,7 +238,7 @@ const addUfc = () => {
     return () => {
       if (formRef) formRef.current = null;
     };
-  }, [formRef, generalData, attributes]);
+  }, [formRef, attributes]);
 
   // Setters
   const setCount = (next) =>
@@ -471,53 +459,48 @@ const setPointField = (p, key, value) =>
   return (
     <div className="p-3 space-y-3">
 
-      {!hideGeneralSection && discrepancyChecker === false && (
-      
-        <GeneralSection data={generalData} setData={setGeneralData} />
-
-      )}
       { /*<h3 className="headingStyle">Shade Sail</h3> */ }
 
       {/* Fabric Category (minimal) */}
-      <section className="space-y-2">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Fabric Category</label>
-          <select
-            className="inputCompact"
-            value={attributes.fabricCategory ?? ""}
-            onChange={(e) =>
-              setAttributes((prev) => {
-                const nextCat = e.target.value;
-                const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
-                return { ...prev, fabricCategory: nextCat, fabricType: firstType };
-              })
-            }
-          >
-            <option value="PVC">PVC</option>
-            <option value="ShadeCloth">ShadeCloth</option>
-          </select>
-        </div>
+      {!discrepancyChecker && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Fabric Category</label>
+            <select
+              className="inputCompact"
+              value={attributes.fabricCategory ?? ""}
+              onChange={(e) =>
+                setAttributes((prev) => {
+                  const nextCat = e.target.value;
+                  const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
+                  return { ...prev, fabricCategory: nextCat, fabricType: firstType };
+                })
+              }
+            >
+              <option value="PVC">PVC</option>
+              <option value="ShadeCloth">ShadeCloth</option>
+            </select>
+          </div>
 
-        {/* Fabric Type (dependent on category) */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Fabric Type</label>
-          <select
-            className="inputCompact"
-            value={attributes.fabricType ?? ""}
-            onChange={(e) =>
-              setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
-            }
-          >
-            {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
-              <option key={ft} value={ft}>
-                {ft}
-              </option>
-            ))}
-          </select>
-        </div>
+          {/* Fabric Type (dependent on category) */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Fabric Type</label>
+            <select
+              className="inputCompact"
+              value={attributes.fabricType ?? ""}
+              onChange={(e) =>
+                setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
+              }
+            >
+              {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
+                <option key={ft} value={ft}>
+                  {ft}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Colour*/}
-        {!discrepancyChecker && (
+          {/* Colour*/}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Colour</label>
             <input
@@ -533,10 +516,8 @@ const setPointField = (p, key, value) =>
               ))}
             </datalist>
           </div>
-        )}
 
-        {/* Fold side */}
-        {!discrepancyChecker && (
+          {/* Fold side */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Fold Side</label>
             <select
@@ -551,28 +532,28 @@ const setPointField = (p, key, value) =>
               ))}
             </select>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-        {/* Fold side */}
-        {!discrepancyChecker && (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Cable Size (mm)</label>
-              <select
-                className="inputCompact"
-                value={attributes.cableSize ?? ""}
-                onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
-              >
-                {CABLE_SIZE_OPTIONS.map((cs) => (
-                  <option key={cs} value={cs}>
-                    {cs}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </section>
-        )}
+      {/* Cable Size */}
+      {!discrepancyChecker && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Cable Size (mm)</label>
+            <select
+              className="inputCompact"
+              value={attributes.cableSize ?? ""}
+              onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
+            >
+              {CABLE_SIZE_OPTIONS.map((cs) => (
+                <option key={cs} value={cs}>
+                  {cs}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+      )}
 
       <hr className="my-8 border-gray-300 opacity-50" />
 
@@ -680,7 +661,8 @@ const setPointField = (p, key, value) =>
               );
             })()}
           </div>
-        </section>)}
+        </section>
+      )}
 
       {/* Dimensions (Edges first, then Diagonals) */}
       <section>
@@ -778,7 +760,6 @@ const setPointField = (p, key, value) =>
                         onChange={(e) => setDimension(label, e.target.value)}
                        onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
                       />
-                      {!discrepancyChecker && (
                       <label className="flex items-center gap-2 text-xs">
                         <input
                           type="checkbox"
@@ -788,7 +769,6 @@ const setPointField = (p, key, value) =>
                         />
                         <span>Sailtrack</span>
                       </label>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -915,32 +895,37 @@ const setPointField = (p, key, value) =>
 
       <section className="space-y-2 w-full md:max-w-4xl md:mx-auto">
         <br></br>
-        <h5 className="text-sm font-medium opacity-70">{discrepancyChecker ? "Heights" : "Points"}</h5>
+        <h5 className="text-sm font-medium opacity-70">Points</h5>
 
         {/* Compact header — visible on desktop only */}
-        {!discrepancyChecker && (
-          <div className="hidden md:grid grid-cols-11 text-[11px] font-medium opacity-70 mb-1">
-            <div className="col-span-3">Height&nbsp;(m)</div>
+        <div className={`hidden md:grid ${discrepancyChecker ? "grid-cols-5" : "grid-cols-11"} text-[11px] font-medium opacity-70 mb-1`}>
+          <div className="col-span-3">Height&nbsp;(m)</div>
 
-              {!discrepancyChecker && (
-                <>
-                  <div className="col-span-3">Corner Fitting</div>
-                  <div className="col-span-3">Tensioning Hardware</div>
-                  <div className="col-span-2">Tension&nbsp;(mm)</div>
-                </>
-              )}
+          {!discrepancyChecker && (
+            <>
+              <div className="col-span-3">Corner Fitting</div>
+              <div className="col-span-3">Tensioning Hardware</div>
+            </>
+          )}
+          <div className="col-span-2">Tension&nbsp;(mm)</div>
 
-          </div>
-        )}
+        </div>
 
         <div className="space-y-1">
           {Object.entries(attributes.points).map(([p, vals]) => (
-            discrepancyChecker ? (
-              <div key={p} className="flex items-center gap-2">
-                <label className="text-sm w-6 text-right">{p}</label>
+            <div
+              key={p}
+              className="flex flex-col md:flex-row md:items-center gap-1"
+            >
+              {/* Point label */}
+              <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
+
+              {/* Inputs grid */}
+              <div className={`grid ${discrepancyChecker ? "grid-cols-5" : "grid-cols-11"} items-center gap-1 text-xs flex-1`}>
+                {/* Height */}
                 <input
                   ref={(el) => (heightRefs.current[p] = el)}
-                  className="inputCompact w-28"
+                  className={`inputCompact col-span-3 md:w-28`}
                   type="number"
                   min={0}
                   step="any"
@@ -949,75 +934,49 @@ const setPointField = (p, key, value) =>
                   onChange={(e) => setPointField(p, "height", e.target.value)}
                   onKeyDown={(e) => handleEnterFocus(e, "height", p)}
                 />
+
+                {/* Corner Fitting */}
+                {!discrepancyChecker && (
+                  <select
+                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                    value={vals.cornerFitting ?? ""}
+                    onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
+                  >
+                    {CORNER_FITTING_OPTIONS.map((cf) => (
+                      <option key={cf} value={cf}>
+                        {cf}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Tension Hardware */}
+                {!discrepancyChecker && (
+                  <select
+                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
+                    value={vals.tensionHardware ?? ""}
+                    onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
+                  >
+                    {TENSION_HARDWARE_OPTIONS.map((th) => (
+                      <option key={th} value={th}>
+                        {th}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Tension allowance */}
+                <input
+                  className="inputCompact h-8 px-2 text-xs w-full col-span-2"
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="numeric"
+                  value={vals.tensionAllowance}
+                  onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+                />
               </div>
-            ) : (
-              <div
-                key={p}
-                className="flex flex-col md:flex-row md:items-center gap-1"
-              >
-                {/* Point label */}
-                <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
-
-                {/* Inputs grid */}
-                <div className="grid grid-cols-11 items-center gap-1 text-xs flex-1">
-                  {/* Height */}
-                  <input
-                    ref={(el) => (heightRefs.current[p] = el)}
-                    className={`inputCompact ${discrepancyChecker ? 'col-span-11 md:w-28' : 'col-span-3 md:w-28'}`}
-                    type="number"
-                    min={0}
-                    step="any"
-                    inputMode="numeric"
-                    value={vals.height}
-                    onChange={(e) => setPointField(p, "height", e.target.value)}
-                    onKeyDown={(e) => handleEnterFocus(e, "height", p)}
-                  />
-
-                  {/* Corner Fitting */}
-                  {!discrepancyChecker && (
-                    <select
-                      className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                      value={vals.cornerFitting ?? ""}
-                      onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
-                    >
-                      {CORNER_FITTING_OPTIONS.map((cf) => (
-                        <option key={cf} value={cf}>
-                          {cf}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {/* Tension Hardware */}
-                  {!discrepancyChecker && (
-                    <select
-                      className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                      value={vals.tensionHardware ?? ""}
-                      onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
-                    >
-                      {TENSION_HARDWARE_OPTIONS.map((th) => (
-                        <option key={th} value={th}>
-                          {th}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {/* Tension allowance */}
-                  {!discrepancyChecker && (
-                    <input
-                      className="inputCompact h-8 px-2 text-xs w-full col-span-2"
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="numeric"
-                      value={vals.tensionAllowance}
-                      onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
-                    />
-                  )}
-                </div>
-              </div>
-            )
+            </div>
           ))}
         </div>
         {/* Clear heights button */}
@@ -1114,61 +1073,61 @@ const setPointField = (p, key, value) =>
           <section className="space-y-2">
             <h5 className="text-sm font-medium opacity-70">UFCs</h5>
 
-<div className="flex flex-wrap items-center gap-2">
-  <label className="text-xs opacity-70">Diagonal</label>
-  <select
-    className="inputCompact h-8 text-xs"
-    value={pendingUfc.diagonal}
-    onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
-  >
-    <option value="">—</option>
-    {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
-      <option key={d} value={d}>{d}</option>
-    ))}
-  </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs opacity-70">Diagonal</label>
+              <select
+                className="inputCompact h-8 text-xs"
+                value={pendingUfc.diagonal}
+                onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
+              >
+                <option value="">—</option>
+                {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
 
-  <label className="text-xs opacity-70">Size</label>
-  <select
-    className="inputCompact h-8 w-24 text-xs"
-    value={pendingUfc.size}
-    onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
-  >
-    <option value="">(auto)</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-  </select>
+              <label className="text-xs opacity-70">Size</label>
+              <select
+                className="inputCompact h-8 w-24 text-xs"
+                value={pendingUfc.size}
+                onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
+              >
+                <option value="">(auto)</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+              </select>
 
-  {/* Internal Pocket */}
-  <label className="text-xs opacity-70">Pocket</label>
-  <select
-    className="inputCompact h-8 w-24 text-xs"
-    value={pendingUfc.internalPocket ?? "no"}
-    onChange={(e) => setPendingUfc((s) => ({ ...s, internalPocket: e.target.value }))}
-  >
-    <option value="no">No Pocket</option>
-    <option value="yes">Pocket</option>
-  </select>
+              {/* Internal Pocket */}
+              <label className="text-xs opacity-70">Pocket</label>
+              <select
+                className="inputCompact h-8 w-24 text-xs"
+                value={pendingUfc.internalPocket ?? "no"}
+                onChange={(e) => setPendingUfc((s) => ({ ...s, internalPocket: e.target.value }))}
+              >
+                <option value="no">No Pocket</option>
+                <option value="yes">Pocket</option>
+              </select>
 
-  {/* Coated Cable */}
-  <label className="text-xs opacity-70">Coated</label>
-  <select
-    className="inputCompact h-8 w-24 text-xs"
-    value={pendingUfc.coatedCable ?? "no"}
-    onChange={(e) => setPendingUfc((s) => ({ ...s, coatedCable: e.target.value }))}
-  >
-    <option value="no">Uncoated</option>
-    <option value="yes">Coated</option>
-  </select>
+              {/* Coated Cable */}
+              <label className="text-xs opacity-70">Coated</label>
+              <select
+                className="inputCompact h-8 w-24 text-xs"
+                value={pendingUfc.coatedCable ?? "no"}
+                onChange={(e) => setPendingUfc((s) => ({ ...s, coatedCable: e.target.value }))}
+              >
+                <option value="no">Uncoated</option>
+                <option value="yes">Coated</option>
+              </select>
 
-  <button
-    type="button"
-    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-    onClick={addUfc}
-    aria-label={`Add ufc ${pendingUfc.diagonal}`}
-  >
-    Add
-  </button>
-</div>
+              <button
+                type="button"
+                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                onClick={addUfc}
+                aria-label={`Add ufc ${pendingUfc.diagonal}`}
+              >
+                Add
+              </button>
+            </div>
 
             {(attributes.ufcs || []).length > 0 && (
               <div className="space-y-2 mt-2 text-xs">
@@ -1274,11 +1233,6 @@ function deepNumberify(obj) {
   }
   if (typeof obj === "string" && obj.trim() !== "" && !isNaN(obj)) return Number(obj);
   return obj;
-}
-
-// Generic ProductForm for per-item attributes
-export function ProductForm(props) {
-  return <SailForm {...props} />;
 }
 
 export default ProductForm;

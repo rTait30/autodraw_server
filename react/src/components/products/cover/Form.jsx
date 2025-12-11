@@ -79,11 +79,11 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   fabricRollLength: 30000,
 });
 
-export function ProductForm({ formRef, attributesHydrate = {} }) {
+export function ProductForm({ formRef, hydrate = {} }) {
   // Single attributes object
   const [attributes, setAttributes] = useState({
     ...ATTRIBUTE_DEFAULTS,
-    ...(attributesHydrate ?? {}),
+    ...(hydrate ?? {}),
   });
 
   const setAttr = (key) => (value) =>

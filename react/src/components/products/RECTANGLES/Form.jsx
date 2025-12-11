@@ -185,3 +185,25 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
     </div>
   );
 }
+
+export function ProductForm({ formRef, hydrate = {} }) {
+  // RECTANGLES product doesn't have per-item attributes yet, 
+  // as it uses the ProjectForm for the list of rectangles.
+  // This is a placeholder to satisfy the interface.
+  
+  useImperativeHandle(
+    formRef,
+    () => ({
+      getValues: () => ({
+        attributes: {},
+      }),
+    }),
+    []
+  );
+
+  return (
+    <div className="p-4 text-sm text-gray-500 italic">
+      This product is configured via the project settings above.
+    </div>
+  );
+}

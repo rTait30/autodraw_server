@@ -320,17 +320,33 @@ export function render(canvas, data) {
       const col2X = 300;
       
       let yPosDiscrep = yPos;
-      ctx.fillText('Discrepancies:', col1X, yPosDiscrep); yPosDiscrep += 20;
+      ctx.fillText('Discrepancies:', col1X, yPosDiscrep);
+      
+      yPosDiscrep += 20;
       
       const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
         .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
         .slice(0, 10);
         
-      sortedDiscrepancies.forEach(([edge, value]) => { 
-        if (value > 0) { 
-            ctx.fillText(` - ${edge}: ${value.toFixed(0)} mm`, col1X + 10, yPosDiscrep); 
-            yPosDiscrep += 18; 
-        } 
+      sortedDiscrepancies.forEach(([box, value]) => { 
+
+        const corners = box.split('');
+        let longestBoxEdge = 0;
+        for (let i = 0; i < corners.length; i++) {
+          for (let j = i + 1; j < corners.length; j++) {
+            const pair = corners[i] + corners[j];
+            const revPair = corners[j] + corners[i];
+            const length = attributes.dimensions[pair] || attributes.dimensions[revPair];
+            if (length && typeof length === 'number' && length > longestBoxEdge) {
+              longestBoxEdge = length;
+            }
+          }
+        }
+
+        if (value > 0) {
+            ctx.fillText(` - ${box}: ${value.toFixed(0)} mm (${((value / (longestBoxEdge || 1)) * 100).toFixed(0)}%)`, col1X + 10, yPosDiscrep);
+            yPosDiscrep += 18;
+        }
       });
 
       let yPosBlame = yPos;

@@ -436,7 +436,7 @@ export default function ProjectDetailsPage() {
                   <StickyActionBar>
                     <button
                       onClick={handleCheck}
-                      className="buttonStyle bg-blue-600 hover:bg-blue-700"
+                      className="buttonStyle"
                     >
                       Check
                     </button>
@@ -659,7 +659,7 @@ export default function ProjectDetailsPage() {
               <canvas 
                 ref={canvasRef} 
                 width={800}
-                height={500} 
+                height={200} 
                 className="border shadow bg-white max-w-full"
               />
             </div>

@@ -369,6 +369,51 @@ def get_project(user, project_id):
 
     return project
 
+
+def list_all_products():
+    """Return all Product rows."""
+    return Product.query.all()
+
+
+def list_pricelist_items():
+    """Return products formatted for /pricelist API."""
+    products = Product.query.all()
+    return [
+        {
+            "id": p.id,
+            "sku": p.sku,
+            "name": p.name,
+            "description": p.description,
+            "price": p.price,
+            "unit": p.unit,
+            "active": p.active,
+        }
+        for p in products
+    ]
+
+
+def list_client_users():
+    """Return all client User rows."""
+    return User.query.filter_by(role="client").all()
+
+
+def list_project_products_for_editor(project_id, order_by_item_index=False):
+    """Return ProjectProduct rows formatted for save/edit responses."""
+    query = ProjectProduct.query.filter_by(project_id=project_id)
+    if order_by_item_index:
+        query = query.order_by(ProjectProduct.item_index)
+
+    return [
+        {
+            "id": pp.id,
+            "itemIndex": pp.item_index,
+            "label": pp.label,
+            "attributes": pp.attributes,
+            "calculated": pp.calculated,
+        }
+        for pp in query.all()
+    ]
+
 def _serialize_project_plain(prj):
     # Generic SQLAlchemy row -> plain dict (columns only)
     def _row_to_dict(row):

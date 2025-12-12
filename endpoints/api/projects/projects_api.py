@@ -1,13 +1,8 @@
-from datetime import datetime, timezone
-
-from flask import Blueprint, request, jsonify, send_file, g
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import db, Project, ProjectProduct, User, Product, EstimatingSchema, ProjectStatus
-from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
+from endpoints.api.auth.utils import current_user, role_required
 from endpoints.api.products import get_product_capabilities
-
-from WG.workGuru import wg_get, get_leads, add_cover
 from endpoints.api.projects.services import project_service
 
 
@@ -17,7 +12,7 @@ projects_api_bp = Blueprint("projects_api", __name__)
 @projects_api_bp.route('/products', methods=['GET'])
 def get_products():
     """Get all products."""
-    products = Product.query.all()
+    products = project_service.list_all_products()
     return jsonify([{
         'id': p.name,  # Use name as ID for frontend compatibility (e.g. "COVER")
         'dbId': p.id,
@@ -26,14 +21,6 @@ def get_products():
         'default_schema_id': p.default_schema_id,
         'capabilities': get_product_capabilities(p.name)
     } for p in products])
-
-
-# ---------- ADD THESE SMALL HELPERS (near your routes file top) ----------
-def _as_int(v):
-    try:
-        return int(v) if v not in (None, "") else None
-    except (TypeError, ValueError):
-        return None
 
 
 
@@ -68,16 +55,7 @@ def save_project_config():
     )
     resp_status = project.status.name if hasattr(project.status, "name") else project.status
     
-    products_out = [
-        {
-            "id": pp.id,
-            "itemIndex": pp.item_index,
-            "label": pp.label,
-            "attributes": pp.attributes,
-            "calculated": pp.calculated,
-        }
-        for pp in ProjectProduct.query.filter_by(project_id=project.id)
-    ]
+    products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=False)
 
     return jsonify({
         "id": project.id,
@@ -106,16 +84,7 @@ def upsert_project_and_attributes(project_id):
         traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
 
-    products_out = [
-        {
-            "id": pp.id,
-            "itemIndex": pp.item_index,
-            "label": pp.label,
-            "attributes": pp.attributes,
-            "calculated": pp.calculated,
-        }
-        for pp in ProjectProduct.query.filter_by(project_id=project.id).order_by(ProjectProduct.item_index).all()
-    ]
+    products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=True)
 
     return jsonify({
         "ok": True,
@@ -221,19 +190,7 @@ def get_project_config(project_id):
 @projects_api_bp.route("/pricelist", methods=["GET"])
 @jwt_required()
 def get_pricelist():
-    products = Product.query
-    #.order_by(Product.name).all()
-    return jsonify([{
-        "id": p.id,
-        "sku": p.sku,
-        "name": p.name,
-        "description": p.description,
-        "price": p.price,
-        "unit": p.unit,
-        "active": p.active,
-        #"created_at": p.created_at.isoformat() if p.created_at else None,
-        #"updated_at": p.updated_at.isoformat() if p.updated_at else None,
-    } for p in products]), 200
+    return jsonify(project_service.list_pricelist_items()), 200
 
 # -------------------------------
 # Clients list (staff only)
@@ -241,8 +198,7 @@ def get_pricelist():
 @projects_api_bp.route("/clients", methods=["GET"])
 @role_required("admin", "estimator", "designer")
 def get_clients():
-    clients = User.query.filter_by(role="client")
-    #.order_by(User.username).all()
+    clients = project_service.list_client_users()
     return jsonify([{"id": c.id, "name": c.username} for c in clients]), 200
 
 

@@ -118,11 +118,6 @@ def dispatch_document(product_type: str, doc_id: str, project, **kwargs):
         if doc_id in generators:
             return generators[doc_id](project, **kwargs)
     
-    # 2. Fallback to legacy dispatchers
-    if doc_id == "dxf":
-        return dispatch_dxf(pt, project)
-    elif doc_id == "pdf":
-        return dispatch_pdf(pt, project, **kwargs)
         
     raise ValueError(f"No document generator for product type: {product_type}, document: {doc_id}")
 

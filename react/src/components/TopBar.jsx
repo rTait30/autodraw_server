@@ -77,12 +77,12 @@ function TopBar() {
       <div className="flex items-center mb-6 space-x-2">
         <button
           onClick={handleDarkModeToggle}
-          className="buttonStyle"
+          style={toggleBtnStyle(darkMode)}
         >🌙 Dark</button>
         <button
           onClick={handleDevModeToggle}
-          className="buttonStyle"
-        >Dev</button>
+          style={toggleBtnStyle(devMode)}
+        > Dev</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

@@ -20,8 +20,8 @@
   --color-error: #DC2626;   /* red-600 */
 
   /* Header & Navigation */
-  --color-toggle-inactive: #23244a;
-  --color-toggle-active: #eeeeee;
+  --color-toggle-inactive: #DC2626;
+  --color-toggle-active: #16A34A;
   
   /* Dark Mode Backgrounds */
   --color-bg-dark: #111827; /* gray-900 */

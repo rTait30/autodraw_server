@@ -402,7 +402,7 @@ export default function ProjectDetailsPage() {
   );
   
   // Shade sails don't need nesting data for DXF
-  const canGenerateDXF = project?.product?.name === 'SHADE_SAIL' || hasNestData;
+  const canGenerateDXF = project?.product?.name !== 'COVER' || hasNestData;
 
   return (
     <>
@@ -568,30 +568,61 @@ export default function ProjectDetailsPage() {
             </div>
           )}
 
-          {/* Buttons: only for staff, and only when it's a cover or shade sail */}
-          {(role === 'estimator'|| role === 'designer' || role === 'admin') && (project?.product?.name === 'COVER' || project?.product?.name === 'SHADE_SAIL') && (
-            <div className="space-x-2">
-              <button 
-                onClick={() => fetchDXF(project.id)} 
-                className="buttonStyle"
-                disabled={!canGenerateDXF}
-                title={!canGenerateDXF ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
-              >
-                Download DXF
-              </button>
-              
-              {/* BOM option only for PDF 
-              
-              <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
-                Download PDF
-              </button>
-              <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
-                Download PDF with BOM
-              </button>
-              
-              */}
+          {/* Buttons: only for staff, and only if capabilities exist */}
+          {(role === 'estimator'|| role === 'designer' || role === 'admin') && (
+            <div className="space-y-2">
+              {/* Legacy Buttons (Fallback) */}
+              {(!project?.product?.capabilities?.documents || project.product.capabilities.documents.length === 0) && (
+                <div className="space-x-2">
+                  {project?.product?.capabilities?.has_dxf && (
+                    <button 
+                      onClick={() => fetchDXF(project.id)} 
+                      className="buttonStyle"
+                      disabled={!canGenerateDXF}
+                      title={!canGenerateDXF ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
+                    >
+                      Download DXF
+                    </button>
+                  )}
+                  
+                  {project?.product?.capabilities?.has_pdf && (
+                    <>
+                      <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
+                        Download PDF
+                      </button>
+                      <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
+                        Download PDF with BOM
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
 
-              {!canGenerateDXF && project?.product?.name === 'COVER' && (
+              {/* New Document Dropdown System */}
+              {project?.product?.capabilities?.documents && project.product.capabilities.documents.length > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium dark:text-gray-300">Generate File:</span>
+                  <select 
+                    className="p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        fetchDocument(project.id, e.target.value);
+                        e.target.value = ""; // Reset
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select a document...</option>
+                    {project.product.capabilities.documents.map(doc => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {!canGenerateDXF && project?.product?.name === 'COVER' && project?.product?.capabilities?.has_dxf && (
                 <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
                   DXF requires nesting data. Click "Quick Check" first.
                 </div>
@@ -860,5 +891,51 @@ const fetchPDF = async (projectId, include_bom) => {
   } catch (error) {
     console.error('Error fetching PDF:', error);
     showToast(TOAST_TAGS.PDF_DOWNLOAD_FAILED, { args: [error.message] });
+  }
+};
+
+const fetchDocument = async (projectId, docId) => {
+  try {
+    const response = await apiFetch('/project/generate_document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, doc_id: docId }),
+    });
+
+    if (!response.ok) {
+      let msg = `Request failed with status ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.error) msg = errData.error;
+      } catch {
+        // ignore JSON parse issues
+      }
+      throw new Error(msg);
+    }
+
+    const blob = await response.blob();
+    let filename = `document_${projectId}`;
+    const cd = response.headers.get('Content-Disposition');
+    if (cd) {
+      let matchStar = cd.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)\s*;?/i);
+      if (matchStar && matchStar[2]) {
+        try { filename = decodeURIComponent(matchStar[2]); } catch { filename = matchStar[2]; }
+      } else {
+        const match = cd.match(/filename\s*=\s*"?([^"]+)"?/i);
+        if (match && match[1]) filename = match[1];
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error fetching document:', error);
+    alert(`Failed to download document: ${error.message}`);
   }
 };

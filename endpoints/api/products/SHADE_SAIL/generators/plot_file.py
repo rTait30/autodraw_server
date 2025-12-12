@@ -1,25 +1,25 @@
-"""SHADE_SAIL DXF generation.
-
-Draws each shade sail (each product) side-by-side (left to right) showing:
-  - Plan view (posts as circles, perimeter edges)
-  - Post height indicator (small vertical line + caps) per point
-  - Height annotation text below each post
-
-Relies on attributes structure:
-  products[i].attributes.points[LETTER].height
-  products[i].attributes.positions[LETTER] = {x, y}
-  products[i].attributes.pointCount
-"""
-
 import math
 import tempfile
 from datetime import datetime, timezone
 from flask import send_file
 from sqlalchemy import JSON
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm
-
 import json as JSON_py
 
+def get_metadata():
+    return {
+        "id": "work_model",
+        "name": "Work Model",
+        "type": "dxf"
+    }
+
+def generate(project, **kwargs):
+    """
+    Generates a DXF plot file for the SHADE_SAIL product.
+    """
+    project_name = project.get("general", {}).get("name", "Unnamed")
+    filename = f"{project_name}_workmodel.dxf"
+    return generate_dxf(project, filename)
 
 def _safe_num(v):
     if v in (None, "", " "):
@@ -67,7 +67,7 @@ def generate_dxf(project, download_name: str):
     spacing = 8000.0
     bbox_buffer = 200.0  # small buffer around bounding box (plan units)
 
-    print("project (plain):", type(project))
+    # print("project (plain):", type(project))
 
     gen = project.get("general") or {}
     project_name = gen.get("name") or "Unnamed"
@@ -137,7 +137,7 @@ def generate_dxf(project, download_name: str):
             h_raw = (points.get(label) or {}).get("height")
             z = _safe_num(h_raw) or 0.0
 
-            print (f"  Post {label} XYZ: {x},{y},{z}")
+            # print (f"  Post {label} XYZ: {x},{y},{z}")
 
             post_xy[label] = (x, y, z)
 
@@ -273,6 +273,3 @@ def generate_dxf(project, download_name: str):
         conditional=False,
         last_modified=None,
     )
-
-
-__all__ = ["generate_dxf"]

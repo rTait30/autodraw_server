@@ -1,12 +1,20 @@
-"""COVER DXF generation.
-
-Draws nested panels for cover products showing fold lines, seam marks, and dimension labels.
-Accepts a standalone project dict (similar to SHADE_SAIL approach).
-"""
 import tempfile
 from flask import send_file
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm, snap as _snap, merge_intervals
 
+def get_metadata():
+    return {
+        "id": "plot_file",
+        "name": "Plot File",
+        "type": "dxf"
+    }
+
+def generate(project, **kwargs):
+    """
+    Generates a DXF plot file for the COVER product.
+    """
+    filename = f"PLOT_{project.get('id', 'project')}.dxf"
+    return generate_dxf(project, filename)
 
 def _safe_num(v):
     """Convert value to float, returning None if invalid."""
@@ -53,7 +61,7 @@ def _dims_map_from_raw(nested_panels: dict) -> dict:
             prod_idx = 0
         if w > 0 and h > 0:
             out[key] = (w, h, seams, prod_idx)
-    print("[DXF] dims map keys (sample):", sorted(list(out.keys()))[:10], "... total:", len(out))
+    # print("[DXF] dims map keys (sample):", sorted(list(out.keys()))[:10], "... total:", len(out))
     return out
 
 
@@ -161,9 +169,9 @@ def generate_dxf(project, download_name: str):
             "stayputs": attrs.get("stayputs", False),
         }
     
-    print("[DXF] COVER project structure:", type(project))
-    print("[DXF] Products count:", len(products_list))
-    print("[DXF] Nest panels count:", len(nest.get("panels") or {}))
+    # print("[DXF] COVER project structure:", type(project))
+    # print("[DXF] Products count:", len(products_list))
+    # print("[DXF] Nest panels count:", len(nest.get("panels") or {}))
     
     dims = _dims_map_from_raw(nested_panels)
     panels = nest.get("panels") or {}
@@ -200,13 +208,13 @@ def generate_dxf(project, download_name: str):
             return
         verticals.setdefault(x, []).append((a, b))
 
-    print("[DXF] panels count:", len(panels))
+    # print("[DXF] panels count:", len(panels))
 
     # Panels + labels
     for name, pos in panels.items():
         base = _basename(str(name))
         if name not in dims:
-            print(f"[DXF] skip: name='{name}' (base='{base}') not in dims")
+            # print(f"[DXF] skip: name='{name}' (base='{base}') not in dims")
             continue
 
         w, h, seam_flag, prod_idx = dims[name]
@@ -222,7 +230,7 @@ def generate_dxf(project, download_name: str):
         height = prod_dim.get("height", 0) or 0
         has_stayputs = prod_dim.get("stayputs", False)
         
-        print(f"[DXF] panel: name='{name}' base='{base}' w={w} h={h} seams={seam_flag} x={x} y={y} rot={bool(pos.get('rotated'))} prod_idx={prod_idx} L={length} W={width} H={height}")
+        # print(f"[DXF] panel: name='{name}' base='{base}' w={w} h={h} seams={seam_flag} x={x} y={y} rot={bool(pos.get('rotated'))} prod_idx={prod_idx} L={length} W={width} H={height}")
 
         # helpers to avoid duplication
         def _draw_top_marks(msp, x, y, height, width, length, *,
@@ -302,12 +310,13 @@ def generate_dxf(project, download_name: str):
         t.dxf.align_point = (tx, ty)
 
     # --- Draw merged segments once ---
-    print("[DXF] horizontals rows:", len(horizontals), "verticals cols:", len(verticals))
+    # print("[DXF] horizontals rows:", len(horizontals), "verticals cols:", len(verticals))
     # Horizontal segments
     for y, spans in horizontals.items():
         merged_h = merge_intervals(spans)
         if not merged_h:
-            print(f"[DXF] no merged horizontals at y={y}")
+            # print(f"[DXF] no merged horizontals at y={y}")
+            pass
         for x1, x2 in merged_h:
             msp.add_line((x1, y), (x2, y), dxfattribs={"layer": "WHEEL"})
 
@@ -315,7 +324,8 @@ def generate_dxf(project, download_name: str):
     for x, spans in verticals.items():
         merged_v = merge_intervals(spans)
         if not merged_v:
-            print(f"[DXF] no merged verticals at x={x}")
+            # print(f"[DXF] no merged verticals at x={x}")
+            pass
         for y1, y2 in merged_v:
             msp.add_line((x, y1), (x, y2), dxfattribs={"layer": "WHEEL"})
 
@@ -335,6 +345,3 @@ def generate_dxf(project, download_name: str):
         conditional=False,
         last_modified=None,
     )
-
-
-__all__ = ["generate_dxf"]

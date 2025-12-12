@@ -15,10 +15,10 @@ export function render(canvas, data) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
 
-  canvas.height = 2000; // temporary large height to allow drawing
-
   const products = data.products || [];
   const projectAttrs = data.project_attributes || {};
+
+  canvas.height = 1100 + (projectAttrs.nest?.num_rolls || 0) * 100;
 
   // Global vertical layout state that steps can update
   const layout = { yPos: 0 };
@@ -288,7 +288,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
   if (rolls.length === 0) {
     if (!nest.required_width) return;
     // Fit single bin into fixed bounds
-    const maxBinW = 800;
+    const maxBinW = 700;
     const maxBinH = 500;
     const s = Math.min(maxBinW / Math.max(1, nest.required_width), maxBinH / Math.max(1, nest.bin_height));
     const binX = padding;
@@ -359,7 +359,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
 
   for (const roll of rolls) {
     // Fit each roll into fixed width; keep relative heights
-    const maxRollW = 800;
+    const maxRollW = 700;
     const rs = Math.min(1, maxRollW / Math.max(1, roll.width));
     const binX = padding;
     const binY = currentY;

@@ -14,9 +14,8 @@ def get_products():
     """Get all products."""
     products = project_service.list_all_products()
     return jsonify([{
-        'id': p.name,  # Use name as ID for frontend compatibility (e.g. "COVER")
-        'dbId': p.id,
-        'name': p.name.replace('_', ' ').title(),  # "SHADE_SAIL" -> "Shade Sail"
+        'id': p.id,
+        'name': p.name,
         'description': p.description,
         'default_schema_id': p.default_schema_id,
         'capabilities': get_product_capabilities(p.name)

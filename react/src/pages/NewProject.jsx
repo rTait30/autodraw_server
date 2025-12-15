@@ -44,16 +44,10 @@ export default function NewProject() {
     }
     try {
       const formData = formRef.current?.getValues?.() ?? {};
-      // Find selected product's meta to retrieve numeric dbId
-      const productMeta = productsList.find(p => p.id === product);
-      if (!productMeta || productMeta.dbId == null) {
-        showToast(TOAST_TAGS.CHECK_UNSUPPORTED);
-        return;
-      }
-
+      
       // Send new unified raw format directly (no nested attributes wrapper)
       const payload = {
-        product_id: productMeta.dbId,
+        product_id: product,
         general: formData.general || {},
         project_attributes: formData.project_attributes || {},
         products: formData.products || []
@@ -68,9 +62,13 @@ export default function NewProject() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
 
+      // Find the product name for the display component
+      const selectedProduct = productsList.find(p => p.id === product);
+      const productName = selectedProduct ? selectedProduct.name : "";
+
       // Display calculated preview without saving (response shape: products + project_attributes)
       setCreatedProject({
-        product: { name: product?.toUpperCase?.() || product },
+        product: { name: productName },
         products: result.products || [],
         project_attributes: result.project_attributes || {},
       });
@@ -106,13 +104,9 @@ export default function NewProject() {
     }
     try {
       const formData = formRef.current?.getValues?.() ?? {};
-      const productMeta = productsList.find(p => p.id === product);
-      if (!productMeta || productMeta.dbId == null) {
-        showToast(TOAST_TAGS.PRODUCT_MISSING_ID);
-        return;
-      }
+      
       const payload = {
-        product_id: productMeta.dbId,
+        product_id: product,
         general: formData.general || {},
         project_attributes: formData.project_attributes || {},
         products: formData.products || [],
@@ -139,7 +133,7 @@ export default function NewProject() {
   useEffect(() => {
     if (!createdProject || !canvasRef.current) return;
     
-    const productName = (createdProject.product?.name || '').toUpperCase();
+    const productName = (createdProject.product?.name || '');
     if (!productName) return;
 
     // Dynamically import Display module for the product type
@@ -193,7 +187,7 @@ export default function NewProject() {
               <Suspense fallback={<div className="p-3"></div>}>
                 <ProjectForm
                   key={product}
-                  product={product}
+                  product={productsList.find(p => p.id === product)?.name}
                   formRef={formRef}
                 />
               </Suspense>

@@ -50,6 +50,12 @@ def bootstrap_products():
             "description": "Shadesail in mesh or PVC",
             "default_schema_id": 2
         }
+        {
+            "id": 3,
+            "name": "SCREEN",
+            "description": "Auto-generated product SCREEN",
+            "default_schema_id": 1
+        },
     ]
 
     for prod_data in products_to_create:

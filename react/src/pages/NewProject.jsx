@@ -149,6 +149,48 @@ export default function NewProject() {
         }
       })
       .catch(e => {
+        console.warn(`No Display module for ${productName}, trying DXF fallback...`);
+        // Fallback: Try to use the generic DxfDisplay if the product has a plot_file generator
+        // We check capabilities first to avoid unnecessary network calls if we know it's not there
+        const selectedProduct = productsList.find(p => p.name === productName);
+        const capabilities = selectedProduct?.capabilities || {};
+        const docs = capabilities.documents || [];
+        const hasPlotFile = docs.some(d => d.id === 'plot_file');
+
+        if (hasPlotFile) {
+          // Fetch DXF content first
+          const payload = {
+            product_id: selectedProduct?.id,
+            doc_id: 'plot_file',
+            general: createdProject.general || {},
+            project_attributes: createdProject.project_attributes || {},
+            products: createdProject.products || []
+          };
+
+          apiFetch("/projects/preview_document", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch preview');
+            return res.text();
+          })
+          .then(dxfContent => {
+            import('../components/products/shared/DxfDisplay.js')
+              .then(module => {
+                module.render(canvasRef.current, { dxfContent });
+              });
+          })
+          .catch(err => console.error("Failed to load plot_file preview", err));
+        } else {
+          console.warn(`No plot_file generator for ${productName}, cannot render preview.`);
+          const ctx = canvasRef.current.getContext('2d');
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          ctx.fillText('No preview available', 20, 30);
+        }
+      })
+      .catch(e => {
         console.warn(`No Display module for ${productName}:`, e.message);
       });
   }, [createdProject]);

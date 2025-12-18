@@ -458,7 +458,7 @@ export default function ProjectDetailsPage() {
           boxSizing: 'border-box',
         }}
       >
-        {/* LEFT */}
+        {/* LEFT - Form */}
         <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
           <div>
             <div>
@@ -521,7 +521,7 @@ export default function ProjectDetailsPage() {
           </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT - Canvas & Estimate */}
         <div
           className="pane right"
           style={{

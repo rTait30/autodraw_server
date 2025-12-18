@@ -200,6 +200,7 @@ def _draw_project_info_section(c: canvas.Canvas, x: float, top_y: float, width: 
                                 project: dict, general: dict, products: list, height: float = None):
     """
     Draw the Project Info section with a box around it.
+    Uses wg_data from project_attributes for WorkGuru fields.
     """
     section_height = height if height else (top_y - MARGIN)
     
@@ -209,21 +210,56 @@ def _draw_project_info_section(c: canvas.Canvas, x: float, top_y: float, width: 
     # Content area
     content_x = x + BOX_PADDING
     content_y = top_y - 25 * mm  # Below header
-    line_height = 14 * mm
+    line_height = 7 * mm
     
-    # Project details - customize these based on your data structure
-    project_name = general.get("name", "N/A")
+    # Extract wg_data from project_attributes
+    project_attributes = project.get("project_attributes", {})
+    wg_data = project_attributes.get("wg_data", {})
+    
+    # Project details - use wg_data for WorkGuru fields, general for client_name
     project_id = project.get("id", "N/A")
-    client = general.get("client", "N/A")
-    date_created = general.get("dateCreated", "N/A")
     num_sails = len(products)
     
+
+
+
+    # Build sales order string
+    wg_tenant = wg_data.get("tenant", "N/A")
+
+    wg_project_number = wg_data.get("project_number", "N/A")
+
+    if wg_tenant == "Copelands":
+        tenant_code = "CP"
+    if wg_tenant == "D&R Liners":
+        tenant_code = "DR"
+
+
+    if wg_project_number and wg_project_number != "N/A":
+        sales_order = f"PR-{tenant_code}-{wg_project_number}"
+    else:
+        sales_order = "N/A"
+    
+    # Format due date to readable format
+    raw_due_date = wg_data.get("dueDate", "N/A")
+    if raw_due_date and raw_due_date != "N/A":
+        try:
+            from dateutil.parser import parse as parse_date
+            parsed_date = parse_date(raw_due_date)
+            formatted_due_date = parsed_date.strftime("%d %b %Y")  # e.g., "18 Dec 2025"
+        except Exception:
+            formatted_due_date = raw_due_date
+    else:
+        formatted_due_date = "N/A"
+    
     details = [
-        ("Customer:", client),
-        ("Project Name:", project_name),
-        ("Project ID:", str(project_id)),
-        ("Date Created:", date_created),
-        ("Number of Sails:", str(num_sails)),
+        ("Customer:", general.get("client_name", "N/A")),
+        ("Project:", general.get("name", "N/A")),
+        ("Description:", wg_data.get("description", "N/A")),
+        ("Sales Order:", sales_order),
+        ("PO Number:", wg_data.get("PO", "N/A")),
+        ("Due Date:", formatted_due_date),
+        ("Tenant:", wg_tenant),
+        ("Number of Sails:", str(num_sails))
         # Add more fields as needed
     ]
     
@@ -232,7 +268,7 @@ def _draw_project_info_section(c: canvas.Canvas, x: float, top_y: float, width: 
         c.setFont("Arial-Bold", MEDIUM_FONT)
         c.drawString(content_x, content_y, label)
         c.setFont("Arial", MEDIUM_FONT)
-        c.drawString(content_x + 100 * mm, content_y, str(value))
+        c.drawString(content_x + 50 * mm, content_y, str(value[:30]))
         content_y -= line_height
 
 
@@ -261,9 +297,9 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     col_sail = content_x
     col_fabric = content_x + 28 * mm
     col_colour = content_x + 70 * mm
-    col_length = content_x + 110 * mm
-    col_plots = content_x + 132 * mm
-    col_file = content_x + 152 * mm
+    col_length = content_x + 90 * mm
+    col_plots = content_x + 110 * mm
+    col_file = content_x + 132 * mm
     
     # Column headers
     c.setFont("Arial-Bold", 10)
@@ -630,27 +666,7 @@ def _draw_sail_shape(c: canvas.Canvas, geometry: dict,
             c.setFillColor(white)
             c.circle(px, py, circle_radius, stroke=1, fill=1)
         
-        # Position label away from center (reduce offset so labels sit closer to corners)
-        dx = px - cx
-        dy = py - cy
-        mag = (dx**2 + dy**2) ** 0.5 or 1
-        label_offset = 25
-        label_x = px + (dx / mag) * label_offset
-        label_y = py + (dy / mag) * label_offset
-        
-        # Corner label (large, bold)
-        c.setFillColor(black)
-        c.setFont("Arial-Bold", 16)
-        c.drawCentredString(label_x, label_y + 18, label)
-        
-        # Corner info text (matching DXF work model format exactly)
-        info_lines = get_corner_info_text(label, geometry)
-        c.setFont("Arial", 9)
-        # Start slightly closer to the label so the sail and info can both be larger
-        info_y = label_y + 4
-        for line in info_lines:
-            c.drawCentredString(label_x, info_y, line)
-            info_y -= 10
+        # Corner labels and info are now in the work model, not drawn here
         
         # Workpoint dot and connector only if drawing diagram
         if draw_diagram and label in workpoints:
@@ -781,7 +797,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     # Blank lines for notes
     while content_y > y + 4 * mm:
         c.line(content_x, content_y, x + width - 3 * mm, content_y)
-        content_y -= 4 * mm
+        content_y -= 15 * mm
 
 
 # =============================================================================

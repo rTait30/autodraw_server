@@ -138,10 +138,19 @@ def get_project_config(project_id):
         return jsonify({"error": "Internal server error"}), 500
 
     # --- Basic project info (general) ---
+    # Look up client_name from database
+    client_name = None
+    if project.client_id:
+        from models import User
+        client_user = User.query.get(project.client_id)
+        if client_user:
+            client_name = client_user.username
+
     general = {
         "id": project.id,
         "name": project.name,
         "client_id": project.client_id,
+        "client_name": client_name,
         "due_date": project.due_date.isoformat() if project.due_date else None,
         "info": project.info,
         "status": project.status.name if hasattr(project.status, "name") else project.status,

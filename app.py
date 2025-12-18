@@ -6,7 +6,7 @@ from flask import Flask, render_template, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-from models import db  # and your models are imported within blueprints as needed
+from models import db, User  # and your models are imported within blueprints as needed
 
 # Blueprints
 from endpoints.api.auth.routes import auth_bp
@@ -92,6 +92,13 @@ def create_app():
     # --- One-time DB create ---
     with app.app_context():
         db.create_all()
+        
+        # Sync WorkGuru clients on startup
+        try:
+            from WG.workGuru import sync_wg_clients
+            sync_wg_clients(db, User)
+        except Exception as e:
+            print(f"Warning: Could not sync WorkGuru clients: {e}")
 
     # --- Static + SPA routes ---
     @app.route('/copelands/assets/<path:filename>')

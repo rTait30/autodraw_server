@@ -109,8 +109,8 @@ def extract_sail_geometry(sail: dict) -> dict:
     for label, point in points_raw.items():
         points_data[label] = {
             #"height": _safe_num(point.get("height")) or 0.0,
-            "cornerFitting": point.get("cornerFitting", ""),
-            "tensionHardware": point.get("tensionHardware", ""),
+            #"cornerFitting": point.get("cornerFitting", ""),
+            #"tensionHardware": point.get("tensionHardware", ""),
             #"tensionAllowance": _safe_num(point.get("tensionAllowance")) or 0.0,
             #"x": _safe_num(positions_raw.get(label, {}).get("x")) or 0.0,
             #"y": _safe_num(positions_raw.get(label, {}).get("y")) or 0.0,
@@ -258,6 +258,15 @@ def get_detail_list(sail: dict) -> list:
                 "name": f"Pocket {int(pocket_size)}mm",
                 "size": pocket_size,
             })
+    
+    # Always add seam detail - almost always used
+    if "seam" not in seen_ids:
+        seen_ids.add("seam")
+        details.append({
+            "type": "seam",
+            "id": "seam",
+            "name": "Seam Detail",
+        })
     
     # Limit to 6 details max
     return details[:6]

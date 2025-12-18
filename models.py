@@ -15,6 +15,10 @@ class User(db.Model):
     verified = db.Column(db.Boolean, default=False, nullable=False)
     email = db.Column(db.String(120), nullable=True)
     address = db.Column(db.String(120), nullable=True)
+    
+    # WorkGuru integration
+    tenant = db.Column(db.String(10), nullable=True)  # "DR" or "CP"
+    wg_id = db.Column(db.Integer, nullable=True, index=True)  # WorkGuru client ID
 
     def set_password(self, password):
         self.password_hash = bcrypt.hash(password)

@@ -269,11 +269,58 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
     # Send JSON (not data=)
     res = wg_post("DR", "Lead/AddOrUpdateLead", body)
 
-
-
     print("LEAD CREATED/UPDATED:", res)
     return res
 
+
+def cp_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100):
+
+    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent)
+
+    # Build the exact shape that matches the working example
+    body = {
+        "Id": "0",                   # STRING for create (working example uses strings)
+        "TenantId": "826",           # STRING
+        "WonOrLostDate": "",
+        "Status": "Current",
+        "CreatorUserId": "",
+        "LeadNumber": "",
+        "Name": name,
+        "Description": description,
+        "OwnerId": "6254",          # STRING - dr ryan
+        "CategoryId": "1735",        # STRING - dr warm
+        "StageId": "2618",           # STRING - dr lead
+        "CloseProbability": str(int(go_percent * 0.5)),  # STRING
+        "ForecastCloseDate": get_forecastclose_date(),
+        "ClientId": "",        # STRING - dr nsc
+        "ContactId": "",             # Empty string, not None
+        "BillingClientId": "", # STRING - dr nsc
+        "BillingClientContactId": "",  # Empty string, not None
+        "Budget": budget,       # STRING - generate with estimate
+        "CustomFieldValues": [
+            {
+                "TenantId": "826",   # STRING
+                "CustomFieldId": "3686",  # STRING
+                "Value": get_category_display(category),
+            },
+            {
+                "TenantId": "826",
+                "CustomFieldId": "5385",
+                "Value": "50",  # Get% 50
+            },
+            {
+                "TenantId": "826",
+                "CustomFieldId": "5386",
+                "Value": str(go_percent),  # Go% supplied by customer
+            },
+        ],
+    }
+
+    # Send JSON (not data=)
+    res = wg_post("DR", "Lead/AddOrUpdateLead", body)
+
+    print("LEAD CREATED/UPDATED:", res)
+    return res
 
 
 def wg_get(tenant: str, endpoint: str, params: dict | None = None):
@@ -361,3 +408,57 @@ def get_category_display(code, categories=CATEGORIES):
     if not item:
         return None
     return f"{code}. {item['name'] } ({item['group']})"
+
+
+def sync_wg_clients(db, User):
+    """
+    Fetch all clients from WorkGuru for each tenant and sync to User table.
+    Only adds new clients that don't already exist (by wg_id + tenant).
+    """
+    print("\n========== SYNCING WORKGURU CLIENTS ==========")
+    
+    for tenant in TENANTS.keys():
+        try:
+            print(f"Fetching clients for tenant: {tenant}")
+            response = wg_get(tenant, "Client/GetClientNamesAndIds")
+            clients = response.get("result", [])
+            print(f"Found {len(clients)} clients for {tenant}")
+            
+            added_count = 0
+            for client in clients:
+                wg_id = client.get("id")
+                name = client.get("name", "")
+                
+                if not wg_id or not name:
+                    continue
+                
+                # Check if user already exists with this wg_id and tenant
+                existing = User.query.filter_by(wg_id=wg_id, tenant=tenant).first()
+                if existing:
+                    continue
+                
+                # Use the client name as username
+                # If name already exists, append tenant_wg_id to make it unique
+                new_user = User(
+                    username=name,
+                    password_hash="",  # No password - these are client records, not login accounts
+                    role="client",
+                    verified=False,
+                    tenant=tenant,
+                    wg_id=wg_id,
+                )
+                db.session.add(new_user)
+                added_count += 1
+            
+            if added_count > 0:
+                db.session.commit()
+                print(f"Added {added_count} new clients for {tenant}")
+            else:
+                print(f"No new clients to add for {tenant}")
+                
+        except Exception as e:
+            print(f"Error syncing clients for tenant {tenant}: {e}")
+            db.session.rollback()
+            continue
+    
+    print("========== SYNC COMPLETE ==========\n")

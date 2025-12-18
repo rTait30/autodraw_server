@@ -92,6 +92,62 @@ export default function ProjectForm({
       ? { ...rehydrate.general }
       : {}
   ));
+
+  // WorkGuru data state with rehydration (nested in project_attributes)
+  const [wgData, setWgData] = useState(() => {
+    const wg = rehydrate?.project_attributes?.wg_data;
+    return (wg && typeof wg === 'object' && Object.keys(wg).length > 0)
+      ? { ...wg }
+      : { tenant: 'Copelands', project_number: '' };
+  });
+
+  // WorkGuru lookup result state
+  const [wgLookupResult, setWgLookupResult] = useState(null);
+
+  // WorkGuru lookup stub function
+  const handleWorkguruLookup = async () => {
+    const tenantCode = wgData.tenant === 'Copelands' ? 'CP' : 'DR';
+    const projectNum = wgData.project_number;
+    console.log('[WorkGuru Lookup] Tenant:', tenantCode, 'Project Number:', projectNum);
+    
+      //TODO: Replace with actual API call
+      //Example structure - the API should return data like this:
+    const response = await apiFetch('/api/workguru/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenant: tenantCode, project_number: projectNum }),
+    });
+    const data = await response.json();
+    
+    // Stub response for testing - replace with actual API response
+    /*
+    const data = {
+      client_name: 'Example Client',
+      project_name: 'Example Project',
+      address: '123 Example St',
+      // Add other fields you want from the API
+    };
+    */
+    
+    // Extract only the fields you want to save
+    const fieldsToSave = {
+      client_name: data.client_name,
+      project_name: data.project_name,
+      address: data.address,
+      // Add more fields as needed
+    };
+    
+    // Merge into wgData (preserving tenant and project_number)
+    setWgData(prev => ({
+      ...prev,
+      ...fieldsToSave,
+    }));
+    
+    // Store result for display
+    setWgLookupResult(fieldsToSave);
+    
+    showToast(`WorkGuru lookup complete for ${tenantCode}-${projectNum}`);
+  };
   const normalizedProducts = useMemo(
     () => normalizeAttributes(rehydrate?.products),
     [rehydrate]
@@ -183,7 +239,7 @@ export default function ProjectForm({
         // Always return a general object with all default fields
         return {
           general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
-          project_attributes: projectAttrs,
+          project_attributes: { ...projectAttrs, wg_data: wgData },
           products,
           submitToWG,
         };
@@ -193,7 +249,7 @@ export default function ProjectForm({
     return () => {
       if (formRef) formRef.current = undefined;
     };
-  }, [formRef, items, generalData, submitToWG]);
+  }, [formRef, items, generalData, wgData, submitToWG]);
 
   // When rehydrate changes, update generalData and items
   useEffect(() => {
@@ -203,6 +259,13 @@ export default function ProjectForm({
       setGeneralData({ ...rehydrate.general });
     } else {
       setGeneralData({});
+    }
+    // WorkGuru data (nested in project_attributes)
+    const wg = rehydrate.project_attributes?.wg_data;
+    if (wg && typeof wg === 'object' && Object.keys(wg).length > 0) {
+      setWgData({ ...wg });
+    } else {
+      setWgData({ tenant: 'Copelands', project_number: '' });
     }
     // Project-level attributes
     if (rehydrate.project_attributes && typeof rehydrate.project_attributes === 'object' && Object.keys(rehydrate.project_attributes).length > 0) {
@@ -258,6 +321,122 @@ export default function ProjectForm({
 
       {hideGeneralSection === false && (
         <GeneralSection data={generalData} setData={setGeneralData} />
+      )}
+
+      {/* WorkGuru Data Section */}
+      {(role === "admin" || role === "estimator" || role === "designer") && (
+        <div
+          style={{
+            padding: '16px',
+            backgroundColor: '#f9fafb',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            marginBottom: '16px',
+          }}
+          className="dark:bg-gray-800 dark:border-gray-700"
+        >
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }} className="dark:text-white">
+            WorkGuru Data
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }} className="dark:text-gray-300">
+                Tenant
+              </label>
+              <select
+                value={wgData.tenant || 'Copelands'}
+                onChange={(e) => setWgData(prev => ({ ...prev, tenant: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff',
+                  cursor: 'pointer',
+                }}
+                className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="Copelands">Copelands</option>
+                <option value="D&R Liners">D&R Liners</option>
+              </select>
+            </div>
+            <div style={{ flex: '2 1 200px', minWidth: '200px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }} className="dark:text-gray-300">
+                Project Number
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={wgData.project_number || ''}
+                  onChange={(e) => setWgData(prev => ({ ...prev, project_number: e.target.value }))}
+                  style={{
+                    flex: '1',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff',
+                  }}
+                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="Enter project number"
+                />
+                <button
+                  type="button"
+                  onClick={handleWorkguruLookup}
+                  disabled={!wgData.project_number}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: wgData.project_number ? '#3b82f6' : '#9ca3af',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: wgData.project_number ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Lookup
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* WorkGuru Lookup Results Display */}
+          {wgLookupResult && (
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '12px',
+                backgroundColor: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: '6px',
+              }}
+              className="dark:bg-green-900/20 dark:border-green-800"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#065f46' }} className="dark:text-green-400">
+                  Lookup Result
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setWgLookupResult(null)}
+                  style={{ fontSize: '12px', color: '#065f46', background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="dark:text-green-400"
+                >
+                  ✕ Clear
+                </button>
+              </div>
+              <div style={{ fontSize: '13px', color: '#047857' }} className="dark:text-green-300">
+                {Object.entries(wgLookupResult).map(([key, value]) => (
+                  <div key={key} style={{ marginBottom: '4px' }}>
+                    <strong style={{ textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}:</strong> {value || '—'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <section className="space-y-3">

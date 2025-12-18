@@ -8,6 +8,81 @@ from endpoints.api.projects.services.calculation_service import calculate_projec
 from endpoints.api.projects.services.estimation_service import estimate_project_total
 from endpoints.api.products import dispatch_document
 from WG.workGuru import dr_make_lead
+from WG.workGuru import wg_get
+from WG.workGuru import wg_post
+
+
+def _enrich_wg_data(wg_data):
+    """
+    Enrich wg_data with additional information from WorkGuru API.
+    
+    Args:
+        wg_data: dict containing at minimum 'project_number' and 'tenant'
+        
+    Returns:
+        dict: The enriched wg_data with additional fields from the API response
+    """
+    project_number = wg_data.get("project_number")
+    tenant = wg_data.get("tenant")
+    
+    if not project_number or not tenant:
+        return wg_data
+    
+    try:
+        # TODO: Implement actual WorkGuru API call here
+        # Example structure:
+        # response = requests.get(
+        #     f"https://{tenant}.workguru.io/api/v1/projects/{project_number}",
+        #     headers={"Authorization": f"Bearer {API_KEY}"}
+        # )
+        # if response.ok:
+        #     api_data = response.json()
+        #     wg_data.update(api_data)
+        
+        # Placeholder for API response data
+
+        if tenant == "Copelands":
+            tenant_code = "CP"
+        if tenant == "D&R Liners":
+            tenant_code = "DR"
+
+        GetProjectId = wg_get(tenant_code, f"/Project/GetProjectIdByNumber?number=PR-{tenant_code}-{project_number}")
+
+        projectId = GetProjectId.get("result", None)
+
+        print (f"WorkGuru API: Fetched project ID {projectId} for project number {project_number} under tenant {tenant}")
+
+        GetProjectById = wg_get(tenant_code, f"/Project/GetProjectById?id={projectId}")
+
+
+
+        '''
+
+        dueDate
+        price
+        description
+        friehgtMethod
+        
+        '''
+
+        api_response = {
+            
+            "projectId": projectId,
+            "dueDate": GetProjectById.get("result", {}).get("dueDate", None),
+            "PO": GetProjectById.get("result", {}).get("invoices", [{}])[0].get("clientPurchaseOrder", None),
+            "description": GetProjectById.get("result", {}).get("description", None),
+            "freightMethod": GetProjectById.get("result", {}).get("freightMethod", None),
+        }  # Replace with actual API response
+        
+        # Merge API response into wg_data
+        if api_response:
+            wg_data = {**wg_data, **api_response}
+            
+    except Exception as e:
+        print(f"Failed to enrich wg_data from WorkGuru API: {e}")
+    
+    return wg_data
+
 
 def _as_int(v):
     try:
@@ -129,6 +204,14 @@ def create_project(user, data):
             project.project_attributes = project_attributes
     else:
         project.project_attributes = project_attributes
+
+    # ---------- Enrich wg_data from WorkGuru API if present ----------
+    if project.project_attributes and isinstance(project.project_attributes.get("wg_data"), dict):
+        wg_data = project.project_attributes["wg_data"]
+        if wg_data.get("project_number") and wg_data.get("tenant"):
+            enriched_wg_data = _enrich_wg_data(wg_data)
+            project.project_attributes["wg_data"] = enriched_wg_data
+            flag_modified(project, "project_attributes")
     
     # ---------- Check for discrepancy problems in shade_sail (product_id == 2) on create ----------
     if product_id == 2:  # Only on create for shade_sail
@@ -200,6 +283,21 @@ def create_project(user, data):
             category="2a",
             go_percent=100
         )
+
+    if (data.get("product_id") == 2 and data.get("submitToWG") == True):
+        print ("Submitting shade sail project to WorkGuru...")
+        name = (data.get("general").get("name") or "").strip()
+        description = ""
+        for sail in data.get("products", []):
+            attributes = sail.get("attributes", {})
+            sail_quantity = attributes.get("quantity", 0)
+            sail_shape = attributes.get("shape", "Unknown Shape")
+            sail_area = attributes.get("area", 0)
+            description += (f"{sail_quantity} x {sail_shape} Shade Sail\nArea: {sail_area} m²\n")
+
+        estimated_price = project.estimate_total or 0.0
+        
+        
 
     return project
 
@@ -327,6 +425,14 @@ def update_project(user, project_id, data):
             )
             db.session.add(pp)
 
+    # ---------- Enrich wg_data from WorkGuru API if present ----------
+    if project.project_attributes and isinstance(project.project_attributes.get("wg_data"), dict):
+        wg_data = project.project_attributes["wg_data"]
+        if wg_data.get("project_number") and wg_data.get("tenant"):
+            enriched_wg_data = _enrich_wg_data(wg_data)
+            project.project_attributes["wg_data"] = enriched_wg_data
+            flag_modified(project, "project_attributes")
+
     db.session.commit()
     return project
 
@@ -453,6 +559,13 @@ def _serialize_project_plain(prj):
         }
         items.append(item)
 
+    # Look up client_name from database
+    client_name = None
+    if prj.client_id:
+        client_user = User.query.get(prj.client_id)
+        if client_user:
+            client_name = client_user.username
+
     # Build final plain object; include project JSON blobs untouched
     return {
         "id": proj_dict.get("id"),
@@ -461,6 +574,7 @@ def _serialize_project_plain(prj):
             "id": proj_dict.get("id"),
             "name": proj_dict.get("name"),
             "client_id": proj_dict.get("client_id"),
+            "client_name": client_name,
             "due_date": proj_dict.get("due_date"),
             "info": proj_dict.get("info"),
             "status": prj.status.name if hasattr(prj.status, "name") else proj_dict.get("status"),

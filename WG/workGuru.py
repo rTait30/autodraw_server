@@ -223,9 +223,9 @@ def add_cover(name: str, description: str):
     return data
 
 
-def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100):
+def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "178827"):
 
-    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent)
+    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
 
     # Build the exact shape that matches the working example
     body = {
@@ -242,16 +242,16 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
         "StageId": "2607",           # STRING - dr lead
         "CloseProbability": str(int(go_percent * 0.5)),  # STRING
         "ForecastCloseDate": get_forecastclose_date(),
-        "ClientId": "178827",        # STRING - dr nsc
+        "ClientId": client_wg_id,    # STRING - Dynamic
         "ContactId": "",             # Empty string, not None
-        "BillingClientId": "178827", # STRING - dr nsc
+        "BillingClientId": client_wg_id, # STRING - Dynamic
         "BillingClientContactId": "",  # Empty string, not None
         "Budget": budget,       # STRING - generate with estimate
         "CustomFieldValues": [
             {
                 "TenantId": "826",   # STRING
                 "CustomFieldId": "3686",  # STRING
-                "Value": get_category_display(category),
+                "Value": get_category_display("DR", category),
             },
             {
                 "TenantId": "826",
@@ -269,57 +269,47 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
     # Send JSON (not data=)
     res = wg_post("DR", "Lead/AddOrUpdateLead", body)
 
-    print("LEAD CREATED/UPDATED:", res)
+    print("DR LEAD CREATED/UPDATED:", res)
     return res
 
 
-def cp_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100):
+def cp_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "194156"):
 
-    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent)
+    print ("cp_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
 
     # Build the exact shape that matches the working example
     body = {
-        "Id": "0",                   # STRING for create (working example uses strings)
-        "TenantId": "826",           # STRING
+        "Id": "0",
+        "TenantId": "825",
         "WonOrLostDate": "",
         "Status": "Current",
         "CreatorUserId": "",
         "LeadNumber": "",
         "Name": name,
         "Description": description,
-        "OwnerId": "6254",          # STRING - dr ryan
-        "CategoryId": "1735",        # STRING - dr warm
-        "StageId": "2618",           # STRING - dr lead
-        "CloseProbability": str(int(go_percent * 0.5)),  # STRING
+        "OwnerId": "14366",          # From working example
+        "CategoryId": "1735",
+        "StageId": "2123",           # From working example (was 2618)
+        "CloseProbability": str(int(go_percent * 0.5)),
         "ForecastCloseDate": get_forecastclose_date(),
-        "ClientId": "",        # STRING - dr nsc
-        "ContactId": "",             # Empty string, not None
-        "BillingClientId": "", # STRING - dr nsc
-        "BillingClientContactId": "",  # Empty string, not None
-        "Budget": budget,       # STRING - generate with estimate
+        "ClientId": client_wg_id,    # From working example
+        "ContactId": "",
+        "BillingClientId": client_wg_id, # From working example
+        "BillingClientContactId": "",
+        "Budget": budget,
         "CustomFieldValues": [
             {
-                "TenantId": "826",   # STRING
-                "CustomFieldId": "3686",  # STRING
-                "Value": get_category_display(category),
-            },
-            {
-                "TenantId": "826",
-                "CustomFieldId": "5385",
-                "Value": "50",  # Get% 50
-            },
-            {
-                "TenantId": "826",
-                "CustomFieldId": "5386",
-                "Value": str(go_percent),  # Go% supplied by customer
-            },
-        ],
+                "TenantId": "825",
+                "CustomFieldId": "3553",
+                "Value": get_category_display("CP", category) or "1a. Shade (Shade Cloth)"
+            }
+        ]
     }
 
     # Send JSON (not data=)
-    res = wg_post("DR", "Lead/AddOrUpdateLead", body)
+    res = wg_post("CP", "Lead/AddOrUpdateLead", body)
 
-    print("LEAD CREATED/UPDATED:", res)
+    print("CP LEAD CREATED/UPDATED:", res)
     return res
 
 
@@ -378,7 +368,7 @@ def get_forecastclose_date():
     return forecastclose_date
 
 
-CATEGORIES = {
+DR_CATEGORIES = {
     "1a": {"id": 1,  "name": "Dam & Pond Liners",             "group": "Environmental"},
     "1b": {"id": 2,  "name": "Tank Liners",                   "group": "Environmental"},
     "1c": {"id": 3,  "name": "Spill Control and Containment", "group": "Environmental"},
@@ -399,11 +389,22 @@ CATEGORIES = {
     "6":  {"id": 14, "name": "Miscellaneous",                 "group": "Miscellaneous"},
 }
 
-def get_category_display(code, categories=CATEGORIES):
+CP_CATEGORIES = {
+
+    "1a": {"id": 1,  "name": "Shade",             "group": "Shade Cloth"},
+    "1b": {"id": 2,  "name": "Shade",              "group": "PVC Membranes"},
+
+}
+
+def get_category_display(tenant, code):
     """
     Returns a display string like:
     "1a. Dam & Pond Liners (Environmental)"
+
     """
+
+    categories = DR_CATEGORIES if tenant == "DR" else CP_CATEGORIES
+
     item = categories.get(code)
     if not item:
         return None

@@ -19,28 +19,51 @@ from typing import Any, Dict, List
 def _convert_ternary(expr: str) -> str:
     """Convert JS-style ternary 'condition ? true : false' to Python 'true if condition else false'.
     
-    Handles nested parentheses and simple conditions.
+    Handles simple and nested right-associative ternaries.
     """
-    # Match: (anything) ? (value) : (value)
-    # This regex finds ternary patterns
-    pattern = r'([a-zA-Z_][a-zA-Z0-9_]*|\([^)]+\))\s*\?\s*([^:]+)\s*:\s*(.+)'
+    # Match: (condition) ? (true_val) : (false_val)
+    # Group 1: Condition (lazy, up to first ?)
+    # Group 2: True Val (lazy, up to first :)
+    # Group 3: False Val (rest of string)
+    pattern = r'(.+?)\s*\?\s*(.+?)\s*:\s*(.+)'
     
-    def replace_ternary(match):
+    match = re.search(pattern, expr)
+    if match:
         condition = match.group(1).strip()
         true_val = match.group(2).strip()
         false_val = match.group(3).strip()
-        # Recursively handle nested ternaries in false branch
-        false_val = _convert_ternary(false_val)
-        return f"({true_val} if {condition} else {false_val})"
-    
-    # Keep replacing until no more ternaries found
-    prev = None
-    while prev != expr:
-        prev = expr
-        expr = re.sub(pattern, replace_ternary, expr)
+        
+        # Depending on precedence, the 'true case' might be complex, or the 'false case' might be another ternary.
+        # We need to process the REST of the string (false_val) recursively to handle: a ? b : c ? d : e
+        # But wait, regex might have captured "c ? d" inside true_val if strict lazy matching isn't careful about nesting?
+        # Actually standard JS ternary is right-associative.
+        # "a ? b : c ? d : e" -> "a ? b : (c ? d : e)"
+        
+        # Our regex:
+        # 1: a
+        # 2: b
+        # 3: c ? d : e
+        
+        # Recurse on false_val
+        false_val_conv = _convert_ternary(false_val)
+        
+        # Recurse on true_val just in case? Usually strict 1 level there unless grouped.
+        true_val_conv = _convert_ternary(true_val)
+        
+        return f"({true_val_conv} if {condition} else {false_val_conv})"
     
     return expr
 
+
+def _convert_js_expr(expr: str) -> str:
+    """Convert common JS expression syntax to Python syntax."""
+    expr = expr.replace("===", "==")
+    expr = expr.replace("!==", "!=")
+    expr = expr.replace("&&", " and ")
+    expr = expr.replace("||", " or ")
+    expr = expr.replace("true", "True")
+    expr = expr.replace("false", "False")
+    return expr
 
 def _safe_eval_expr(expr: str, variables: Dict[str, Any]) -> float:
     """Evaluate a simple arithmetic expression safely.
@@ -51,70 +74,167 @@ def _safe_eval_expr(expr: str, variables: Dict[str, Any]) -> float:
     - unary ops: +, -
     - parentheses
     - ternary: condition ? true_val : false_val
+    - logic: and, or, ==, !=
+    - subscript: dict['key']
     """
-    # Pre-process ternary operators (JS-style: condition ? true : false)
-    # Convert to Python-style: true if condition else false
-    expr = _convert_ternary(expr.strip())
+    original_expr = expr
+    # 1. Convert JS syntax
+    expr = _convert_js_expr(expr.strip())
     
-    node = ast.parse(expr, mode="eval")
+    # 2. Convert ternaries
+    expr = _convert_ternary(expr)
+    
+    # Verbose logging for debugging "cable" or "Evaluations"
+    verbose = any(x in original_expr for x in ["cable", "=="])
+    if verbose:
+        print(f"EVAL START: '{original_expr}' -> '{expr}'")
 
-    def _eval(n: ast.AST) -> float:
+    try:
+        node = ast.parse(expr, mode="eval")
+    except SyntaxError as e:
+        if verbose:
+             print(f"EVAL ERROR: SyntaxError: {e}")
+        return 0.0
+
+    def _eval(n: ast.AST) -> Any:
         if isinstance(n, ast.Expression):
             return _eval(n.body)
+        
+        # Binary Operators
         if isinstance(n, ast.BinOp):
             left = _eval(n.left)
             right = _eval(n.right)
-            if isinstance(n.op, ast.Add):
-                return left + right
-            if isinstance(n.op, ast.Sub):
-                return left - right
-            if isinstance(n.op, ast.Mult):
-                return left * right
+            if isinstance(n.op, ast.Add): return float(left) + float(right)
+            if isinstance(n.op, ast.Sub): return float(left) - float(right)
+            if isinstance(n.op, ast.Mult): return float(left) * float(right)
             if isinstance(n.op, ast.Div):
-                return left / right if right != 0 else 0.0
+                r = float(right) 
+                return float(left) / r if r != 0 else 0.0
             raise ValueError("Unsupported operator")
+            
+        # Unary Operators
         if isinstance(n, ast.UnaryOp):
-            val = _eval(n.operand)
-            if isinstance(n.op, ast.UAdd):
-                return +val
-            if isinstance(n.op, ast.USub):
-                return -val
+            val = float(_eval(n.operand))
+            if isinstance(n.op, ast.UAdd): return +val
+            if isinstance(n.op, ast.USub): return -val
+            if isinstance(n.op, ast.Not): return not val
             raise ValueError("Unsupported unary operator")
+            
+        # Boolean Logic (and, or)
+        if isinstance(n, ast.BoolOp):
+            values = [_eval(v) for v in n.values]
+            if isinstance(n.op, ast.Or):
+                # Return first truthy, or last
+                for v in values:
+                    if v: return v
+                return values[-1]
+            if isinstance(n.op, ast.And):
+                # Return first falsy, or last
+                for v in values:
+                    if not v: return v
+                return values[-1]
+                
+        # Comparisons (==, !=, >, <, etc)
+        if isinstance(n, ast.Compare):
+            left = _eval(n.left)
+            for op, comparator in zip(n.ops, n.comparators):
+                right = _eval(comparator)
+                
+                # Helper for loose comparison (JS-style behavior)
+                def _loose_eq(a, b):
+                    if a == b: return True
+                    # Try converting strings to floats
+                    try: 
+                        if float(a) == float(b): return True
+                    except (ValueError, TypeError): pass
+                    return False
+
+                res = False
+                if isinstance(op, ast.Eq):
+                    res = _loose_eq(left, right)
+                elif isinstance(op, ast.NotEq):
+                    res = not _loose_eq(left, right)
+                elif isinstance(op, ast.Gt):
+                    res = (float(left) > float(right))
+                elif isinstance(op, ast.Lt):
+                    res = (float(left) < float(right))
+                elif isinstance(op, ast.GtE):
+                    res = (float(left) >= float(right))
+                elif isinstance(op, ast.LtE):
+                    res = (float(left) <= float(right))
+                else:
+                    raise ValueError(f"Unsupported comparison: {type(op)}")
+                
+                if verbose:
+                    print(f"   CMP: {left} {type(op).__name__} {right} -> {res}")
+                
+                if not res: return False
+                left = right
+            return True
+
         if isinstance(n, ast.Name):
             if n.id in variables:
-                v = variables[n.id]
-                try:
-                    return float(v)
-                except Exception:
-                    raise ValueError(f"Variable '{n.id}' is not numeric: {v}")
-            raise ValueError(f"Unknown variable: {n.id}")
+                val = variables[n.id]
+                if verbose:
+                    print(f"   VAR: {n.id} -> {val}")
+                return val
+            if verbose:
+                print(f"   VAR: {n.id} -> MISSING (0.0)")
+            return 0.0 
+        
+        if isinstance(n, ast.Attribute):
+            obj = _eval(n.value)
+            if isinstance(obj, dict):
+                 return obj.get(n.attr, 0.0)
+            if hasattr(obj, n.attr):
+                 return getattr(obj, n.attr)
+            return 0.0
+
         if isinstance(n, ast.Constant):
-            if isinstance(n.value, (int, float)):
-                return float(n.value)
-            # Handle boolean constants (from ternary conversion)
-            if isinstance(n.value, bool):
-                return 1.0 if n.value else 0.0
-            # Strings are treated as invalid here; use number-like strings directly
-            raise ValueError("Unsupported constant type")
+            # Return exact value (int, float, string, bool)
+            return n.value
+            
         if isinstance(n, ast.Num):  # py<3.8
-            return float(n.n)
+            return n.n
+        if isinstance(n, ast.Str):  # py<3.8
+            return n.s
+            
         if isinstance(n, ast.IfExp):
-            # Handle ternary: true_val if condition else false_val
-            # Evaluate condition as truthy
+            # Handle ternary
             cond_val = _eval(n.test)
             if cond_val:
                 return _eval(n.body)
             else:
                 return _eval(n.orelse)
-        if isinstance(n, ast.Call):
-            # Calls are not allowed in minimal mode
-            raise ValueError("Function calls not allowed in expressions")
+                
         if isinstance(n, ast.Subscript):
-            # No indexing access allowed
-            raise ValueError("Indexing not allowed in expressions")
-        raise ValueError("Unsupported expression element")
+            # e.g. fittingCounts['Key']
+            val = _eval(n.value)
+            idx = _eval(n.slice) # In py3.9+ slice is the index node
+            if isinstance(val, dict):
+                return val.get(idx, 0.0)
+            if isinstance(val, (list, tuple)) and isinstance(idx, int):
+                if 0 <= idx < len(val):
+                    return val[idx]
+            return 0.0
 
-    return float(_eval(node))
+        # Attempt to handle Index node for older python if ast.Subscript structure differs?
+        # In modern python ast.Index is deprecated but might appear wrapped in n.slice
+        if isinstance(n, ast.Index):
+             return _eval(n.value)
+
+        raise ValueError(f"Unsupported expression element: {type(n)}")
+
+    result = _eval(node)
+    try:
+        return float(result)
+    except (ValueError, TypeError):
+        # Result might be boolean or string, try converting
+        if isinstance(result, bool):
+            return 1.0 if result else 0.0
+        # If it returns a string, we can't easily make it a float unless it is numeric
+        # But for price calc, usually we end up with numbers.
+        return 0.0
 
 
 def _evaluate_value(val: Any, attrs: Dict[str, Any]) -> float:
@@ -150,20 +270,124 @@ def _collect_rows(schema_data: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def estimate_price_from_schema(schema_data: Any, attributes: Dict[str, Any]) -> Dict[str, Any]:
+def estimate_price_from_schema(schema_data: Any, attributes: Dict[str, Any], skus = None) -> Dict[str, Any]:
+    print("\n--- ESTIMATING PRICE START ---")
     total = 0.0
-    rows = _collect_rows(schema_data)
+    input_state = {}
+    
+    # 1. Initialize input state from schema defaults
+    if isinstance(schema_data, dict):
+        for section, rows in schema_data.items():
+            if isinstance(rows, list):
+                for row in rows:
+                    if isinstance(row, dict) and row.get("type") == "input":
+                        key = row.get("key")
+                        default_val = row.get("default", 0)
+                        if key:
+                            input_state[key] = default_val
+    
+    print(f"Initialized Inputs: {input_state}")
 
-    for row in rows:
-        if (row.get("type") or "row").lower() == "row":
-            quantity = _evaluate_value(row.get("quantity", 0), attributes)
-            unit_cost = _evaluate_value(row.get("unitCost", 0), attributes)
-            total += quantity * unit_cost
+    # Create rows list with section tags
+    flattened_rows = []
+    if isinstance(schema_data, dict):
+        for section, rows in schema_data.items():
+            if section == "_constants" or not isinstance(rows, list):
+                continue
+            for row in rows:
+                if isinstance(row, dict):
+                    row["_section"] = section 
+                    flattened_rows.append(row)
+    
+    print(f"Flattened Rows Count: {len(flattened_rows)}")
+    
+    section_totals = {}
+    
+    # Context available to expressions
+    eval_context = {
+        **attributes,
+        "inputs": input_state,
+        "global": {
+            "contingencyPercent": schema_data.get("_constants", {}).get("contingencyPercent", 3),
+            "marginPercent": schema_data.get("_constants", {}).get("marginPercent", 45),
+        }
+    }
+    
+    print(f"Eval Context Global: {eval_context['global']}")
+
+    # Evaluate rows
+    for row in flattened_rows:
+        rtype = (row.get("type") or "row").lower()
+        section = row.get("_section", "General")
+        
+        if rtype in ("row", "sku"):
+            raw_qty = row.get("quantity", 0)
+            quantity = _evaluate_value(raw_qty, eval_context)
+            unit_cost = 0.0
+            
+            if rtype == "sku":
+                sku_code = row.get("sku")
+                if skus and sku_code in skus:
+                    unit_cost = float(skus[sku_code].costPrice or 0.0)
+                    print(f"DEBUG SKU: Found '{sku_code}' | Cost: {unit_cost} | Qty: {quantity}")
+                else:
+                    print(f"DEBUG SKU: Missing '{sku_code}' in lookup. Keys: {list(skus.keys()) if skus else 'None'}")
+                    unit_cost = 0.0
+            else:
+                raw_cost = row.get("unitCost", 0)
+                unit_cost = _evaluate_value(raw_cost, eval_context)
+                print(f"DEBUG ROW: {section} | Qty: {quantity} (from {raw_qty}) | Unit: {unit_cost} (from {raw_cost})")
+            
+            line_total = quantity * unit_cost
+            total += line_total
+            section_totals[section] = section_totals.get(section, 0.0) + line_total
+            print(f"  -> Line Total: {line_total} | Section '{section}' Total so far: {section_totals[section]}")
+
+    # Update context with section totals for completeness (though unused here)
+    for sname, sval in section_totals.items():
+        eval_context[f"{sname.lower()}Total"] = sval
+        
+    eval_context["baseCost"] = total
+
+    # Apply Markup
+    contingency_pct = eval_context["global"].get("contingencyPercent", 3)
+    margin_pct = eval_context["global"].get("marginPercent", 45)
+    
+    contingency_amt = total * (contingency_pct / 100.0)
+    
+    suggested_price = 0.0
+    if abs(1.0 - margin_pct/100.0) > 0.001:
+        suggested_price = (total + contingency_amt) / (1.0 - margin_pct / 100.0)
+    else:
+         suggested_price = total + contingency_amt
+    
+    print(f"--- MARKUP CALCULATION ---")
+    print(f"Base Total: {total}")
+    print(f"Contingency %: {contingency_pct} -> Amt: {contingency_amt}")
+    print(f"Margin %: {margin_pct}")
+    print(f"Suggested Price: {suggested_price}")
+    print("--- ESTIMATING PRICE END ---\n")
 
     return {
         "totals": {
-            "total": total,
-            "grand_total": total,
+            "total": total, # Base cost
+            "grand_total": suggested_price, # Final price
+            "contingency_amount": contingency_amt
         }
     }
+
+
+def flatten_rows(schema_data):
+    if isinstance(schema_data, list):
+        return [r for r in schema_data if isinstance(r, dict)]
+    if isinstance(schema_data, dict):
+        rows = []
+        for key, value in schema_data.items():
+            if isinstance(value, list):
+                 for r in value:
+                     if isinstance(r, dict):
+                         r["_section"] = key
+                         rows.append(r)
+        return rows
+    return []
 

@@ -101,6 +101,7 @@ export default function ProjectDetailsPage() {
 
   const [estimateVersion, setEstimateVersion] = useState(0);
   const [toggleData, setToggleData] = useState(false);
+  const [currentEstimateTotal, setCurrentEstimateTotal] = useState(0);
 
   // Toast state
   const [toast, setToast] = useState(null);
@@ -312,6 +313,7 @@ export default function ProjectDetailsPage() {
         general: base.general || {},
         project_attributes: base.project_attributes || {},
         products: base.products || [],
+        estimate_total: currentEstimateTotal,
       };
       
       console.log('Submitting payload:', JSON.parse(JSON.stringify(payload)));
@@ -681,6 +683,7 @@ export default function ProjectDetailsPage() {
                   onCheck={handleSchemaCheck}
                   onReturn={handleSchemaReturn}
                   onSubmit={handleSchemaSubmit}
+                  onTotalChange={setCurrentEstimateTotal}
                   products={(editedProject?.products ?? project.products)}
                 />
               </div>

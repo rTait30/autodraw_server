@@ -29,6 +29,7 @@ export default function EstimateTable({
   onCheck = () => {},
   onReturn = () => {},
   onSubmit = () => {},
+  onTotalChange = () => {},
   products = [], // [{ attributes, calculated, productIndex, name }]
 }) {
   
@@ -291,6 +292,11 @@ export default function EstimateTable({
 
   // Grand total should reflect fully loaded product pricing (base + contingency + margin)
   const grandTotal = productTotals.reduce((sum, pt) => sum + (pt.global?.suggestedPrice || 0), 0);
+
+  // Notify parent of total changes
+  useEffect(() => {
+    onTotalChange(grandTotal);
+  }, [grandTotal, onTotalChange]);
 
   // Show loading state while SKUs are being fetched
   if (skuLoading) {

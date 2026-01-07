@@ -627,7 +627,7 @@ def _compute_discrepancies_and_blame(N: int, xy_distances: Dict[str, float], sai
     discrepancy_threshold = 100
     fabric_category = (sail.get("attributes") or {}).get("fabricCategory")
     if fabric_category == "PVC":
-        discrepancy_threshold = 20
+        discrepancy_threshold = 40
     elif fabric_category == "ShadeCloth":
         discrepancy_threshold = 70
 

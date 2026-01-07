@@ -7,7 +7,7 @@ from models import db, Project, ProjectProduct, User, Product, ProjectStatus
 from endpoints.api.projects.services.calculation_service import calculate_project
 from endpoints.api.projects.services.estimation_service import estimate_project_total
 from endpoints.api.products import dispatch_document
-from WG.workGuru import dr_make_lead
+from WG.workGuru import cp_make_lead, dr_make_lead
 from WG.workGuru import wg_get
 from WG.workGuru import wg_post
 
@@ -263,7 +263,15 @@ def create_project(user, data):
 
     # WorkGuru submission
     if (data.get("product_id") == 1 and data.get("submitToWG") == True):
-        print ("Submitting cover project to WorkGuru...")
+        # Resolve WorkGuru Client ID
+        wg_client_id = "178827" # Default NSC for DR
+        if project.client_id:
+            from models import User
+            client_user = db.session.get(User, project.client_id)
+            if client_user and client_user.wg_id and client_user.tenant == "DR":
+                 wg_client_id = str(client_user.wg_id)
+
+        print (f"Submitting cover project to WorkGuru (Client WG ID: {wg_client_id})...")
         name = (data.get("general").get("name") or "").strip()
         description = ""
         for cover in data.get("products", []):
@@ -272,7 +280,12 @@ def create_project(user, data):
             cover_length = attributes.get("length", 0)
             cover_width = attributes.get("width", 0)
             cover_height = attributes.get("height", 0)
-            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm \n")
+
+            stay_puts = attributes.get("stayPuts", False)
+            stay_puts_str = "; Stay Puts" if stay_puts else ""
+
+            description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
+
 
         estimated_price = project.estimate_total or 0.0
         
@@ -281,23 +294,70 @@ def create_project(user, data):
             description=description,
             budget=math.ceil(estimated_price) if estimated_price else 0,
             category="2a",
-            go_percent=100
+            go_percent=100,
+            client_wg_id=wg_client_id
         )
 
     if (data.get("product_id") == 2 and data.get("submitToWG") == True):
-        print ("Submitting shade sail project to WorkGuru...")
-        name = (data.get("general").get("name") or "").strip()
+        # Resolve WorkGuru Client ID
+        wg_client_id = "194156" # Default for CP
+        if project.client_id:
+            from models import User
+            client_user = db.session.get(User, project.client_id)
+            if client_user and client_user.wg_id and client_user.tenant == "CP":
+                 wg_client_id = str(client_user.wg_id)
+                 wg_name = str(client_user.username)
+                 
+        print (f"Submitting shade sail project to WorkGuru (Client WG ID: {wg_client_id})...")
+        project_name = data.get("general").get("name") or ""
+        name = (f"{wg_name} - {project_name}")
         description = ""
+        sailCount = len(data.get("products", []))
         for sail in data.get("products", []):
+
+            sail_name = sail.get("name", "")
+            if sail_name[:4] == "Item":
+                productIndex = sail.get("productIndex", 0)
+                sail_name = f"Sail {productIndex + 1}"
             attributes = sail.get("attributes", {})
-            sail_quantity = attributes.get("quantity", 0)
-            sail_shape = attributes.get("shape", "Unknown Shape")
-            sail_area = attributes.get("area", 0)
-            description += (f"{sail_quantity} x {sail_shape} Shade Sail\nArea: {sail_area} m²\n")
+            
+            edgeMeter = attributes.get("edgeMeter", 0)
+
+            fabric_type = attributes.get("fabricType", "")
+
+            colour = attributes.get("colour", "")
+
+            corners = attributes.get("pointCount", "")
+
+            cableSize = attributes.get("cableSize", "")
+
+            if attributes.get("fabricCategory", "") == "PVC":
+                description += "PVC Membrane "
+
+            if sailCount > 1: description += (f"{sail_name}: {edgeMeter}EM, {fabric_type} {colour}, {corners}C, {cableSize}mm Cable")
+            else: description += (f"{edgeMeter}EM, {fabric_type} {colour}, {corners}C, {cableSize}mm Cable")
+
+            for sailtrack in (attributes.get("sailTracks", [])):
+                
+                description += (f", ST From {sailtrack[0]} to {sailtrack[1]}")
+
+            description += "\n"
 
         estimated_price = project.estimate_total or 0.0
+
+        if attributes.get("fabricCategory", "") == "PVC":
+            category = "1b"
+        else:
+            category = "1a"
         
-        
+        cp_make_lead(
+            name=name,
+            description=description,
+            budget=math.ceil(estimated_price) if estimated_price else 0,
+            category=category,
+            go_percent=100,
+            client_wg_id=wg_client_id
+        )
 
     return project
 
@@ -307,6 +367,7 @@ def update_project(user, project_id, data):
     project_calculated = data.get("project_calculated")
     products_payload = data.get("products")
     new_product_id = data.get("product_id")
+    estimate_total = data.get("estimate_total")
     
     if new_product_id is not None:
         try:
@@ -369,6 +430,13 @@ def update_project(user, project_id, data):
         if not db.session.get(Product, new_product_id):
             raise ValueError(f"Product id {new_product_id} not found")
         project.product_id = new_product_id
+
+    # ---------- Update estimate total if provided ----------
+    if estimate_total is not None:
+        try:
+            project.estimate_total = float(estimate_total)
+        except (TypeError, ValueError):
+            print(f"Invalid estimate_total: {estimate_total}")
 
     # ---------- Update project-level JSON if provided ----------
     if project_attributes is not None and project.product:

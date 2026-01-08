@@ -1,0 +1,38 @@
+import json
+import tempfile
+from flask import send_file
+from .plot_file import get_drawing_data
+
+def get_metadata():
+    return {
+        "id": "geometry_json",
+        "name": "Geometry JSON",
+        "type": "json"
+    }
+
+def generate(project, **kwargs):
+    """
+    Generates a JSON file download with the geometry data.
+    """
+    try:
+        data = get_drawing_data(project)
+        
+        project_name = project.get("general", {}).get("name", "Unnamed")
+        filename = f"{project_name}_geometry.json"
+
+        # Create a temporary file to send
+        tmp = tempfile.NamedTemporaryFile(suffix=".json", mode='w+', delete=False, encoding='utf-8')
+        json.dump(data, tmp, indent=2)
+        tmp.close()
+
+        return send_file(
+            tmp.name,
+            mimetype="application/json",
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        # In case of error, we might still want to return JSON error, 
+        # but the caller expects a file.
+        from flask import jsonify
+        return jsonify({"error": str(e)}), 500

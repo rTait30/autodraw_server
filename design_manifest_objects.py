@@ -1,6 +1,6 @@
 # models/universal_geometry.py
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Union, Optional
+from typing import List, Dict, Any, Union, Optional, Generic, TypeVar
 
 # --- Pure Math ---
 class GeoPoint(BaseModel):
@@ -65,13 +65,16 @@ class StageData(BaseModel):
     # The Geometry result of this step
     canvas: List[CanvasItem] = []
 
-class DesignManifest(BaseModel):
-    # Universal Metadata
+# We define a generic type "T" for the specs
+TSpecs = TypeVar("TSpecs")
+TPipeline = TypeVar("TPipeline")
+
+class DesignManifest(BaseModel, Generic[TSpecs, TPipeline]):
+    # Universal Metadata (ID, timestamps, etc.)
     meta: ManifestMeta 
     
-    # Domain Specific Specifications
-    specifications: ShadeSpecs 
+    # Generic Specifications (Could be ShadeSpecs, ShedSpecs, AwningSpecs)
+    specifications: TSpecs
     
-    # Domain Specific Pipeline
-    # (Typed as ShadePipeline, but could be Union[ShadePipeline, ShedPipeline] later)
-    pipeline: ShadePipeline
+    # Generic Pipeline (Could be ShadePipeline, ShedPipeline)
+    pipeline: TPipeline

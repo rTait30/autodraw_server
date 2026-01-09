@@ -1,7 +1,7 @@
 import json
 import tempfile
 from flask import send_file
-from .plot_file import get_drawing_data
+from .shared import generate_sails_layout
 
 def get_metadata():
     return {
@@ -15,7 +15,10 @@ def generate(project, **kwargs):
     Generates a JSON file download with the geometry data.
     """
     try:
-        data = get_drawing_data(project)
+        layout_results = generate_sails_layout(project)
+        data = []
+        for item in layout_results:
+            data.extend(item['entities'])
         
         project_name = project.get("general", {}).get("name", "Unnamed")
         filename = f"{project_name}_geometry.json"

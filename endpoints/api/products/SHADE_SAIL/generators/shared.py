@@ -108,12 +108,12 @@ def extract_sail_geometry(sail: dict) -> dict:
     points_data = {}
     for label, point in points_raw.items():
         points_data[label] = {
-            #"height": _safe_num(point.get("height")) or 0.0,
-            #"cornerFitting": point.get("cornerFitting", ""),
-            #"tensionHardware": point.get("tensionHardware", ""),
-            #"tensionAllowance": _safe_num(point.get("tensionAllowance")) or 0.0,
-            #"x": _safe_num(positions_raw.get(label, {}).get("x")) or 0.0,
-            #"y": _safe_num(positions_raw.get(label, {}).get("y")) or 0.0,
+            "height": _safe_num(point.get("height")) or 0.0,
+            "cornerFitting": point.get("cornerFitting", ""),
+            "tensionHardware": point.get("tensionHardware", ""),
+            "tensionAllowance": _safe_num(point.get("tensionAllowance")) or 0.0,
+            "x": _safe_num(positions_raw.get(label, {}).get("x")) or 0.0,
+            "y": _safe_num(positions_raw.get(label, {}).get("y")) or 0.0,
         }
     
     return {
@@ -396,3 +396,157 @@ def get_transform_params(geometry: dict,
         "min_x": min_x,
         "min_y": min_y,
     }
+
+
+def generate_sails_layout(project: dict) -> list:
+    """
+    Generates drawing entities for all sails in the project, grouped by sail.
+    Returns a list of dicts: 
+    {
+        "entities": [list of entity dicts],
+        "x_offset": float,
+        "product": dict, # sail product dict
+        "geometry": dict, # extracted geometry
+        "product_index": int
+    }
+    Does NOT include project title, sail title/details text, or JSON dump.
+    """
+    layout_result = []
+    
+    if not isinstance(project, dict) or not project.get("products"):
+        return []
+
+    products_list = project.get("products") or []
+    
+    x_offset = 0.0
+    spacing = 8000.0
+    circle_radius = 50.0
+
+    for idx, pp in enumerate(products_list):
+        geo = extract_sail_geometry(pp)
+        # geo keys: positions, workpoints, edges, diagonals, centroid, bbox, point_order, points_data, etc.
+        
+        attrs = pp.get("attributes") or {}
+        
+        # Unpack geometry
+        positions = geo['positions']
+        workpoints = geo['workpoints']
+        centroid = geo['centroid']
+        edges = geo['edges']
+        diagonals = geo['diagonals']
+        min_x, min_y, max_x, max_y = geo['bbox']
+        points_data = geo['points_data']
+        point_count = geo['point_count']
+        
+        width_local = max_x - min_x
+        
+        # Offset center
+        cx_local, cy_local, cz_local = centroid
+        cx = x_offset + (cx_local - min_x)
+        cy = cy_local
+        cz = cz_local
+        
+        current_entities = []
+        
+        post_xy = {} # For line drawing
+        
+        # Draw posts/corners
+        for label, pos in positions.items():
+            rx, ry, rz = pos # raw coords
+            # Translated coords
+            x = x_offset + (rx - min_x)
+            y = ry
+            z = rz # Height
+            post_xy[label] = (x, y, z)
+            
+            # Circle + Point
+            current_entities.append({"type": "circle", "center": (x, y, z), "radius": circle_radius, "dxfattribs": {"layer": "AD_STRUCTURE"}})
+            current_entities.append({"type": "point", "location": (x, y, z), "dxfattribs": {"layer": "AD_STRUCTURE"}})
+            # Vertical line
+            if z > 0:
+                current_entities.append({"type": "line", "start": (x, y, 0), "end": (x, y, z), "dxfattribs": {"layer": "AD_STRUCTURE"}})
+            
+            # Labels and Info
+            p_data = points_data.get(label, {})
+            fitting = p_data.get("cornerFitting", "")
+            hardware = p_data.get("tensionHardware", "")
+            allowance = p_data.get("tensionAllowance", 0)
+            
+            extra = []
+            if label == geo.get("exit_point"): extra.append("Exit")
+            if label == geo.get("logo_point"): extra.append("Logo")
+            extra_str = " (" + ", ".join(extra) + ")" if extra else ""
+            
+            info = f"{extra_str}\nH: {int(round(z))}mm\nFitting: {fitting}\nHardware: {hardware}\nAllowance: {allowance}mm"
+            
+            dx = x - cx
+            dy = y - cy
+            mag = math.sqrt(dx**2 + dy**2) or 1.0
+            ux = dx / mag
+            uy = dy / mag
+            offset_distance = 1200.0
+            text_x = x + ux * offset_distance
+            text_y = y + uy * offset_distance
+            
+            current_entities.append({"type": "mtext", "text": f"{label}", "dxfattribs": {"layer": "AD_INFO", "char_height": 200}, "location": (text_x, text_y + 1000, z)})
+            current_entities.append({"type": "mtext", "text": info, "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x, text_y, z), "attachment_point": 8})
+            current_entities.append({"type": "mtext", "text": f"X:{round(rx,2)} Y:{round(ry,2)} Z:{round(z,2)}", "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x - 1000, text_y - 60, z)})
+
+        # Draw Center
+        if positions:
+             current_entities.append({"type": "point", "location": (cx, cy, cz), "dxfattribs": {"layer": "AD_PEN"}})
+             current_entities.append({"type": "circle", "center": (cx, cy, cz), "radius": 35.0, "dxfattribs": {"layer": "AD_PEN"}})
+
+        # Edges
+        for ((a, b), length) in edges:
+            if a in post_xy and b in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[a], "end": post_xy[b], "dxfattribs": {"layer": "AD_STRUCTURE"}})
+                mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
+                mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
+                mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
+                edge_label = f"{a}{b}\n{int(round(length))}mm"
+                current_entities.append({"type": "mtext", "text": edge_label, "dxfattribs": {"layer": "AD_PEN", "char_height": 80, "color": 3, "bg_fill": 1, "bg_fill_color": 7}, "location": (mid_x, mid_y, mid_z), "attachment_point": 5})
+
+        # Diagonals
+        for ((a, b), length) in diagonals:
+            if a in post_xy and b in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[a], "end": post_xy[b], "dxfattribs": {"layer": "AD_PEN", "color": 8, "lineweight": -1}})
+                mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
+                mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
+                mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
+                diag_label = f"{a}{b}\n{int(round(length))}mm"
+                current_entities.append({"type": "mtext", "text": diag_label, "dxfattribs": {"layer": "AD_PEN", "char_height": 60, "color": 8, "bg_fill": 1, "bg_fill_color": 7}, "location": (mid_x, mid_y, mid_z), "attachment_point": 5})
+
+        # Workpoints
+        workpoints_transformed = {}
+        for label, (wx_local, wy_local, wz_local) in workpoints.items():
+            wx = x_offset + (wx_local - min_x)
+            wy = wy_local
+            wz = wz_local
+            workpoints_transformed[label] = (wx, wy, wz)
+            
+            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 30.0, "dxfattribs": {"layer": "AD_WORK_LINE", "color": 1}})
+            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORK_LINE", "color": 1}})
+            if label in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_PEN", "color": 1}})
+                
+        # Workpoints polygon
+        point_order = geo['point_order']
+        for i in range(point_count):
+            a = point_order[i]
+            b = point_order[(i+1)%point_count]
+            if a in workpoints_transformed and b in workpoints_transformed:
+                current_entities.append({"type": "line", "start": workpoints_transformed[a], "end": workpoints_transformed[b], "dxfattribs": {"layer": "AD_WORK_LINE", "color": 1}})
+
+        layout_result.append({
+            "entities": current_entities,
+            "x_offset": x_offset,
+            "product": pp,
+            "geometry": geo,
+            "product_index": idx
+        })
+
+        advance = width_local if width_local > 0 else 0.0
+        x_offset += advance + spacing
+        
+    return layout_result

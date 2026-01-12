@@ -240,6 +240,9 @@ def create_project(user, data):
         item_index = p.get("productIndex", idx)
         label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
         calc = p.get("calculated") or {}
+        design_manifest = p.get("design_manifest") or {}
+        current_step = p.get("current_step", 0)
+        status = p.get("status", "pending")
 
         pp = ProjectProduct(
             project_id=project.id,
@@ -247,6 +250,9 @@ def create_project(user, data):
             label=label,
             attributes=attrs,
             calculated=calc,
+            design_manifest=design_manifest,
+            current_step=current_step,
+            status=status,
         )
         db.session.add(pp)
 
@@ -477,19 +483,18 @@ def update_project(user, project_id, data):
                 raise ValueError("each product must be an object")
 
             attrs = p.get("attributes") or {}
-            if not isinstance(attrs, dict):
-                raise ValueError("product.attributes must be an object")
-
-            item_index = p.get("productIndex", idx)
-            label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
-            calc = p.get("calculated") or {}
+            design_manifest = p.get("design_manifest") or {}
+            current_step = p.get("current_step", 0)
+            status = p.get("status", "pending")
 
             pp = ProjectProduct(
                 project_id=project.id,
-                item_index=item_index,
-                label=label,
+                item_index=idx,
+                label=p.get("label"),
                 attributes=attrs,
-                calculated=calc,
+                design_manifest=design_manifest,
+                current_step=current_step,
+                status=status
             )
             db.session.add(pp)
 
@@ -584,6 +589,9 @@ def list_project_products_for_editor(project_id, order_by_item_index=False):
             "label": pp.label,
             "attributes": pp.attributes,
             "calculated": pp.calculated,
+            "design_manifest": pp.design_manifest or {},
+            "current_step": pp.current_step or 0,
+            "status": pp.status or "pending",
         }
         for pp in query.all()
     ]
@@ -624,6 +632,9 @@ def _serialize_project_plain(prj):
             "productIndex": item.get("item_index"),
             "attributes": item.get("attributes") or {},
             "calculated": item.get("calculated") or {},
+            "design_manifest": item.get("design_manifest") or {},
+            "current_step": item.get("current_step", 0),
+            "status": item.get("status", "pending"),
         }
         items.append(item)
 

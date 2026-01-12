@@ -20,7 +20,7 @@ class GeoCircle(BaseModel):
     normal: List[float] = [0, 0, 1] # Defaults to Z-up
 
 class GeoMesh(BaseModel):
-    vertices: List[List[float]] 
+    vertices: List[List[float]]
     faces: List[List[int]] # Indices referring to vertices (Triangles/Quads)
 
 class GeoText(BaseModel):

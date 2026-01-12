@@ -124,7 +124,6 @@ class Project(db.Model):
             or totals.get("total")
         )
 
-
 class ProjectProduct(db.Model):
     __tablename__ = "project_products"
 
@@ -138,6 +137,11 @@ class ProjectProduct(db.Model):
 
     # per-item estimated total (computed from project.estimate_schema against attributes)
     estimate_total = db.Column(db.Float)
+
+    
+    design_manifest = db.Column(db.JSON, default=dict)
+    current_step = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(32), default="pending")
 
     project = db.relationship("Project", back_populates="products")
 
@@ -161,7 +165,6 @@ class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(255))
 
-
 class EstimatingSchema(db.Model):
     __tablename__ = "estimating_schemas"
     id = db.Column(db.Integer, primary_key=True)
@@ -170,7 +173,6 @@ class EstimatingSchema(db.Model):
     data = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     version = db.Column(db.Integer, nullable=False, default=1)
-
 
 class SKU(db.Model):
     __tablename__ = "skus"

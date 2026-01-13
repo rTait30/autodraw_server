@@ -365,6 +365,8 @@ def create_project(user, data):
             client_wg_id=wg_client_id
         )
 
+    
+
     return project
 
 def update_project(user, project_id, data):

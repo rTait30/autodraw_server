@@ -287,7 +287,7 @@ def create_project(user, data):
             cover_width = attributes.get("width", 0)
             cover_height = attributes.get("height", 0)
 
-            stay_puts = attributes.get("stayPuts", False)
+            stay_puts = attributes.get("stayputs", False)
             stay_puts_str = "; Stay Puts" if stay_puts else ""
 
             description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")

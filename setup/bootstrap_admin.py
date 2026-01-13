@@ -48,7 +48,7 @@ def bootstrap_products():
             "id": 2,
             "name": "SHADE_SAIL",
             "description": "Shadesail in mesh or PVC",
-            "default_schema_id": 2
+            "default_schema_id": 2,
         },
         {
             "id": 3,
@@ -64,12 +64,49 @@ def bootstrap_products():
             print(f"Product '{prod_data['name']}' already exists (id={existing.id}).")
             continue
 
-        product = Product(
-            id=prod_data["id"],
-            name=prod_data["name"],
-            description=prod_data["description"],
-            default_schema_id=prod_data["default_schema_id"]
-        )
+
+        if prod_data["id"] != 2:
+            product = Product(
+                id=prod_data["id"],
+                name=prod_data["name"],
+                description=prod_data["description"],
+                default_schema_id=prod_data["default_schema_id"]
+            )
+
+        else:
+
+            product = Product(
+                id=prod_data["id"],
+                name=prod_data["name"],
+                description=prod_data["description"],
+                default_schema_id=prod_data["default_schema_id"],
+                autodraw_config={
+                    "stepCount": 9,
+                    "steps": [
+                        {
+                            "name": "Structure",
+                            "software": "direct",
+                            "automated": True
+                        },
+                        {
+                            "name": "Membrane",
+                            "software": "autocad",
+                            "automated": False
+                        },
+                        {
+                            "name": "Pattern",
+                            "software": "autocad",
+                            "automated": False
+                        },
+                        {
+                            "name": "Cable",
+                            "software": "direct",
+                            "automated": True
+                        }
+                    ]
+                }
+            )
+
         db.session.add(product)
         print(f"Bootstrapped Product '{prod_data['name']}' (id={prod_data['id']}).")
 

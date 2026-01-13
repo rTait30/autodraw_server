@@ -35,6 +35,8 @@ class Product(db.Model):
     default_schema = db.relationship('EstimatingSchema', foreign_keys=[default_schema_id], post_update=True)
     schemas = db.relationship('EstimatingSchema', backref='product', lazy='dynamic', foreign_keys='EstimatingSchema.product_id')
 
+    autodraw_config = db.Column(db.JSON, default=dict, nullable=True)
+
 class ProjectStatus(enum.Enum):
     awaiting_deposit = "1.1 Awaiting Deposit"
     on_hold = "1.2 On Hold"
@@ -124,6 +126,9 @@ class Project(db.Model):
             or totals.get("total")
         )
 
+    autodraw_record = db.Column(db.JSON, default=dict)
+    autodraw_meta = db.Column(db.JSON, default=lambda: {"current_step": 0, "current_sub_step": 0})
+
 class ProjectProduct(db.Model):
     __tablename__ = "project_products"
 
@@ -138,9 +143,8 @@ class ProjectProduct(db.Model):
     # per-item estimated total (computed from project.estimate_schema against attributes)
     estimate_total = db.Column(db.Float)
 
-    
-    design_manifest = db.Column(db.JSON, default=dict)
-    current_step = db.Column(db.Integer, default=0)
+    autodraw_record = db.Column(db.JSON, default=dict)
+    autodraw_meta = db.Column(db.JSON, default=lambda: {"current_step": 0, "current_sub_step": 0})
     status = db.Column(db.String(32), default="pending")
 
     project = db.relationship("Project", back_populates="products")

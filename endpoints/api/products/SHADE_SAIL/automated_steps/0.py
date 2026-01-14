@@ -1,6 +1,6 @@
 from typing import List
 
-from design_manifest_objects import (
+from autodraw_objects import (
     CanvasItem, GeoLine, GeoCircle, GeoText, GeoPoint, 
     StageData, ManifestMeta, DesignManifest
 )

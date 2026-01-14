@@ -35,82 +35,81 @@ def bootstrap_admin():
 
 
 
-def bootstrap_products():
-    """Bootstrap default Product records."""
-    products_to_create = [
+SHADE_SAIL_AUTODRAW_CONFIG = {
+    "stepCount": 5,
+    "steps": [
         {
-            "id": 1,
-            "name": "COVER",
-            "description": "Covers for various products",
-            "default_schema_id": 1
+            "key": "structure",
+            "label": "Structure",
+            "substeps": [
+                {
+                    "key": "gen_model",
+                    "label": "Generate model",
+                    "software": "direct",
+                    "automated": True
+                }
+            ]
         },
         {
-            "id": 2,
-            "name": "SHADE_SAIL",
-            "description": "Shadesail in mesh or PVC",
-            "default_schema_id": 2,
+            "key": "membrane",
+            "label": "Membrane",
+            "substeps": [
+                {
+                    "key": "draw_work_model",
+                    "label": "Draw work model",
+                    "software": "direct",
+                    "automated": True
+                },
+                {
+                    "key": "create_membrane",
+                    "label": "Create membrane",
+                    "method": "Generate a shade sail membrane based on the work model",
+                    "software": "autocad",
+                    "automated": False
+                }
+            ]
         },
         {
-            "id": 3,
-            "name": "SCREEN",
-            "description": "Auto-generated product SCREEN",
-            "default_schema_id": 1
+            "key": "pattern",
+            "label": "Pattern",
+            "substeps": [
+                {
+                    "key": "create_panels",
+                    "label": "Create mpanel panels",
+                    "method": "Generate 2d panels from the membrane model",
+                    "software": "autocad",
+                    "automated": False
+                }
+            ]
+        },
+        {
+            "key": "cable",
+            "label": "Cable",
+            "substeps": [
+                {
+                    "key": "gen_cable_layout",
+                    "label": "Generate cable layout",
+                    "method": "Create cable layout for the shade sail",
+                    "software": "direct",
+                    "automated": True
+                }
+            ]
+        },
+        {
+            "key": "compensation",
+            "label": "Compensation",
+            "substeps": [
+                {
+                    "key": "compensate_pattern",
+                    "label": "Compensate sail pattern",
+                    "method": "Compensate the sail pattern for fabric stretch",
+                    "software": "direct",
+                    "automated": True
+                }
+            ]
         }
     ]
-
-    for prod_data in products_to_create:
-        existing = Product.query.filter_by(id=prod_data["id"]).first()
-        if existing:
-            print(f"Product '{prod_data['name']}' already exists (id={existing.id}).")
-            continue
-
-
-        if prod_data["id"] != 2:
-            product = Product(
-                id=prod_data["id"],
-                name=prod_data["name"],
-                description=prod_data["description"],
-                default_schema_id=prod_data["default_schema_id"]
-            )
-
-        else:
-
-            product = Product(
-                id=prod_data["id"],
-                name=prod_data["name"],
-                description=prod_data["description"],
-                default_schema_id=prod_data["default_schema_id"],
-                autodraw_config={
-                    "stepCount": 9,
-                    "steps": [
-                        {
-                            "name": "Structure",
-                            "software": "direct",
-                            "automated": True
-                        },
-                        {
-                            "name": "Membrane",
-                            "software": "autocad",
-                            "automated": False
-                        },
-                        {
-                            "name": "Pattern",
-                            "software": "autocad",
-                            "automated": False
-                        },
-                        {
-                            "name": "Cable",
-                            "software": "direct",
-                            "automated": True
-                        }
-                    ]
-                }
-            )
-
-        db.session.add(product)
-        print(f"Bootstrapped Product '{prod_data['name']}' (id={prod_data['id']}).")
-
-    db.session.commit()
+}
 
 
 COVER_DEFAULT_SCHEMA_REAL = {
@@ -298,12 +297,15 @@ def bootstrap_products():
         shade_sail = Product(
             name="SHADE_SAIL",
             description="Shadesail in mesh or PVC",
+            autodraw_config=SHADE_SAIL_AUTODRAW_CONFIG,
         )
         db.session.add(shade_sail)
         db.session.flush()  # get shade_sail.id
         print(f"Bootstrapped Product 'SHADE_SAIL' (id={shade_sail.id}).")
     else:
-        print(f"Product 'SHADE_SAIL' already exists (id={shade_sail.id}).")
+        # Ensure config is up to date
+        shade_sail.autodraw_config = SHADE_SAIL_AUTODRAW_CONFIG
+        print(f"Updated autodraw_config for Product 'SHADE_SAIL' (id={shade_sail.id}).")
 
     # --- 3. Ensure RECTANGLES product exists ---
     rectangles = Product.query.filter_by(name="RECTANGLES").first()

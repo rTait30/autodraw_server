@@ -183,15 +183,12 @@ def available_calculators() -> list:
 def available_dxf_generators() -> list:
     return sorted(_DXF_GENERATORS_BY_NAME.keys())
 
-def dispatch_dxf(product_type: str, project, **kwargs):
-    """Legacy wrapper for dispatch_dxf."""
-    return dispatch_document(product_type, "dxf", project, **kwargs)
+
 
 __all__ = [
     "dispatch_calculation",
     "dispatch_document",
     "get_product_documents",
-    "dispatch_dxf",
     "available_calculators",
     "available_dxf_generators",
     "get_product_capabilities"

@@ -213,60 +213,6 @@ def get_clients():
 
 
 
-@projects_api_bp.route("/project/get_dxf", methods=["POST"])
-@role_required("estimator", "designer")  # admin allowed by default via your decorator
-def get_dxf():
-    """
-    Body: { "project_id": 123 }
-    Uses project_attributes.nest + nested_panels to generate the DXF.
-    """
-    payload = request.get_json(silent=True) or {}
-    project_id = payload.get("project_id")
-    if not project_id:
-        return jsonify({"error": "project_id is required"}), 400
-
-    try:
-        return project_service.generate_dxf_for_project(project_id)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        print(f"DXF generation failed: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-
-
-@projects_api_bp.route("/project/get_pdf", methods=["POST"])
-@role_required("client", "estimator", "designer")  # admin allowed via decorator default
-def get_pdf():
-    """
-    Body:
-      {
-        "project_id": 123,
-        "include_bom": true,          # staff only; ignored/forbidden for clients
-        "bom_level": "summary"        # or "detailed" (optional)
-      }
-    """
-    payload = request.get_json(silent=True) or {}
-    project_id = payload.get("project_id")
-    if not project_id:
-        return jsonify({"error": "project_id is required"}), 400
-
-    user = current_user(required=True)
-    include_bom = bool(payload.get("include_bom", False))
-    bom_level = payload.get("bom_level") or "summary"
-
-    try:
-        return project_service.generate_pdf_for_project(user, project_id, include_bom, bom_level)
-    except ValueError as e:
-        if str(e) == "Unauthorized":
-            return jsonify({"error": "Unauthorized"}), 403
-        if "not permitted" in str(e):
-            return jsonify({"error": str(e)}), 403
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        print(f"PDF generation failed: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 
 @projects_api_bp.route("/project/generate_document", methods=["POST"])

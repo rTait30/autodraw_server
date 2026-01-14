@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
+from http.client import HTTPException
 from dateutil.parser import parse as parse_date
+from flask import json
+from pydantic_core import ValidationError
 from sqlalchemy.orm.attributes import flag_modified
 import math
 
@@ -10,6 +13,8 @@ from endpoints.api.products import dispatch_document
 from WG.workGuru import cp_make_lead, dr_make_lead
 from WG.workGuru import wg_get
 from WG.workGuru import wg_post
+
+from autodraw_objects import *
 
 
 def _enrich_wg_data(wg_data):
@@ -240,8 +245,8 @@ def create_project(user, data):
         item_index = p.get("productIndex", idx)
         label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
         calc = p.get("calculated") or {}
-        design_manifest = p.get("design_manifest") or {}
-        current_step = p.get("current_step", 0)
+        autodraw_record = p.get("autodraw_record") or {}
+        autodraw_meta = p.get("autodraw_meta") or {}
         status = p.get("status", "pending")
 
         pp = ProjectProduct(
@@ -250,8 +255,8 @@ def create_project(user, data):
             label=label,
             attributes=attrs,
             calculated=calc,
-            design_manifest=design_manifest,
-            current_step=current_step,
+            autodraw_record=autodraw_record,
+            autodraw_meta=autodraw_meta,
             status=status,
         )
         db.session.add(pp)
@@ -365,7 +370,24 @@ def create_project(user, data):
             client_wg_id=wg_client_id
         )
 
-    
+    #autodraw
+
+    # 1. GET THE CONFIG (The Recipe)
+    # Fetch the specific product type definition from SQL
+    if project.product:
+        print(project.product.autodraw_config)
+    else:
+        print(f"Product type id {project.product_id} not found for autodraw setup.")
+
+
+    record_template = generate_record_template(
+        product_id=str(project.product_id),
+        product_type=project.product.name,
+        config=project.product.autodraw_config
+    )
+
+    print ("Generated autodraw_record template:\n", record_template)
+
 
     return project
 
@@ -485,8 +507,8 @@ def update_project(user, project_id, data):
                 raise ValueError("each product must be an object")
 
             attrs = p.get("attributes") or {}
-            design_manifest = p.get("design_manifest") or {}
-            current_step = p.get("current_step", 0)
+            autodraw_record = p.get("autodraw_record") or {}
+            autodraw_meta = p.get("autodraw_meta") or {}
             status = p.get("status", "pending")
 
             pp = ProjectProduct(
@@ -494,8 +516,8 @@ def update_project(user, project_id, data):
                 item_index=idx,
                 label=p.get("label"),
                 attributes=attrs,
-                design_manifest=design_manifest,
-                current_step=current_step,
+                autodraw_record=autodraw_record,
+                autodraw_meta=autodraw_meta,
                 status=status
             )
             db.session.add(pp)
@@ -591,8 +613,8 @@ def list_project_products_for_editor(project_id, order_by_item_index=False):
             "label": pp.label,
             "attributes": pp.attributes,
             "calculated": pp.calculated,
-            "design_manifest": pp.design_manifest or {},
-            "current_step": pp.current_step or 0,
+            "autodraw_record": pp.autodraw_record or {},
+            "autodraw_meta": pp.autodraw_meta or {},
             "status": pp.status or "pending",
         }
         for pp in query.all()
@@ -634,8 +656,8 @@ def _serialize_project_plain(prj):
             "productIndex": item.get("item_index"),
             "attributes": item.get("attributes") or {},
             "calculated": item.get("calculated") or {},
-            "design_manifest": item.get("design_manifest") or {},
-            "current_step": item.get("current_step", 0),
+            "autodraw_record": item.get("autodraw_record") or {},
+            "autodraw_meta": item.get("autodraw_meta") or {},
             "status": item.get("status", "pending"),
         }
         items.append(item)
@@ -665,41 +687,7 @@ def _serialize_project_plain(prj):
         "products": items,
     }
 
-def generate_dxf_for_project(project_id):
-    project = Project.query.get(project_id)
-    if not project:
-        raise ValueError(f"Project {project_id} not found")
 
-    if not project.product:
-        raise ValueError("Project has no product type")
-    
-    product_type = project.product.name
-    plain_project = _serialize_project_plain(project)
-    fname = f"{(project.name or 'project').strip()}.dxf".replace(" ", "_")
-
-    return dispatch_dxf(product_type, plain_project, download_name=fname)
-
-def generate_pdf_for_project(user, project_id, include_bom=False, bom_level="summary"):
-    project = Project.query.get(project_id)
-    if not project:
-        raise ValueError(f"Project {project_id} not found")
-
-    # Authorization check for BOM
-    is_staff = user.role in ("estimator", "designer", "admin")
-    if include_bom and not is_staff:
-        raise ValueError("Including Bill of Materials is not permitted for clients.")
-
-    if not project.product:
-        raise ValueError("Project has no product type")
-
-    product_type = project.product.name
-    plain_project = _serialize_project_plain(project)
-    
-    base = f"{(project.name or 'project').strip()}_{project.id}".replace(" ", "_")
-    suffix = "_with_BoM" if (include_bom and is_staff) else ""
-    fname = f"{base}{suffix}.pdf"
-
-    return dispatch_pdf(product_type, plain_project, download_name=fname, include_bom=(include_bom and is_staff), bom_level=bom_level)
 
 def generate_document_for_project(user, project_id, doc_id, **kwargs):
     project = Project.query.get(project_id)
@@ -717,3 +705,73 @@ def generate_document_for_project(user, project_id, doc_id, **kwargs):
     plain_project = _serialize_project_plain(project)
     
     return dispatch_document(product_type, doc_id, plain_project, **kwargs)
+
+
+
+
+
+# ----------- AUTODRAW ---------------------
+
+
+# --- THE GENERATOR ---
+def generate_record_template(product_id: str, product_type: str, config: dict) -> dict:
+    """
+    Generates a blank 'autodraw_record' from the config.
+    Returns a CLEAN DICTIONARY (JSON Compatible) with dates as strings.
+    """
+    
+    # --- A. Build the Raw Data Structure ---
+    steps_dict = {}
+    
+    for i, step_conf in enumerate(config["steps"]):
+        step_key = step_conf["key"]
+        
+        # LOGIC: First step is "waiting_for_input", others "locked"
+        step_status = "waiting_for_input" if i == 0 else "locked"
+        
+        substeps_dict = {}
+        for j, sub_conf in enumerate(step_conf["substeps"]):
+            sub_key = sub_conf["key"]
+            
+            # LOGIC: First substep of active step is "pending", others "locked"
+            if step_status == "waiting_for_input" and j == 0:
+                sub_status = "pending"
+            else:
+                sub_status = "locked"
+            
+            substeps_dict[sub_key] = {
+                "status": sub_status,
+                "label": sub_conf["label"],
+                "geometry_data": [],
+                "metadata": {}
+            }
+            
+        steps_dict[step_key] = {
+            "status": step_status,
+            "label": step_conf["label"],
+            "substeps": substeps_dict
+        }
+
+    raw_record = {
+        "product_id": product_id,
+        "product_type": product_type,
+        "created_at": datetime.now(timezone.utc),
+        "steps": steps_dict
+    }
+
+    # --- B. Validation & Serialization ---
+    try:
+        # 1. Validate structure using Pydantic
+        model = ProductRecord(**raw_record)
+        
+        # 2. Convert to JSON String (Handles DateTime -> String conversion automatically)
+        json_str = model.json()
+        
+        # 3. Convert back to Python Dict (Now it's pure JSON data)
+        clean_dict = json.loads(json_str)
+        
+        return clean_dict
+
+    except ValidationError as e:
+        print(f"CRITICAL: Template generation failed validation.\n{e}")
+        raise e

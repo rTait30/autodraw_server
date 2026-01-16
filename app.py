@@ -15,6 +15,7 @@ from endpoints.api.projects.projects_api import projects_api_bp
 from endpoints.api.database import database_api_bp
 from endpoints.api.workguru import workguru_api_bp
 from endpoints.api.projects.projects_calc_api import projects_calc_api_bp
+from endpoints.api.automation.routes import automation_bp
 
 
 # --- Env & app ---
@@ -88,6 +89,7 @@ def create_app():
     app.register_blueprint(database_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(workguru_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(projects_calc_api_bp, url_prefix="/copelands/api")
+    app.register_blueprint(automation_bp, url_prefix="/copelands/api")
 
     # --- One-time DB create ---
     with app.app_context():

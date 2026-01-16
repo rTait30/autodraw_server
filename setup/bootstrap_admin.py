@@ -55,12 +55,6 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
             "label": "Membrane",
             "substeps": [
                 {
-                    "key": "draw_work_model",
-                    "label": "Draw work model",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
                     "key": "create_membrane",
                     "label": "Create membrane",
                     "method": "Generate a shade sail membrane based on the work model",
@@ -75,7 +69,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
             "substeps": [
                 {
                     "key": "create_panels",
-                    "label": "Create mpanel panels",
+                    "label": "Create panels",
                     "method": "Generate 2d panels from the membrane model",
                     "software": "autocad",
                     "automated": False

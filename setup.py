@@ -11,7 +11,7 @@ def run_command(cmd, cwd=None):
 
 # 1. Install Python dependencies
 print("Installing Python dependencies...")
-#run_command("pip install -r requirements.txt")
+run_command("pip install -r requirements.txt")
 
 # 2. Install Node dependencies
 print("Installing React dependencies...")

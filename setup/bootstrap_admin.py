@@ -41,10 +41,21 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
         {
             "key": "structure",
             "label": "Structure",
+            "show":[
+                {"query": "ad_layer", "value": "AD_STRUCTURE" },
+                {"query": "ad_layer", "value": "AD_STRUCTURE_INFO" },
+                {"query": "ad_layer", "value": "AD_WORK_MODEL" }
+            ],
             "substeps": [
                 {
-                    "key": "gen_model",
-                    "label": "Generate model",
+                    "key": "gen_structure",
+                    "label": "Generate structure",
+                    "software": "direct",
+                    "automated": True
+                },
+                {
+                    "key": "gen_work_model",
+                    "label": "Validate structure",
                     "software": "direct",
                     "automated": True
                 }

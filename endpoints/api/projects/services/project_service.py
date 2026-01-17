@@ -374,6 +374,7 @@ def create_project(user, data):
 
     # 1. GET THE CONFIG (The Recipe)
     # Fetch the specific product type definition from SQL
+    '''
     if project.product:
         print(project.product.autodraw_config)
     else:
@@ -388,7 +389,7 @@ def create_project(user, data):
 
     print ("Generated autodraw_record template:\n", record_template)
 
-
+    '''
     return project
 
 def update_project(user, project_id, data):

@@ -116,8 +116,8 @@ def generate_structure_geometry(attributes: Dict[str, Any]) -> Dict[str, Any]:
             "status": "complete",
             "generated_by": "server_auto",
             "config": {
-                "perimeter": geo.get("perimeter"),
-                "area": geo.get("area")
+                "perimeter": attributes.get("perimeter"),
+                "area": attributes.get("area")
             },
             "canvas": canvas_items
         }

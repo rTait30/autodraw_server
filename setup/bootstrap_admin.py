@@ -55,7 +55,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                 },
                 {
                     "key": "gen_work_model",
-                    "label": "Validate structure",
+                    "label": "Generate work model",
                     "software": "direct",
                     "automated": True
                 }

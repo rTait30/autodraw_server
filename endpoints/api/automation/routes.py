@@ -55,6 +55,8 @@ def automation_start(project_id):
         
         # User inputs (The Backpack)
         "project_attributes": project.project_attributes or {},
+
+        "product_attributes": [p.attributes or {} for p in project.products],
         
         # Static Rules (The Map)
         "autodraw_config": product.autodraw_config or {},
@@ -69,33 +71,36 @@ def automation_start(project_id):
     return jsonify(context)
 
 @automation_bp.route('/automation/continue/<int:project_id>', methods=['POST'])
-# @jwt_required()
-def automation_continue(project_id):
+def continue_project_automation(project_id):
     """
-    Advances the step of the automation.
-    Optionally accepts updated autodraw_record and autodraw_meta.
-    Checks for whether step is automated. Warns if more information is needed if not
+    Trigger the next step in the automation sequence.
+    Called by the AutoCAD Plugin (ADCONTINUE).
     """
-    project = Project.query.get_or_404(project_id)
-    data = request.get_json() or {}
+    
+    # 1. Call the Service (The Brain)
+    # We pass None for record/meta as requested, trusting the DB state.
+    result = automation_service.automation_continue(project_id)
 
-    if "autodraw_record" in data:
-        project.autodraw_record = data["autodraw_record"]
-        flag_modified(project, "autodraw_record")
+    if result and "error" in result:
+        print(f"Error during automation continue: {result['error']}")
+        return jsonify({
+            "success": False, 
+            "message": result.get("message", "An error occurred during automation.")
+        }), 400
 
-    if "autodraw_meta" in data:
-        project.autodraw_meta = data["autodraw_meta"]
-        flag_modified(project, "autodraw_meta")
-        
-    # Optional: Allow automation to update attributes if it calculated new things
-    if "project_attributes" in data:
-        # Be careful here: merging strategies might be needed
-        project.project_attributes = data["project_attributes"]
-        flag_modified(project, "project_attributes")
+    # 2. Handle Errors
+    # The service returns a String if something went wrong
+    if isinstance(result, str):
+        # Simple heuristic: 404 if missing, 400 for logic errors
+        status_code = 404 if "not found" in result.lower() else 400
+        return jsonify({
+            "success": False, 
+            "message": result
+        }), status_code
 
-    db.session.commit()
-
+    # 3. Handle Success
+    # The service returns a Dictionary if successful
     return jsonify({
-        "status": "success",
-        "autodraw_record": project.autodraw_record
-    })
+        "success": True,
+        "data": result
+    }), 200

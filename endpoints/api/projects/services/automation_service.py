@@ -124,16 +124,21 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
     """
     Main Service Function: Advances the automation step/substep.
     """
+    print(f"\n--- automation_continue(project_id={project_id}) START ---")
+    
     project = Project.query.get(project_id)
     if not project:
+        print(f"Error: Project {project_id} not found")
         return "Project not found"
 
     # 1. Update record/meta if provided
     if updated_record:
+        print("Updating autodraw_record from request...")
         project.autodraw_record = updated_record
         flag_modified(project, "autodraw_record")
 
     if updated_meta:
+        print("Updating autodraw_meta from request...")
         project.autodraw_meta = updated_meta
         flag_modified(project, "autodraw_meta")
 
@@ -141,46 +146,93 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
     meta = project.autodraw_meta or {}
     current_step = meta.get("current_step", 0)
     current_substep = meta.get("current_substep", 0)
+    print(f"Current Automation State: Step {current_step}, Substep {current_substep}")
 
     # 3. Check if current step/substep is automated
     product = project.product
     if not product or not product.autodraw_config:
+        print("Error: No Autodraw Configuration found.")
         return "No Autodraw Configuration found for this Product"
 
     steps_config = product.autodraw_config.get("steps", [])
     if current_step >= len(steps_config):
+        print("Error: Invalid current step index.")
         return "Invalid current step"
 
     step_conf = steps_config[current_step]
     substeps_config = step_conf.get("substeps", [])
     if current_substep >= len(substeps_config):
+        print("Error: Invalid current substep index.")
         return "Invalid current substep"
 
     substep_conf = substeps_config[current_substep]
+    step_key = step_conf["key"]
+    substep_key = substep_conf["key"]
+    print(f"Target Step config: {step_key} -> {substep_key}")
+
     if not substep_conf.get("automated", False):
+        print("Current substep is NOT automated. Exiting automation loop.")
         return "Current substep is not automated"
 
     # 4. Perform the automated action (Placeholder logic)
+    print("Executing automated logic...")
     geometry = project.autodraw_record.get("geometry", [])
     project_attributes = project.project_attributes or {}
-    product_attributes = product.autodraw_config or {}
+    product_attributes = [pp.attributes for pp in project.products]
 
-    perform_substep(step_conf["key"], substep_conf["key"], product.name, project_attributes, product_attributes, geometry)
+    new_substep_data = perform_substep(step_key, substep_key, product.name, project_attributes, product_attributes, geometry)
+
+    if new_substep_data and "error" in new_substep_data:
+        print(f"Error during substep execution: {new_substep_data['error']}")
+        return new_substep_data
+    # Merge new geometry
+    if new_substep_data and "new geometry" in new_substep_data:
+        added_geom = new_substep_data["new geometry"]
+        count_geom = len(added_geom)
+        print(f"Received {count_geom} new geometry entities. Extending record.")
+        geometry.extend(added_geom)
+        # Ensure modifying the list inside the dict marks the field as modified
+        flag_modified(project, "autodraw_record")
 
     # 5. Update status to 'complete' and advance pointers
     record = project.autodraw_record or {}
     steps = record.get("steps", {})
     
-    step_key = step_conf["key"]
-    substep_key = substep_conf["key"]
-
     if step_key in steps and substep_key in steps[step_key]["substeps"]:
+        print(f"Marking {step_key}.{substep_key} as 'complete'.")
         steps[step_key]["substeps"][substep_key]["status"] = "complete"
+        # Explicitly flag modification since we mutated a nested dict
+        flag_modified(project, "autodraw_record") 
 
         # Advance to next substep or step
         if current_substep + 1 < len(substeps_config):
             # Move to next substep
-            project.autodraw_meta
+            print(f"Advancing to next substep index: {current_substep + 1}")
+            meta["current_substep"] = current_substep + 1
+        elif current_step + 1 < len(steps_config):
+            # Move to next step
+            print(f"Advancing to next Step index: {current_step + 1} (Substep 0)")
+            meta["current_step"] = current_step + 1
+            meta["current_substep"] = 0
+        else:
+            print("All steps completed.")
+            meta["is_complete"] = True
+
+        project.autodraw_meta = meta
+        flag_modified(project, "autodraw_meta")
+        
+        try:
+            db.session.commit()
+            print("DB Commit Successful.")
+        except Exception as e:
+            print(f"DB Commit Failed: {e}")
+            db.session.rollback()
+            return f"Database Error: {str(e)}"
+    else:
+        print(f"Warning: Could not find {step_key}.{substep_key} in record structure to update status.")
+
+    print("--- automation_continue END ---\n")
+    return None
 
 
 
@@ -191,17 +243,39 @@ def perform_substep(step, substep, product_name, project_attributes, product_att
 
     print (f"Performing step {step} substep {substep}...")
 
-    module_path = f"endpoints.api.products.{product_name}.{step}.{substep}"
+    print (f"perform_substep() Project Attributes: {project_attributes}")
+    print (f"perform_substep() Product Attributes: {product_attributes}")
+    print (f"perform_substep() Geometry: {geometry}")
+
+    module_path = f"endpoints.api.products.{product_name}.automated_steps.{step}.{substep}"
     
     print(f"Attempting to load logic from: {module_path}")
 
-    substep_module = importlib.import_module(module_path)
+    try:
+        substep_module = importlib.import_module(module_path)
+        substep_data = substep_module.run(
+            project_attributes=project_attributes,
+            product_attributes=product_attributes,
+            geometry=geometry
+        )
+        return substep_data
+    except ModuleNotFoundError as e:
+        # Check if the missing module is the one we are trying to import (Not Implemented)
+        # or if an internal import in that module failed (Broken Dependency)
+        if e.name == module_path:
+            msg = f"Automation logic for '{step}.{substep}' is not implemented yet."
+            print(f"Warning: {msg}")
+            return {"message": msg, "error": "Not Implemented"}
+        else:
+            print(f"Error importing module {module_path}: {e}")
+            return {"message": f"Module {module_path} has missing dependencies.", "error": str(e)}
 
-    substep_data = substep_module.run(
-        project_attributes=project_attributes,
-        product_attributes=product_attributes,
-        geometry=geometry
-    )
+    except ImportError as e:
+        print(f"Error importing module {module_path}: {e}")
+        message = f"Could not import module for step '{step}' substep '{substep}'."
+        return {"message": message, "error": str(e)}
+    except Exception as e:
+        print(f"Runtime Exception in {module_path}: {e}")
+        return {"message": f"Error running automation logic for {step}.{substep}", "error": str(e)}
 
     return substep_data
-    #geometry.extend(substep_data.get("new geometry", []))

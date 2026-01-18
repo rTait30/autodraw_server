@@ -64,6 +64,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
         {
             "key": "membrane",
             "label": "Membrane",
+            "show": [],
             "substeps": [
                 {
                     "key": "create_membrane",
@@ -77,6 +78,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
         {
             "key": "pattern",
             "label": "Pattern",
+            "show": [],
             "substeps": [
                 {
                     "key": "create_panels",
@@ -90,6 +92,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
         {
             "key": "cable",
             "label": "Cable",
+            "show": [],
             "substeps": [
                 {
                     "key": "gen_cable_layout",
@@ -103,6 +106,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
         {
             "key": "compensation",
             "label": "Compensation",
+            "show": [],
             "substeps": [
                 {
                     "key": "compensate_pattern",

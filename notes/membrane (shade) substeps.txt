@@ -1,6 +1,6 @@
 0 Structure
 
-	0.0
+	0.0 
 	0.1 Draw external stucture
 	0.2a
 		(Automated) Calculate average position of attatchement points

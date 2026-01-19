@@ -97,6 +97,9 @@ def continue_project_automation(project_id):
             "success": False, 
             "message": result
         }), status_code
+    
+    print (f"Automation continue successful for project {project_id}")
+    print (f"Result: {result}")
 
     # 3. Handle Success
     # The service returns a Dictionary if successful

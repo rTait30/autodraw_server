@@ -31,7 +31,10 @@ def run(geometry = [], project_attributes = {}, product_attributes = []):
             pos = positions[label]
             x = pos.get('x', 0)
             y = pos.get('y', 0)
-            z = points.get(label, {}).get("height", 0)
+            try:
+                z = int(float(points.get(label, {}).get("height", 0)))
+            except (ValueError, TypeError):
+                z = 0
             current_point = [x, y, z]
             point_map[label] = current_point
             

@@ -232,7 +232,13 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
         print(f"Warning: Could not find {step_key}.{substep_key} in record structure to update status.")
 
     print("--- automation_continue END ---\n")
-    return None
+    
+    return {
+        "project_attributes": project.project_attributes or {},
+        "product_attributes": [p.attributes or {} for p in project.products],
+        "autodraw_meta": project.autodraw_meta or {},
+        "autodraw_record": project.autodraw_record
+    }
 
 
 

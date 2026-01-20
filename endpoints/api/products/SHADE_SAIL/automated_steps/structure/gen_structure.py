@@ -2,7 +2,7 @@ from typing import Dict, List, Any
 import uuid
 from endpoints.api.products.shared.geometry_builder import GeometryBuilder
 
-def run(geometry = [], project_attributes = {}, product_attributes = []):
+def run(geometry = [], project_attributes = {}, product_attributes = [], next_geometry_id: int = 1):
     """
     Step 0: Structure Generation.
     
@@ -11,7 +11,7 @@ def run(geometry = [], project_attributes = {}, product_attributes = []):
             (specifically the 'new_geometry' for the plugin to draw)
     """
     
-    gb = GeometryBuilder()
+    gb = GeometryBuilder(existing_geometry=geometry, next_id=next_geometry_id)
 
     for idx, sail in enumerate(product_attributes):
 
@@ -42,7 +42,7 @@ def run(geometry = [], project_attributes = {}, product_attributes = []):
             if z > 0:
                 gb.add(
                     type_name="geo_line",
-                    ad_layer="AD_STRUCTURE",
+                    ad_layer="STRUCTURE",
                     attributes={
                         "start": [x, y, 0], 
                         "end": current_point
@@ -63,7 +63,7 @@ def run(geometry = [], project_attributes = {}, product_attributes = []):
             
             gb.add(
                 type_name="geo_line",
-                ad_layer="AD_STRUCTURE",
+                ad_layer="STRUCTURE",
                 attributes={
                     "start": start, 
                     "end": end

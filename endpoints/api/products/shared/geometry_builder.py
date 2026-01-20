@@ -2,14 +2,32 @@ import uuid
 from typing import Dict, List, Any, Optional
 
 class GeometryBuilder:
-    def __init__(self):
+    def __init__(self, existing_geometry: List[Dict[str, Any]] = None, next_id: int = None):
         self.data = []
+        
+        if next_id is not None:
+            self.next_id = next_id
+        else:
+            self.next_id = 1
+            if existing_geometry:
+                for item in existing_geometry:
+                    try:
+                        # Check if ID is an integer (or string representation of one)
+                        # We handle string IDs (like "100") if they are numeric
+                        current_id = int(item.get("id", 0))
+                        if current_id >= self.next_id:
+                            self.next_id = current_id + 1
+                    except (ValueError, TypeError):
+                        # Ignore non-integer IDs (e.g. UUID strings)
+                        pass
 
     def add(self, type_name: str, ad_layer: str, attributes: Dict, key: str = None, tags: List[str] = None, product_index: int = None):
         if tags is None:
             tags = []
         
-        new_id = str(uuid.uuid4())
+        # Use the next available integer ID
+        new_id = self.next_id
+        self.next_id += 1
         
         obj = {
             "id": new_id,

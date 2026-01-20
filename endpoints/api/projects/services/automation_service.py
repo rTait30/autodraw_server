@@ -120,7 +120,7 @@ def initialize_automation(project_id: int):
 
 
 
-def automation_continue(project_id: int, updated_record: dict = None, updated_meta: dict = None):
+def automation_continue(project_id: int, updated_record: dict = None, updated_meta: dict = None, selected_option: str = None):
     """
     Main Service Function: Advances the automation step/substep.
     """
@@ -167,11 +167,39 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
 
     substep_conf = substeps_config[current_substep]
     step_key = step_conf["key"]
-    substep_key = substep_conf["key"]
-    print(f"Target Step config: {step_key} -> {substep_key}")
 
-    if not substep_conf.get("automated", False):
-        print("Current substep is NOT automated. Exiting automation loop.")
+    # --- OPTION SELECTION LOGIC ---
+    record_substep_key = substep_conf["key"]
+    execution_substep_key = record_substep_key # Default to substep key
+    target_conf = substep_conf
+
+    # Check if we have options
+    if "options" in substep_conf and substep_conf["options"]:
+        options = substep_conf["options"]
+        chosen_option = None
+        
+        # A. Try to find the requested option
+        if selected_option:
+            chosen_option = next((opt for opt in options if opt["key"] == selected_option), None)
+            if not chosen_option:
+                print(f"Warning: Selected option '{selected_option}' not found in configuration.")
+        
+        # B. Fallback to default
+        if not chosen_option:
+            chosen_option = next((opt for opt in options if opt.get("is_default")), None)
+            
+        # C. Fallback to first
+        if not chosen_option and options:
+             chosen_option = options[0]
+        
+        if chosen_option:
+            target_conf = chosen_option
+            execution_substep_key = chosen_option["key"]
+    
+    print(f"Target Step config: {step_key} -> {record_substep_key} (Execution Key: {execution_substep_key})")
+
+    if not target_conf.get("automated", False):
+        print(f"Current substep/option ({execution_substep_key}) is NOT automated. Exiting automation loop.")
         return "Current substep is not automated"
 
     # 4. Perform the automated action (Placeholder logic)
@@ -179,8 +207,23 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
     geometry = project.autodraw_record.get("geometry", [])
     project_attributes = project.project_attributes or {}
     product_attributes = [pp.attributes for pp in project.products]
+    
+    # Calculate next_geometry_id efficiently
+    next_geometry_id = 1
+    if geometry:
+         # Simple heuristic: Max existing integer ID + 1
+         # We do this here once, so we don't have to scan in every substep
+         max_id = 0
+         for g in geometry:
+             try:
+                 gid = int(g.get("id", 0))
+                 if gid > max_id:
+                     max_id = gid
+             except:
+                 pass
+         next_geometry_id = max_id + 1
 
-    new_substep_data = perform_substep(step_key, substep_key, product.name, project_attributes, product_attributes, geometry)
+    new_substep_data = perform_substep(step_key, execution_substep_key, product.name, project_attributes, product_attributes, geometry, next_geometry_id)
 
     if new_substep_data and "error" in new_substep_data:
         print(f"Error during substep execution: {new_substep_data['error']}")
@@ -198,9 +241,17 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
     record = project.autodraw_record or {}
     steps = record.get("steps", {})
     
-    if step_key in steps and substep_key in steps[step_key]["substeps"]:
-        print(f"Marking {step_key}.{substep_key} as 'complete'.")
-        steps[step_key]["substeps"][substep_key]["status"] = "complete"
+    # Use record_substep_key for status updates
+    if step_key in steps and record_substep_key in steps[step_key]["substeps"]:
+        print(f"Marking {step_key}.{record_substep_key} as 'complete'.")
+        substep_record = steps[step_key]["substeps"][record_substep_key]
+        substep_record["status"] = "complete"
+        
+        # Store metadata about which option was used
+        if "metadata" not in substep_record:
+            substep_record["metadata"] = {}
+        substep_record["metadata"]["executed_option"] = execution_substep_key
+        
         # Explicitly flag modification since we mutated a nested dict
         flag_modified(project, "autodraw_record") 
 
@@ -245,13 +296,14 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
 
 
 
-def perform_substep(step, substep, product_name, project_attributes, product_attributes, geometry):
+def perform_substep(step, substep, product_name, project_attributes, product_attributes, geometry, next_geometry_id=1):
 
     print (f"Performing step {step} substep {substep}...")
 
     print (f"perform_substep() Project Attributes: {project_attributes}")
     print (f"perform_substep() Product Attributes: {product_attributes}")
-    print (f"perform_substep() Geometry: {geometry}")
+    print (f"perform_substep() Geometry (Len): {len(geometry)}")
+    print (f"perform_substep() Next ID: {next_geometry_id}")
 
     module_path = f"endpoints.api.products.{product_name}.automated_steps.{step}.{substep}"
     
@@ -262,7 +314,8 @@ def perform_substep(step, substep, product_name, project_attributes, product_att
         substep_data = substep_module.run(
             project_attributes=project_attributes,
             product_attributes=product_attributes,
-            geometry=geometry
+            geometry=geometry,
+            next_geometry_id=next_geometry_id
         )
         return substep_data
     except ModuleNotFoundError as e:

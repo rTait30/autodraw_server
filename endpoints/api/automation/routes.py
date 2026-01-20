@@ -77,9 +77,13 @@ def continue_project_automation(project_id):
     Called by the AutoCAD Plugin (ADCONTINUE).
     """
     
+    # Get optional payload
+    data = request.get_json(silent=True) or {}
+    selected_option = data.get("selected_option")
+    
     # 1. Call the Service (The Brain)
     # We pass None for record/meta as requested, trusting the DB state.
-    result = automation_service.automation_continue(project_id)
+    result = automation_service.automation_continue(project_id, selected_option=selected_option)
 
     if result and "error" in result:
         print(f"Error during automation continue: {result['error']}")

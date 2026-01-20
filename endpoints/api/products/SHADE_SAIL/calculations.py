@@ -442,14 +442,27 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
     if not positions:
         return
 
-    # 1. Calculate Centroid
+    # Prepare 3D points list sorted by label (A, B, C...)
+    # This ensures we can determine connectivity (prev/next) for bisect method.
+    sorted_labels = sorted(positions.keys())
+    points_3d = []
+    
+    # 1. Calculate Centroid & Prepare Data
     sum_x, sum_y, sum_z = 0.0, 0.0, 0.0
     count = 0
     
-    for label, pos in positions.items():
+    for label in sorted_labels:
+        pos = positions[label]
         x = pos.get("x", 0.0)
         y = pos.get("y", 0.0)
         z = float(_num((points_data.get(label) or {}).get("height")) or 0.0)
+        ta = float(_num((points_data.get(label) or {}).get("tensionAllowance")) or 0.0)
+        
+        points_3d.append({
+            "label": label, 
+            "x": x, "y": y, "z": z, 
+            "ta": ta
+        })
         
         sum_x += x
         sum_y += y
@@ -465,15 +478,13 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
     
     attributes["centroid"] = {"x": cx, "y": cy, "z": cz}
     
-    # 2. Calculate Workpoints (Tension Points)
-    workpoints = {}
+    # 2. Calculate Workpoints (Centroid Method)
+    # Projects the workpoint inwards towards the centroid.
+    workpoints_centroid = {}
     
-    for label, pos in positions.items():
-        x = pos.get("x", 0.0)
-        y = pos.get("y", 0.0)
-        z = float(_num((points_data.get(label) or {}).get("height")) or 0.0)
-        
-        ta = float(_num((points_data.get(label) or {}).get("tensionAllowance")) or 0.0)
+    for p in points_3d:
+        label = p["label"]
+        x, y, z, ta = p["x"], p["y"], p["z"], p["ta"]
         
         # Vector from point to centroid
         dx = cx - x
@@ -482,19 +493,67 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
         
         mag = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
         
-        # Unit vector
+        # Unit vector (Direction: Post -> Centroid)
         ux = dx / mag
         uy = dy / mag
         uz = dz / mag
         
-        # Workpoint is point + direction * allowance
+        # Workpoint = Post + (Direction * Allowance) 
+        # Moves point INWARDS from the corner definition
         wx = x + ux * ta
         wy = y + uy * ta
         wz = z + uz * ta
         
-        workpoints[label] = {"x": wx, "y": wy, "z": wz}
+        workpoints_centroid[label] = {"x": wx, "y": wy, "z": wz}
         
-    attributes["workpoints"] = workpoints
+    attributes["workpoints_centroid"] = workpoints_centroid
+    # Maintain "workpoints" key as a fallback/alias to centroid method for now
+    attributes["workpoints"] = workpoints_centroid 
+
+    # 3. Calculate Workpoints (Bisect Method)
+    # Projects the workpoint inwards along the angle bisector of adjacent edges.
+    workpoints_bisect = {}
+    
+    for i in range(count):
+        curr_p = points_3d[i]
+        prev_p = points_3d[(i - 1 + count) % count]
+        next_p = points_3d[(i + 1) % count]
+        
+        # Vectors from Current -> Prev, Current -> Next
+        v_prev = (prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"])
+        v_next = (next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"], next_p["z"] - curr_p["z"])
+        
+        # Normalize
+        len_prev = math.sqrt(sum(k*k for k in v_prev)) or 1.0
+        len_next = math.sqrt(sum(k*k for k in v_next)) or 1.0
+        
+        u_prev = [k / len_prev for k in v_prev]
+        u_next = [k / len_next for k in v_next]
+        
+        # Bisector direction = Sum of normalized edge vectors
+        # For a standard convex corner, this points INWARDS.
+        bisect = [u_prev[k] + u_next[k] for k in range(3)]
+        len_bisect = math.sqrt(sum(k*k for k in bisect))
+        
+        if len_bisect < 1e-9:
+             # Edges are collinear (180 deg) or degenerate.
+             # Fallback to Centroid direction to avoid error
+             dx = cx - curr_p["x"]
+             dy = cy - curr_p["y"]
+             dz = cz - curr_p["z"]
+             mag_c = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
+             u_bisect = [dx/mag_c, dy/mag_c, dz/mag_c]
+        else:
+             u_bisect = [c / len_bisect for c in bisect]
+        
+        ta = curr_p["ta"]
+        wx = curr_p["x"] + u_bisect[0] * ta
+        wy = curr_p["y"] + u_bisect[1] * ta
+        wz = curr_p["z"] + u_bisect[2] * ta
+        
+        workpoints_bisect[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
+        
+    attributes["workpoints_bisect"] = workpoints_bisect
 
 
 # ---------------------------------------------------------------------------

@@ -36,7 +36,7 @@ def bootstrap_admin():
 
 
 SHADE_SAIL_AUTODRAW_CONFIG = {
-    "stepCount": 11,
+    "stepCount": 5,
     "steps": [
         {
             "key": "structure",
@@ -47,18 +47,39 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
             ],
             "substeps": [
                 {
-                    "key": "draw_ext_structure",
-                    "label": "Draw external structure",
-                    "method": "Draw the external frame/posts",
-                    "software": "direct",
-                    "automated": True
+                    "key": "gen_structure",
+                    "label": "Generate external structure",
+                    "method": "Generate the external frame/posts",
+                    "options": [
+                        {
+                            "key": "gen_structure",
+                            "label": "Standard Frame",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 },
                 {
-                    "key": "gen_wp",
-                    "label": "Generate workpoints (Distance)",
-                    "method": "Generate and connect workpoints between attachment point and average of distance according to hardware",
-                    "software": "direct",
-                    "automated": True
+                    "key": "gen_wm",
+                    "label": "Generate workmodel",
+                    "method": "Generate connection points based on hardware distance",
+                    "options": [
+                        {
+                            "key": "gen_wm_centroid_method",
+                            "label": "Centroid Method",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": False
+                        },
+                        {
+                            "key": "gen_wm_bisect_method",
+                            "label": "Bisect Method",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 }
             ]
         },
@@ -74,8 +95,15 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                     "key": "gen_panelmesh",
                     "label": "Generate PANELMESH",
                     "method": "Generate mesh from work model",
-                    "software": "direct",
-                    "automated": False
+                    "options": [
+                        {
+                            "key": "std_mesh_gen",
+                            "label": "Standard Mesh Gen",
+                            "software": "direct",
+                            "automated": False,
+                            "is_default": True
+                        }
+                    ]
                 }
             ]
         },
@@ -91,8 +119,15 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                     "key": "gen_panelmembrane",
                     "label": "Generate PANELMEMBRANE",
                     "method": "Generate 2d membrane from mesh",
-                    "software": "direct",
-                    "automated": False
+                    "options": [
+                        {
+                            "key": "std_flatten",
+                            "label": "Standard Flatten",
+                            "software": "direct",
+                            "automated": False,
+                            "is_default": True
+                        }
+                    ]
                 }
             ]
         },
@@ -109,29 +144,57 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                     "key": "bisect_hardware",
                     "label": "Bisect with Hardware",
                     "method": "Bisect corner with HARDWARE",
-                    "software": "direct",
-                    "automated": True
+                    "options": [
+                        {
+                            "key": "std_bisect_hw",
+                            "label": "Standard Bisect",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 },
                 {
                     "key": "draw_cable",
                     "label": "Draw CABLE",
                     "method": "Draw appropriate shapes between edges of hardware",
-                    "software": "direct",
-                    "automated": True
+                    "options": [
+                        {
+                            "key": "std_draw_cable",
+                            "label": "Standard Cable",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 },
                 {
                     "key": "gen_cablesection",
                     "label": "Generate cableSection",
                     "method": "Generate cableSection attribute",
-                    "software": "direct",
-                    "automated": True
+                    "options": [
+                        {
+                            "key": "std_cable_sect",
+                            "label": "Standard Section",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 },
                 {
                     "key": "calc_ufc_dist",
                     "label": "Calculate UFC distance",
                     "method": "Calculate distance on UFC diagonals",
-                    "software": "direct",
-                    "automated": True
+                    "options": [
+                        {
+                            "key": "std_ufc_calc",
+                            "label": "Standard Calculation",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 }
             ]
         },
@@ -148,200 +211,15 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                     "key": "gen_comp_model",
                     "label": "Generate COMPENSATEDMODEL",
                     "method": "Generate model scaling appropriately",
-                    "software": "direct",
-                    "automated": True
-                }
-            ]
-        },
-        {
-            "key": "pockets",
-            "label": "Pockets",
-            "show": [
-                {"query": "ad_layer", "value": "COMPENSATEDMODEL"},
-                {"query": "ad_layer", "value": "POCKET"},
-                {"query": "ad_layer", "value": "WHEEL"},
-                {"query": "ad_layer", "value": "PERIMITER"}
-            ],
-            "substeps": [
-                {
-                    "key": "offset_cable",
-                    "label": "Offset cable edges",
-                    "method": "Offset cable edges by pocket size on PERIMITER (Layer: WHEEL)",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "offset_track",
-                    "label": "Offset track edges",
-                    "method": "Offset track edges appropriately, space matchmarks according to scale",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "draw_pocket_corners",
-                    "label": "Draw POCKET corners",
-                    "method": "Draw appropriate corners on POCKET",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "draw_pocket_labels",
-                    "label": "Draw POCKET labels",
-                    "method": "Draw corner and exit labels on POCKET (Layer: PEN)",
-                    "software": "direct",
-                    "automated": True
-                }
-            ]
-        },
-        {
-            "key": "seams",
-            "label": "Seams",
-            "show": [
-                 {"query": "ad_layer", "value": "PERIMITER"},
-                 {"query": "ad_layer", "value": "SEAM"}
-            ],
-            "substeps": [
-                {
-                    "key": "draw_seams",
-                    "label": "Draw seams",
-                    "method": "Draw appropriate seams on SEAM",
-                    "software": "direct",
-                    "automated": True
-                }
-            ]
-        },
-        {
-            "key": "panels",
-            "label": "Panels",
-            "show": [
-                {"query": "ad_layer", "value": "POCKET"},
-                {"query": "ad_layer", "value": "SEAM"},
-                {"query": "ad_layer", "value": "CUTPANELS"}
-            ],
-            "substeps": [
-                {
-                    "key": "gen_cutpanels",
-                    "label": "Generate CUTPANELS",
-                    "method": "Generate CUTPANELS with POCKET and SEAM",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "gen_cutting_panels",
-                    "label": "Generate cutting panels",
-                    "method": "Generate panels for cutting on CUTPANELS considering seam allowance",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "add_matchmarks",
-                    "label": "Add match marks",
-                    "method": "Add match marks on seams on CUTPANELS (Layer: PEN)",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "add_seam_labels",
-                    "label": "Add seam labels",
-                    "method": "Add seam labels on CUTPANELS (Layer: PEN)",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "gen_doublers",
-                    "label": "Generate doublers",
-                    "method": "Generate doublers on CUTPANELS",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "calc_ufc_len",
-                    "label": "Calculate UFC length",
-                    "method": "Calculate total UFC length required on CUTPANELS",
-                    "software": "direct",
-                    "automated": True
-                },
-                {
-                    "key": "mark_ufc",
-                    "label": "Mark UFC lines",
-                    "method": "Mark lines for UFC",
-                    "software": "direct",
-                    "automated": True
-                }
-            ]
-        },
-        {
-            "key": "nest",
-            "label": "Nest",
-            "show": [
-                 {"query": "ad_layer", "value": "CUTPANELS"},
-                 {"query": "ad_layer", "value": "PLOT"},
-                 {"query": "ad_layer", "value": "PLOTLABELS"}
-            ],
-            "substeps": [
-                {
-                    "key": "nest_panels",
-                    "label": "Nest panels",
-                    "method": "Nest panels within fabric dimensions minimising usage on PLOT",
-                    "software": "direct",
-                    "automated": False
-                },
-                {
-                    "key": "mirror_plot",
-                    "label": "Mirror PLOT",
-                    "method": "If pockets are underside, mirror PLOT",
-                    "software": "direct",
-                    "automated": False
-                },
-                {
-                    "key": "draw_plot_labels",
-                    "label": "Draw PLOT labels",
-                    "method": "Draw larger labels on PLOTLABELS",
-                    "software": "direct",
-                    "automated": False
-                },
-                {
-                    "key": "nest_ufc",
-                    "label": "Nest UFC",
-                    "method": "Determine UFC fit and nest appropriately",
-                    "software": "direct",
-                    "automated": False
-                }
-            ]
-        },
-        {
-            "key": "client_drawing",
-            "label": "Client Drawing",
-            "show": [
-                {"query": "ad_layer", "value": "POCKET"},
-                {"query": "ad_layer", "value": "SEAM"},
-                {"query": "ad_layer", "value": "CLIENTDRAWING"}
-            ],
-            "substeps": [
-                {
-                    "key": "draw_client_details",
-                    "label": "Draw client details",
-                    "method": "Draw corner details on CLIENTDRAWING",
-                    "software": "direct",
-                    "automated": True
-                }
-            ]
-        },
-        {
-            "key": "floor_drawing",
-            "label": "Floor Drawing",
-            "show": [
-                {"query": "ad_layer", "value": "POCKET"},
-                {"query": "ad_layer", "value": "SEAM"},
-                {"query": "ad_layer", "value": "FLOORDRAWING"}
-            ],
-            "substeps": [
-                {
-                    "key": "draw_floor_details",
-                    "label": "Draw floor details",
-                    "method": "Draw sail details (corner, dim, exit, logo, keder, tabs, trace, ufc, links) on FLOORDRAWING",
-                    "software": "direct",
-                    "automated": True
+                    "options": [
+                        {
+                            "key": "std_compensation",
+                            "label": "Standard Compensation",
+                            "software": "direct",
+                            "automated": True,
+                            "is_default": True
+                        }
+                    ]
                 }
             ]
         }

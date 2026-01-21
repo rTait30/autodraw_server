@@ -43,7 +43,6 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
             "label": "Structure",
             "show": [
                 {"query": "ad_layer", "value": "STRUCTURE"},
-                {"query": "ad_layer", "value": "WORKMODEL"}
             ],
             "substeps": [
                 {
@@ -60,10 +59,20 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                         }
                     ]
                 },
+            ]
+        },
+        {
+            "key": "membrane",
+            "label": "Membrane",
+            "show": [
+                {"query": "ad_layer", "value": "WORKMODEL"},
+                {"query": "ad_layer", "value": "PANELMESH"}
+            ],
+            "substeps": [
                 {
                     "key": "gen_wm",
                     "label": "Generate workmodel",
-                    "method": "Generate connection points based on hardware distance",
+                    "method": "Generate work points based on hardware distance and pull of membrane",
                     "options": [
                         {
                             "key": "gen_wm_centroid_method",
@@ -80,17 +89,7 @@ SHADE_SAIL_AUTODRAW_CONFIG = {
                             "is_default": True
                         }
                     ]
-                }
-            ]
-        },
-        {
-            "key": "membrane",
-            "label": "Membrane",
-            "show": [
-                {"query": "ad_layer", "value": "WORKMODEL"},
-                {"query": "ad_layer", "value": "PANELMESH"}
-            ],
-            "substeps": [
+                },
                 {
                     "key": "gen_panelmesh",
                     "label": "Generate PANELMESH",

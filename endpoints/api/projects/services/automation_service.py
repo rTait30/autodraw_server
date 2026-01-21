@@ -280,7 +280,7 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
             db.session.rollback()
             return f"Database Error: {str(e)}"
     else:
-        print(f"Warning: Could not find {step_key}.{substep_key} in record structure to update status.")
+        print(f"Warning: Could not find {step_key}.{execution_substep_key} in record structure to update status.")
 
     print("--- automation_continue END ---\n")
     

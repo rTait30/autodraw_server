@@ -1,18 +1,20 @@
 0 Structure
 
 	0.0 
-	0.1 Draw external stucture
-	0.2a
+	0.1 Draw external stucture on STRUCTURE
+	
+1 Membrane	
+
+	1.0 Using STRUCTURE
+	1.1a
 		(Automated) Calculate average position of attatchement points
 		(Automated) Generate workpoints between attatchment point and average of distance according to hardware
-	0.2b 
+		(Automated) Draw workpoints and connect to create WORKMODEL
+	1.1b 
 		(Automated) Bisect corners on plane created by 2 adjacent corners
 		(Automated) Generate workpoints center of arc create with radius according to hardware
-	0.3 (Automated) Draw workpoints and connect to create WORKMODEL
-	
-1 Membrane
-	
-	1.0 Using WORKMODEL
+		(Automated) Draw workpoints and connect to create WORKMODEL
+
 	1.1 Generate PANELMESH
 
 2 Pattern

@@ -6,6 +6,11 @@ from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
+user_favorites = db.Table('user_favorites',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('product_id', db.Integer, db.ForeignKey('products.id'), primary_key=True)
+)
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -19,6 +24,9 @@ class User(db.Model):
     # WorkGuru integration
     tenant = db.Column(db.String(10), nullable=True)  # "DR" or "CP"
     wg_id = db.Column(db.Integer, nullable=True, index=True)  # WorkGuru client ID
+
+    favorites = db.relationship('Product', secondary=user_favorites, lazy='subquery',
+        backref=db.backref('favorited_by', lazy=True))
 
     def set_password(self, password):
         self.password_hash = bcrypt.hash(password)

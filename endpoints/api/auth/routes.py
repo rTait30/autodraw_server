@@ -11,7 +11,7 @@ from flask_jwt_extended import (
     set_refresh_cookies,
     unset_jwt_cookies,
 )
-from models import db, User
+from models import db, User, Product
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
@@ -198,4 +198,27 @@ def get_me():
         "username": user.username,
         "role": user.role,
         "verified": user.verified,
+        "favorites": [p.id for p in user.favorites]
     }), 200
+
+@auth_bp.route("/favorites/<int:product_id>", methods=["POST", "DELETE"])
+@jwt_required()
+def manage_favorite(product_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    product = Product.query.get(product_id)
+    
+    if not user or not product:
+        return jsonify({"error": "User or Product not found"}), 404
+        
+    if request.method == "POST":
+        if product not in user.favorites:
+            user.favorites.append(product)
+            db.session.commit()
+        return jsonify({"message": "Added to favorites", "favorites": [p.id for p in user.favorites]})
+        
+    elif request.method == "DELETE":
+        if product in user.favorites:
+            user.favorites.remove(product)
+            db.session.commit()
+        return jsonify({"message": "Removed from favorites", "favorites": [p.id for p in user.favorites]})

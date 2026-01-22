@@ -24,8 +24,58 @@ export default function NewProject() {
   const role = localStorage.getItem("role") || "guest";
   const isStaff = ['estimator', 'admin', 'designer'].includes(role);
 
-  // Filter products based on user role
-  const visibleProducts = productsList;
+  // Favorites logic
+  const [favorites, setFavorites] = useState([]);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+      // Only fetch if logged in (role exists)
+      if (role && role !== 'guest') {
+        apiFetch('/me')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data.favorites)) {
+                    setFavorites(data.favorites);
+                    // If exactly one favorite exists, auto-select it if nothing selected
+                    if (data.favorites.length === 1 && !product) {
+                        setProduct(data.favorites[0]);
+                    }
+                }
+            })
+            .catch(e => console.warn("Failed to load favorites", e));
+      }
+  }, []);
+
+  const toggleFavorite = async (id) => {
+      const isFav = favorites.includes(id);
+      const method = isFav ? 'DELETE' : 'POST';
+      const newFavs = isFav ? favorites.filter(f => f !== id) : [...favorites, id];
+      setFavorites(newFavs);
+
+      try {
+          await apiFetch(`/favorites/${id}`, { method });
+      } catch (e) {
+          console.error("Failed to toggle favorite", e);
+          // Revert on error
+          setFavorites(favorites);
+      }
+  };
+
+  const hasFavorites = favorites.length > 0;
+  
+  // Robust filter: Ensure favorites actually exist in the current product list
+  // This prevents empty lists if a favorite product was deleted
+  const validFavoritesFromList = productsList.filter(p => favorites.includes(p.id));
+  const hasValidFavorites = validFavoritesFromList.length > 0;
+
+  // Filter products:
+  // 1. If user has VALID favorites AND not showing all -> show only those favorites
+  // 2. Otherwise (no valid favorites OR showing all) -> show all products
+  const visibleProducts = (hasValidFavorites && !showAll)
+      ? validFavoritesFromList
+      : productsList;
+
+
 
   // No longer needed: ProductFormComponent
 
@@ -270,6 +320,11 @@ export default function NewProject() {
         selectedProduct={product}
         setSelectedProduct={setProduct}
         products={visibleProducts}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+        showAll={showAll}
+        setShowAll={setShowAll}
+        hasFavorites={hasValidFavorites}
       />
 
       {toast && (

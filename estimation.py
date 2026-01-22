@@ -16,43 +16,58 @@ import re
 from typing import Any, Dict, List
 
 
-def _convert_ternary(expr: str) -> str:
-    """Convert JS-style ternary 'condition ? true : false' to Python 'true if condition else false'.
+def _process_ternary(expr: str) -> str:
+    """Core logic to convert a single ternary expression string.
     
-    Handles simple and nested right-associative ternaries.
+    Assumes `expr` is likely 'cond ? true : false' or contains one.
+    Does NOT handle parentheses wrapping safely on its own (see `_convert_ternary` wrapper).
     """
-    # Match: (condition) ? (true_val) : (false_val)
-    # Group 1: Condition (lazy, up to first ?)
-    # Group 2: True Val (lazy, up to first :)
-    # Group 3: False Val (rest of string)
     pattern = r'(.+?)\s*\?\s*(.+?)\s*:\s*(.+)'
-    
     match = re.search(pattern, expr)
+    
     if match:
         condition = match.group(1).strip()
         true_val = match.group(2).strip()
         false_val = match.group(3).strip()
         
-        # Depending on precedence, the 'true case' might be complex, or the 'false case' might be another ternary.
-        # We need to process the REST of the string (false_val) recursively to handle: a ? b : c ? d : e
-        # But wait, regex might have captured "c ? d" inside true_val if strict lazy matching isn't careful about nesting?
-        # Actually standard JS ternary is right-associative.
-        # "a ? b : c ? d : e" -> "a ? b : (c ? d : e)"
-        
-        # Our regex:
-        # 1: a
-        # 2: b
-        # 3: c ? d : e
-        
-        # Recurse on false_val
-        false_val_conv = _convert_ternary(false_val)
-        
-        # Recurse on true_val just in case? Usually strict 1 level there unless grouped.
-        true_val_conv = _convert_ternary(true_val)
+        # Recurse on parts
+        false_val_conv = _process_ternary(false_val)
+        true_val_conv = _process_ternary(true_val)
         
         return f"({true_val_conv} if {condition} else {false_val_conv})"
     
     return expr
+
+def _convert_ternary(expr: str) -> str:
+    """Convert JS-style ternary 'condition ? true : false' to Python.
+    
+    Handles parentheses by resolving innermost parens first.
+    """
+    # 1. Resolve ternaries inside parentheses iteratively (innermost first)
+    # This prevents 'A + (B ? C : D)' from being parsed as valid ternary 'A + (B' ? ...
+    
+    # Regex for innermost parentheses (containing no other parentheses)
+    inner_pattern = r'\(([^\(\)]*)\)'
+    
+    # Loop until no more parentheses containing '?' are found to ensure full resolution
+    # (or until string stabilizes to avoid infinite loops)
+    
+    prev_expr = None
+    while prev_expr != expr:
+        prev_expr = expr
+        
+        def replace_inner(m):
+            content = m.group(1)
+            # Only process if it looks like a ternary
+            if '?' in content and ':' in content:
+                converted = _process_ternary(content)
+                return f"({converted})"
+            return m.group(0)
+            
+        expr = re.sub(inner_pattern, replace_inner, expr)
+        
+    # 2. Finally process any top-level ternary
+    return _process_ternary(expr)
 
 
 def _convert_js_expr(expr: str) -> str:
@@ -65,19 +80,66 @@ def _convert_js_expr(expr: str) -> str:
     expr = expr.replace("false", "False")
     return expr
 
+def _eval_python_expr(expr: str, variables: Dict[str, Any]) -> float:
+    """Evaluate a standard Python expression using built-in eval().
+    
+    WARNING: Only use with trusted input (admins).
+    Provides math library and variables context.
+    """
+    import math
+    
+    # 1. Flatten variables (handle dot notation slightly differently?)
+    # Python doesn't support "attributes.length" as a variable name directly in eval
+    # unless we pass a dict and use syntax "attributes['length']".
+    # BUT, we want to support "length" directly if possible, or "attributes.length" via object proxy.
+    
+    # Let's map flattened keys for convenience if needed, 
+    # but the primary context has "attributes" as a dict.
+    
+    # Create a safe-ish context
+    context = {
+        "math": math,
+        "abs": abs,
+        "min": min,
+        "max": max,
+        "round": round,
+        "int": int,
+        "float": float,
+        **variables # Inject all top-level variables (attributes, inputs, calculated, etc.)
+    }
+    
+    # Helper: allow direct access to attributes keys if they don't conflict
+    if "attributes" in variables and isinstance(variables["attributes"], dict):
+        for k, v in variables["attributes"].items():
+            if k not in context:
+                context[k] = v
+                
+    if "calculated" in variables and isinstance(variables["calculated"], dict):
+        for k, v in variables["calculated"].items():
+            if k not in context:
+                context[k] = v
+
+    try:
+        return float(eval(expr, {"__builtins__": {}}, context))
+    except Exception as e:
+        print(f"PYTHON EVAL ERROR: {e} in '{expr}'")
+        return 0.0
+
 def _safe_eval_expr(expr: str, variables: Dict[str, Any]) -> float:
     """Evaluate a simple arithmetic expression safely.
-
-    Allowed:
-    - numbers, names (resolved from variables)
-    - binary ops: +, -, *, /
-    - unary ops: +, -
-    - parentheses
-    - ternary: condition ? true_val : false_val
-    - logic: and, or, ==, !=
-    - subscript: dict['key']
+    
+    Now supports explicit Python syntax if detected, or legacy JS-ish syntax.
     """
     original_expr = expr
+    expr = expr.strip()
+    
+    # Heuristic: If it contains "if " or "else " or looks like a python function call, use Python eval
+    if " if " in expr or " else " in expr or "math." in expr:
+         return _eval_python_expr(expr, variables)
+
+    # Pre-process: remove newlines which break regex/ternary parsing
+    expr = expr.replace('\n', ' ').replace('\r', ' ')
+    
     # 1. Convert JS syntax
     expr = _convert_js_expr(expr.strip())
     

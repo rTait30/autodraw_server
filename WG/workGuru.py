@@ -314,7 +314,17 @@ def cp_make_lead(name: str, description: str, budget: int, category: str, go_per
                 "TenantId": "825",
                 "CustomFieldId": "3553",
                 "Value": get_category_display("CP", category) or "1a. Shade (Shade Cloth)"
-            }
+            },
+            {
+                "TenantId": "825",
+                "CustomFieldId": "5289",
+                "Value": str(go_percent * 0.5),  # Get% 50
+            },
+            {
+                "TenantId": "825",
+                "CustomFieldId": "5290",
+                "Value": str(go_percent),  # Go% supplied by customer
+            },
         ]
     }
 

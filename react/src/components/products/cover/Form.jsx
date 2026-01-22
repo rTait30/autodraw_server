@@ -31,6 +31,14 @@ export default {
 
 
 import React, { useImperativeHandle, useState } from "react";
+import { 
+  useProductAttribute, 
+  useFormNavigation, 
+  FormContainer, 
+  NumberInput, 
+  CheckboxInput, 
+  ButtonGroup 
+} from "../shared/FormUI";
 
 export const PROJECT_DEFAULTS = Object.freeze({
   medical: false,
@@ -80,153 +88,111 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
 });
 
 export function ProductForm({ formRef, hydrate = {} }) {
-  // Single attributes object
-  const [attributes, setAttributes] = useState({
-    ...ATTRIBUTE_DEFAULTS,
-    ...(hydrate ?? {}),
+  // Use the shared hook for attribute management
+  const { attributes, setAttr } = useProductAttribute({
+    formRef,
+    hydrate,
+    defaults: ATTRIBUTE_DEFAULTS
   });
 
-  const setAttr = (key) => (value) =>
-    setAttributes((prev) => ({ ...prev, [key]: value }));
-
-  useImperativeHandle(
-    formRef,
-    () => ({
-      getValues: () => ({
-        attributes,
-      }),
-    }),
-    [attributes]
-  );
-
   let role = localStorage.getItem("role");
+  
+  // Define field order for Enter navigation
+  const fieldOrder = [
+    "length", "width", "height", "quantity", "hem", "seam",
+    ...( (role === "admin" || role === "estimator" || role === "designer") ? ["fabricWidth", "fabricRollLength"] : [])
+  ];
+
+  // Use shared hook for navigation
+  const nav = useFormNavigation(fieldOrder);
 
   return (
-    <div>
-      <label className="block text-sm font-medium mb-1">Length (mm)</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.length ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("length")(Number.isNaN(v) ? null : v);
-        }}
+    <FormContainer>
+      <NumberInput 
+        label="Length (mm)" 
+        value={attributes.length} 
+        onChange={setAttr("length")} 
+        name="length" 
+        nav={nav} 
       />
 
-      <label className="block text-sm font-medium mb-1">Width (mm)</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.width ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("width")(Number.isNaN(v) ? null : v);
-        }}
+      <NumberInput 
+        label="Width (mm)" 
+        value={attributes.width} 
+        onChange={setAttr("width")} 
+        name="width" 
+        nav={nav} 
       />
 
-      <label className="block text-sm font-medium mb-1">Height (mm)</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.height ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("height")(Number.isNaN(v) ? null : v);
-        }}
+      <NumberInput 
+        label="Height (mm)" 
+        value={attributes.height} 
+        onChange={setAttr("height")} 
+        name="height" 
+        nav={nav} 
       />
 
-      <label className="block text-sm font-medium mb-1">Quantity</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.quantity ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("quantity")(Number.isNaN(v) ? null : v);
-        }}
+      <NumberInput 
+        label="Quantity" 
+        value={attributes.quantity} 
+        onChange={setAttr("quantity")} 
+        name="quantity" 
+        nav={nav} 
       />
 
-      <label className="block text-sm font-medium mb-1">Hem (mm)</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.hem ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("hem")(Number.isNaN(v) ? null : v);
-        }}
+      <NumberInput 
+        label="Hem (mm)" 
+        value={attributes.hem} 
+        onChange={setAttr("hem")} 
+        name="hem" 
+        nav={nav} 
       />
 
-      <label className="block text-sm font-medium mb-1">Seam (mm)</label>
-      <input
-        className="inputCompact"
-        type="number"
-        inputMode="numeric"
-        step="any"
-        value={attributes.seam ?? ""}
-        onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          setAttr("seam")(Number.isNaN(v) ? null : v);
-        }}
+      <NumberInput 
+        label="Seam (mm)" 
+        value={attributes.seam} 
+        onChange={setAttr("seam")} 
+        name="seam" 
+        nav={nav} 
       />
 
-      <div className="flex items-center space-x-6 mt-2">
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={attributes.zips}
-            onChange={(e) => setAttr("zips")(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium">Zips</span>
-        </label>
-
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={attributes.stayputs}
-            onChange={(e) => setAttr("stayputs")(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium">Stayputs</span>
-        </label>
-      </div>
+      <ButtonGroup>
+        <CheckboxInput 
+          label="Zips" 
+          checked={attributes.zips} 
+          onChange={setAttr("zips")} 
+        />
+        <CheckboxInput 
+          label="Stayputs" 
+          checked={attributes.stayputs} 
+          onChange={setAttr("stayputs")} 
+        />
+      </ButtonGroup>
 
       {(role === "admin" || role === "estimator" || role === "designer") && (
+        <>
+          <div className="mt-2">
+            <NumberInput 
+              label="Fabric Width (mm)" 
+              value={attributes.fabricWidth} 
+              onChange={setAttr("fabricWidth")} 
+              name="fabricWidth" 
+              nav={nav} 
+            />
+          </div>
 
-      <>
-
-      <label className="block text-sm font-medium mb-1 mt-2"> Fabric Width (mm) </label>
-        <input
-          className="inputCompact"
-          type="number"
-          value={attributes.fabricWidth}
-          onChange={(e) => setAttr("fabricWidth")(e.target.value)}
-          inputMode="numeric"
-        />
-
-        <label className="block text-sm font-medium mb-1 mt-2"> Fabric Roll Length (mm) </label>
-        <input
-          className="inputCompact"
-          type="number"
-          value={attributes.fabricRollLength}
-          onChange={(e) => setAttr("fabricRollLength")(e.target.value)}
-          inputMode="numeric"
-        />
-      </>
+          <div className="mt-2">
+            <NumberInput 
+              label="Fabric Roll Length (mm)" 
+              value={attributes.fabricRollLength} 
+              onChange={setAttr("fabricRollLength")} 
+              name="fabricRollLength" 
+              nav={nav} 
+            />
+          </div>
+        </>
       )}
-    </div>
+    </FormContainer>
   );
 }
 

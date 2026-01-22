@@ -1,5 +1,13 @@
 import React, { useEffect, useState, useRef, useImperativeHandle } from "react";
-import { GeneralSection } from "../../GeneralSection";
+import { 
+  useProductAttribute, 
+  FormContainer, 
+  Section, 
+  SelectInput, 
+  TextInput, 
+  NumberInput,
+  deepNumberify 
+} from "../shared/FormUI";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
@@ -64,12 +72,10 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium mb-1">Location</label>
-      <input
-        className="inputStyle"
-        type="text"
-        value={projectData.location}
-        onChange={e => setProjectData(prev => ({ ...prev, location: e.target.value }))}
+      <TextInput 
+        label="Location" 
+        value={projectData.location} 
+        onChange={(val) => setProjectData(prev => ({ ...prev, location: val }))} 
         placeholder="Enter location..."
       />
     </div>
@@ -81,24 +87,34 @@ export function ProductForm({
   hydrate = {},
   discrepancyChecker = false,
 }) {
-  const [internalGeneralData, setInternalGeneralData] = useState(() => ({
-    ...GENERAL_DEFAULTS,
-  }));
-
   const heightRefs = useRef({});
   const edgeRefs = useRef({});
   const diagRefs = useRef({});
+  
+  // Use shared hook for attribute management
+  // We include logic to ensure sub-objects exist even if hydrate is partial
+  const { attributes, setAttributes, setAttr } = useProductAttribute({
+    formRef,
+    hydrate,
+    defaults: {
+      ...DEFAULT_ATTRIBUTES,
+      sailTracks: [],
+      dimensions: {},
+      points: {}
+    }
+  });
 
   // pending trace input (choose point + length)
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
 
   // pending UFC input (choose diagonal + optional size)
-const [pendingUfc, setPendingUfc] = useState({
-  diagonal: "",
-  size: "",
-  internalPocket: "no",
-  coatedCable: "no",
-});
+  const [pendingUfc, setPendingUfc] = useState({
+    diagonal: "",
+    size: "",
+    internalPocket: "no",
+    coatedCable: "no",
+  });
+
   // Add a trace cable entry { point, length }
   const addTraceCable = () => {
     const point = String(pendingTrace.point || "").trim() || "A";
@@ -181,21 +197,6 @@ const addUfc = () => {
     });
   };
 
-
-  // --- Attributes (now hydratable) ---
-  const [attributes, setAttributes] = useState(() => {
-    const hyd = deepNumberify(hydrate ?? {});
-    const base = DEFAULT_ATTRIBUTES;
-    return {
-      ...base,
-      ...hyd,
-      // ensure sailTracks merged/preserved if provided
-      sailTracks: hyd.sailTracks ?? base.sailTracks ?? [],
-      dimensions: { ...(base.dimensions ?? {}), ...(hyd.dimensions ?? {}) },
-      points: { ...(base.points ?? {}), ...(hyd.points ?? {}) },
-    };
-  });
-
   // Rebuild dimensions + points when pointCount changes (preserve existing values)
   useEffect(() => {
     setAttributes((prev) => {
@@ -225,20 +226,6 @@ const addUfc = () => {
       return { ...prev, pointCount: n, dimensions, points, sailTracks };
     });
   }, [attributes.pointCount]);
-
-  // Expose getValues (React 19: ref as prop)
-  useEffect(() => {
-    if (!formRef) return;
-    formRef.current = {
-      getValues: () => ({
-        attributes: deepNumberify(attributes),
-        calculated: {},
-      }),
-    };
-    return () => {
-      if (formRef) formRef.current = null;
-    };
-  }, [formRef, attributes]);
 
   // Setters
   const setCount = (next) =>
@@ -284,7 +271,7 @@ const setPointField = (p, key, value) =>
     return { ...prev, points: newPoints };
   });
 
-  // Mobile convenience: clear all edge dimensions
+  // Mobile convenience: clear all edge dimensions //DEPRECATED
   const clearAllEdges = () =>
     setAttributes((prev) => {
       const n = clamp(prev.pointCount, 1, MAX_POINTS);
@@ -295,7 +282,7 @@ const setPointField = (p, key, value) =>
       return { ...prev, dimensions: dims };
     });
 
-  // Mobile convenience: clear all diagonal dimensions
+  // Mobile convenience: clear all diagonal dimensions //DEPRECATED
   const clearAllDiagonals = () =>
     setAttributes((prev) => {
       const n = clamp(prev.pointCount, 1, MAX_POINTS);
@@ -306,7 +293,7 @@ const setPointField = (p, key, value) =>
       return { ...prev, dimensions: dims };
     });
 
-  // Mobile convenience: clear all heights
+  // Mobile convenience: clear all heights //DEPRECATED
   const clearAllHeights = () =>
     setAttributes((prev) => {
       const pts = { ...(prev.points || {}) };
@@ -316,7 +303,7 @@ const setPointField = (p, key, value) =>
       return { ...prev, points: pts };
     });
 
-  // Mobile convenience: clear all measurements
+  // Mobile convenience: clear all measurements //DEPRECATED
   const clearAllMeasurements = () => {
     // Single batched update: clear all edges, diagonals, and heights
     setAttributes((prev) => {
@@ -457,134 +444,87 @@ const setPointField = (p, key, value) =>
 
 
   return (
-    <div className="p-3 space-y-3">
+    <FormContainer>
 
       { /*<h3 className="headingStyle">Shade Sail</h3> */ }
 
       {/* Fabric Category (minimal) */}
       {!discrepancyChecker && (
-        <section className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Fabric Category</label>
-            <select
-              className="inputCompact"
-              value={attributes.fabricCategory ?? ""}
-              onChange={(e) =>
-                setAttributes((prev) => {
-                  const nextCat = e.target.value;
-                  const firstType = FABRIC_OPTIONS[nextCat]?.[0] ?? "";
-                  return { ...prev, fabricCategory: nextCat, fabricType: firstType };
-                })
-              }
-            >
-              <option value="PVC">PVC</option>
-              <option value="ShadeCloth">ShadeCloth</option>
-            </select>
-          </div>
+        <Section title="Fabric Details">
+          <SelectInput 
+            label="Fabric Category" 
+            value={attributes.fabricCategory} 
+            onChange={(val) =>
+              setAttributes((prev) => {
+                const firstType = FABRIC_OPTIONS[val]?.[0] ?? "";
+                return { ...prev, fabricCategory: val, fabricType: firstType };
+              })
+            }
+            options={[ 
+              { label: "PVC", value: "PVC" }, 
+              { label: "ShadeCloth", value: "ShadeCloth" } 
+            ]}
+          />
 
-          {/* Fabric Type (dependent on category) */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Fabric Type</label>
-            <select
-              className="inputCompact"
-              value={attributes.fabricType ?? ""}
-              onChange={(e) =>
-                setAttributes((prev) => ({ ...prev, fabricType: e.target.value }))
-              }
-            >
-              {(FABRIC_OPTIONS[attributes.fabricCategory] || []).map((ft) => (
-                <option key={ft} value={ft}>
-                  {ft}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectInput 
+            label="Fabric Type" 
+            value={attributes.fabricType} 
+            onChange={setAttr("fabricType")} 
+            options={(FABRIC_OPTIONS[attributes.fabricCategory] || []).map(ft => ({ label: ft, value: ft }))}
+          />
 
-          {/* Colour*/}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Colour</label>
-            <input
-              list="colourOptions"
-              className="inputCompact"
-              type="text"
-              value={attributes.colour ?? ""}
-              onChange={(e) => setAttributes((prev) => ({ ...prev, colour: e.target.value }))}
-            />
-            <datalist id="colourOptions">
-              {COLOUR_OPTIONS.map((colour) => (
+          <TextInput
+            label="Colour"
+            value={attributes.colour}
+            onChange={setAttr("colour")}
+            list="colourOptions"
+          />
+          <datalist id="colourOptions">
+             {COLOUR_OPTIONS.map((colour) => (
                 <option key={colour} value={colour} />
-              ))}
-            </datalist>
-          </div>
+             ))}
+          </datalist>
 
-          {/* Fold side */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Fold Side</label>
-            <select
-              className="inputCompact"
-              value={attributes.foldSide ?? ""}
-              onChange={(e) => setAttributes((prev) => ({ ...prev, foldSide: e.target.value }))}
-            >
-              {FOLD_SIDES.map((fs) => (
-                <option key={fs} value={fs}>
-                  {fs}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
+          <SelectInput 
+            label="Fold Side" 
+            value={attributes.foldSide} 
+            onChange={setAttr("foldSide")} 
+            options={FOLD_SIDES.map(fs => ({ label: fs, value: fs }))}
+          />
+        </Section>
       )}
 
       {/* Cable Size */}
       {!discrepancyChecker && (
-        <section className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Cable Size (mm)</label>
-            <select
-              className="inputCompact"
-              value={attributes.cableSize ?? ""}
-              onChange={(e) => setAttributes((prev) => ({ ...prev, cableSize: e.target.value }))}
-            >
-              {CABLE_SIZE_OPTIONS.map((cs) => (
-                <option key={cs} value={cs}>
-                  {cs}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
+        <Section>
+           <SelectInput 
+            label="Cable Size (mm)" 
+            value={attributes.cableSize} 
+            onChange={setAttr("cableSize")} 
+            options={CABLE_SIZE_OPTIONS.map(cs => ({ label: cs, value: cs }))}
+          />
+        </Section>
       )}
 
       <hr className="my-8 border-gray-300 opacity-50" />
 
       {/* Point count */}
-      <section className="space-y-2">
-        <div className="flex items-center gap-2 max-w-[200px]">
-          <label className="text-sm font-medium">Points</label>
-          <input
-            className="inputCompact h-9 text-center w-20"
-            type="number"
-            inputMode="numeric"
-            step={1}
-            min={3}
-            max={MAX_POINTS}
-            placeholder="—"
-            value={attributes.pointCount === "" ? "" : attributes.pointCount}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === "") {
-                setCount(""); // allow empty
-                return;
-              }
-              const n = parseInt(v, 10);
-              if (Number.isNaN(n)) {
-                setCount("");
-                return;
-              }
-              // clamp to 1..MAX_POINTS
-              setCount(Math.min(MAX_POINTS, Math.max(1, n)));
-            }}
-          />
+      <div className="flex items-center gap-2 max-w-[200px]">
+        <label className="text-sm font-medium">Points</label>
+        <NumberInput
+          className="inputCompact h-9 text-center w-20"
+          step={1}
+          min={3}
+          max={MAX_POINTS}
+          placeholder="—"
+          value={attributes.pointCount}
+          onChange={(v) => {
+             // clamp to 1..MAX_POINTS handled by setCount logic usually, but here doing direct
+             if (v === null) { setCount(""); return; }
+             setCount(v);
+          }}
+        />
+        
           {/* Mobile +/- buttons (hide on md+) */}
           <button
             type="button"
@@ -613,54 +553,44 @@ const setPointField = (p, key, value) =>
             +
           </button>
         </div>
-      </section>
 
       {/* Exit Point and Logo Point side by side, compact layout */}
 
       {!discrepancyChecker && (
         <section className="flex items-end gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Exit Point</label>
-            {(() => {
+           {(() => {
               const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
               const allowBlankExit = (attributes.sailTracks || []).length > 0;
-              return (
-                <select
-                  className="inputCompact h-9 text-center"
-                  value={attributes.exitPoint ?? ""}
-                  onChange={(e) => setExitPoint(e.target.value)}
-                >
-                  {allowBlankExit ? <option value="">-</option> : null}
-                  {verts.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              );
-            })()}
-          </div>
+              const exitOptions = [
+                 ...(allowBlankExit ? [{label: "-", value: ""}] : []),
+                 ...verts.map(v => ({ label: v, value: v }))
+              ];
+              const logoOptions = [
+                 {label: "-", value: ""},
+                 ...verts.map(v => ({ label: v, value: v }))
+              ];
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Logo</label>
-            {(() => {
-              const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
               return (
-                <select
-                  className="inputCompact h-9 text-center"
-                  value={attributes.logoPoint ?? ""}
-                  onChange={(e) => setLogoPoint(e.target.value)}
-                >
-                  <option value="">-</option>
-                  {verts.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                <>
+                <div className="w-24">
+                  <SelectInput 
+                    label="Exit Point" 
+                    value={attributes.exitPoint} 
+                    onChange={setExitPoint} 
+                    options={exitOptions} 
+                  />
+                  </div>
+                  <div className="w-24">
+                   <SelectInput 
+                    label="Logo" 
+                    value={attributes.logoPoint} 
+                    onChange={setLogoPoint} 
+                    options={logoOptions} 
+                  />
+                  </div>
+                </>
               );
             })()}
-          </div>
         </section>
       )}
 
@@ -744,23 +674,24 @@ const setPointField = (p, key, value) =>
             <>
               {/* Edges - vertical list */}
               <br></br>
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium opacity-70">Edges</h5>
+              <Section title="Edges">
                 {edges.map(([label, value]) => (
                   <div key={label} className="flex items-start gap-2">
                     <div className="flex-1 flex items-center gap-2">
-                      <label className="text-sm">{label}</label>
-                      <input
+                       {/* Standard Input for easier focusing and compactness */}
+                       <div className="w-8 pt-2">
+                          <label htmlFor={`edge-${label}`} className="text-sm font-bold cursor-pointer select-none">{label}</label>
+                       </div>
+                      <NumberInput
+                        id={`edge-${label}`}
                         ref={(el) => (edgeRefs.current[label] = el)}
-                        className="inputCompact"
-                        type="number"
+                        className="inputCompact w-32"
                         min={0}
-                        inputMode="numeric"
                         value={value}
-                        onChange={(e) => setDimension(label, e.target.value)}
-                       onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
+                        onChange={(v) => setDimension(label, v)}
+                        onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
                       />
-                      <label className="flex items-center gap-2 text-xs">
+                      <label className="flex items-center gap-2 text-xs pt-2 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={(attributes.sailTracks || []).includes(label)}
@@ -772,6 +703,7 @@ const setPointField = (p, key, value) =>
                     </div>
                   </div>
                 ))}
+                
                 {edges.length === 0 && (
                   <div className="text-xs opacity-60">No edges for this point count.</div>
                 )}
@@ -783,7 +715,7 @@ const setPointField = (p, key, value) =>
                   </div>
                 )}
 
-                {/* Clear edges button */}
+                {/* Clear edges button
                 {edges.length > 0 && (
                   <div className="mt-3">
                     <button
@@ -794,89 +726,84 @@ const setPointField = (p, key, value) =>
                       Clear Edges
                     </button>
                   </div>
-                )}
-              </div>
+                )} */}
+              </Section>
 
               <br></br>
 
               {/* Diagonals - split into mandatory (required) and optional */}
               {mandatoryDiagonals.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="text-sm font-medium opacity-70">Required diagonals</h5>
+                <Section title="Required diagonals">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {mandatoryDiagonals.map(([label, value]) => (
                       <div key={label} className="flex items-center gap-2">
-                        <label className="text-sm">{label} <span className="text-xs opacity-60"></span></label>
-                        <input
+                        <label htmlFor={`diag-req-${label}`} className="text-sm w-6 font-bold cursor-pointer select-none">{label}</label>
+                        <NumberInput
+                          id={`diag-req-${label}`}
                           ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28"
-                          type="number"
                           min={0}
-                          inputMode="numeric"
                           value={value}
-                          onChange={(e) => setDimension(label, e.target.value)}
+                          onChange={(v) => setDimension(label, v)}
                           onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
                         />
                       </div>
                     ))}
                   </div>
-                </div>
+                </Section>
               )}
 
               <br></br>
 
               {/* Tip Diagonals (for odd points) */}
               {tipDiagonals.length > 0 && (
-                <div className="space-y-2">
+                <Section>
                   <h5 className="text-sm font-medium opacity-70 text-blue-700">
                     Tip diagonals (Provide at least one)
                   </h5>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 p-2 bg-blue-50 rounded border border-blue-100">
                     {tipDiagonals.map(([label, value]) => (
                       <div key={label} className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-blue-800">{label}</label>
-                        <input
+                        <label htmlFor={`diag-tip-${label}`} className="text-sm font-medium text-blue-800 w-6 cursor-pointer select-none">{label}</label>
+                        <NumberInput
+                          id={`diag-tip-${label}`}
                           ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28 border-blue-300 focus:border-blue-500"
-                          type="number"
                           min={0}
-                          inputMode="numeric"
                           value={value}
-                          onChange={(e) => setDimension(label, e.target.value)}
+                          onChange={(v) => setDimension(label, v)}
                           onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
                         />
                       </div>
                     ))}
                   </div>
-                </div>
+                </Section>
               )}
 
               {tipDiagonals.length > 0 && <br></br>}
 
               {otherDiagonals.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="text-sm font-medium opacity-70">Optional diagonals (Please provide as many as possible)</h5>
+                <Section title="Optional diagonals (Please provide as many as possible)">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
                     {otherDiagonals.map(([label, value]) => (
                       <div key={label} className="flex items-center gap-2">
-                        <label className="text-sm">{label}</label>
-                        <input
+                        <label htmlFor={`diag-opt-${label}`} className="text-sm w-6 font-bold cursor-pointer select-none">{label}</label>
+                        <NumberInput
+                          id={`diag-opt-${label}`}
                           ref={(el) => (diagRefs.current[label] = el)}
                           className="inputCompact w-28"
-                          type="number"
                           min={0}
-                          inputMode="numeric"
                           value={value}
-                          onChange={(e) => setDimension(label, e.target.value)}
+                          onChange={(v) => setDimension(label, v)}
                           onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
                         />
                       </div>
                     ))}
                   </div>
-                </div>
+                </Section>
               )}
 
-              {/* Clear diagonals button */}
+              {/* Clear diagonals button 
               {(mandatoryDiagonals.length > 0 || tipDiagonals.length > 0 || otherDiagonals.length > 0) && (
                 <div className="mt-3">
                   <button
@@ -887,7 +814,7 @@ const setPointField = (p, key, value) =>
                     Clear Diagonals
                   </button>
                 </div>
-              )}
+              )}*/}
             </>
           );
         })()}
@@ -979,7 +906,7 @@ const setPointField = (p, key, value) =>
             </div>
           ))}
         </div>
-        {/* Clear heights button */}
+        {/* Clear heights button
         <div className="mt-2">
           <button
             type="button"
@@ -988,10 +915,10 @@ const setPointField = (p, key, value) =>
           >
             Clear Heights
           </button>
-        </div>
+        </div> */}
       </section>
 
-      {/* Clear all button */}
+      {/* Clear all button 
       <div className="mt-2 flex justify-center md:block">
         <button
           type="button"
@@ -1000,44 +927,37 @@ const setPointField = (p, key, value) =>
         >
           Clear Measurements
         </button>
-      </div>
+      </div>*/}
 
       {!discrepancyChecker && (
         <details className="space-y-2">
           <summary className="cursor-pointer text-2xl font-medium opacity-70">Extras</summary>
 
           {/* Trace cables - separate section (keeps points compact on mobile) */}
-          <section className="space-y-2">
-            <h5 className="text-sm font-medium opacity-70">Trace Cables</h5>
-
+          <Section title="Trace Cables">
             {/* Single add control: select a point + enter length */}
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs opacity-70">From</label>
-              <select
-                className="inputCompact h-8 text-xs"
-                value={pendingTrace.point}
-                onChange={(e) => setPendingTrace((s) => ({ ...s, point: e.target.value }))}
-              >
-                {makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((pt) => (
-                  <option key={pt} value={pt}>
-                    {pt}
-                  </option>
-                ))}
-              </select>
+              <div className="w-20">
+                <SelectInput
+                  // label="From"
+                  value={pendingTrace.point}
+                  onChange={(val) => setPendingTrace((s) => ({ ...s, point: val }))}
+                  options={makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(pt => ({label: pt, value: pt}))}
+                />
+              </div>
 
-              <label className="text-xs opacity-70">Length</label>
-              <input
-                className="inputCompact h-8 w-28 text-xs"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                placeholder="mm"
-                value={pendingTrace.length}
-                onChange={(e) => setPendingTrace((s) => ({ ...s, length: e.target.value }))}
-              />
+               <div className="w-28">
+                <NumberInput
+                  // label="Length"
+                  placeholder="mm"
+                  value={pendingTrace.length}
+                  onChange={(val) => setPendingTrace((s) => ({ ...s, length: val }))}
+                />
+              </div>
+
               <button
                 type="button"
-                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="h-10 px-3 mt-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
                 onClick={addTraceCable}
                 aria-label={`Add trace from ${pendingTrace.point}`}
               >
@@ -1051,7 +971,7 @@ const setPointField = (p, key, value) =>
                 {(attributes.traceCables || []).map((tc, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className="w-6 opacity-80">{tc.point}</div>
-                    <input
+                     <input
                       className="inputCompact h-8 w-28 text-xs"
                       type="number"
                       min={0}
@@ -1067,61 +987,63 @@ const setPointField = (p, key, value) =>
                 ))}
               </div>
             )}
-          </section>
+          </Section>
 
           {/* UFCs - similar to Trace Cables: diagonal + optional size (5 or 6) */}
-          <section className="space-y-2">
-            <h5 className="text-sm font-medium opacity-70">UFCs</h5>
-
+          <Section title="UFCs">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs opacity-70">Diagonal</label>
-              <select
-                className="inputCompact h-8 text-xs"
-                value={pendingUfc.diagonal}
-                onChange={(e) => setPendingUfc((s) => ({ ...s, diagonal: e.target.value }))}
-              >
-                <option value="">—</option>
-                {makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+               <div className="w-24">
+                <SelectInput
+                  label="Diagonal"
+                  value={pendingUfc.diagonal}
+                  onChange={(val) => setPendingUfc((s) => ({ ...s, diagonal: val }))}
+                  options={[
+                    {label: "—", value: ""},
+                    ...makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(d => ({label: d, value: d}))
+                  ]}
+                />
+              </div>
 
-              <label className="text-xs opacity-70">Size</label>
-              <select
-                className="inputCompact h-8 w-24 text-xs"
-                value={pendingUfc.size}
-                onChange={(e) => setPendingUfc((s) => ({ ...s, size: e.target.value }))}
-              >
-                <option value="">(auto)</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-              </select>
+              <div className="w-20">
+                <SelectInput
+                  label="Size"
+                  value={pendingUfc.size}
+                  onChange={(val) => setPendingUfc((s) => ({ ...s, size: val }))}
+                  options={[
+                    { label: "(auto)", value: "" },
+                    { label: "5", value: "5" },
+                    { label: "6", value: "6" }
+                  ]}
+                />
+              </div>
 
-              {/* Internal Pocket */}
-              <label className="text-xs opacity-70">Pocket</label>
-              <select
-                className="inputCompact h-8 w-24 text-xs"
-                value={pendingUfc.internalPocket ?? "no"}
-                onChange={(e) => setPendingUfc((s) => ({ ...s, internalPocket: e.target.value }))}
-              >
-                <option value="no">No Pocket</option>
-                <option value="yes">Pocket</option>
-              </select>
+              <div className="w-24">
+                <SelectInput
+                  label="Pocket"
+                  value={pendingUfc.internalPocket ?? "no"}
+                  onChange={(val) => setPendingUfc((s) => ({ ...s, internalPocket: val }))}
+                   options={[
+                    { label: "No Pocket", value: "no" },
+                    { label: "Pocket", value: "yes" }
+                  ]}
+                />
+              </div>
 
-              {/* Coated Cable */}
-              <label className="text-xs opacity-70">Coated</label>
-              <select
-                className="inputCompact h-8 w-24 text-xs"
-                value={pendingUfc.coatedCable ?? "no"}
-                onChange={(e) => setPendingUfc((s) => ({ ...s, coatedCable: e.target.value }))}
-              >
-                <option value="no">Uncoated</option>
-                <option value="yes">Coated</option>
-              </select>
+            <div className="w-24">
+               <SelectInput
+                  label="Coated"
+                  value={pendingUfc.coatedCable ?? "no"}
+                  onChange={(val) => setPendingUfc((s) => ({ ...s, coatedCable: val }))}
+                   options={[
+                    { label: "Uncoated", value: "no" },
+                    { label: "Coated", value: "yes" }
+                  ]}
+                />
+              </div>
 
               <button
                 type="button"
-                className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="h-10 mt-6 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
                 onClick={addUfc}
                 aria-label={`Add ufc ${pendingUfc.diagonal}`}
               >
@@ -1185,10 +1107,10 @@ const setPointField = (p, key, value) =>
                 ))}
               </div>
             )}
-          </section>
+          </Section>
         </details>
       )}
-    </div>
+    </FormContainer>
   );
 }
 
@@ -1224,15 +1146,10 @@ function makeDiagonalLabels(n) {
 }
 
 // --- Recursively convert all numeric-like strings to numbers ---
-function deepNumberify(obj) {
-  if (Array.isArray(obj)) return obj.map(deepNumberify);
-  if (obj && typeof obj === "object") {
-    const out = {};
-    for (const [k, v] of Object.entries(obj)) out[k] = deepNumberify(v);
-    return out;
-  }
-  if (typeof obj === "string" && obj.trim() !== "" && !isNaN(obj)) return Number(obj);
-  return obj;
-}
+/* 
+ deepNumberify is now imported from shared/FormUI 
+ but we keep it here if not imported, but wait we imported it.
+ Removing the local declaration.
+*/
 
 export default ProductForm;

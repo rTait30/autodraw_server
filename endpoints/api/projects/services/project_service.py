@@ -312,6 +312,7 @@ def create_project(user, data):
     if (data.get("product_id") == 2 and data.get("submitToWG") == True):
         # Resolve WorkGuru Client ID
         wg_client_id = "194156" # Default for CP
+        wg_name = None
         if project.client_id:
             from models import User
             client_user = db.session.get(User, project.client_id)
@@ -321,7 +322,12 @@ def create_project(user, data):
                  
         print (f"Submitting shade sail project to WorkGuru (Client WG ID: {wg_client_id})...")
         project_name = data.get("general").get("name") or ""
-        name = (f"{wg_name} - {project_name}")
+        
+        if wg_name:
+            name = (f"{wg_name} - {project_name}")
+        else:
+            name = project_name
+            
         description = ""
         sailCount = len(data.get("products", []))
         for sail in data.get("products", []):

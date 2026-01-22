@@ -293,8 +293,8 @@ export default function NewProject() {
 
       <main className="flex-1 p-6">
         {product ? (
-          <div className="flex flex-col lg:flex-row gap-10">
-            <div className="flex-1 lg:max-w-xl">
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <div className="w-full lg:w-1/2 lg:max-w-3xl flex-shrink-0">
               <Suspense fallback={<div className="p-3"></div>}>
                 <ProjectForm
                   key={product}

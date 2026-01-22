@@ -60,10 +60,10 @@
 
 
   .inputStyle {
-    @apply p-3 border border-warm-grey rounded-lg text-base md:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+    @apply p-3 border border-warm-grey rounded-lg text-base md:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white transition-all duration-100 ease-in-out focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none;
   }
   .inputCompact {
-    @apply p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 text-base md:text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white;
+    @apply p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 text-base md:text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white transition-all duration-100 ease-in-out focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none;
   }
   .formStyle {
     @apply flex flex-col items-center gap-y-2;

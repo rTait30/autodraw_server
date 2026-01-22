@@ -301,7 +301,7 @@ COVER_DEFAULT_SCHEMA = {
       "description": "Price List",
       "quantity": "1",
       "type": "row",
-      "unitCost": "length * 0.10470337 + width * 0.06595973 + height * 0.08644519 + 111.16780488 + (stayputs ? 55 : 0)"
+      "unitCost": "length * 0.10470337 + width * 0.06595973 + height * 0.08644519 + 111.16780488 + (55 if stayputs else 0)"
     }
 
   ],
@@ -322,55 +322,55 @@ SHADE_SAIL_DEFAULT_SCHEMA = {
     },
     {
       "description": "4mm Cable",
-      "quantity": "cableSize === 4 ? (edgeMeter || 0) - (totalTraceLengthCeilMeters || 0) - (totalSailLengthCeilMeters || 0) : 0",
+      "quantity": "(edgeMeter or 0) - (totalTraceLengthCeilMeters or 0) - (totalSailLengthCeilMeters or 0) if cableSize == 4 else 0",
       "type": "row",
       "unitCost": "3"
     },
     {
       "description": "5mm Cable",
-      "quantity": "cableSize === 5 ? (edgeMeter || 0) - (totalTraceLengthCeilMeters || 0) - (totalSailLengthCeilMeters || 0) : 0",
+      "quantity": "(edgeMeter or 0) - (totalTraceLengthCeilMeters or 0) - (totalSailLengthCeilMeters or 0) if cableSize == 5 else 0",
       "type": "row",
       "unitCost": "4.5"
     },
     {
       "description": "6mm Cable",
-      "quantity": "cableSize === 6 ? (edgeMeter || 0)  - (totalTraceLengthCeilMeters || 0) - (totalSailLengthCeilMeters || 0) : 0",
+      "quantity": "(edgeMeter or 0)  - (totalTraceLengthCeilMeters or 0) - (totalSailLengthCeilMeters or 0) if cableSize == 6 else 0",
       "type": "row",
       "unitCost": "5.5"
     },
     {
       "description": "8mm Cable",
-      "quantity": "cableSize === 8 ? (edgeMeter || 0) - (totalTraceLengthCeilMeters || 0) - (totalSailLengthCeilMeters || 0) : 0",
+      "quantity": "(edgeMeter or 0) - (totalTraceLengthCeilMeters or 0) - (totalSailLengthCeilMeters or 0) if cableSize == 8 else 0",
       "type": "row",
       "unitCost": "9.5"
     },
     {
       "description": "Sailtrack Corner",
-      "quantity": "fittingCounts['Sailtrack Corner'] || 0",
+      "quantity": "fittingCounts.get('Sailtrack Corner', 0)",
       "type": "row",
       "unitCost": "28"
     },
     {
       "description": "Pro-Rig or Ezy Slide",
-      "quantity": "(fittingCounts['Pro-Rig'] || 0) + (fittingCounts['Ezy Slide'] || 0)",
+      "quantity": "(fittingCounts.get('Pro-Rig', 0)) + (fittingCounts.get('Ezy Slide', 0))",
       "type": "row",
       "unitCost": "36"
     },
     {
       "description": "Pro-Rig with Small Pipe",
-      "quantity": "(fittingCounts['Pro-Rig with Small Pipe'] || 0)",
+      "quantity": "fittingCounts.get('Pro-Rig with Small Pipe', 0)",
       "type": "row",
       "unitCost": "50"
     },
     {
       "description": "Keder/Rope Edge/Spline per lm",
-      "quantity": "totalSailLengthCeilMeters || 0",
+      "quantity": "totalSailLengthCeilMeters or 0",
       "type": "row",
       "unitCost": "10"
     },
     {
       "description": "Trace cable set up",
-      "quantity": "traceCables.length || 0",
+      "quantity": "len(traceCables) if traceCables else 0",
       "type": "row",
       "unitCost": "15"
     }
@@ -452,7 +452,12 @@ def bootstrap_products():
         db.session.flush()
         print(f"Created default schema for 'COVER' (schema id={cover_schema.id}).")
     else:
-        print(f"Default schema for 'COVER' already exists (schema id={cover_schema.id}).")
+        # Update existing schema to new format if needed without creating duplicate
+        if cover_schema.data != COVER_DEFAULT_SCHEMA:
+             cover_schema.data = COVER_DEFAULT_SCHEMA
+             print(f"Updated existing default schema for 'COVER' to new Python syntax.")
+        else:
+             print(f"Default schema for 'COVER' already exists matches current version.")
 
     # Link COVER to its default schema if not already
     if cover.default_schema_id != cover_schema.id:
@@ -477,7 +482,12 @@ def bootstrap_products():
         db.session.flush()
         print(f"Created stub default schema for 'SHADE_SAIL' (schema id={shade_schema.id}).")
     else:
-        print(f"Default schema for 'SHADE_SAIL' already exists (schema id={shade_schema.id}).")
+        # Update existing schema to new format
+        if shade_schema.data != SHADE_SAIL_DEFAULT_SCHEMA:
+            shade_schema.data = SHADE_SAIL_DEFAULT_SCHEMA
+            print(f"Updated existing default schema for 'SHADE_SAIL' to new Python syntax.")
+        else:
+            print(f"Default schema for 'SHADE_SAIL' already exists and matches.")
 
     # Link SHADE_SAIL to its default schema if not already
     if shade_sail.default_schema_id != shade_schema.id:

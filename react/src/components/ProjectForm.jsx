@@ -450,59 +450,133 @@ export default function ProjectForm({
           </Suspense>
         )}
         
+
         {/* Only show item selector if ProductForm is provided */}
         {ProductForm && (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              {items.map((it, index) => (
-                <div key={it.productIndex} className="flex items-center gap-1">
-                  {it.productIndex === activeIndex ? (
-                    <input
-                      type="text"
-                      value={it.name ?? ""}
-                      onChange={e => handleTabNameChange(it.productIndex, e.target.value)}
-                      onBlur={handleTabNameBlur}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") e.target.blur();
-                      }}
-                      className={`px-3 py-1 rounded border text-sm inputCompact w-24 ${
-                        "border-blue-500 bg-blue-500 text-white"
-                      }`}
-                      style={{ fontSize: '0.95em', padding: '2px 6px', textAlign: 'center' }}
-                      onFocus={e => e.target.select()}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      className={`px-3 py-1 rounded border text-sm ${
-                        "border-neutral-300 bg-gray-200 text-black"
-                      }`}
-                      onClick={() => setActiveIndex(it.productIndex)}
-                    >
+          <div className="mt-6 w-full">
+            
+            {/* Mobile: Item Selector Dropdown (visible < md) */}
+            <div className="md:hidden mb-4">
+               <label className="block text-sm font-bold text-gray-700 mb-1">Select Item to Edit:</label>
+               <div className="relative">
+                  <select
+                    value={activeIndex}
+                    onChange={(e) => setActiveIndex(Number(e.target.value))}
+                    className="w-full p-3 pl-4 pr-10 bg-white border-2 border-gray-300 rounded-lg text-lg font-medium text-blue-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none transition-all"
+                  >
+                    {items.map((it, index) => (
+                      <option key={it.productIndex} value={it.productIndex}>
+                         {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+               </div>
+               
+               <button 
+                  type="button" 
+                  onClick={addItem}
+                  className="mt-2 w-full py-3 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+               >
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                 </svg>
+                 Add New Item
+               </button>
+            </div>
+
+            {/* Desktop: Tabs Navigation Bar (hidden < md) */}
+            <div className="hidden md:flex flex-wrap items-end gap-1 border-b-2 border-gray-300 mb-0 px-1 w-full">
+              {items.map((it, index) => {
+                const isActive = it.productIndex === activeIndex;
+                return (
+                  <div 
+                    key={it.productIndex} 
+                    onClick={() => setActiveIndex(it.productIndex)}
+                    className={`
+                      relative px-4 lg:px-6 py-3 rounded-t-lg border-t-2 border-l-2 border-r-2 cursor-pointer select-none transition-all min-w-[140px] text-center flex-shrink-0 mt-2
+                      ${isActive 
+                        ? "bg-white border-gray-300 border-b-white -mb-0.5 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700" 
+                        : "bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                      }
+                    `}
+                  >
+                    <span className={`block w-full truncate ${isActive ? "font-bold" : "font-medium"}`}>
                       {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
-                    </button>
-                  )}
+                    </span>
+                  </div>
+                );
+              })}
+              
+              {/* Desktop Add Button */}
+              <button 
+                type="button" 
+                onClick={addItem}
+                className="ml-2 mb-1 p-2 rounded-full hover:bg-blue-100 text-blue-600 font-bold transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
+                title="Add New Item"
+                aria-label="Add New Item"
+              >
+                <div className="flex items-center space-x-1">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                 </svg>
+                 <span className="font-semibold text-sm">Add Item</span>
                 </div>
-              ))}
-              <button type="button" className="px-3 py-1 rounded border text-sm font-bold" onClick={addItem}>
-                + Add Item
               </button>
             </div>
 
-            <div className="space-y-2">
+            {/* Tab Content Panel */}
+            <div className="bg-white border-2 md:border-t-0 border-gray-300 rounded-lg md:rounded-t-none md:rounded-b-lg p-3 md:p-6 min-h-[300px] shadow-sm w-full">
               {items.map((it, index) => {
                 const ref = getItemRef(it.productIndex);
+                const isActive = it.productIndex === activeIndex;
+
                 return (
-                  <div key={it.productIndex} style={{ display: it.productIndex === activeIndex ? "block" : "none" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="headingStyle">{it.name || `Item ${index + 1}`}</div>
+                  <div 
+                    key={it.productIndex} 
+                    className={`${isActive ? "block animate-in fade-in zoom-in-95 duration-200" : "hidden"} w-full`}
+                  >
+                    
+                    {/* Unified Item Header (Name + Delete) - Visible on both Mobile & Desktop */}
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                       <div className="flex-1 w-full">
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
+                            Item Name (Optional)
+                          </label>
+                          <div className="relative group">
+                            <input 
+                              type="text"
+                              value={it.name || ""}
+                              onChange={(e) => handleTabNameChange(it.productIndex, e.target.value)}
+                              placeholder={`Item ${index + 1}`}
+                              className="text-xl md:text-2xl font-bold text-gray-800 bg-transparent border border-transparent hover:border-gray-300 focus:bg-white focus:border-blue-500 rounded px-2 -ml-2 w-full transition-all outline-none placeholder-gray-300"
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </div>
+                          </div>
+                      </div>
+
                       {items.length > 1 && (
-                        <button type="button" className="buttonStyle bg-error" onClick={() => removeItem(it.productIndex)}>
-                          Remove Item
+                        <button 
+                          type="button" 
+                          className="self-end md:self-center px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded hover:bg-red-50 text-xs font-bold flex items-center gap-1 shadow-sm transition-all whitespace-nowrap" 
+                          onClick={() => removeItem(it.productIndex)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete Item
                         </button>
                       )}
                     </div>
-                    <Suspense fallback={<div className="p-3"></div>}>
+
+                    
+                    <Suspense fallback={<div className="p-12 text-center text-gray-400 font-medium">Loading form...</div>}>
                       <ProductForm
                         formRef={ref}
                         hydrate={it.attributesHydrate}
@@ -513,7 +587,7 @@ export default function ProjectForm({
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         {/* Rehydrate box UI only if devMode is true */}

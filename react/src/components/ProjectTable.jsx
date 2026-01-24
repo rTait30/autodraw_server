@@ -1,10 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function ProjectTable({ projects = [] }) {
+export default function ProjectTable({ projects = [], onOpen }) {
   const navigate = useNavigate();
   const role = localStorage.getItem("role") || "client";
   const isClient = role === 'client';
+
+  const handleProjectClick = (id) => {
+    if (onOpen) {
+      onOpen(id);
+    } else {
+      navigate(`/copelands/projects/${id}`);
+    }
+  };
 
   if (!projects.length) {
     return <div className="text-gray-500 italic p-4">No projects found.</div>;
@@ -28,7 +36,7 @@ export default function ProjectTable({ projects = [] }) {
           {projList.map((project) => (
             <div
               key={project.id}
-              onClick={() => navigate(`/copelands/projects/${project.id}`)}
+              onClick={() => handleProjectClick(project.id)}
               className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <div className="flex justify-between items-start mb-2">
@@ -75,7 +83,7 @@ export default function ProjectTable({ projects = [] }) {
               {projList.map((project) => (
                 <tr
                   key={project.id}
-                  onClick={() => navigate(`/copelands/projects/${project.id}`)}
+                  onClick={() => handleProjectClick(project.id)}
                   className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <td className="px-3 py-4 text-sm font-medium text-gray-900 dark:text-white">

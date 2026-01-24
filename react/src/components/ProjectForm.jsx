@@ -1,4 +1,3 @@
-
 import { Suspense } from "react";
 
 // Default general values
@@ -283,7 +282,7 @@ export default function ProjectForm({
             return { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
           }
         })
-      : [undefined];
+      : [{ ...makeEntry(undefined, 0), name: 'Item 1' }];
     setItems(newItems);
     setActiveIndex(newItems?.[0]?.productIndex ?? 0);
   }, [rehydrate]);
@@ -324,7 +323,7 @@ export default function ProjectForm({
       )}
 
       {/* WorkGuru Data Section */}
-      {(role === "admin" || role === "estimator" || role === "designer") && (
+      {(role === "admin" || role === "estimator" || role === "designer") && false && (
         <div
           style={{
             padding: '16px',

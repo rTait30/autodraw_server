@@ -12,14 +12,13 @@ import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
 import Rectangles from './pages/Rectangles';
 
-import Home from './pages/Home';
-
 import TopBar from './components/TopBar';
 
 import NewProject from './pages/NewProject';
 
 import Projects from './pages/Projects';
 import Project from './pages/Project';
+import Users from './pages/Users';
 
 import Database from './pages/Database';
 
@@ -68,9 +67,9 @@ function App() {
         <Route path="/copelands/rectangles" element={<Rectangles />} />
         <Route element={<RequireAuth />}>
           <Route element={<TopBar />}>
-            <Route path="/copelands/home" element={<Home />} />
-            <Route path="/copelands/newproject" element={<NewProject />} />
             <Route path="/copelands/projects" element={<Projects />} />
+            <Route path="/copelands/newproject" element={<NewProject />} />
+            <Route path="/copelands/users" element={<Users />} />
             <Route path="/copelands/projects/:id" element={<Project />} />
             <Route path="/copelands/database" element={<Database />} />
             <Route path="/copelands/analytics" element={<Analytics />} />

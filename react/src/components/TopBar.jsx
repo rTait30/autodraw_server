@@ -47,11 +47,13 @@ function TopBar() {
 
   const navLinks = (
     <>
-      <Link to="/copelands/home" className="linkStyle" onClick={() => setMenuOpen(false)}>Home</Link>
-      <Link to="/copelands/newproject" className="linkStyle" onClick={() => setMenuOpen(false)}>New Project</Link>
       <Link to="/copelands/projects" className="linkStyle" onClick={() => setMenuOpen(false)}>Projects</Link>
+      <Link to="/copelands/newproject" className="linkStyle" onClick={() => setMenuOpen(false)}>New Project</Link>
       {role === 'admin' && (
+        <>
+          <Link to="/copelands/users" className="linkStyle" onClick={() => setMenuOpen(false)}>Users</Link>
           <Link to="/copelands/database" className="linkStyle" onClick={() => setMenuOpen(false)}>Database</Link>
+        </>
       )}
       {role !== 'client' && (
         <>
@@ -69,9 +71,15 @@ function TopBar() {
     >
       <button
         onClick={() => setMenuOpen(false)}
-        className="bg-none border-none text-white text-3xl self-end mb-4 cursor-pointer"
+        className="self-end mb-6 bg-none border-white rounded border p-1 text-white cursor-pointer mr-0 leading-none flex items-center gap-2 hover:bg-white/10"
         aria-label="Close menu"
-      >×</button>
+      >
+        <span className="text-lg">Close</span>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
       
       {/* Toggle buttons row */}
       <div className="flex items-center mb-6 space-x-2">
@@ -133,9 +141,6 @@ function TopBar() {
             alt="Logo"
             className="h-9 mr-5"
           />
-          <div className="topbar-links hidden gap-6">
-            {navLinks}
-          </div>
         </div>
 
         {/* Right side: name, role, burger icon */}
@@ -177,13 +182,6 @@ function TopBar() {
             box-sizing: border-box;
             contain: paint;
             z-index: 100;
-          }
-
-          @media (min-width: 800px) {
-            .topbar-links, .topbar-user {
-              display: flex !important;
-            }
-            /* .burger { display: none !important; } Burger always visible */
           }
 
           @media (max-width: 799px) {

@@ -310,14 +310,18 @@ export function render(canvas, data) {
 
     ctx.font = `bold 14px Arial`; 
     let yPos = startY + sailDrawingHeight + 30;
+
+    // Center the text block based on canvas width
+    const textBlockWidth = 500;
+    const startX = Math.max(50, (canvas.width - textBlockWidth) / 2);
+    const col1X = startX;
+    const col2X = startX + 250;
     
-    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, 50, yPos);
-    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, 300, yPos);
+    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, col1X, yPos);
+    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, col2X, yPos);
     yPos += 25;
 
     if ((attributes.pointCount || 0) >= 5) {
-      const col1X = 50;
-      const col2X = 300;
       
       let yPosDiscrep = yPos;
       ctx.fillText('Discrepancies:', col1X, yPosDiscrep);

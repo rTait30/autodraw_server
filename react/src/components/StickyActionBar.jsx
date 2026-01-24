@@ -1,42 +1,73 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function StickyActionBar({ children, className = '' }) {
+  const [isMobile, setIsMobile] = useState(false);
+  // Wait for mount to avoid hydration mismatch if SSR (though this is SPA)
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = () => setIsMobile(window.matchMedia('(max-width: 799px)').matches);
+    
+    // Initial check
+    checkMobile();
+    
+    // Listener
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (!mounted) return null;
+
+  // Render content
+  const content = (
+    <div className={`action-bar ${className} ${isMobile ? 'mobile-fixed' : ''}`}>
+      {children}
+    </div>
+  );
+
+  // Styling
+  const styles = (
+    <style>{`
+      /* Default (Desktop) style - inline flow */
+      .action-bar {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      /* Mobile style - fixed to viewport via Portal */
+      .action-bar.mobile-fixed {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: white;
+        border-top: 1px solid #e5e7eb; /* gray-200 */
+        padding: 12px;
+        z-index: 50;
+        justify-content: space-around; /* Distribute buttons */
+        margin-top: 0 !important;
+        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+      }
+      
+      /* Dark mode support within portal (needs manual class if outside root?) 
+         Since we portal to body, we lose the 'dark' class from html/body? 
+         'dark' is usually on <html> or <body>. If on <html>, it inherits.
+      */
+      .dark .action-bar.mobile-fixed {
+         background-color: #1f2937; /* gray-800 */
+         border-top-color: #374151; /* gray-700 */
+      }
+    `}</style>
+  );
+
   return (
     <>
-      <div className={`action-bar ${className}`}>
-        {children}
-      </div>
-      <style>{`
-        /* Default (Desktop) style - inline */
-        .action-bar {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        /* Mobile style - sticky bottom */
-        @media (max-width: 799px) {
-          .action-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: white;
-            border-top: 1px solid var(--color-border-light);
-            padding: 12px;
-            z-index: 50;
-            justify-content: space-around;
-            margin-top: 0 !important;
-            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-            overflow-x: auto;
-          }
-          
-          .dark .action-bar {
-             background-color: var(--color-bg-dark);
-             border-top-color: var(--color-border-dark);
-          }
-        }
-      `}</style>
+      {styles}
+      {isMobile ? createPortal(content, document.body) : content}
     </>
   );
 }

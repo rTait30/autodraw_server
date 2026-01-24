@@ -34,8 +34,8 @@ export default function Authentication() {
       console.log("[Authentication] Checking for existing session...");
       const success = await refresh();
       if (success) {
-        console.log("[Authentication] Existing session found. Redirecting to home.");
-        navigate('/copelands/home');
+        console.log("[Authentication] Existing session found. Redirecting to projects.");
+        navigate('/copelands/projects');
       } else {
         console.log("[Authentication] No valid previous session found.");
       }
@@ -75,7 +75,7 @@ export default function Authentication() {
       // Small delay can help some Android devices apply the change
       setTimeout(() => resetViewport(), 50);
 
-      navigate('/copelands/home');
+      navigate('/copelands/projects');
 
     } catch (err) {
       setErrorText(err.message || 'Login failed.');

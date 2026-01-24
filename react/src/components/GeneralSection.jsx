@@ -7,18 +7,36 @@ const GENERAL_DEFAULTS = Object.freeze({
   client_id: 0,
   due_date: "",
   info: "",
-  // Add other default fields as needed
+  status: "awaiting_deposit",
 });
 
+const STATUS_OPTIONS = [
+  { value: "awaiting_deposit", label: "1.1 Awaiting Deposit" },
+  { value: "on_hold", label: "1.2 On Hold" },
+  { value: "request_deposit", label: "1.3 Request Deposit" },
+  { value: "in_design", label: "2.1 In Design" },
+  { value: "sent_for_approval", label: "2.2 Sent for approval" },
+  { value: "customer_approved", label: "2.3 Customer Approved" },
+  { value: "awaiting_materials", label: "3.1 Awaiting Materials" },
+  { value: "waiting_to_start", label: "3.2 Waiting to Start" },
+  { value: "in_progress", label: "4.1 In Progress" },
+  { value: "completion_invoice", label: "4.2 Completion Invoice" },
+  { value: "awaiting_final_payment", label: "5.1 Awaiting Final Payment" },
+  { value: "ready_for_despatch", label: "5.2 Ready For Despatch" },
+  { value: "cancelled", label: "5.3 Cancelled" },
+  { value: "completed", label: "5.4 Completed" },
+];
 
 export function GeneralSection({ data, setData = () => {} }) {
   const [clients, setClients] = useState([]);
   const [clientsError, setClientsError] = useState(null);
+  
+  const role = localStorage.getItem('role');
+  const staffFields = (role === 'estimator' || role === 'admin' || role === 'designer');
 
-  // Fetch clients on mount if user is estimator/admin
+  // Fetch clients on mount if user is staff
   useEffect(() => {
-    const role = localStorage.getItem('role');
-    if (role === 'estimator' || role === 'admin' || role === 'designer') {
+    if (staffFields) {
       apiFetch('/clients')
         .then(res => res.json())
         .then(data => setClients(data))
@@ -50,10 +68,6 @@ export function GeneralSection({ data, setData = () => {} }) {
     });
   };
 
-  const shouldShowClient = (localStorage.getItem('role') === "estimator" || 
-                          localStorage.getItem('role') === "admin" || 
-                          localStorage.getItem('role') === "designer");
-
   return (
     <div className="space-y-2">
       <div>
@@ -67,28 +81,47 @@ export function GeneralSection({ data, setData = () => {} }) {
         />
       </div>
 
-      {shouldShowClient && (
-        <div>
-          <label className="block text-sm font-medium mb-1 dark:text-white">Client</label>
-          <select
-            name="client_id"
-            className="inputStyle"
-            value={safe.client_id}
-            onChange={handleChange}
-          >
-            <option value="">Select client</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </select>
-          {clientsError && (
-            <div className="text-red-500 text-sm mt-1">
-              Error loading clients: {clientsError}
-            </div>
-          )}
-        </div>
+      {staffFields && (
+        <>
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-white">Client</label>
+            <select
+              name="client_id"
+              className="inputStyle"
+              value={safe.client_id}
+              onChange={handleChange}
+            >
+              <option value="">Select client</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            {clientsError && (
+              <div className="text-red-500 text-sm mt-1">
+                Error loading clients: {clientsError}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-white">Status</label>
+            <select
+              name="status"
+              className="inputStyle"
+              value={safe.status}
+              onChange={handleChange}
+            >
+              <option value="">Select status</option>
+              {STATUS_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
 
       <div>

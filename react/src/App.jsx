@@ -25,6 +25,8 @@ import Database from './pages/Database';
 
 import Analytics from './pages/Analytics';
 
+import RequireAuth from './components/RequireAuth';
+
 import './styles/index.css';
 
 function App() {
@@ -64,13 +66,15 @@ function App() {
         <Route path="/copelands" element={<Landing />} />
         <Route path="/copelands/discrepancy" element={<Discrepancy />} />
         <Route path="/copelands/rectangles" element={<Rectangles />} />
-        <Route element={<TopBar />}>
-          <Route path="/copelands/home" element={<Home />} />
-          <Route path="/copelands/newproject" element={<NewProject />} />
-          <Route path="/copelands/projects" element={<Projects />} />
-          <Route path="/copelands/projects/:id" element={<Project />} />
-          <Route path="/copelands/database" element={<Database />} />
-          <Route path="/copelands/analytics" element={<Analytics />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<TopBar />}>
+            <Route path="/copelands/home" element={<Home />} />
+            <Route path="/copelands/newproject" element={<NewProject />} />
+            <Route path="/copelands/projects" element={<Projects />} />
+            <Route path="/copelands/projects/:id" element={<Project />} />
+            <Route path="/copelands/database" element={<Database />} />
+            <Route path="/copelands/analytics" element={<Analytics />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

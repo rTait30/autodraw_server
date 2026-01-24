@@ -38,7 +38,7 @@ import {
   NumberInput, 
   CheckboxInput, 
   ButtonGroup 
-} from "../shared/FormUI";
+} from "../../FormUI";
 
 export const PROJECT_DEFAULTS = Object.freeze({
   medical: false,

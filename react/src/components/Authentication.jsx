@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
+import { TextInput, FormContainer } from './FormUI';
 // New style: access token stays in memory (not localStorage) (HttpOnly, same‑site cookie.)
 
-import { setAccessToken, apiFetch } from '../services/auth';
+import { setAccessToken, apiFetch, refresh } from '../services/auth';
 
 function resetViewport() {
 
@@ -26,6 +27,21 @@ export default function Authentication() {
   const [successText, setSuccessText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  // Auto-login check on mount
+  useEffect(() => {
+    async function checkExistingSession() {
+      console.log("[Authentication] Checking for existing session...");
+      const success = await refresh();
+      if (success) {
+        console.log("[Authentication] Existing session found. Redirecting to home.");
+        navigate('/copelands/home');
+      } else {
+        console.log("[Authentication] No valid previous session found.");
+      }
+    }
+    checkExistingSession();
+  }, [navigate]);
 
   async function handleLogin(e) {
 
@@ -87,8 +103,35 @@ export default function Authentication() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Registration failed');
-      setSuccessText('Registration successful! Awaiting verification.');
-      setMode('login');
+
+      // Attempt immediate login
+      const loginRes = await apiFetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: registerForm.username.trim(),
+          password: registerForm.password1,
+        }),
+      });
+      const loginData = await loginRes.json().catch(() => ({}));
+      if (!loginRes.ok) {
+        // If login fails, fall back to showing success message on login screen
+        setSuccessText('Registration successful! Please log in.');
+        setMode('login');
+        return;
+      }
+
+      // Login success logic
+      setAccessToken(loginData.access_token || null);
+      localStorage.setItem('role', loginData.role || 'client');
+      localStorage.setItem('username', loginData.username || 'Guest');
+      localStorage.setItem('verified', loginData.verified ? 'true' : 'false');
+
+      resetViewport();
+      setTimeout(() => resetViewport(), 50);
+
+      navigate('/copelands/home');
+
     } catch (err) {
       setErrorText(err.message || 'Registration failed.');
     } finally {
@@ -111,33 +154,44 @@ export default function Authentication() {
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="formStyle">
 
-              <input
-                type="text"
-                placeholder="Username"
+              <TextInput
+                label="Username"
                 value={loginForm.username}
-                onChange={(e) => setLoginForm((s) => ({ ...s, username: e.target.value }))}
+                onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
                 required
-                className="inputStyle"
                 autoComplete="username"
               />
 
-              <input
+              <TextInput
+                label="Password"
                 type="password"
-                placeholder="Password"
                 value={loginForm.password}
-                onChange={(e) => setLoginForm((s) => ({ ...s, password: e.target.value }))}
+                onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
                 required
-                className="inputStyle"
                 autoComplete="current-password"
               />
 
-              <button type="submit" className="buttonStyle w-full" disabled={submitting}>
+              <button type="submit" className="buttonStyle w-full mt-4" disabled={submitting}>
                 {submitting ? 'Logging in…' : 'Login'}
               </button>
 
               <button
                   type="button"
-                  onClick={() => { setMode('register'); setErrorText(''); setSuccessText(''); }}
+                  onClick={() => {
+                    setRegisterForm(s => ({
+                      ...s,
+                      username: loginForm.username,
+                      password1: loginForm.password,
+                      password2: ''
+                    }));
+                    setMode('register');
+                    setSuccessText('');
+                    if (loginForm.password) {
+                      setErrorText('Please re-type your password below to confirm.');
+                    } else {
+                      setErrorText('');
+                    }
+                  }}
                   className="buttonStyle w-full"
                   disabled={submitting}
                 >
@@ -150,50 +204,46 @@ export default function Authentication() {
             
           ) : (
             <form onSubmit={handleRegister} className="formStyle">
-              <input
-                placeholder="Username"
+              <TextInput
+                label="Username"
                 value={registerForm.username}
-                onChange={(e) => setRegisterForm((s) => ({ ...s, username: e.target.value }))}
+                onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
                 required
-                className="inputStyle"
                 autoComplete="username"
               />
-              <input
-                placeholder="Email"
+              <TextInput
+                label="Email"
                 value={registerForm.email}
-                onChange={(e) => setRegisterForm((s) => ({ ...s, email: e.target.value }))}
-                required
-                className="inputStyle"
+                onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
                 autoComplete="email"
               />
-              <input
-                placeholder="Address"
+              <TextInput
+                label="Address"
                 value={registerForm.address}
-                onChange={(e) => setRegisterForm((s) => ({ ...s, address: e.target.value }))}
-                required
-                className="inputStyle"
+                onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
                 autoComplete="street-address"
               />
-              <input
+              <TextInput
+                label="Password"
                 type="password"
-                placeholder="Password"
                 value={registerForm.password1}
-                onChange={(e) => setRegisterForm((s) => ({ ...s, password1: e.target.value }))}
+                onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
                 required
-                className="inputStyle"
-                autoComplete="new-password"
-              />
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={registerForm.password2}
-                onChange={(e) => setRegisterForm((s) => ({ ...s, password2: e.target.value }))}
-                required
-                className="inputStyle"
                 autoComplete="new-password"
               />
 
-              <button type="submit" className="buttonStyle w-full" disabled={submitting}>
+              {errorText && <div className="auth-error mb-2">{errorText}</div>}
+
+              <TextInput
+                label="Confirm Password"
+                type="password"
+                value={registerForm.password2}
+                onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
+                required
+                autoComplete="new-password"
+              />
+
+              <button type="submit" className="buttonStyle w-full mt-4" disabled={submitting}>
                 {submitting ? 'Registering…' : 'Register'}
               </button>
 
@@ -206,7 +256,6 @@ export default function Authentication() {
                 Cancel
               </button>
 
-              {errorText && <div className="auth-error">{errorText}</div>}
               {successText && <div className="auth-success">{successText}</div>}
             </form>
           )}

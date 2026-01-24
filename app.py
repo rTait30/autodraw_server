@@ -16,6 +16,7 @@ from endpoints.api.database import database_api_bp
 from endpoints.api.workguru import workguru_api_bp
 from endpoints.api.projects.projects_calc_api import projects_calc_api_bp
 from endpoints.api.automation.routes import automation_bp
+from endpoints.api.user_preferences import user_bp
 
 
 # --- Env & app ---
@@ -47,8 +48,8 @@ def create_app():
         JWT_TOKEN_LOCATION=["headers", "cookies"],  # access via header; refresh via cookie
         JWT_HEADER_NAME="Authorization",
         JWT_HEADER_TYPE="Bearer",
-        JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=10),
-        JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=14),
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=1), # Reduced for testing (was 10 min) #CHANGEINPROD
+        JWT_REFRESH_TOKEN_EXPIRES=timedelta(minutes=5), # Reduced for testing (was 14 days) #CHANGEINPROD
 
         # Cookie settings: for same-site dev use Lax; for cross-site set None+Secure on HTTPS.
         JWT_COOKIE_SECURE=False if os.getenv("ENV", "dev") == "dev" else True,
@@ -90,6 +91,7 @@ def create_app():
     app.register_blueprint(workguru_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(projects_calc_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(automation_bp, url_prefix="/copelands/api")
+    app.register_blueprint(user_bp, url_prefix="/copelands/api/user")
 
     # --- One-time DB create ---
     with app.app_context():

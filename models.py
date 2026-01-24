@@ -25,6 +25,13 @@ class User(db.Model):
     tenant = db.Column(db.String(10), nullable=True)  # "DR" or "CP"
     wg_id = db.Column(db.Integer, nullable=True, index=True)  # WorkGuru client ID
 
+    # User Preferences (JSON is cleaner for flexible lists/settings)
+    # General preferences: e.g. {"favorites": [1, 5], "dark_mode": true}
+    preferences = db.Column(db.JSON, default=dict)
+
+    # Manufacturing/Product preferences: e.g. {"Shade Sails": {"defaults": {"hardware": "Ezy Slide", "allowance": 20}}}
+    product_preferences = db.Column(db.JSON, default=dict)
+
     favorites = db.relationship('Product', secondary=user_favorites, lazy='subquery',
         backref=db.backref('favorited_by', lazy=True))
 

@@ -28,37 +28,6 @@ async function loadTypeResources(type) {
   };
 }
 
-// Helper function to get color based on status
-function getStatusColor(status) {
-  const statusLower = (status || '').toLowerCase();
-  const colors = {
-    // Phase 1: Initial/Quote
-    'awaiting_deposit': '#f59e0b',      // amber
-    'on_hold': '#6b7280',               // gray
-    'request_deposit': '#f97316',       // orange
-    
-    // Phase 2: Design
-    'in_design': '#ec4899',             // pink
-    'sent_for_approval': '#8b5cf6',     // purple
-    'customer_approved': '#10b981',     // green
-    
-    // Phase 3: Pre-Production
-    'awaiting_materials': '#f59e0b',    // amber
-    'waiting_to_start': '#3b82f6',      // blue
-    
-    // Phase 4: Production
-    'in_progress': '#3b82f6',           // blue
-    'completion_invoice': '#8b5cf6',    // purple
-    
-    // Phase 5: Final
-    'awaiting_final_payment': '#f59e0b', // amber
-    'ready_for_despatch': '#10b981',    // green
-    'cancelled': '#ef4444',             // red
-    'completed': '#059669',             // dark green
-  };
-  return colors[statusLower] || '#6366f1'; // default indigo
-}
-
 export default function ProjectDetailsPage() {
 
   const containerRef = useRef(null);
@@ -357,55 +326,6 @@ export default function ProjectDetailsPage() {
     showToast(mats ? TOAST_TAGS.MATERIALS_DATA : TOAST_TAGS.NO_MATERIALS_DATA, { args: [mats] });
   };
 
-  // Handle status change and submit immediately
-  const handleStatusChange = async (e) => {
-    const newStatus = e.target.value;
-    
-    try {
-      const payload = {
-        id: project.id,
-        general: {
-          ...project.general,
-          status: newStatus,
-        },
-      };
-
-      const res = await apiFetch(`/products/edit/${project.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json();
-      if (!res.ok || json?.error) {
-        showToast(`Status update failed: ${json?.error || res.statusText}`);
-        return;
-      }
-
-      // Update local state
-      setProject({
-        ...project,
-        general: {
-          ...project.general,
-          status: newStatus,
-        },
-      });
-      
-      setEditedProject({
-        ...editedProject,
-        general: {
-          ...editedProject.general,
-          status: newStatus,
-        },
-      });
-
-      console.log('Status updated to:', newStatus);
-    } catch (e) {
-      console.error('Status update error:', e);
-      showToast(`Error updating status: ${e.message}`);
-    }
-  };
-
   // handlers
   const handleSchemaCheck = (next) => setEditedSchema(next);
   const handleSchemaReturn = () => setEditedSchema(Schema);
@@ -554,59 +474,7 @@ export default function ProjectDetailsPage() {
             </div>
           )}
 
-          {/* Status Badge */}
-          {project?.general?.status && (
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: getStatusColor(project.general.status),
-              color: '#fff',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              borderRadius: '6px',
-              textAlign: 'center',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              alignSelf: 'flex-start',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <span>Status:</span>
-              {(role === 'estimator' || role === 'designer' || role === 'admin') ? (
-                <select
-                  value={project.general.status}
-                  onChange={handleStatusChange}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    outline: 'none',
-                  }}
-                >
-                  <option value="awaiting_deposit" className="text-black bg-white dark:text-white dark:bg-gray-800">1.1 AWAITING DEPOSIT</option>
-                  <option value="on_hold" className="text-black bg-white dark:text-white dark:bg-gray-800">1.2 ON HOLD</option>
-                  <option value="request_deposit" className="text-black bg-white dark:text-white dark:bg-gray-800">1.3 REQUEST DEPOSIT</option>
-                  <option value="in_design" className="text-black bg-white dark:text-white dark:bg-gray-800">2.1 IN DESIGN</option>
-                  <option value="sent_for_approval" className="text-black bg-white dark:text-white dark:bg-gray-800">2.2 SENT FOR APPROVAL</option>
-                  <option value="customer_approved" className="text-black bg-white dark:text-white dark:bg-gray-800">2.3 CUSTOMER APPROVED</option>
-                  <option value="awaiting_materials" className="text-black bg-white dark:text-white dark:bg-gray-800">3.1 AWAITING MATERIALS</option>
-                  <option value="waiting_to_start" className="text-black bg-white dark:text-white dark:bg-gray-800">3.2 WAITING TO START</option>
-                  <option value="in_progress" className="text-black bg-white dark:text-white dark:bg-gray-800">4.1 IN PROGRESS</option>
-                  <option value="completion_invoice" className="text-black bg-white dark:text-white dark:bg-gray-800">4.2 COMPLETION INVOICE</option>
-                  <option value="awaiting_final_payment" className="text-black bg-white dark:text-white dark:bg-gray-800">5.1 AWAITING FINAL PAYMENT</option>
-                  <option value="ready_for_despatch" className="text-black bg-white dark:text-white dark:bg-gray-800">5.2 READY FOR DESPATCH</option>
-                  <option value="cancelled" className="text-black bg-white dark:text-white dark:bg-gray-800">5.3 CANCELLED</option>
-                  <option value="completed" className="text-black bg-white dark:text-white dark:bg-gray-800">5.4 COMPLETED</option>
-                </select>
-              ) : (
-                <span>{project.general.status.toUpperCase()}</span>
-              )}
-            </div>
-          )}
+          {/* Status Badge Removed */}
 
           {/* Buttons: only for staff, and only if capabilities exist */}
           {(role === 'estimator'|| role === 'designer' || role === 'admin') && (

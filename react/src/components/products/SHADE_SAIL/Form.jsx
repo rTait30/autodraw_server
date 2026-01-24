@@ -7,7 +7,7 @@ import {
   TextInput, 
   NumberInput,
   deepNumberify 
-} from "../shared/FormUI";
+} from "../../FormUI";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 

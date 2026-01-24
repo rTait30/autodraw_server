@@ -108,20 +108,18 @@ def register_client():
     password = data.get("password")
     password2 = data.get("password2")
 
-    if not email or not username or not password or not password2:
-        return jsonify({"error": "All fields are required."}), 400
+    if not username or not password or not password2:
+        return jsonify({"error": "Username and password are required."}), 400
     if password != password2:
         return jsonify({"error": "Passwords do not match."}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username already exists."}), 400
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists."}), 400
 
     user = User(
         username=username,
         password_hash="",
         role="client",
-        email=email,
+        email=email if email else None,
         verified=False,   # adjust if you want auto-verified
     )
     user.set_password(password)

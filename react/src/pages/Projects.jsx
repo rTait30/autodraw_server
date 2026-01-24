@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { apiFetch } from '../services/auth';
+import ProjectTable from '../components/ProjectTable';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -27,80 +28,25 @@ function Projects() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return <p>Loading projects...</p>;
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading projects...</div>;
 
   return (
-    <div style={{ padding: "1rem" }} className="page">
-
-      {/* Horizontal scroll wrapper */}
-      <div className="table-scroll">
-        <table className="tableBase w-full" style={{ width: 'max-content', minWidth: '100%' }}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Client</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map(project => (
-              <tr
-                key={project.id}
-                className="clickable-row"
-                onClick={() => navigate(`/copelands/projects/${project.id}`)}
-              >
-                <td>{project.id}</td>
-                <td>{project.client}</td>
-                <td>{project.name}</td>
-                <td>{project.type}</td>
-                <td>{project.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="sm:flex sm:items-center justify-between mb-6">
+        <h1 className="headingStyle">Projects</h1>
       </div>
-
-      <style>
-        {`
-          /* Prevent whole-page sideways scroll on mobile */
-          @media (max-width: 799px) {
-            html, body { overflow-x: hidden; }
-          }
-
-          /* The wrapper that scrolls horizontally */
-          .table-scroll {
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain; /* don't bubble to page */
-            scrollbar-gutter: stable both-edges;
-          }
-
-          /* Optional: avoid header wrapping that causes tall rows */
-          .table-scroll th, .table-scroll td {
-            white-space: nowrap;
-          }
-
-          /* Clickable row styles */
-          .clickable-row {
-            cursor: pointer;
-            transition: background-color 0.15s ease;
-          }
-          .clickable-row:hover {
-            background-color: #f0f4ff;
-          }
-        `}
-      </style>
+      <button
+        onClick={() => navigate('/copelands/newproject')}
+        className="buttonStyle w-full md:w-auto mb-6"
+      >
+        New Project
+      </button>
+      
+      <div className="mt-2 flex flex-col">
+        <ProjectTable projects={projects} />
+      </div>
     </div>
   );
-}
-
-function formatDate(isoString) {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  return date.toLocaleDateString() + " " + date.toLocaleTimeString();
 }
 
 export default Projects;

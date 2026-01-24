@@ -2,25 +2,42 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/copelands/api";
 
 let accessToken = null;
-export const setAccessToken = (t) => { accessToken = t; };
-export const getAccessToken = () => accessToken;
+export const setAccessToken = (t) => { 
+  if (t) console.log("[Auth] Access token updated (in-memory)");
+  else console.log("[Auth] Access token cleared");
+  accessToken = t; 
+};
+export const getAccessToken = () => {
+  // console.log("[Auth] getAccessToken called", !!accessToken);
+  return accessToken;
+};
 
 const getCookie = (name) =>
   document.cookie.split("; ").find(r => r.startsWith(name + "="))?.split("=")[1];
 
 export async function refresh() {
+  console.log("[Auth] Attempting value refresh...");
   try {
     const csrf = getCookie("csrf_refresh_token"); // if JWT_COOKIE_CSRF_PROTECT=True
+    if (!csrf) console.warn("[Auth] No CSRF token found in cookies");
+    
     const res = await fetch(`${API_BASE}/refresh`, {
       method: "POST",
       credentials: "include",
       headers: csrf ? { "X-CSRF-TOKEN": csrf } : {}
     });
-    if (!res.ok) return false;
+    
+    if (!res.ok) {
+      console.error(`[Auth] Refresh failed: ${res.status}`);
+      return false;
+    }
+    
     const data = await res.json();
+    console.log("[Auth] Refresh successful");
     setAccessToken(data.access_token ?? null);
     return !!data.access_token;
-  } catch {
+  } catch (error) {
+    console.error("[Auth] Refresh network error:", error);
     setAccessToken(null);
     return false;
   }
@@ -30,6 +47,8 @@ export async function apiFetch(path, options = {}, _retried = false) {
   const headers = { ...(options.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
+  console.log(`[API] Req: ${path} | Retry: ${_retried}`);
+
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',  // preserve old behavior
     ...options,
@@ -38,8 +57,17 @@ export async function apiFetch(path, options = {}, _retried = false) {
 
   // Preserve: one retry on 401 if refresh() succeeds
   if (res.status === 401 && !_retried) {
+    console.warn("[API] 401 Unauthorized. Attempting refresh...");
     if (await refresh()) {
+      console.log("[API] Refresh worked. Retrying original request...");
       return apiFetch(path, options, true);
+    } else {
+      // Refresh failed (session > 14 days old). 
+      // Force redirect so user isn't stuck on a zombie page.
+      console.error("[API] Refresh failed or session expired. Redirecting to login.");
+      setAccessToken(null);
+      window.location.href = "/copelands";
+      return; // Stop execution
     }
   }
 

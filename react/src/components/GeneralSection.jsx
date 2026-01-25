@@ -1,6 +1,7 @@
-import React, { useImperativeHandle, forwardRef, useEffect, useMemo, useState, useRef, setField } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '../services/auth.js';
+import { SelectInput, TextInput } from './FormUI';
 
 const GENERAL_DEFAULTS = Object.freeze({
   name: "",
@@ -59,45 +60,33 @@ export function GeneralSection({ data, setData = () => {} }) {
     return base;
   }, [data]);
 
-  const handleChange = (e) => {
-    const { name, type, value: val, checked } = e.target;
-    const next = type === "checkbox" ? checked : val;
+  const updateField = (name) => (nextValue) => {
     setData((prev) => {
       const base = { ...GENERAL_DEFAULTS, ...(prev ?? {}) };
-      return { ...base, [name]: next };
+      return { ...base, [name]: nextValue };
     });
   };
 
   return (
-    <div className="space-y-2">
-      <div>
-        <label className="block text-sm font-medium mb-1 dark:text-white">Project Name</label>
-        <input
-          name="name"
-          type="text"
-          className="inputStyle"
-          value={safe.name}
-          onChange={handleChange}
-        />
-      </div>
+    <div className="space-y-4">
+      <TextInput
+        label="Project Name"
+        value={safe.name}
+        onChange={updateField("name")}
+      />
 
       {staffFields && (
         <>
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">Client</label>
-            <select
-              name="client_id"
-              className="inputStyle"
+            <SelectInput
+              label="Client"
               value={safe.client_id}
-              onChange={handleChange}
-            >
-              <option value="">Select client</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
+              onChange={updateField("client_id")}
+              options={[
+                { value: "", label: "Select client" },
+                ...clients.map(c => ({ value: c.id, label: c.name }))
+              ]}
+            />
             {clientsError && (
               <div className="text-red-500 text-sm mt-1">
                 Error loading clients: {clientsError}
@@ -105,47 +94,28 @@ export function GeneralSection({ data, setData = () => {} }) {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">Status</label>
-            <select
-              name="status"
-              className="inputStyle"
-              value={safe.status}
-              onChange={handleChange}
-            >
-              <option value="">Select status</option>
-              {STATUS_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
+          <SelectInput
+            label="Status"
+            value={safe.status}
+            onChange={updateField("status")}
+            options={[{ value: "", label: "Select status" }, ...STATUS_OPTIONS]}
+          />
+        </> // End of staffFields block
       )}
 
-      <div>
-        <label className="block text-sm font-medium mb-1 dark:text-white">Due Date</label>
-        <input
-          name="due_date"
-          type="date"
-          className="inputStyle"
-          value={safe.due_date}
-          onChange={handleChange}
-        />
-      </div>
+      <TextInput
+        label="Due Date"
+        type="date"
+        value={safe.due_date}
+        onChange={updateField("due_date")}
+      />
 
-      <div>
-        <label className="block text-sm font-medium mb-1 dark:text-white">Info</label>
-        <input
-          name="info"
-          type="text"
-          className="inputStyle"
-          value={safe.info}
-          onChange={handleChange}
-          placeholder="Notes or special instructions"
-        />
-      </div>
+      <TextInput
+        label="Info"
+        value={safe.info}
+        onChange={updateField("info")}
+        placeholder="Notes or special instructions"
+      />
     </div>
   );
 }

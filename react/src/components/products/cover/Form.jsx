@@ -34,8 +34,8 @@ import React, { useImperativeHandle, useState } from "react";
 import { 
   useProductAttribute, 
   useFormNavigation, 
-  FormContainer, 
-  NumberInput, 
+  FormContainer,
+  NumberInput,
   CheckboxInput, 
   ButtonGroup 
 } from "../../FormUI";
@@ -108,7 +108,7 @@ export function ProductForm({ formRef, hydrate = {} }) {
 
   return (
     <FormContainer>
-      <NumberInput 
+      <NumberInput
         label="Length (mm)" 
         value={attributes.length} 
         onChange={setAttr("length")} 
@@ -116,7 +116,7 @@ export function ProductForm({ formRef, hydrate = {} }) {
         nav={nav} 
       />
 
-      <NumberInput 
+      <NumberInput
         label="Width (mm)" 
         value={attributes.width} 
         onChange={setAttr("width")} 
@@ -124,7 +124,7 @@ export function ProductForm({ formRef, hydrate = {} }) {
         nav={nav} 
       />
 
-      <NumberInput 
+      <NumberInput
         label="Height (mm)" 
         value={attributes.height} 
         onChange={setAttr("height")} 
@@ -182,7 +182,7 @@ export function ProductForm({ formRef, hydrate = {} }) {
           </div>
 
           <div className="mt-2">
-            <NumberInput 
+            <NumberInput
               label="Fabric Roll Length (mm)" 
               value={attributes.fabricRollLength} 
               onChange={setAttr("fabricRollLength")} 

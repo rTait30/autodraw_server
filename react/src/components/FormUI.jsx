@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, useId } from "react";
 
+import { baseInputStyles, labelStyles } from "./sharedStyles";
+
 // --- Helpers ---
 
 export function deepNumberify(obj) {
@@ -113,38 +115,43 @@ export function Section({ title, children, className = "" }) {
 
 
 
-export const NumberInput = React.forwardRef(({
+
+
+
+
+
+
+// --- Number Input ---
+export function NumberInput({
   label,
   value,
   onChange,
   name,
-  nav, // result from useFormNavigation
+  nav, 
   className = "",
   wrapperClassName = "",
   placeholder,
+  ref,
   ...props
-}, ref) => {
+}) {
   const uniqueId = useId();
   const inputId = props.id || uniqueId;
   
   return (
     <div className={wrapperClassName}>
       {label && (
-        <label 
-          htmlFor={inputId} 
-          className="block text-sm font-bold text-gray-700 mb-1 cursor-pointer select-none"
-        >
+        <label htmlFor={inputId} className={labelStyles}>
           {label}
         </label>
       )}
       <input
         id={inputId}
         ref={ref}
-        className={`inputStyle w-full ${className}`}
         type="number"
         step="any"
         inputMode="decimal"
-        placeholder="" /* Explicitly remove placeholder for clarity as requested */
+        className={`${baseInputStyles} ${className}`}
+        placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={(e) => {
           const v = e.currentTarget.valueAsNumber;
@@ -156,9 +163,10 @@ export const NumberInput = React.forwardRef(({
       />
     </div>
   );
-});
+}
 
-export const TextInput = React.forwardRef(({ 
+// --- Text Input ---
+export function TextInput({ 
   label, 
   value, 
   onChange,   
@@ -167,27 +175,25 @@ export const TextInput = React.forwardRef(({
   className = "",
   wrapperClassName = "",
   placeholder,
+  ref, 
   ...props 
-}, ref) => {
+}) {
   const uniqueId = useId();
   const inputId = props.id || uniqueId;
 
   return (
     <div className={wrapperClassName}>
       {label && (
-        <label 
-          htmlFor={inputId} 
-          className="block text-sm font-bold text-gray-700 mb-1 cursor-pointer select-none"
-        >
+        <label htmlFor={inputId} className={labelStyles}>
           {label}
         </label>
       )}
       <input
         id={inputId}
         ref={ref}
-        className={`inputStyle w-full ${className}`}
         type="text"
-        placeholder="" /* Explicitly remove placeholder for clarity as requested */
+        className={`${baseInputStyles} ${className}`}
+        placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
@@ -196,9 +202,9 @@ export const TextInput = React.forwardRef(({
       />
     </div>
   );
-});
+}
 
-export const SelectInput = React.forwardRef(({ 
+export function SelectInput({ 
     label, 
     value, 
     onChange, 
@@ -207,57 +213,125 @@ export const SelectInput = React.forwardRef(({
     nav,
     className = "",
     wrapperClassName = "",
+    ref, 
     ...props 
-}, ref) => {
+}) {
   const uniqueId = useId();
   const inputId = props.id || uniqueId;
 
   return (
-    <div className={wrapperClassName}>
+    <div className={`flex flex-col ${wrapperClassName}`}>
       {label && (
-        <label 
-          htmlFor={inputId} 
-          className="block text-sm font-bold text-gray-700 mb-1 cursor-pointer select-none"
-        >
+        <label htmlFor={inputId} className={labelStyles}>
           {label}
         </label>
       )}
-      <select
-        id={inputId}
-        ref={ref}
-        className={`inputStyle w-full h-[46px] ${className}`}
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        {...(nav ? nav.bind(name) : {})}
-        {...props}
-      >
-        {options.map((opt) => (
-          typeof opt === 'string' 
-            ? <option key={opt} value={opt}>{opt}</option>
-            : <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      
+      <div className="relative">
+        <select
+          id={inputId}
+          ref={ref}
+          // 'pr-10' makes room for the chevron so text doesn't overlap it
+          className={`${baseInputStyles} appearance-none cursor-pointer pr-10 ${className}`}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          {...(nav ? nav.bind(name) : {})}
+          {...props}
+        >
+          {options.map((opt) => (
+            typeof opt === 'string' 
+              ? <option key={opt} value={opt}>{opt}</option>
+              : <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        {/* Custom Chevron - pointer-events-none ensures clicks pass through to the select */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+          <svg className="h-5 w-5 fill-current" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </div>
+      </div>
     </div>
   );
-});
-
-
+}
 
 export function CheckboxInput({ label, checked, onChange, ...props }) {
   return (
-    <label className="flex items-center space-x-2 cursor-pointer mt-2 group select-none">
+    // h-12 (48px) matches the height of our TextInputs exactly.
+    // rounded-lg matches the curvature of the inputs.
+    // hover:bg-gray-50 gives a tactile feel when hovering.
+    <label className="flex items-center h-12 px-3 -ml-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group select-none">
       <input
         type="checkbox"
-        className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition duration-150 ease-in-out"
+        className="
+          appearance-none
+          w-6 h-6 border-2 border-gray-300 rounded 
+          bg-white checked:bg-primary checked:border-primary
+          focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:outline-none
+          transition duration-75 ease-out
+        "
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         {...props}
       />
-      <span className="text-sm font-bold text-gray-700 md:text-base group-hover:text-blue-700 transition-colors">{label}</span>
+      
+      {/* Custom Checkmark Icon (Tailwind doesn't give you one by default for custom checkboxes) */}
+      <svg
+        className={`absolute w-6 h-6 pointer-events-none text-white transition-opacity duration-75 ${checked ? 'opacity-100' : 'opacity-0'}`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+
+      <span className="ml-3 text-base font-bold text-gray-700 group-hover:text-gray-900">
+        {label}
+      </span>
     </label>
   );
 }
 
 export function ButtonGroup({ children }) {
     return <div className="flex items-center space-x-6 mt-2">{children}</div>
+}
+
+export function FormSection({ title, children, className = "" }) {
+  return (
+    <div className={`mb-8 ${className}`}>
+      {title && (
+        <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-2">
+          {title}
+        </h3>
+      )}
+      <div className="space-y-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Enforces the horizontal rhythm.
+ * - 'columns' defaults to 1, but can be 2, 3, etc.
+ * - 'gap-6' (24px) is the standard distance between inputs.
+ */
+export function FormGrid({ children, columns = 1, className = "" }) {
+  // Map simple number prop to Tailwind grid class
+  const colsMap = {
+    1: "grid-cols-1",
+    2: "grid-cols-1 md:grid-cols-2", // Mobile: 1 col, Desktop: 2 cols
+    3: "grid-cols-1 md:grid-cols-3",
+    4: "grid-cols-2 md:grid-cols-4",
+  };
+
+  return (
+    <div className={`grid gap-6 ${colsMap[columns]} ${className}`}>
+      {children}
+    </div>
+  );
 }

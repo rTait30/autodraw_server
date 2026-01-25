@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* THE THEME CONFIGURATION 
+  This is your "Source of Truth". 
+  Tailwind v4 automatically turns these variables into utilities 
+  like 'bg-primary', 'text-secondary', 'border-error', etc.
+*/
+@theme {
+  --font-gill: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+
+  /* Brand Colors */
+  --color-primary: #004A7C;        /* 0, 74, 124 */
+  --color-primary-hover: #105A8C;
+
+  --color-secondary: #0075EB;      /* 0, 117, 235 */
+  --color-secondary-hover: #1085FB;
+
+  --color-tertiary: #EB1C24;       /* 235, 28, 36 */
+  --color-tertiary-hover: #FB2C34;
+
+  --color-warm-grey: #DBEAFE;
+
+  /* Status Colors */
+  --color-success: #16A34A; 
+  --color-error: #DC2626;
+
+  /* UI Specifics */
+  --color-bg-dark: #111827;
+}
+
+/* GLOBAL RESETS 
+  Only put styles here that apply to HTML tags globally. 
+  Never put class names (like .my-card) here.
+*/
+@layer base {
+  body {
+    /* Note: We use the utility classes generated from the theme above.
+       'font-gill' comes from --font-gill
+    */
+    @apply font-gill min-h-screen antialiased;
+    @apply bg-white text-gray-900;
+    @apply dark:bg-bg-dark dark:text-white;
+  }
+
+  /* Make the root container fill the height. 
+     This fixes "wobbly" footers on short pages.
+  */
+  #root {
+    @apply flex flex-col min-h-screen;
+  }
+}

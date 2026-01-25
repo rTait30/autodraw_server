@@ -100,7 +100,7 @@ function Projects() {
       <StickyActionBar>
           <button
             onClick={() => setSearchParams({ new: 'true' })}
-            className="buttonStyle w-full md:w-auto"
+            className="buttonStyle w-full"
           >
             New Project
           </button>

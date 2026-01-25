@@ -2,12 +2,16 @@ import React, { useEffect, useState, useRef, useImperativeHandle } from "react";
 import { 
   useProductAttribute, 
   FormContainer, 
-  Section, 
+  Section,
   SelectInput, 
   TextInput, 
   NumberInput,
-  deepNumberify 
+  deepNumberify,
+  FormSection,
+  FormGrid
 } from "../../FormUI";
+
+import { baseInputStyles, labelStyles } from "../../sharedStyles";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
@@ -72,7 +76,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
 
   return (
     <div className="space-y-2">
-      <TextInput 
+      <TextInput
         label="Location" 
         value={projectData.location} 
         onChange={(val) => setProjectData(prev => ({ ...prev, location: val }))} 
@@ -451,22 +455,24 @@ const setPointField = (p, key, value) =>
       {/* Fabric Category (minimal) */}
       {!discrepancyChecker && (
         <Section title="Fabric Details">
-          <SelectInput 
+          <SelectInput
             label="Fabric Category" 
             value={attributes.fabricCategory} 
-            onChange={(val) =>
-              setAttributes((prev) => {
-                const firstType = FABRIC_OPTIONS[val]?.[0] ?? "";
-                return { ...prev, fabricCategory: val, fabricType: firstType };
-              })
-            }
+            // React 19 Ref passing (if you needed a ref here)
+            //ref={myRef}
+            onChange={(val) => {
+                setAttributes((prev) => {
+                  const firstType = FABRIC_OPTIONS[val]?.[0] ?? "";
+                  return { ...prev, fabricCategory: val, fabricType: firstType };
+                })
+            }}
             options={[ 
-              { label: "PVC", value: "PVC" }, 
-              { label: "ShadeCloth", value: "ShadeCloth" } 
+              { label: "PVC Material", value: "PVC" }, 
+              { label: "Shade Cloth", value: "ShadeCloth" } 
             ]}
           />
 
-          <SelectInput 
+          <SelectInput
             label="Fabric Type" 
             value={attributes.fabricType} 
             onChange={setAttr("fabricType")} 
@@ -485,7 +491,7 @@ const setPointField = (p, key, value) =>
              ))}
           </datalist>
 
-          <SelectInput 
+          <SelectInput
             label="Fold Side" 
             value={attributes.foldSide} 
             onChange={setAttr("foldSide")} 

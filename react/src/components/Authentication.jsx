@@ -6,6 +6,8 @@ import { TextInput, FormContainer } from './FormUI';
 
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
 
+import { Button } from './ui';
+
 function resetViewport() {
 
   // Force reflow
@@ -171,9 +173,15 @@ export default function Authentication() {
                 autoComplete="current-password"
               />
 
-              <button type="submit" className="buttonStyle w-full mt-4" disabled={submitting}>
-                {submitting ? 'Logging in…' : 'Login'}
-              </button>
+
+
+              <Button 
+                type="submit" 
+                className="w-full mt-4" 
+                isLoading={submitting}
+              >
+                Login
+              </Button>
 
               <button
                   type="button"

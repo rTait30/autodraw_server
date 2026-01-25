@@ -1,4 +1,10 @@
 import { Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from 'react-redux';
+
+import { GeneralSection } from "./GeneralSection";
+import { CheckboxInput, SelectInput, TextInput } from "./FormUI";
+import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 // Default general values
 const DEFAULT_GENERAL = {
@@ -8,12 +14,6 @@ const DEFAULT_GENERAL = {
   info: "",
   // Add other default fields as needed
 };
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSelector } from 'react-redux';
-
-import { GeneralSection } from "./GeneralSection";
-import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
-
 
 // normalizeAttributes supports:
 // - productsHydrate = [ { name, id, attributes: {...} }, ... ]
@@ -324,76 +324,40 @@ export default function ProjectForm({
 
       {/* WorkGuru Data Section */}
       {(role === "admin" || role === "estimator" || role === "designer") && false && (
-        <div
-          style={{
-            padding: '16px',
-            backgroundColor: '#f9fafb',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            marginBottom: '16px',
-          }}
-          className="dark:bg-gray-800 dark:border-gray-700"
-        >
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }} className="dark:text-white">
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4 dark:bg-gray-800 dark:border-gray-700">
+          <h3 className="mb-4 text-base font-semibold dark:text-white">
             WorkGuru Data
           </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }} className="dark:text-gray-300">
-                Tenant
-              </label>
-              <select
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[150px]">
+              <SelectInput
+                label="Tenant"
                 value={wgData.tenant || 'Copelands'}
-                onChange={(e) => setWgData(prev => ({ ...prev, tenant: e.target.value }))}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff',
-                  cursor: 'pointer',
-                }}
-                className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              >
-                <option value="Copelands">Copelands</option>
-                <option value="D&R Liners">D&R Liners</option>
-              </select>
+                onChange={(val) => setWgData(prev => ({ ...prev, tenant: val }))}
+                options={["Copelands", "D&R Liners"]}
+              />
             </div>
-            <div style={{ flex: '2 1 200px', minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }} className="dark:text-gray-300">
+            <div className="flex-[2] min-w-[200px]">
+              {/* Custom Layout for Input + Button using TextInput logic */}
+              <label className="block text-sm font-bold text-gray-700 mb-1.5 dark:text-gray-300">
                 Project Number
               </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
+              <div className="flex gap-2">
+                <TextInput
                   value={wgData.project_number || ''}
-                  onChange={(e) => setWgData(prev => ({ ...prev, project_number: e.target.value }))}
-                  style={{
-                    flex: '1',
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    backgroundColor: '#fff',
-                  }}
-                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  onChange={(val) => setWgData(prev => ({ ...prev, project_number: val }))}
                   placeholder="Enter project number"
+                  wrapperClassName="flex-1"
                 />
                 <button
                   type="button"
                   onClick={handleWorkguruLookup}
                   disabled={!wgData.project_number}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: wgData.project_number ? '#3b82f6' : '#9ca3af',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: wgData.project_number ? 'pointer' : 'not-allowed',
-                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors
+                    ${wgData.project_number 
+                      ? 'bg-blue-500 hover:bg-blue-600 cursor-pointer' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                    }`}
                 >
                   Lookup
                 </button>
@@ -403,33 +367,23 @@ export default function ProjectForm({
           
           {/* WorkGuru Lookup Results Display */}
           {wgLookupResult && (
-            <div
-              style={{
-                marginTop: '16px',
-                padding: '12px',
-                backgroundColor: '#ecfdf5',
-                border: '1px solid #a7f3d0',
-                borderRadius: '6px',
-              }}
-              className="dark:bg-green-900/20 dark:border-green-800"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#065f46' }} className="dark:text-green-400">
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="m-0 text-sm font-semibold text-green-800 dark:text-green-400">
                   Lookup Result
                 </h4>
                 <button
                   type="button"
                   onClick={() => setWgLookupResult(null)}
-                  style={{ fontSize: '12px', color: '#065f46', background: 'none', border: 'none', cursor: 'pointer' }}
-                  className="dark:text-green-400"
+                  className="text-xs text-green-800 bg-transparent border-0 cursor-pointer hover:underline dark:text-green-400"
                 >
                   ✕ Clear
                 </button>
               </div>
-              <div style={{ fontSize: '13px', color: '#047857' }} className="dark:text-green-300">
+              <div className="text-sm text-green-700 dark:text-green-300">
                 {Object.entries(wgLookupResult).map(([key, value]) => (
-                  <div key={key} style={{ marginBottom: '4px' }}>
-                    <strong style={{ textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}:</strong> {value || '—'}
+                  <div key={key} className="mb-1">
+                    <strong className="capitalize">{key.replace(/_/g, ' ')}:</strong> {value || '—'}
                   </div>
                 ))}
               </div>
@@ -669,17 +623,13 @@ export default function ProjectForm({
       </section>
 
       {(role === "admin" || role === "estimator" || role === "designer") && (
-
       <>
-        <div className="flex items-center mb-2">
-          <input
-            type="checkbox"
-            id="submitToWG"
+        <div className="mb-2">
+          <CheckboxInput
+            label="Submit to WG"
             checked={submitToWG}
-            onChange={e => setSubmitToWG(e.target.checked)}
-            style={{ marginRight: '8px' }}
+            onChange={setSubmitToWG}
           />
-          <label htmlFor="submitToWG" style={{ fontWeight: 500 }}>Submit to WG</label>
         </div>
       </>
       )}

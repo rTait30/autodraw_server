@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, useId } from "react";
 
-import { baseInputStyles, labelStyles } from "./sharedStyles";
+const baseInputStyles = `
+  w-full h-12 px-4 
+  bg-white border border-gray-300 rounded-lg shadow-sm
+  text-base text-gray-900 placeholder-gray-400
+  focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none 
+  focus:bg-yellow-100 
+  disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+  transition-colors duration-75 ease-out
+`;
+
+const labelStyles = `
+  block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none
+`;
 
 // --- Helpers ---
 
@@ -66,10 +78,11 @@ export function useFormNavigation(fieldOrder = []) {
       e.preventDefault();
       const idx = fieldOrder.indexOf(currentName);
       if (idx > -1) {
-        // Find next valid field in the order that exists in refs
+        // Find next valid field in the order that exists in refs, handling wrap-around
         let nextEl = null;
-        for (let i = idx + 1; i < fieldOrder.length; i++) {
-           const nextName = fieldOrder[i];
+        for (let i = 1; i < fieldOrder.length; i++) {
+           const nextIdx = (idx + i) % fieldOrder.length;
+           const nextName = fieldOrder[nextIdx];
            if (inputRefs.current[nextName]) {
              nextEl = inputRefs.current[nextName];
              break;
@@ -78,6 +91,8 @@ export function useFormNavigation(fieldOrder = []) {
         
         if (nextEl) {
           nextEl.focus();
+          // Ensure the field is visible (center on screen)
+          nextEl.scrollIntoView({ behavior: "smooth", block: "center" });
           try {
             nextEl.select();
           } catch (err) {
@@ -103,23 +118,6 @@ export function useFormNavigation(fieldOrder = []) {
 export function FormContainer({ children, className = "" }) {
   return <div className={`p-3 space-y-3 ${className}`}>{children}</div>;
 }
-
-export function Section({ title, children, className = "" }) {
-  return (
-    <div className={`space-y-2 ${className}`}>
-      {title && <h3 className="font-medium opacity-80 mb-2">{title}</h3>}
-      {children}
-    </div>
-  );
-}
-
-
-
-
-
-
-
-
 
 // --- Number Input ---
 export function NumberInput({
@@ -334,4 +332,125 @@ export function FormGrid({ children, columns = 1, className = "" }) {
       {children}
     </div>
   );
+}
+
+// --- Compact Inputs ---
+export function CompactTextInput({ className = "", ...props }) {
+  // Styles for a compact input used in dense tables/forms
+  // p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
+  // text-base md:text-xs 
+  // transition-all duration-100 ease-in-out 
+  // focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
+
+  return (
+    <input
+      type="text"
+      className={`
+        p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
+        text-base md:text-xs 
+        transition-all duration-100 ease-in-out 
+        focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
+        dark:border-gray-600 dark:bg-gray-800 dark:text-white
+        ${className}
+      `}
+      {...props}
+    />
+  );
+}
+
+export function CompactNumberInput({ className = "", ...props }) {
+    return (
+      <input
+        type="number"
+        className={`
+          p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
+          text-base md:text-xs 
+          transition-all duration-100 ease-in-out 
+          focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
+          dark:border-gray-600 dark:bg-gray-800 dark:text-white
+          ${className}
+        `}
+        step="any"
+        {...props}
+      />
+    );
+  }
+
+  export function CompactSelectInput({ options = [], className = "", ...props }) {
+    return (
+        <select
+            className={`
+                p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
+                text-base md:text-xs 
+                transition-all duration-100 ease-in-out 
+                focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
+                dark:border-gray-600 dark:bg-gray-800 dark:text-white
+                ${className}
+            `}
+            {...props}
+        >
+            {options.map((opt) => (
+                typeof opt === 'string'
+                ? <option key={opt} value={opt}>{opt}</option>
+                : <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+        </select>
+    );
+}
+
+// --- Table Components ---
+export function SimpleTable({ children, className = "", ...props }) {
+    return (
+        <table 
+            className={`
+                w-full border-collapse border border-warm-grey bg-white 
+                dark:border-gray-700 dark:bg-gray-900
+                [&_tbody_tr:nth-child(even)]:bg-warm-grey 
+                [&_tbody_tr:nth-child(even)]:dark:bg-gray-800
+                [&_tbody_tr:nth-child(odd)]:bg-white 
+                [&_tbody_tr:nth-child(odd)]:dark:bg-gray-900
+                [&_tbody_tr:hover]:bg-warm-grey [&_tbody_tr:hover]:transition-colors [&_tbody_tr:hover]:duration-150
+                [&_tbody_tr:hover]:dark:bg-gray-700
+                ${className}
+            `} 
+            {...props}
+        >
+            {children}
+        </table>
+    );
+}
+
+export function SimpleTh({ children, className = "", align = "left", ...props }) {
+    const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+    return (
+        <th 
+            className={`
+                font-sans text-base font-semibold text-secondary tracking-wide 
+                bg-warm-grey border-b border-warm-grey py-2 px-3
+                dark:bg-gray-800 dark:border-gray-700 dark:text-blue-400
+                ${alignClass}
+                ${className}
+            `}
+            {...props}
+        >
+            {children}
+        </th>
+    );
+}
+
+export function SimpleTd({ children, className = "", align = "left", ...props }) {
+    const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+    return (
+        <td 
+            className={`
+                p-2 border-b border-warm-grey text-sm
+                dark:border-gray-700 dark:text-gray-200
+                ${alignClass}
+                ${className}
+            `}
+            {...props}
+        >
+            {children}
+        </td>
+    );
 }

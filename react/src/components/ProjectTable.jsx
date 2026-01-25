@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import GenericTable from './GenericTable';
 
 export default function ProjectTable({ projects = [], onOpen }) {
   const navigate = useNavigate();
@@ -22,12 +23,28 @@ export default function ProjectTable({ projects = [], onOpen }) {
   const currentProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
   const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
 
+  const columns = [
+    { header: 'ID', accessor: 'id', cellClassName: 'font-medium' },
+    ...(!isClient ? [{ header: 'Client', accessor: 'client' }] : []),
+    { header: 'Name', accessor: 'name' },
+    { header: 'Type', accessor: 'type' },
+    { 
+      header: 'Status', 
+      accessor: 'status',
+      render: (project) => (
+        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(project.status)}`}>
+          {project.status}
+        </span>
+      )
+    }
+  ];
+
   const renderProjectList = (projList, showHeader) => {
     if (!projList.length) return null;
 
     return (
       <div className="mb-8 last:mb-0">
-        <h3 className="headingStyle text-lg border-b border-gray-200 pb-2 mb-4">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
           {showHeader} ({projList.length})
         </h3>
         
@@ -68,48 +85,12 @@ export default function ProjectTable({ projects = [], onOpen }) {
         </div>
 
         {/* Desktop View: Table */}
-        <div className="hidden md:block overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-          <table className="tableBase">
-            <thead className="tableHeader">
-              <tr>
-                <th>ID</th>
-                {!isClient && <th>Client</th>}
-                <th>Name</th>
-                <th>Type</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projList.map((project) => (
-                <tr
-                  key={project.id}
-                  onClick={() => handleProjectClick(project.id)}
-                  className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <td className="px-3 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                    {project.id}
-                  </td>
-                  {!isClient && (
-                    <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
-                      {project.client}
-                    </td>
-                  )}
-                  <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
-                    {project.name}
-                  </td>
-                  <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
-                    {project.type}
-                  </td>
-                  <td className="px-3 py-4 text-sm">
-                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(project.status)}`}>
-                      {project.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <GenericTable 
+            columns={columns}
+            data={projList}
+            onRowClick={(row) => handleProjectClick(row.id)}
+            className="hidden md:block" // GenericTable handles the shadow/rounded/overflow
+        />
       </div>
     );
   };

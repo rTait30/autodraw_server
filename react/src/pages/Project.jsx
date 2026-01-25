@@ -7,6 +7,7 @@ import SchemaEditor from '../components/products/SchemaEditor';
 
 import ProjectForm from "../components/ProjectForm";
 import StickyActionBar from "../components/StickyActionBar";
+import { Button } from '../components/ui';
 
 import { apiFetch } from '../services/auth';
 
@@ -394,34 +395,30 @@ export default function ProjectDetailsPage() {
                 
 
                   <StickyActionBar>
-                    <button
+                    <Button
                       onClick={handleCheck}
-                      className="buttonStyle"
                     >
                       Check
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={handleSubmit}
-                      className="buttonStyle"
                     >
                       Submit changes
-                    </button>
+                    </Button>
                     {/*
-                    <button
+                    <Button
                       onClick={handleMaterials}
-                      className="buttonStyle" 
                     >
                       Check Materials
-                    </button>
+                    </Button>
                     */}
                     
                     {devMode && (
-                      <button
+                      <Button
                         onClick={() => setToggleData(!toggleData)}
-                        className="buttonStyle"
                       >
                         {toggleData ? 'Hide' : 'Show'} JSON
-                      </button>
+                      </Button>
                     )}
                   </StickyActionBar>
                   
@@ -483,24 +480,23 @@ export default function ProjectDetailsPage() {
               {(!project?.product?.capabilities?.documents || project.product.capabilities.documents.length === 0) && (
                 <div className="space-x-2">
                   {project?.product?.capabilities?.has_dxf && (
-                    <button 
+                    <Button 
                       onClick={() => fetchDXF(project.id)} 
-                      className="buttonStyle"
                       disabled={!canGenerateDXF}
                       title={!canGenerateDXF ? 'Run Quick Check to generate nesting before downloading DXF.' : ''}
                     >
                       Download DXF
-                    </button>
+                    </Button>
                   )}
                   
                   {project?.product?.capabilities?.has_pdf && (
                     <>
-                      <button onClick={() => fetchPDF(project.id)} className="buttonStyle">
+                      <Button onClick={() => fetchPDF(project.id)}>
                         Download PDF
-                      </button>
-                      <button onClick={() => fetchPDF(project.id, true)} className="buttonStyle">
+                      </Button>
+                      <Button onClick={() => fetchPDF(project.id, true)}>
                         Download PDF with BOM
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>

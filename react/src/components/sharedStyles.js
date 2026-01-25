@@ -1,18 +1,57 @@
-// sharedStyles.js (or keep at the top of your components file)
-
-// Big, clickable targets (h-12 = 48px is the touch standard)
-// High contrast text (text-gray-900)
-// clear focus ring for accessibility
-export const baseInputStyles = `
-  w-full h-12 px-4 
-  bg-white border border-gray-300 rounded-lg shadow-sm
-  text-base text-gray-900 placeholder-gray-400
-  focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none 
-  focus:bg-yellow-100 
-  disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-  transition-colors duration-75 ease-out
+export const headingStyles = `
+  text-2xl font-bold text-black mb-4 text-left
 `;
 
-export const labelStyles = `
-  block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none
+
+export const linkStyles = `
+  text-white no-underline font-medium text-lg
 `;
+
+export const roleStyles = `
+  font-medium text-sm opacity-80
+`;
+
+// Table styles
+export const tableBaseStyles = `
+  w-full border-collapse border border-warm-grey bg-white 
+  [&_tbody_tr:nth-child(even)]:bg-warm-grey 
+  [&_tbody_tr:nth-child(odd)]:bg-white 
+  [&_tbody_tr:hover]:bg-warm-grey [&_tbody_tr:hover]:transition-colors [&_tbody_tr:hover]:duration-150
+`;
+
+export const tableHeaderStyles = `
+  text-left font-sans text-base font-semibold text-secondary tracking-wide 
+  bg-warm-grey border-b border-warm-grey py-2 px-3
+`;
+
+export const tableCellStyles = `
+  p-2 border-b border-warm-grey text-sm
+`;
+
+export const tableCalcStyles = `
+  bg-warm-grey
+`;
+
+export const formStyles = `
+  flex flex-col items-center gap-y-2
+`;
+
+export const authContainerStyles = `
+  flex items-center justify-center
+`;
+
+export const authBoxStyles = `
+  rounded-2xl bg-white p-8 w-80 shadow-lg flex flex-col items-center dark:bg-gray-800
+`;
+
+export const authLogoStyles = `
+  flex justify-center w-full mb-5
+`;
+
+export const authErrorStyles = `
+  text-[#DC2626] text-sm mt-2
+`; // using hex #DC2626 for error to match --color-error if utility not set
+
+export const authSuccessStyles = `
+  text-[#16A34A] text-sm mt-2
+`; // using hex #16A34A for success

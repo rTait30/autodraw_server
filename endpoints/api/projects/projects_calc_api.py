@@ -69,12 +69,32 @@ def calculate():
     calc_input.setdefault("general", {})
 
     enriched = dispatch_calculation(product.name, calc_input)
+    
+    # --- Perform Estimation on the Result ---
+    # We need a schema. 
+    # 1. Try to get schema from request (if frontend sent it)
+    # 2. Try to get schema from existing project (if id provided)
+    # 3. Fallback to product default schema
+    
+    schema = data.get("estimate_schema")
+    project_id = data.get("id") or data.get("project_id")
+    
+    if not schema and project_id:
+        existing_proj = db.session.get(Project, project_id)
+        if existing_proj:
+            schema = existing_proj.estimate_schema
+            
+    # Fallback handled inside estimate_payload if schema is None (uses product default)
+    
+    from endpoints.api.projects.services.estimation_service import estimate_payload
+    evaluated_schema = estimate_payload(product_id, enriched, schema=schema)
 
     return jsonify({
         "product_id": product_id,
         "product_type": product.name,
         "products": enriched.get("products", calc_input.get("products") or []),
         "project_attributes": enriched.get("project_attributes", calc_input.get("project_attributes") or {}),
+        "estimate_schema_evaluated": evaluated_schema,
         "source": "direct",
     }), 200
 

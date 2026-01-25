@@ -103,6 +103,9 @@ class Project(db.Model):
 
     # 👇 THIS is the working schema for the project
     estimate_schema = db.Column(db.JSON, default=dict)
+    
+    # Evaluated schema cache (quantities/costs resolved to numbers)
+    estimate_schema_evaluated = db.Column(db.JSON, default=dict)
 
     # optional convenience field
     estimate_total = db.Column(db.Float)

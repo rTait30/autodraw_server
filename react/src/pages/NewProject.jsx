@@ -5,6 +5,7 @@ import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import StickyActionBar from "../components/StickyActionBar";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
+import { Button } from '../components/ui';
 
 export default function NewProject() {
 
@@ -358,15 +359,15 @@ export default function NewProject() {
                 />
               </Suspense>
               <StickyActionBar>
-                <button onClick={handleCheck} className="buttonStyle">
+                <Button onClick={handleCheck}>
                   Check
-                </button>
-                <button onClick={handleSubmit} className="buttonStyle">
+                </Button>
+                <Button onClick={handleSubmit}>
                   {['estimator', 'admin', 'designer'].includes(role)
                     ? 'Make Lead'
                     : 'Get Quote'}
-                </button>
-                {devMode && <button onClick={printValues} className="buttonStyle">Print values</button>}
+                </Button>
+                {devMode && <Button onClick={printValues}>Print values</Button>}
               </StickyActionBar>
             </div>
             {/* Canvas visualization rendered by Display.js after project creation */}

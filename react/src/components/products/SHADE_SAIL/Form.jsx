@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useRef, useImperativeHandle } from "react";
+import React, { useEffect, useState, useRef, useImperativeHandle, useMemo } from "react";
 import { 
   useProductAttribute, 
   FormContainer, 
-  Section,
   SelectInput, 
   TextInput, 
   NumberInput,
-  deepNumberify,
+  CheckboxInput,
+  CompactNumberInput,
+  CompactSelectInput,
+  useFormNavigation,
   FormSection,
   FormGrid
 } from "../../FormUI";
-
-import { baseInputStyles, labelStyles } from "../../sharedStyles";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
@@ -446,677 +446,418 @@ const setPointField = (p, key, value) =>
     }
   };
 
+  // We use useMemo so this doesn't run on every single keystroke, only when structure changes
+  const geometry = useMemo(() => {
+    const dims = attributes.dimensions || {};
+    const count = Math.max(0, Number(attributes.pointCount) || 0);
+    const letters = Array.from({ length: count }, (_, i) => String.fromCharCode(65 + i));
+    
+    // Edges
+    const expectedEdges = letters.length >= 2 ? letters.map((ch, i) => ch + letters[(i + 1) % letters.length]) : [];
+    const edgeSet = new Set(expectedEdges);
+    const edges = expectedEdges.map((lbl) => ({ label: lbl, value: dims[lbl] ?? "" }));
+
+    // Diagonals
+    const allDiagonals = Object.entries(dims)
+      .filter(([lbl]) => !edgeSet.has(lbl))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+
+    // Mandatory Logic
+    const verts = makeVertexLabels(count);
+    const mandatorySet = new Set();
+    if (count >= 4) {
+      const maxK = Math.floor((count - 4) / 2);
+      for (let k = 0; k <= maxK; k++) {
+        const a = verts[k], b = verts[k + 1], c = verts[count - k - 2], d = verts[count - k - 1];
+        const mk = (x, y) => (x < y ? `${x}${y}` : `${y}${x}`);
+        mandatorySet.add(mk(a, c)); mandatorySet.add(mk(b, d)); mandatorySet.add(mk(b, c));
+      }
+    }
+
+    const mandatory = allDiagonals.filter(([lbl]) => mandatorySet.has(lbl));
+    let tip = [], optional = allDiagonals.filter(([lbl]) => !mandatorySet.has(lbl));
+
+    if (count >= 5 && count % 2 !== 0) {
+      const tipVertex = verts[Math.floor(count / 2)];
+      tip = optional.filter(([lbl]) => lbl.includes(tipVertex));
+      optional = optional.filter(([lbl]) => !lbl.includes(tipVertex));
+    }
+
+    // Perimeter Calc
+    const perimeterMM = edges.reduce((sum, item) => sum + (Number.isFinite(Number(item.value)) ? Number(item.value) : 0), 0);
+    const perimeterMeters = Math.floor(perimeterMM / 1000) + (perimeterMM % 1000 > 199 ? 1 : 0);
+
+    return { edges, mandatory, tip, optional, perimeterMM, perimeterMeters, letters };
+  }, [attributes.dimensions, attributes.pointCount, makeVertexLabels]);
+
+  // --- 2. SETUP NAVIGATION ORDER ---
+  
+  // We build a flat array of IDs in the exact order the user should "Enter" through
+  const fieldOrder = [
+    // 1. Edges (e.g. edge-AB, edge-BC)
+    ...geometry.edges.map(e => `edge-${e.label}`),
+    // 2. Required Diagonals
+    ...geometry.mandatory.map(([label]) => `diag-${label}`),
+    // 3. Tip Diagonals
+    ...geometry.tip.map(([label]) => `diag-${label}`),
+    // 4. Optional Diagonals
+    ...geometry.optional.map(([label]) => `diag-${label}`),
+    // 5. Heights (e.g. height-A, height-B)
+    ...geometry.letters.map(p => `height-${p}`)
+  ];
+
+  // Initialize the hook
+  const nav = useFormNavigation(fieldOrder);
+
 
   return (
-    <FormContainer>
-
-      { /*<h3 className="headingStyle">Shade Sail</h3> */ }
-
-      {/* Fabric Category (minimal) */}
+    <div className="max-w-5xl mx-auto p-6 bg-white shadow-sm rounded-xl">
+      
+      {/* SECTION 1: MAIN SPECS */}
       {!discrepancyChecker && (
-        <Section title="Fabric Details">
-          <SelectInput
-            label="Fabric Category" 
-            value={attributes.fabricCategory} 
-            // React 19 Ref passing (if you needed a ref here)
-            //ref={myRef}
-            onChange={(val) => {
-                setAttributes((prev) => {
-                  const firstType = FABRIC_OPTIONS[val]?.[0] ?? "";
-                  return { ...prev, fabricCategory: val, fabricType: firstType };
-                })
-            }}
-            options={[ 
-              { label: "PVC Material", value: "PVC" }, 
-              { label: "Shade Cloth", value: "ShadeCloth" } 
-            ]}
-          />
-
-          <SelectInput
-            label="Fabric Type" 
-            value={attributes.fabricType} 
-            onChange={setAttr("fabricType")} 
-            options={(FABRIC_OPTIONS[attributes.fabricCategory] || []).map(ft => ({ label: ft, value: ft }))}
-          />
-
-          <TextInput
-            label="Colour"
-            value={attributes.colour}
-            onChange={setAttr("colour")}
-            list="colourOptions"
-          />
-          <datalist id="colourOptions">
-             {COLOUR_OPTIONS.map((colour) => (
-                <option key={colour} value={colour} />
-             ))}
-          </datalist>
-
-          <SelectInput
-            label="Fold Side" 
-            value={attributes.foldSide} 
-            onChange={setAttr("foldSide")} 
-            options={FOLD_SIDES.map(fs => ({ label: fs, value: fs }))}
-          />
-        </Section>
+        <FormSection title="Fabric & Cable Specifications">
+           <FormGrid columns={3}>
+              <SelectInput 
+                label="Fabric Category" 
+                value={attributes.fabricCategory} 
+                onChange={(val) => setAttributes(prev => ({...prev, fabricCategory: val, fabricType: ""}))} 
+                options={["PVC", "ShadeCloth"]} 
+              />
+              <SelectInput 
+                label="Fabric Type" 
+                value={attributes.fabricType} 
+                onChange={setAttr("fabricType")} 
+                options={FABRIC_OPTIONS[attributes.fabricCategory] || []}
+                disabled={!attributes.fabricCategory}
+              />
+              <TextInput label="Colour" value={attributes.colour} onChange={setAttr("colour")} />
+           </FormGrid>
+           
+           <FormGrid columns={2}>
+              <SelectInput 
+                label="Cable Size" 
+                value={attributes.cableSize} 
+                onChange={setAttr("cableSize")} 
+                options={CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))}
+              />
+              <SelectInput 
+                label="Hem Fold Side" 
+                value={attributes.foldSides} 
+                onChange={setAttr("foldSides")} 
+                options={FOLD_SIDES} 
+              />
+           </FormGrid>
+        </FormSection>
       )}
 
-      {/* Cable Size */}
-      {!discrepancyChecker && (
-        <Section>
-           <SelectInput 
-            label="Cable Size (mm)" 
-            value={attributes.cableSize} 
-            onChange={setAttr("cableSize")} 
-            options={CABLE_SIZE_OPTIONS.map(cs => ({ label: cs, value: cs }))}
-          />
-        </Section>
-      )}
-
-      <hr className="my-8 border-gray-300 opacity-50" />
-
-      {/* Point count */}
-      <div className="flex items-center gap-2 max-w-[200px]">
-        <label className="text-sm font-medium">Points</label>
-        <NumberInput
-          className="inputCompact h-9 text-center w-20"
-          step={1}
-          min={3}
-          max={MAX_POINTS}
-          placeholder="—"
-          value={attributes.pointCount}
-          onChange={(v) => {
-             // clamp to 1..MAX_POINTS handled by setCount logic usually, but here doing direct
-             if (v === null) { setCount(""); return; }
-             setCount(v);
-          }}
-        />
-        
-          {/* Mobile +/- buttons (hide on md+) */}
-          <button
-            type="button"
-            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-500 md:hidden"
-            onClick={() => {
-              const cur = attributes.pointCount;
-              if (cur === "" || cur == null) return; // keep empty on minus
-              const next = Math.max(3, Number(cur) - 1);
-              setCount(next);
-            }}
-            aria-label="Decrease points"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            className="px-3 h-9 text-lg leading-none bg-gray-200 hover:bg-gray-300 active:bg-gray-400 transition-colors dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-500 md:hidden"
-            onClick={() => {
-              const cur = attributes.pointCount;
-              const base = cur === "" || cur == null ? 0 : Number(cur);
-              const next = Math.min(MAX_POINTS, base + 1);
-              setCount(next || 1); // if empty, + sets to 1
-            }}
-            aria-label="Increase points"
-          >
-            +
-          </button>
-        </div>
-
-      {/* Exit Point and Logo Point side by side, compact layout */}
-
-      {!discrepancyChecker && (
-        <section className="flex items-end gap-4">
-           {(() => {
-              const verts = makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0));
-              const allowBlankExit = (attributes.sailTracks || []).length > 0;
-              const exitOptions = [
-                 ...(allowBlankExit ? [{label: "-", value: ""}] : []),
-                 ...verts.map(v => ({ label: v, value: v }))
-              ];
-              const logoOptions = [
-                 {label: "-", value: ""},
-                 ...verts.map(v => ({ label: v, value: v }))
-              ];
-
-              return (
-                <>
-                <div className="w-24">
-                  <SelectInput 
-                    label="Exit Point" 
-                    value={attributes.exitPoint} 
-                    onChange={setExitPoint} 
-                    options={exitOptions} 
-                  />
-                  </div>
-                  <div className="w-24">
-                   <SelectInput 
-                    label="Logo" 
-                    value={attributes.logoPoint} 
-                    onChange={setLogoPoint} 
-                    options={logoOptions} 
-                  />
-                  </div>
-                </>
-              );
-            })()}
-        </section>
-      )}
-
-      {/* Dimensions (Edges first, then Diagonals) */}
-      <section>
-
-        {(() => {
-          const dims = attributes.dimensions || {};
-          const count = Math.max(0, Number(attributes.pointCount) || 0);
-
-          // Build expected edges from point count: AB, BC, ..., (last)A
-          const letters = Array.from({ length: count }, (_, i) =>
-            String.fromCharCode(65 + i)
-          );
-          const expectedEdges =
-            letters.length >= 2
-              ? letters.map((ch, i) => ch + letters[(i + 1) % letters.length])
-              : [];
-
-          const edgeSet = new Set(expectedEdges);
-
-          // Edges: show in ring order; allow input even if not yet in dims
-          const edges = expectedEdges.map((lbl) => [lbl, dims[lbl] ?? ""]);
-
-          // Perimeter (sum of edges, in mm) and meters rounded by rule:
-          // roundedMeters = floor(mm/1000) + (remainder > 100 ? 1 : 0)
-          const perimeterMM = edges.reduce((sum, [, v]) => {
-            const n = Number(v);
-            return sum + (Number.isFinite(n) ? n : 0);
-          }, 0);
-          const perimeterMetersRounded = (() => {
-            const base = Math.floor(perimeterMM / 1000);
-            const rem = perimeterMM % 1000;
-            return base + (rem > 199 ? 1 : 0);
-          })();
-
-
-          // Diagonals: anything else present in dims
-          const diagonals = Object.entries(dims)
-            .filter(([lbl]) => !edgeSet.has(lbl))
-            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-
-          // Determine mandatory diagonals by splitting polygon into "boxes".
-          // Boxes are: for k = 0..floor((n-4)/2) take verts [k, k+1, n-k-2, n-k-1].
-          // For each box the required dimensions are the two box-diagonals (a-c, b-d)
-          // and the connecting side between the inner vertices (b-c). Remaining diagonals are optional.
-          const verts = makeVertexLabels(count);
-          const mandatorySet = new Set();
-          if (count >= 4) {
-            const maxK = Math.floor((count - 4) / 2);
-            for (let k = 0; k <= maxK; k++) {
-              const a = verts[k];
-              const b = verts[k + 1];
-              const c = verts[count - k - 2];
-              const d = verts[count - k - 1];
-              const mk = (x, y) => (x < y ? `${x}${y}` : `${y}${x}`);
-              mandatorySet.add(mk(a, c)); // diagonal 1 of box
-              mandatorySet.add(mk(b, d)); // diagonal 2 of box
-              mandatorySet.add(mk(b, c)); // connecting side between boxes (may be an edge or diag)
-            }
-          }
-
-          const mandatoryDiagonals = diagonals.filter(([lbl]) => mandatorySet.has(lbl));
-          
-          // For odd-numbered points (>=5), identify the "tip" vertex (middle index).
-          // We need at least one diagonal connected to this tip to stabilize the reflex/convex orientation.
-          let tipDiagonals = [];
-          let otherDiagonals = diagonals.filter(([lbl]) => !mandatorySet.has(lbl));
-          
-          if (count >= 5 && count % 2 !== 0) {
-            const tipVertex = verts[Math.floor(count / 2)];
-            // Filter out diagonals connected to the tip from the general optional list
-            const connectedToTip = otherDiagonals.filter(([lbl]) => lbl.includes(tipVertex));
-            const notConnected = otherDiagonals.filter(([lbl]) => !lbl.includes(tipVertex));
-            
-            tipDiagonals = connectedToTip;
-            otherDiagonals = notConnected;
-          }
-
-          return (
-            <>
-              {/* Edges - vertical list */}
-              <br></br>
-              <Section title="Edges">
-                {edges.map(([label, value]) => (
-                  <div key={label} className="flex items-start gap-2">
-                    <div className="flex-1 flex items-center gap-2">
-                       {/* Standard Input for easier focusing and compactness */}
-                       <div className="w-8 pt-2">
-                          <label htmlFor={`edge-${label}`} className="text-sm font-bold cursor-pointer select-none">{label}</label>
-                       </div>
-                      <NumberInput
-                        id={`edge-${label}`}
-                        ref={(el) => (edgeRefs.current[label] = el)}
-                        className="inputCompact w-32"
-                        min={0}
-                        value={value}
-                        onChange={(v) => setDimension(label, v)}
-                        onKeyDown={(e) => handleEnterFocus(e, "edge", label)}
-                      />
-                      <label className="flex items-center gap-2 text-xs pt-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(attributes.sailTracks || []).includes(label)}
-                          onChange={() => toggleSailTrack(label)}
-                          aria-label={`Sailtrack ${label}`}
-                        />
-                        <span>Sailtrack</span>
-                      </label>
-                    </div>
-                  </div>
-                ))}
-                
-                {edges.length === 0 && (
-                  <div className="text-xs opacity-60">No edges for this point count.</div>
-                )}
-                
-                {/* Perimeter display */}
-                {edges.length > 0 && (
-                  <div className="text-xl opacity-80 mt-2">
-                    Edge meter: {perimeterMM}mm ({perimeterMetersRounded}m)
-                  </div>
-                )}
-
-                {/* Clear edges button
-                {edges.length > 0 && (
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
-                      onClick={clearAllEdges}
-                    >
-                      Clear Edges
-                    </button>
-                  </div>
-                )} */}
-              </Section>
-
-              <br></br>
-
-              {/* Diagonals - split into mandatory (required) and optional */}
-              {mandatoryDiagonals.length > 0 && (
-                <Section title="Required diagonals">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
-                    {mandatoryDiagonals.map(([label, value]) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <label htmlFor={`diag-req-${label}`} className="text-sm w-6 font-bold cursor-pointer select-none">{label}</label>
-                        <NumberInput
-                          id={`diag-req-${label}`}
-                          ref={(el) => (diagRefs.current[label] = el)}
-                          className="inputCompact w-28"
-                          min={0}
-                          value={value}
-                          onChange={(v) => setDimension(label, v)}
-                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              )}
-
-              <br></br>
-
-              {/* Tip Diagonals (for odd points) */}
-              {tipDiagonals.length > 0 && (
-                <Section>
-                  <h5 className="text-sm font-medium opacity-70 text-blue-700">
-                    Tip diagonals (Provide at least one)
-                  </h5>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 p-2 bg-blue-50 rounded border border-blue-100">
-                    {tipDiagonals.map(([label, value]) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <label htmlFor={`diag-tip-${label}`} className="text-sm font-medium text-blue-800 w-6 cursor-pointer select-none">{label}</label>
-                        <NumberInput
-                          id={`diag-tip-${label}`}
-                          ref={(el) => (diagRefs.current[label] = el)}
-                          className="inputCompact w-28 border-blue-300 focus:border-blue-500"
-                          min={0}
-                          value={value}
-                          onChange={(v) => setDimension(label, v)}
-                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              )}
-
-              {tipDiagonals.length > 0 && <br></br>}
-
-              {otherDiagonals.length > 0 && (
-                <Section title="Optional diagonals (Please provide as many as possible)">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
-                    {otherDiagonals.map(([label, value]) => (
-                      <div key={label} className="flex items-center gap-2">
-                        <label htmlFor={`diag-opt-${label}`} className="text-sm w-6 font-bold cursor-pointer select-none">{label}</label>
-                        <NumberInput
-                          id={`diag-opt-${label}`}
-                          ref={(el) => (diagRefs.current[label] = el)}
-                          className="inputCompact w-28"
-                          min={0}
-                          value={value}
-                          onChange={(v) => setDimension(label, v)}
-                          onKeyDown={(e) => handleEnterFocus(e, "diag", label)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              )}
-
-              {/* Clear diagonals button 
-              {(mandatoryDiagonals.length > 0 || tipDiagonals.length > 0 || otherDiagonals.length > 0) && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
-                    onClick={clearAllDiagonals}
-                  >
-                    Clear Diagonals
-                  </button>
-                </div>
-              )}*/}
-            </>
-          );
-        })()}
-      </section>
-
-      <section className="space-y-2 w-full md:max-w-4xl md:mx-auto">
-        <br></br>
-        <h5 className="text-sm font-medium opacity-70">Points</h5>
-
-        {/* Compact header — visible on desktop only */}
-        <div className={`hidden md:grid ${discrepancyChecker ? "grid-cols-5" : "grid-cols-11"} text-[11px] font-medium opacity-70 mb-1`}>
-          <div className="col-span-3">Height&nbsp;(m)</div>
-
+      {/* SECTION 2: GEOMETRY SETUP */}
+      <FormSection title="Geometry Configuration">
+        <FormGrid columns={2}>
+          {/* Points +/- Control (Preserved) */}
+          <div className="flex flex-col">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none">Points</label>
+            <div className="flex items-center">
+              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-100 border border-gray-300 border-r-0 rounded-l-lg active:bg-gray-200" onClick={() => setCount(Math.max(3, Number(attributes.pointCount) - 1))}>−</button>
+              <NumberInput className="md:rounded-lg rounded-none text-center" step={1} min={3} max={MAX_POINTS} placeholder="—" value={attributes.pointCount} onChange={(v) => setCount(v)} />
+              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-100 border border-gray-300 border-l-0 rounded-r-lg active:bg-gray-200" onClick={() => setCount(Math.min(MAX_POINTS, (Number(attributes.pointCount)||0) + 1))}>+</button>
+            </div>
+          </div>
+          {/* Exit/Logo (Preserved) */}
           {!discrepancyChecker && (
-            <>
-              <div className="col-span-3">Corner Fitting</div>
-              <div className="col-span-3">Tensioning Hardware</div>
-            </>
+             <div className="flex gap-4">
+                <SelectInput label="Exit Point" value={attributes.exitPoint} onChange={setExitPoint} options={geometry.letters.map(v => ({ label: v, value: v }))} />
+             </div>
           )}
-          <div className="col-span-2">Tension&nbsp;(mm)</div>
+        </FormGrid>
+      </FormSection>
 
-        </div>
-
-        <div className="space-y-1">
-          {Object.entries(attributes.points).map(([p, vals]) => (
-            <div
-              key={p}
-              className="flex flex-col md:flex-row md:items-center gap-1"
-            >
-              {/* Point label */}
-              <div className="text-[11px] opacity-80 md:w-6 md:text-right">{p}</div>
-
-              {/* Inputs grid */}
-              <div className={`grid ${discrepancyChecker ? "grid-cols-5" : "grid-cols-11"} items-center gap-1 text-xs flex-1`}>
-                {/* Height */}
-                <input
-                  ref={(el) => (heightRefs.current[p] = el)}
-                  className={`inputCompact col-span-3 md:w-28`}
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="numeric"
-                  value={vals.height}
-                  onChange={(e) => setPointField(p, "height", e.target.value)}
-                  onKeyDown={(e) => handleEnterFocus(e, "height", p)}
-                />
-
-                {/* Corner Fitting */}
-                {!discrepancyChecker && (
-                  <select
-                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                    value={vals.cornerFitting ?? ""}
-                    onChange={(e) => setPointField(p, "cornerFitting", e.target.value)}
-                  >
-                    {CORNER_FITTING_OPTIONS.map((cf) => (
-                      <option key={cf} value={cf}>
-                        {cf}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Tension Hardware */}
-                {!discrepancyChecker && (
-                  <select
-                    className="inputCompact h-8 px-1 text-[11px] w-full col-span-3 truncate"
-                    value={vals.tensionHardware ?? ""}
-                    onChange={(e) => setPointField(p, "tensionHardware", e.target.value)}
-                  >
-                    {TENSION_HARDWARE_OPTIONS.map((th) => (
-                      <option key={th} value={th}>
-                        {th}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Tension allowance */}
-                <input
-                  className="inputCompact h-8 px-2 text-xs w-full col-span-2"
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="numeric"
-                  value={vals.tensionAllowance}
-                  onChange={(e) => setPointField(p, "tensionAllowance", e.target.value)}
+      {/* --- SECTION 3: EDGES & DIAGONALS (Updated with Nav) --- */}
+      
+      {/* EDGES */}
+      <FormSection title="Edges">
+        <FormGrid columns={geometry.edges.length > 4 ? 3 : 2}>
+          {geometry.edges.map(({ label, value }) => (
+            <div key={label} className="flex flex-col">
+              <NumberInput
+                // NAVIGATION BINDING:
+                nav={nav}
+                name={`edge-${label}`} // Matches fieldOrder
+                // Basics
+                label={`Edge ${label}`}
+                min={0}
+                value={value}
+                onChange={(v) => setDimension(label, v)}
+              />
+              <div className="mt-1">
+                <CheckboxInput
+                  label="Sailtrack"
+                  checked={(attributes.sailTracks || []).includes(label)}
+                  onChange={() => toggleSailTrack(label)}
                 />
               </div>
             </div>
           ))}
-        </div>
-        {/* Clear heights button
-        <div className="mt-2">
-          <button
-            type="button"
-            className="h-8 px-3 bg-gray-200 rounded hover:bg-gray-300 text-xs dark:bg-gray-700 dark:hover:bg-gray-600"
-            onClick={clearAllHeights}
-          >
-            Clear Heights
-          </button>
-        </div> */}
-      </section>
-
-      {/* Clear all button 
-      <div className="mt-2 flex justify-center md:block">
-        <button
-          type="button"
-          className="h-17 w-70 px-9 bg-[#AA0000] rounded hover:bg-[#BB5555] text-xl text-white"
-          onClick={clearAllMeasurements}
-        >
-          Clear Measurements
-        </button>
-      </div>*/}
-
-      {!discrepancyChecker && (
-        <details className="space-y-2">
-          <summary className="cursor-pointer text-2xl font-medium opacity-70">Extras</summary>
-
-          {/* Trace cables - separate section (keeps points compact on mobile) */}
-          <Section title="Trace Cables">
-            {/* Single add control: select a point + enter length */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-20">
-                <SelectInput
-                  // label="From"
-                  value={pendingTrace.point}
-                  onChange={(val) => setPendingTrace((s) => ({ ...s, point: val }))}
-                  options={makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(pt => ({label: pt, value: pt}))}
-                />
-              </div>
-
-               <div className="w-28">
-                <NumberInput
-                  // label="Length"
-                  placeholder="mm"
-                  value={pendingTrace.length}
-                  onChange={(val) => setPendingTrace((s) => ({ ...s, length: val }))}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="h-10 px-3 mt-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-                onClick={addTraceCable}
-                aria-label={`Add trace from ${pendingTrace.point}`}
-              >
-                Add
-              </button>
+        </FormGrid>
+        {geometry.edges.length > 0 && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center font-medium text-gray-700">
+              Total Perimeter: {geometry.perimeterMM}mm ({geometry.perimeterMeters}m)
             </div>
+        )}
+      </FormSection>
 
-            {/* Existing trace cables list */}
-            {(attributes.traceCables || []).length > 0 && (
-              <div className="space-y-2 mt-2 text-xs">
-                {(attributes.traceCables || []).map((tc, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-6 opacity-80">{tc.point}</div>
-                     <input
-                      className="inputCompact h-8 w-28 text-xs"
-                      type="number"
+      {/* DIAGONALS */}
+      {(geometry.mandatory.length > 0 || geometry.tip.length > 0 || geometry.optional.length > 0) && (
+        <FormSection title="Diagonals">
+          
+          {/* Required */}
+          {geometry.mandatory.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide">Required</h4>
+              <FormGrid columns={3}>
+                {geometry.mandatory.map(([label, value]) => (
+                  <NumberInput
+                    key={label}
+                    nav={nav}
+                    name={`diag-${label}`} // Matches fieldOrder
+                    label={label}
+                    min={0}
+                    value={value}
+                    onChange={(v) => setDimension(label, v)}
+                  />
+                ))}
+              </FormGrid>
+            </div>
+          )}
+
+          {/* Tip */}
+          {geometry.tip.length > 0 && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <h4 className="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wide">Tip Diagonals (At least one)</h4>
+              <FormGrid columns={3}>
+                {geometry.tip.map(([label, value]) => (
+                  <NumberInput
+                    key={label}
+                    nav={nav}
+                    name={`diag-${label}`}
+                    label={label}
+                    className="border-blue-300 focus:border-blue-500"
+                    min={0}
+                    value={value}
+                    onChange={(v) => setDimension(label, v)}
+                  />
+                ))}
+              </FormGrid>
+            </div>
+          )}
+
+          {/* Optional */}
+          {geometry.optional.length > 0 && (
+            <div>
+              <h4 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">Optional</h4>
+              <FormGrid columns={4}>
+                {geometry.optional.map(([label, value]) => (
+                  <NumberInput
+                    key={label}
+                    nav={nav}
+                    name={`diag-${label}`}
+                    label={label}
+                    min={0}
+                    value={value}
+                    onChange={(v) => setDimension(label, v)}
+                  />
+                ))}
+              </FormGrid>
+            </div>
+          )}
+        </FormSection>
+      )}
+
+      {/* --- SECTION 4: POINT SPECIFICATIONS (With Priority Box + Nav) --- */}
+      <FormSection title="Point Specifications">
+        <div className="flex flex-col space-y-2">
+          {Object.entries(attributes.points).map(([p, vals]) => (
+            <div key={p} className="py-4 border-b border-gray-200 last:border-0">
+              <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+                
+                {/* PRIORITY BOX */}
+                <div className="flex-none w-full lg:w-56 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center gap-4">
+                  <div className="flex-none flex items-center justify-center w-12 h-12 rounded-full bg-blue-900 text-white text-xl font-bold shadow-sm">
+                    {p}
+                  </div>
+                  <div className="flex-1">
+                    <NumberInput
+                      // NAVIGATION BINDING (Next in list after Diagonals)
+                      nav={nav}
+                      name={`height-${p}`} 
+                      label="Height (m)" 
+                      className="border-blue-300 focus:border-blue-500 font-bold text-lg"
+                      wrapperClassName="mb-0"
                       min={0}
-                      inputMode="numeric"
-                      value={tc.length}
-                      onChange={(e) => updateTraceCableLength(i, e.target.value)}
+                      step="any"
+                      value={vals.height}
+                      onChange={(v) => setPointField(p, "height", v)}
                     />
-                    <div className="opacity-70">mm</div>
-                    <button type="button" className="text-xs text-red-600 ml-2" onClick={() => removeTraceCable(i)}>
-                      Remove
-                    </button>
+                  </div>
+                </div>
+
+                <div className="hidden lg:block text-gray-300 text-2xl">→</div>
+
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                  {!discrepancyChecker && (
+                    <>
+                      <SelectInput
+                        label="Corner Fitting"
+                        options={CORNER_FITTING_OPTIONS}
+                        value={vals.cornerFitting ?? ""}
+                        onChange={(val) => setPointField(p, "cornerFitting", val)}
+                      />
+                      <SelectInput
+                        label="Hardware"
+                        options={TENSION_HARDWARE_OPTIONS}
+                        value={vals.tensionHardware ?? ""}
+                        onChange={(val) => setPointField(p, "tensionHardware", val)}
+                      />
+                    </>
+                  )}
+                  <div className={discrepancyChecker ? "col-span-1 md:col-span-3" : ""}>
+                    <NumberInput
+                      label="Tension Allowance (mm)"
+                      min={0}
+                      value={vals.tensionAllowance}
+                      onChange={(v) => setPointField(p, "tensionAllowance", v)}
+                    />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+
+      {/* --- SECTION 5: EXTRAS (DETAILS) --- */}
+      {!discrepancyChecker && (
+        <details className="group mt-8 border-t border-gray-200 pt-6">
+          <summary className="cursor-pointer text-xl font-bold text-gray-700 flex items-center gap-2 select-none list-none">
+             <span className="group-open:rotate-90 transition-transform">▶</span>
+             Extras (Trace Cables & UFCs)
+          </summary>
+          
+          <div className="mt-6 space-y-8 pl-4 border-l-2 border-gray-100 ml-2">
+            
+            {/* TRACE CABLES */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4">Trace Cables</h4>
+              <div className="flex flex-wrap items-end gap-4 mb-4">
+                <div className="w-32">
+                  <SelectInput
+                    label="From Point"
+                    value={pendingTrace.point}
+                    onChange={(val) => setPendingTrace((s) => ({ ...s, point: val }))}
+                    options={makeVertexLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(pt => ({label: pt, value: pt}))}
+                  />
+                </div>
+                <div className="w-40">
+                  <NumberInput
+                    label="Length (mm)"
+                    value={pendingTrace.length}
+                    onChange={(val) => setPendingTrace((s) => ({ ...s, length: val }))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addTraceCable}
+                  className="h-12 px-6 bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* List */}
+              <div className="space-y-3">
+                {(attributes.traceCables || []).map((tc, i) => (
+                  <div key={i} className="flex items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200 w-max pr-4">
+                     <span className="font-bold text-gray-700 w-8 text-center">{tc.point}</span>
+                     <div className="w-32">
+                       <NumberInput 
+                         value={tc.length} 
+                         onChange={(v) => updateTraceCableLength(i, v)} 
+                         className="h-10 bg-white" // Slightly smaller for list items
+                       />
+                     </div>
+                     <span className="text-gray-500 text-sm">mm</span>
+                     <button type="button" onClick={() => removeTraceCable(i)} className="text-red-600 hover:text-red-800 font-medium text-sm">
+                       Remove
+                     </button>
                   </div>
                 ))}
               </div>
-            )}
-          </Section>
-
-          {/* UFCs - similar to Trace Cables: diagonal + optional size (5 or 6) */}
-          <Section title="UFCs">
-            <div className="flex flex-wrap items-center gap-2">
-               <div className="w-24">
-                <SelectInput
-                  label="Diagonal"
-                  value={pendingUfc.diagonal}
-                  onChange={(val) => setPendingUfc((s) => ({ ...s, diagonal: val }))}
-                  options={[
-                    {label: "—", value: ""},
-                    ...makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(d => ({label: d, value: d}))
-                  ]}
-                />
-              </div>
-
-              <div className="w-20">
-                <SelectInput
-                  label="Size"
-                  value={pendingUfc.size}
-                  onChange={(val) => setPendingUfc((s) => ({ ...s, size: val }))}
-                  options={[
-                    { label: "(auto)", value: "" },
-                    { label: "5", value: "5" },
-                    { label: "6", value: "6" }
-                  ]}
-                />
-              </div>
-
-              <div className="w-24">
-                <SelectInput
-                  label="Pocket"
-                  value={pendingUfc.internalPocket ?? "no"}
-                  onChange={(val) => setPendingUfc((s) => ({ ...s, internalPocket: val }))}
-                   options={[
-                    { label: "No Pocket", value: "no" },
-                    { label: "Pocket", value: "yes" }
-                  ]}
-                />
-              </div>
-
-            <div className="w-24">
-               <SelectInput
-                  label="Coated"
-                  value={pendingUfc.coatedCable ?? "no"}
-                  onChange={(val) => setPendingUfc((s) => ({ ...s, coatedCable: val }))}
-                   options={[
-                    { label: "Uncoated", value: "no" },
-                    { label: "Coated", value: "yes" }
-                  ]}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="h-10 mt-6 px-3 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-                onClick={addUfc}
-                aria-label={`Add ufc ${pendingUfc.diagonal}`}
-              >
-                Add
-              </button>
             </div>
 
-            {(attributes.ufcs || []).length > 0 && (
-              <div className="space-y-2 mt-2 text-xs">
+            {/* UFCs */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4">UFCs</h4>
+              <FormGrid columns={4} className="items-end">
+                 <SelectInput
+                    label="Diagonal"
+                    value={pendingUfc.diagonal}
+                    onChange={(val) => setPendingUfc((s) => ({ ...s, diagonal: val }))}
+                    options={[
+                      {label: "—", value: ""},
+                      ...makeDiagonalLabels(Math.max(0, Number(attributes.pointCount) || 0)).map(d => ({label: d, value: d}))
+                    ]}
+                 />
+                 <SelectInput
+                    label="Size"
+                    value={pendingUfc.size}
+                    onChange={(val) => setPendingUfc((s) => ({ ...s, size: val }))}
+                    options={[{ label: "(auto)", value: "" }, { label: "5", value: "5" }, { label: "6", value: "6" }]}
+                 />
+                 <SelectInput
+                    label="Pocket"
+                    value={pendingUfc.internalPocket ?? "no"}
+                    onChange={(val) => setPendingUfc((s) => ({ ...s, internalPocket: val }))}
+                    options={[{ label: "No", value: "no" }, { label: "Yes", value: "yes" }]}
+                 />
+                 <button
+                    type="button"
+                    onClick={addUfc}
+                    className="h-12 w-full bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition-colors"
+                 >
+                    Add UFC
+                 </button>
+              </FormGrid>
+
+              {/* UFC List */}
+              <div className="space-y-3 mt-4">
                 {(attributes.ufcs || []).map((u, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    {/* Diagonal label */}
-                    <div className="w-10 opacity-80">{u.diagonal}</div>
-
-                    {/* Size selector */}
-                    <select
-                      className="inputCompact h-8 w-20 text-xs"
-                      value={u.size ?? ""}
-                      onChange={(e) => updateUfcSize(i, e.target.value)}
-                    >
-                      <option value="">(auto)</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                      <option value="6">6</option>
-                    </select>
-                    <div className="opacity-70">mm</div>
-
-                    {/* Internal Pocket selector */}
-                    <select
-                      className="inputCompact h-8 w-20 text-xs"
-                      value={u.internalPocket ? "yes" : "no"}
-                      onChange={(e) =>
-                        updateUfcField(i, "internalPocket", e.target.value === "yes")
-                      }
-                    >
-                      <option value="no">No Pocket</option>
-                      <option value="yes">Pocket</option>
-                    </select>
-
-                    {/* Coated Cable selector */}
-                    <select
-                      className="inputCompact h-8 w-20 text-xs"
-                      value={u.coatedCable ? "yes" : "no"}
-                      onChange={(e) =>
-                        updateUfcField(i, "coatedCable", e.target.value === "yes")
-                      }
-                    >
-                      <option value="no">Uncoated</option>
-                      <option value="yes">Coated</option>
-                    </select>
-
-                    {/* Remove button */}
-                    <button
-                      type="button"
-                      className="text-xs text-red-600 ml-2"
-                      onClick={() => removeUfc(i)}
-                    >
-                      Remove
-                    </button>
+                  <div key={i} className="flex flex-wrap items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                    <span className="font-bold text-gray-700 w-12">{u.diagonal}</span>
+                    <SelectInput 
+                      className="h-10 w-24 bg-white"
+                      value={u.size ?? ""} 
+                      onChange={(val) => updateUfcSize(i, val)} 
+                      options={[{ label: "Auto", value: "" }, { label: "5mm", value: "5" }, { label: "6mm", value: "6" }]}
+                    />
+                    <SelectInput 
+                      className="h-10 w-28 bg-white"
+                      value={u.internalPocket ? "yes" : "no"} 
+                      onChange={(val) => updateUfcField(i, "internalPocket", val === "yes")} 
+                      options={[{ label: "No Pocket", value: "no" }, { label: "Pocket", value: "yes" }]}
+                    />
+                     <button type="button" onClick={() => removeUfc(i)} className="text-red-600 hover:text-red-800 font-medium text-sm ml-auto">
+                       Remove
+                     </button>
                   </div>
                 ))}
               </div>
-            )}
-          </Section>
+            </div>
+
+          </div>
         </details>
       )}
-    </FormContainer>
+
+    </div>
   );
 }
 

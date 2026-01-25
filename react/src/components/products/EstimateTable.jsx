@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
 import { apiFetch } from '../../services/auth';
+import { 
+  CompactNumberInput,
+  SimpleTable,
+  SimpleTh,
+  SimpleTd
+} from '../FormUI';
 
 import SchemaEditor from './SchemaEditor';
 
@@ -22,6 +28,9 @@ function evalExpr(expr, named = {}) {
     return 0; // numeric fallback avoids row suppression
   }
 }
+
+// Shared styling constants
+// const INPUT_COMPACT_CLASS ... (removed)
 
 export default function EstimateTable({
   schema = {},
@@ -326,7 +335,7 @@ export default function EstimateTable({
         return (
           <div key={productIndex}>
             {/* Product Header */}
-            <h3 className="headingStyle mt-5 text-red-800">
+            <h3 className="text-2xl font-bold text-red-800 mb-4 text-left mt-5">
               {name}
             </h3>
 
@@ -334,25 +343,21 @@ export default function EstimateTable({
             <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', flexDirection: 'column', fontSize: '14px' }}>
                 Contingency %
-                <input
-                  type="number"
+                <CompactNumberInput
                   min={0}
                   max={100}
                   value={contingencyPercent}
                   onChange={handleContingencyChange}
-                  className="inputCompact"
                   style={{ width: '100px' }}
                 />
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', fontSize: '14px' }}>
                 Gross Margin %
-                <input
-                  type="number"
+                <CompactNumberInput
                   min={0}
                   max={99.9}
                   value={marginPercent}
                   onChange={handleMarginChange}
-                  className="inputCompact"
                   style={{ width: '100px' }}
                 />
               </label>
@@ -367,13 +372,13 @@ export default function EstimateTable({
               </button>
             </div>
 
-            <table className="tableBase">
+            <SimpleTable>
               <thead>
                 <tr style={{ backgroundColor: '#f3f4f6' }}>
-                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Item</th>
-                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Qty</th>
-                  <th className="tableCell" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Unit Cost</th>
-                  <th className="tableCell text-right" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Line Total</th>
+                  <SimpleTh style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Item</SimpleTh>
+                  <SimpleTh style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Qty</SimpleTh>
+                  <SimpleTh style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Unit Cost</SimpleTh>
+                  <SimpleTh align="right" style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Line Total</SimpleTh>
                 </tr>
               </thead>
               <tbody>
@@ -395,27 +400,23 @@ export default function EstimateTable({
                           if (row.type === 'row' || row.type === 'sku') {
                             if (!item || Number(item.quantity) === 0 || isNaN(Number(item.quantity))) return null;
                             return (
-                              <tr key={idx} className="tableRowHover">
-                                <td className="tableCell">{item.description}</td>
-                                <td className="tableCell">
-                                  <input
-                                    type="number"
+                              <tr key={idx}>
+                                <SimpleTd>{item.description}</SimpleTd>
+                                <SimpleTd>
+                                  <CompactNumberInput
                                     value={item.quantity ?? ''}
                                     onChange={(e) => handleRowChange(productIndex, section, idx, 'quantity', e.target.value)}
-                                    className="inputCompact"
                                   />
-                                </td>
-                                <td className="tableCell">
-                                  <input
-                                    type="number"
+                                </SimpleTd>
+                                <SimpleTd>
+                                  <CompactNumberInput
                                     value={item.unitCost ?? ''}
                                     onChange={(e) => handleRowChange(productIndex, section, idx, 'unitCost', e.target.value)}
-                                    className="inputCompact"
                                   />
-                                </td>
-                                <td className="tableCell text-right font-mono">
+                                </SimpleTd>
+                                <SimpleTd align="right" className="font-mono">
                                   {(Number(item.quantity) * Number(item.unitCost)).toFixed(2)}
-                                </td>
+                                </SimpleTd>
                               </tr>
                             );
                           }
@@ -423,16 +424,14 @@ export default function EstimateTable({
                           // Custom input rows (other than global margin/contingency)
                           if (row.type === 'input') {
                             return (
-                              <tr key={idx} className="bg-gray-50">
-                                <td className="tableCell">{row.label}</td>
-                                <td className="tableCell">
-                                  <input
-                                    type="number"
+                              <tr key={idx} className="bg-gray-50 dark:bg-gray-800">
+                                <SimpleTd>{row.label}</SimpleTd>
+                                <SimpleTd>
+                                  <CompactNumberInput
                                     value={inputs[row.key] ?? ''}
                                     onChange={(e) => handleInputChange(productIndex, row.key, e.target.value)}
-                                    className="inputCompact"
                                   />
-                                </td>
+                                </SimpleTd>
                                 <td colSpan={2}></td>
                               </tr>
                             );
@@ -448,12 +447,12 @@ export default function EstimateTable({
                             };
                             const value = evalExpr(row.expr, evalContext);
                             return (
-                              <tr key={idx} className="tableCalc">
-                                <td className="tableCell">{row.label}</td>
+                              <tr key={idx} className="bg-warm-grey dark:bg-gray-800">
+                                <SimpleTd>{row.label}</SimpleTd>
                                 <td colSpan={2}></td>
-                                <td className="tableCell text-right font-bold">
+                                <SimpleTd align="right" className="font-bold">
                                   {typeof value === 'number' ? value.toFixed(2) : value}
-                                </td>
+                                </SimpleTd>
                               </tr>
                             );
                           }
@@ -462,9 +461,9 @@ export default function EstimateTable({
                           return null;
                         })}
                         {/* Automatic section total */}
-                        <tr className="tableCalc" style={{ backgroundColor: '#f3f4f6' }}>
-                          <td className="tableCell" colSpan={3}>{section} Total</td>
-                          <td className="tableCell text-right">{(context[`${section.toLowerCase()}Total`] || 0).toFixed(2)}</td>
+                        <tr className="bg-warm-grey dark:bg-gray-800" style={{ backgroundColor: '' }}>
+                          <SimpleTd colSpan={3}>{section} Total</SimpleTd>
+                          <SimpleTd align="right">{(context[`${section.toLowerCase()}Total`] || 0).toFixed(2)}</SimpleTd>
                         </tr>
                       </React.Fragment>
                     );
@@ -472,36 +471,36 @@ export default function EstimateTable({
 
                 {/* Per-Product Total */}
                 <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
-                  <td className="tableCell" colSpan={3}>{name} Base Cost</td>
-                  <td className="tableCell text-right">${context.baseCost.toFixed(2)}</td>
+                  <SimpleTd colSpan={3}>{name} Base Cost</SimpleTd>
+                  <SimpleTd align="right">${context.baseCost.toFixed(2)}</SimpleTd>
                 </tr>
                 <tr style={{ backgroundColor: '#f9fafb' }}>
-                  <td className="tableCell" colSpan={3}>Contingency ({contingencyPercent}%)</td>
-                  <td className="tableCell text-right">${global.contingencyAmount.toFixed(2)}</td>
+                  <SimpleTd colSpan={3}>Contingency ({contingencyPercent}%)</SimpleTd>
+                  <SimpleTd align="right">${global.contingencyAmount.toFixed(2)}</SimpleTd>
                 </tr>
                 <tr style={{ backgroundColor: '#eef2ff', fontWeight: 'bold' }}>
-                  <td className="tableCell" colSpan={3}>Suggested Price (Margin {marginPercent}%)</td>
-                  <td className="tableCell text-right">${global.suggestedPrice.toFixed(2)}</td>
+                  <SimpleTd colSpan={3}>Suggested Price (Margin {marginPercent}%)</SimpleTd>
+                  <SimpleTd align="right">${global.suggestedPrice.toFixed(2)}</SimpleTd>
                 </tr>
               </tbody>
-            </table>
+            </SimpleTable>
           </div>
         );
       })}
 
       {/* Grand Total Section */}
-      <table className="tableBase" style={{ marginTop: '20px' }}>
+      <SimpleTable style={{ marginTop: '20px' }}>
         <tbody>
           <tr style={{ backgroundColor: '#1f2937', color: 'white', fontSize: '18px', fontWeight: 'bold' }}>
-            <td className="tableCell" colSpan={3}>
+            <SimpleTd colSpan={3}>
               GRAND TOTAL (All Products)
-            </td>
-            <td className="tableCell text-right">
+            </SimpleTd>
+            <SimpleTd align="right">
               ${grandTotal.toFixed(2)}
-            </td>
+            </SimpleTd>
           </tr>
         </tbody>
-      </table>
+      </SimpleTable>
 
       <div>
         <button

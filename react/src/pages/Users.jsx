@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import '../styles/index.css';
-import { apiFetch } from '../services/auth';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../services/auth';
+import { Button } from '../components/ui';
+import { TextInput, SelectInput, FormContainer } from '../components/FormUI';
+import GenericTable from '../components/GenericTable';
 
 function Users() {
   const role = localStorage.getItem('role');
@@ -86,83 +88,96 @@ function Users() {
 
   if (role !== 'admin') return null;
 
-  return (
-    <div className="page p-8 max-w-4xl mx-auto">
-      <h1 className="headingStyle mb-6">User Management</h1>
+  const columns = [
+      { header: 'Username', accessor: 'username', headerClassName: 'w-1/4' },
+      { header: 'Role', accessor: 'role', headerClassName: 'w-1/4' },
+      { 
+          header: 'Verified', 
+          headerClassName: 'w-1/4',
+          render: (user) => (
+             <span className={`px-2 py-1 rounded text-xs font-bold ${user.verified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {user.verified ? 'Yes' : 'No'}
+            </span>
+          ) 
+      },
+      {
+          header: 'Actions',
+          headerClassName: 'w-1/4',
+          render: (user) => (
+              !user.verified && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); handleVerify(user.username); }} 
+                    className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 text-sm font-medium transition-colors"
+                >
+                    Verify
+                </button>
+              )
+          )
+      }
+  ];
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <h3 className="text-xl font-bold mb-4 dark:text-white">All Users</h3>
+  const roleOptions = [
+      { label: 'Select Role', value: '' },
+      { label: 'Designer', value: 'designer' },
+      { label: 'Estimator', value: 'estimator' },
+      { label: 'Admin', value: 'admin' },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">User Management</h1>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">All Users</h3>
+        </div>
         {loading ? (
-          <p className="dark:text-gray-300">Loading users...</p>
-        ) : users.length === 0 ? (
-          <p className="dark:text-gray-300">No users found.</p>
+          <p className="p-6 text-gray-500 dark:text-gray-400">Loading users...</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="tableBase w-full">
-              <thead>
-                <tr>
-                  <th className="text-left p-2">Username</th>
-                  <th className="text-left p-2">Role</th>
-                  <th className="text-left p-2">Verified</th>
-                  <th className="text-left p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.username} className="border-t border-gray-100 dark:border-gray-700">
-                    <td className="p-2">{user.username}</td>
-                    <td className="p-2">{user.role}</td>
-                    <td className="p-2">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${user.verified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {user.verified ? 'Yes' : 'No'}
-                        </span>
-                    </td>
-                    <td className="p-2">
-                      {!user.verified && (
-                        <button onClick={() => handleVerify(user.username)} className="text-blue-600 hover:underline dark:text-blue-400 text-sm font-medium">Verify</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <GenericTable 
+            columns={columns} 
+            data={users} 
+            keyFn={(u) => u.username} 
+            className="border-none shadow-none rounded-none"
+          />
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mt-8">
-        <h3 className="text-xl font-bold mb-4 dark:text-white">Create Staff User</h3>
-        <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-md">
-          <input
-            type="text"
-            placeholder="Username"
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-            required
-            className="inputStyle"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            className="inputStyle"
-          />
-          <select
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value)}
-            required
-            className="inputStyle"
-          >
-            <option value="">Select Role</option>
-            <option value="designer">Designer</option>
-            <option value="estimator">Estimator</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button type="submit" className="buttonStyle">Create User</button>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Create Staff User</h3>
+        <form onSubmit={handleCreate} className="max-w-md space-y-4">
+            <FormContainer>
+                <TextInput
+                    label="Username"
+                    value={newUsername}
+                    onChange={setNewUsername}
+                    required
+                />
+                <TextInput
+                    label="Password"
+                    type="password"
+                    value={newPassword}
+                    onChange={setNewPassword}
+                    required
+                />
+                <SelectInput
+                    label="Role"
+                    value={newRole}
+                    onChange={setNewRole}
+                    options={roleOptions}
+                    required
+                />
+            </FormContainer>
+            
+            <div className="pt-2">
+                <Button type="submit">Create User</Button>
+            </div>
         </form>
-        {createMsg && <div className={`mt-4 text-sm font-medium ${createMsg.includes('created') ? 'text-green-600' : 'text-red-500'}`}>{createMsg}</div>}
+        {createMsg && (
+            <div className={`mt-4 text-sm font-medium ${createMsg.includes('created') ? 'text-green-600' : 'text-red-500'}`}>
+                {createMsg}
+            </div>
+        )}
       </div>
     </div>
   );

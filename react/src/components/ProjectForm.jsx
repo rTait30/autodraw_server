@@ -1,9 +1,9 @@
-import { Suspense } from "react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSelector } from 'react-redux';
 
 import { GeneralSection } from "./GeneralSection";
 import { CheckboxInput, SelectInput, TextInput } from "./FormUI";
+import { Button } from "./ui";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 // Default general values
@@ -546,12 +546,12 @@ export default function ProjectForm({
         {/* Rehydrate box UI only if devMode is true */}
         {devMode && (
           <div className="mt-4">
-            <button
-              className="devStyle"
+            <Button
+              variant="dev"
               onClick={() => setShowRehydrateBox((v) => !v)}
             >
               {showRehydrateBox ? "Hide" : "Show"} Rehydrate JSON
-            </button>
+            </Button>
             {showRehydrateBox && (
               <div className="mt-2">
                 <textarea
@@ -562,8 +562,8 @@ export default function ProjectForm({
                   placeholder="Paste rehydrate JSON here"
                 />
                 <div className="flex gap-2 mt-2">
-                  <button
-                    className="devStyle"
+                  <Button
+                    variant="dev"
                     onClick={() => {
                       try {
                         const obj = JSON.parse(rehydrateText);
@@ -604,9 +604,9 @@ export default function ProjectForm({
                     }}
                   >
                     Apply Rehydrate
-                  </button>
-                  <button
-                    className="devStyle"
+                  </Button>
+                  <Button
+                    variant="dev"
                     onClick={() => {
                       // Always get latest form state
                       const val = formRef.current?.getValues?.();
@@ -614,7 +614,7 @@ export default function ProjectForm({
                     }}
                   >
                     Copy Current Values
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

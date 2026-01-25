@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from '../services/auth';
+import { Button } from '../components/ui';
 
 const RectanglesForm = React.lazy(() =>
   import("../components/products/RECTANGLES/Form.jsx").then((module) => ({
@@ -126,9 +127,9 @@ export default function Rectangles() {
           </Suspense>
 
           <div className="flex items-center gap-3 mt-4">
-            <button onClick={onNest} className="buttonStyle">
+            <Button onClick={onNest}>
               Nest Rectangles
-            </button>
+            </Button>
             <span className="text-sm" aria-live="polite">
               {nestStatus.ok === null ? (
                 ""

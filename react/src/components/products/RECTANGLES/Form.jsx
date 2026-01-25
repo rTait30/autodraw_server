@@ -1,4 +1,12 @@
 import React, { useImperativeHandle, useState } from "react";
+import { 
+  FormContainer, 
+  FormSection,
+  NumberInput, 
+  TextInput, 
+  CheckboxInput 
+} from "../../FormUI";
+import { Button } from "../../ui";
 
 export const PROJECT_DEFAULTS = Object.freeze({
   rectangles: [
@@ -51,142 +59,102 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
     }));
   };
 
+  const setField = (field) => (val) => {
+      setProjectData(prev => ({ ...prev, [field]: val }));
+  };
+
   return (
     <div className="space-y-6">
-      <section className="space-y-4 p-5 rounded border">
-        <h3 className="text-lg font-semibold">Nesting Configuration</h3>
+      <FormSection title="Nesting Configuration">
+         <FormContainer>
+            <NumberInput 
+                label="Fabric Width (mm)"
+                value={projectData.fabricWidth}
+                onChange={setField("fabricWidth")}
+            />
+            <NumberInput 
+                label="Fabric Roll Length (mm)"
+                value={projectData.fabricRollLength}
+                onChange={setField("fabricRollLength")}
+            />
+            <CheckboxInput 
+                label="Allow Rotation"
+                checked={projectData.allowRotation}
+                onChange={setField("allowRotation")}
+            />
+         </FormContainer>
+      </FormSection>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Fabric Width (mm)</label>
-          <input
-            type="number"
-            className="inputStyle"
-            value={projectData.fabricWidth}
-            onChange={(e) =>
-              setProjectData((prev) => ({
-                ...prev,
-                fabricWidth: Number(e.target.value),
-              }))
-            }
-          />
+      <FormSection title="Rectangles">
+        <div className="flex justify-end mb-4">
+            <Button onClick={addRectangle} size="sm">+ Add Rectangle</Button>
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Fabric Roll Length (mm)</label>
-          <input
-            type="number"
-            className="inputStyle"
-            value={projectData.fabricRollLength}
-            onChange={(e) =>
-              setProjectData((prev) => ({
-                ...prev,
-                fabricRollLength: Number(e.target.value),
-              }))
-            }
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="allowRotation"
-            checked={projectData.allowRotation}
-            onChange={(e) =>
-              setProjectData((prev) => ({
-                ...prev,
-                allowRotation: e.target.checked,
-              }))
-            }
-          />
-          <label htmlFor="allowRotation" className="text-sm font-medium">
-            Allow Rotation
-          </label>
-        </div>
-      </section>
-
-      <section className="space-y-4 p-5 rounded border">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Rectangles</h3>
-          <button
-            type="button"
-            onClick={addRectangle}
-            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-          >
-            + Add Rectangle
-          </button>
-        </div>
-
-        <div className="space-y-3">
+        <div className="space-y-4">
           {projectData.rectangles.map((rect, index) => (
             <div
               key={index}
-              className="grid grid-cols-12 gap-2 items-center rounded"
+              className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
             >
-              <div className="col-span-2">
-                <label className="text-xs opacity-70">Label</label>
-                <input
-                  type="text"
-                  className="inputCompact w-full"
+              <div className="md:col-span-2">
+                <TextInput
+                  label="Label"
                   value={rect.label}
-                  onChange={(e) => updateRectangle(index, "label", e.target.value)}
+                  onChange={(val) => updateRectangle(index, "label", val)}
+                  wrapperClassName="mb-0"
                 />
               </div>
 
-              <div className="col-span-3">
-                <label className="text-xs opacity-70">Width (mm)</label>
-                <input
-                  type="number"
-                  className="inputCompact w-full"
+              <div className="md:col-span-3">
+                <NumberInput
+                  label="Width (mm)"
                   value={rect.width}
-                  onChange={(e) =>
-                    updateRectangle(index, "width", Number(e.target.value))
-                  }
+                  onChange={(val) => updateRectangle(index, "width", val)}
+                  wrapperClassName="mb-0"
                 />
               </div>
 
-              <div className="col-span-3">
-                <label className="text-xs opacity-70">Height (mm)</label>
-                <input
-                  type="number"
-                  className="inputCompact w-full"
+              <div className="md:col-span-3">
+                <NumberInput
+                  label="Height (mm)"
                   value={rect.height}
-                  onChange={(e) =>
-                    updateRectangle(index, "height", Number(e.target.value))
-                  }
+                  onChange={(val) => updateRectangle(index, "height", val)}
+                  wrapperClassName="mb-0"
                 />
               </div>
 
-              <div className="col-span-2">
-                <label className="text-xs opacity-70">Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  className="inputCompact w-full"
+              <div className="md:col-span-2">
+                <NumberInput
+                  label="Qty"
                   value={rect.quantity}
-                  onChange={(e) =>
-                    updateRectangle(index, "quantity", Number(e.target.value))
-                  }
+                  onChange={(val) => updateRectangle(index, "quantity", val)}
+                  wrapperClassName="mb-0"
                 />
               </div>
 
-              <div className="col-span-2 flex items-end">
+              <div className="md:col-span-2">
                 <button
                   type="button"
                   onClick={() => removeRectangle(index)}
-                  className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm w-full"
+                  className="w-full py-3 bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 rounded-lg text-sm font-medium transition-colors"
                 >
                   Remove
                 </button>
               </div>
             </div>
           ))}
+          {projectData.rectangles.length === 0 && (
+              <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+                  No rectangles added yet.
+              </div>
+          )}
         </div>
-      </section>
+      </FormSection>
     </div>
   );
 }
 
-export function ProductForm({ formRef, hydrate = {} }) {
+export function ProductForm({ formRef }) {
   // RECTANGLES product doesn't have per-item attributes yet, 
   // as it uses the ProjectForm for the list of rectangles.
   // This is a placeholder to satisfy the interface.
@@ -202,7 +170,7 @@ export function ProductForm({ formRef, hydrate = {} }) {
   );
 
   return (
-    <div className="p-4 text-sm text-gray-500 italic">
+    <div className="p-4 text-sm text-gray-500 italic text-center">
       This product is configured via the project settings above.
     </div>
   );

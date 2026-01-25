@@ -134,7 +134,7 @@ def _safe_eval_expr(expr: str, variables: Dict[str, Any]) -> float:
     expr = expr.strip()
     
     # Heuristic: If it contains "if " or "else " or looks like a python function call, use Python eval
-    if " if " in expr or " else " in expr or "math." in expr:
+    if any(token in expr for token in [" if ", " else ", "math.", ".get(", "max(", "min(", "round(", "abs(", "int(", "float("]):
          return _eval_python_expr(expr, variables)
 
     # Pre-process: remove newlines which break regex/ternary parsing
@@ -436,6 +436,112 @@ def estimate_price_from_schema(schema_data: Any, attributes: Dict[str, Any], sku
             "grand_total": suggested_price, # Final price
             "contingency_amount": contingency_amt
         }
+    }
+
+
+def evaluate_schema_structure(schema_data: Any, attributes: Dict[str, Any], skus = None) -> Dict[str, Any]:
+    """
+    Evaluates schema but returns the structure with resolved quantities and unitCosts 
+    instead of just the total price.
+    Returns: { "sections": { "SectionName": [rows...] }, "_constants": {...} }
+    """
+    if not isinstance(schema_data, dict):
+        return {"sections": {}, "_constants": {}}
+
+    input_state = {}
+    
+    # 1. Initialize Inputs
+    for section, rows in schema_data.items():
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, dict) and row.get("type") == "input":
+                    key = row.get("key")
+                    default_val = row.get("default", 0)
+                    if key:
+                        input_state[key] = default_val
+
+    # 2. Build Context
+    eval_context = {
+        **attributes,
+        "inputs": input_state,
+        "global": {
+            "contingencyPercent": schema_data.get("_constants", {}).get("contingencyPercent", 3),
+            "marginPercent": schema_data.get("_constants", {}).get("marginPercent", 45),
+        }
+    }
+
+    # 3. Evaluate Sections
+    evaluated_sections = {}
+    
+    # Calculate section totals first pass? 
+    # Or just evaluate rows independently. The original logic tracked section totals for Expressions.
+    # To support calculate rows referencing section totals, we need a multi-pass or maintain state.
+    # For now, let's do single pass roughly like the original logic, grouped by section.
+    
+    section_totals = {}
+    
+    # Collect sections to iterate
+    sections_to_process = {k: v for k, v in schema_data.items() if k != "_constants" and isinstance(v, list)}
+    
+    for section_name, rows in sections_to_process.items():
+        evaluated_rows = []
+        current_section_total = 0.0
+        
+        for row in rows:
+            if not isinstance(row, dict): continue
+            
+            new_row = row.copy()
+            rtype = (row.get("type") or "row").lower()
+            
+            if rtype in ("row", "sku"):
+                 # Evaluate Quantity
+                 qty_expr = row.get("quantity", 0)
+                 quantity = _evaluate_value(qty_expr, eval_context)
+                 new_row["quantity"] = quantity
+                 
+                 # Evaluate Unit Cost
+                 unit_cost = 0.0
+                 if rtype == "sku":
+                     sku_code = row.get("sku")
+                     if skus and sku_code in skus:
+                         unit_cost = float(skus[sku_code].costPrice or 0.0)
+                         new_row["description"] = skus[sku_code].name or sku_code
+                     else:
+                         unit_cost = 0.0
+                 else:
+                     cost_expr = row.get("unitCost", 0)
+                     unit_cost = _evaluate_value(cost_expr, eval_context)
+                
+                 new_row["unitCost"] = unit_cost
+                 
+                 line_total = quantity * unit_cost
+                 current_section_total += line_total
+            
+            elif rtype == "calc":
+                 # Calc rows usually display a value
+                 expr = row.get("expr")
+                 val = _evaluate_value(expr, eval_context)
+                 # We might want to store the result?
+                 # For now just pass it through, maybe frontend displays it differently
+                 pass
+            
+            elif rtype == "input":
+                 # Ensure default is set in the row if needed, basically pass through
+                 pass
+
+            evaluated_rows.append(new_row)
+        
+        evaluated_sections[section_name] = evaluated_rows
+        section_totals[section_name] = current_section_total
+        # Add to context for subsequent sections/expressions
+        eval_context[f"{section_name.lower()}Total"] = current_section_total
+
+    return {
+        "sections": evaluated_sections,
+        "_constants": schema_data.get("_constants", {
+            "contingencyPercent": 3, 
+            "marginPercent": 45
+        })
     }
 
 

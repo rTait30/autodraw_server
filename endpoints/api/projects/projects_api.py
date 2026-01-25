@@ -187,6 +187,8 @@ def get_project_config(project_id):
     # --- Include schema for privileged roles ---
     if user.role in ("admin", "estimator"):
         data["estimate_schema"] = project.estimate_schema or {}
+        # Also send the evaluated schema (with resolved numbers)
+        data["estimate_schema_evaluated"] = project.estimate_schema_evaluated or {}
 
     return jsonify(data), 200
 

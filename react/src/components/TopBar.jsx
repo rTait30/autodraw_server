@@ -4,6 +4,7 @@ import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
 import { logout } from '../services/auth';
+import { linkStyles, roleStyles } from './sharedStyles';
 
 function TopBar() {
   const name = localStorage.getItem('username');
@@ -47,17 +48,17 @@ function TopBar() {
 
   const navLinks = (
     <>
-      <Link to="/copelands/projects" className="linkStyle" onClick={() => setMenuOpen(false)}>Projects</Link>
-      <Link to="/copelands/newproject" className="linkStyle" onClick={() => setMenuOpen(false)}>New Project</Link>
+      <Link to="/copelands/projects" className={linkStyles} onClick={() => setMenuOpen(false)}>Projects</Link>
+      <Link to="/copelands/newproject" className={linkStyles} onClick={() => setMenuOpen(false)}>New Project</Link>
       {role === 'admin' && (
         <>
-          <Link to="/copelands/users" className="linkStyle" onClick={() => setMenuOpen(false)}>Users</Link>
-          <Link to="/copelands/database" className="linkStyle" onClick={() => setMenuOpen(false)}>Database</Link>
+          <Link to="/copelands/users" className={linkStyles} onClick={() => setMenuOpen(false)}>Users</Link>
+          <Link to="/copelands/database" className={linkStyles} onClick={() => setMenuOpen(false)}>Database</Link>
         </>
       )}
       {role !== 'client' && (
         <>
-          <Link to="/copelands/analytics" className="linkStyle" onClick={() => setMenuOpen(false)}>Analytics</Link>
+          <Link to="/copelands/analytics" className={linkStyles} onClick={() => setMenuOpen(false)}>Analytics</Link>
         </>
       )}
     </>
@@ -133,8 +134,8 @@ function TopBar() {
   
 
   return (
-    <>
-      <header className="topbar flex items-center justify-between px-5 h-[60px] w-full sticky top-0 z-[100] bg-primary dark:bg-gray-900 text-white transition-colors duration-200">
+    <div className="flex flex-col h-full overflow-hidden">
+      <header className="topbar flex-none flex items-center justify-between px-5 h-[60px] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
         <div className="flex items-center gap-6 flex-1">
           <img
             src={getBaseUrl('/static/img/DRlogo.png')}
@@ -145,8 +146,8 @@ function TopBar() {
 
         {/* Right side: name, role, burger icon */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <span className="roleStyle">{name}</span>
-          <span className="roleStyle">{role}</span>
+          <span className={roleStyles}>{name}</span>
+          <span className={roleStyles}>{role}</span>
           <button
             onClick={() => setMenuOpen(true)}
             className="bg-none border-white rounded border p-1 text-white text-3xl cursor-pointer mr-0 leading-none burger"
@@ -165,47 +166,10 @@ function TopBar() {
 
       {mobileMenu}
 
-      <main style={{ minHeight: 'calc(100vh - 60px)' }}>
+      <main className="flex-1 overflow-y-auto relative bg-gray-50 dark:bg-gray-900">
         <Outlet />
       </main>
-
-      <style>
-        {`
-          /* Make topbar sticky on all screen sizes */
-          .topbar-header {
-            position: sticky;
-            top: 0;
-            inset-inline: 0;
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;
-            box-sizing: border-box;
-            contain: paint;
-            z-index: 100;
-          }
-
-          @media (max-width: 799px) {
-            /* Prevent page-level horizontal nudge */
-            html, body { overflow-x: hidden; }
-            @supports (overflow-x: clip) {
-              html, body { overflow-x: clip; }
-            }
-
-            /* Make sure children don't force overflow */
-            .topbar-header > * {
-              min-width: 0;
-              flex-shrink: 1;
-            }
-
-            .topbar-header img {
-              max-width: 100%;
-              height: auto;
-              display: block;
-            }
-          }
-        `}
-      </style>
-    </>
+    </div>
   );
 }
 

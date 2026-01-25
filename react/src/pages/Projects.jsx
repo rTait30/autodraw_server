@@ -6,6 +6,8 @@ import { apiFetch } from '../services/auth';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
+import { Button } from '../components/ui';
+import { headingStyles } from '../components/sharedStyles';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -89,7 +91,7 @@ function Projects() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="sm:flex sm:items-center justify-between mb-6">
-        <h1 className="headingStyle">Projects</h1>
+        <h1 className={headingStyles}>Projects</h1>
       </div>
       
       <div className="mt-2 flex flex-col">
@@ -98,12 +100,12 @@ function Projects() {
       </div>
       
       <StickyActionBar>
-          <button
+          <Button
             onClick={() => setSearchParams({ new: 'true' })}
-            className="buttonStyle w-full"
+            className="w-full"
           >
             New Project
-          </button>
+          </Button>
       </StickyActionBar>
 
       {/* Product Selector Overlay */}
@@ -123,13 +125,13 @@ function Projects() {
               
               <div className="flex flex-col gap-3">
                   {productsList?.length > 0 ? productsList.map(p => (
-                    <button
+                    <Button
                       key={p.id || p.name}
                       onClick={() => handleProductSelect(p)}
-                      className="buttonStyle w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
+                      className="w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
                     >
                        {formatName(p.name)}
-                    </button>
+                    </Button>
                   )) : (
                       <div className="text-center text-gray-500 py-4">Loading products...</div>
                   )}

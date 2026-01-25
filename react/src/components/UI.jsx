@@ -14,6 +14,8 @@ export function Button({
     primary: "bg-primary text-white hover:bg-primary-hover focus:ring-primary",
     secondary: "bg-secondary text-white hover:bg-secondary-hover focus:ring-secondary",
     danger: "bg-tertiary text-white hover:bg-tertiary-hover focus:ring-tertiary",
+    dev: "bg-gray-400 text-white text-xs py-1 px-3 hover:bg-gray-500 shadow-none rounded-md",
+    submit: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-600 flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent",
   };
 
   return (

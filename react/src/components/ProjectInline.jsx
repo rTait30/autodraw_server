@@ -1,15 +1,76 @@
 import React, { useRef, useEffect, useState, Suspense, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import EstimateTable from './products/EstimateTable';
-import SchemaEditor from './products/SchemaEditor';
 import ProjectForm from './ProjectForm'; // Use ProjectForm wrapper
 import StickyActionBar from './StickyActionBar';
 import ProjectOverlay from './ProjectOverlay';
+import SimpleEstimateTable from './SimpleEstimateTable';
+import ProjectDocuments from './ProjectDocuments';
 import { apiFetch } from '../services/auth';
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
+import { Button } from './ui';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
+
+const CollapsibleCard = ({ title, children, defaultOpen = true, className = "", contentClassName = "", forceOpen = false, icon = null }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  // If forceOpen becomes true (e.g. entering overlay mode), ensure open
+  useEffect(() => {
+    if (forceOpen) setIsOpen(true);
+  }, [forceOpen]);
+
+  // When forced open, the header click will do nothing (or we could allow toggle if we want to hide overlay? but overlay mode implies active use)
+  // Let's allow toggle only if not forced, or maybe forceOpen just means "initially open and reset"? 
+  // No, forceOpen usually means "Stay Open". 
+  // If overlayMode is active, the viz panel displays the specific overlay UI. We probably don't want to collapse it.
+  
+  const toggle = () => {
+    if (forceOpen) return; 
+    setIsOpen(prev => !prev);
+  }
+
+  const show = isOpen || forceOpen;
+
+  // Use hidden class for content to preserve internal state (like canvas) instead of unmounting
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
+      {/* Header - hide if forceOpen is true? No, usually user wants context, but if overlayMode is active, maybe hide header? 
+          Actually if overlayMode='preview', the overlay takes over screen roughly. 
+          But keeping header allows collapsing IF we didn't block it. 
+          If forceOpen is true, let's hide the chevron to indicate locked state or just keep it open.
+       */}
+      {!forceOpen && (
+        <div 
+            className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={toggle}
+        >
+            <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
+                {icon && <span className="text-gray-500">{icon}</span>}
+                <span className="font-bold text-lg">{title}</span>
+            </div>
+            <div className="text-gray-500 dark:text-gray-400">
+                <svg 
+                    className={`w-5 h-5 transition-transform duration-200 ${show ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+        </div>
+      )}
+      
+      {/* If forceOpen (overlay mode), perhaps we shouldn't even render the card wrapper styles if we passed !border-0? 
+          The passing of className handling border-0 handles the container.
+      */}
+      <div className={show ? contentClassName : "hidden"}>
+          {children}
+      </div>
+    </div>
+  );
+};
 
 export default function ProjectInline({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) {
   const formRef = useRef(null);
@@ -56,9 +117,14 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
     // loadFormForProject(project); // Legacy loader removed
     
     // Load schema
-    const backendSchema = project?.estimate_schema ?? null;
+    // Prefer the Evaluated schema (results of calculation)
+    // Fallback to template schema if not yet calculated
+    const backendSchema = project?.estimate_schema_evaluated || project?.estimate_schema || null;
     setSchema(backendSchema);
     setEditedSchema(backendSchema);
+    
+    // Initial Viz Render
+    if (project) renderPreview(project);
   }, [project]);
 
   // Helper to load form - REMOVED (Handled by ProjectForm)
@@ -105,6 +171,8 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
 
     try {
       const payload = {
+        // If updating, include ID so backend can find existing schema
+        ...(isNew ? {} : { id: base.id }),
         product_id: base.product_id || base.product?.id,
         general: base.general || {},
         project_attributes: base.project_attributes || {},
@@ -122,6 +190,11 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
       const result = await res.json();
       const updated = { ...base, ...result, products: result.products || base.products };
       setEditedProject(updated);
+
+      // Temporary update of schema for preview without save
+      if (result.estimate_schema_evaluated) {
+          setSchema(result.estimate_schema_evaluated);
+      }
       
       // Attempt to render preview (simple version for now)
       renderPreview(updated);
@@ -193,8 +266,11 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
       showToast(isNew ? "Project Created!" : "Project Updated!");
       
       onSaved();
-      // Close overlay if open
-      if (overlayMode) closeOverlay();
+
+      // Refresh Window to reload project data and context completely
+      // This ensures we are "redirected" to the saved state
+      window.location.reload();
+      
     } catch (e) {
       console.error('Submit error:', e);
       showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`submitting project: ${e.message}`] });
@@ -246,76 +322,6 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
     setEstimateVersion(v => v + 1);
   }, [editedSchema]);
 
-  // Documents
-  const fetchDXF = async () => {
-    if (!editedProject?.id) return;
-    try {
-      const response = await apiFetch('/project/get_dxf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: editedProject.id }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `project_${editedProject.id}.dxf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      showToast(TOAST_TAGS.DXF_DOWNLOAD_FAILED, { args: [e.message] });
-    }
-  };
-
-  const fetchPDF = async (includeBom = false) => {
-    if (!editedProject?.id) return;
-    try {
-      const response = await apiFetch('/project/get_pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: editedProject.id, include_bom: includeBom }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `project_${editedProject.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      showToast(TOAST_TAGS.PDF_DOWNLOAD_FAILED, { args: [e.message] });
-    }
-  };
-
-  const fetchDocument = async (docId) => {
-    if (!editedProject?.id) return;
-    try {
-      const response = await apiFetch('/project/generate_document', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: editedProject.id, doc_id: docId }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `document_${editedProject.id}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert(`Failed: ${e.message}`);
-    }
-  };
-
   const closeOverlay = () => {
     setIsClosing(true);
     setTimeout(() => {
@@ -328,17 +334,8 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
 
   if (!productName) return null;
 
-  // New: detect if nesting data exists (required for DXF on COVER products)
-  const hasNestData = Boolean(
-    editedProject?.project_attributes?.nest &&
-    (editedProject?.project_attributes?.nested_panels || editedProject?.project_attributes?.all_meta_map)
-  );
-  
-  // Shade sails don't need nesting data for DXF
-  const canGenerateDXF = editedProject?.product?.name !== 'COVER' || hasNestData;
-
   return (
-    <div className="fixed inset-0 top-[60px] z-50 flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
+    <div className="fixed inset-0 top-[60px] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
       
       {/* Toast Overlay */}
       {toast && (
@@ -376,12 +373,16 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900">
+      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
         <div className="max-w-[1800px] mx-auto p-2 md:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
             
             {/* Left: Form */}
-            <div className="lg:col-span-7 xl:col-span-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <CollapsibleCard 
+              title="Project Specification" 
+              className="lg:col-span-7 xl:col-span-8"
+              defaultOpen={true}
+            >
               {productName ? (
                 <Suspense fallback={<div className="p-12 text-center text-lg text-gray-500">Loading form components...</div>}>
                   <div className="p-1">
@@ -396,70 +397,53 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
               ) : (
                 <div className="p-16 text-center text-gray-500 italic text-lg">Form definition not found for this product type.</div>
               )}
-            </div>
+            </CollapsibleCard>
 
             {/* Right: Viz (Sticky Sidebar and Overlay Wrapper) */}
-            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-160px)] lg:overflow-y-auto custom-scrollbar">
+            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar">
               
-              <ProjectOverlay
-                mode={overlayMode}
-                isClosing={isClosing}
-                onClose={closeOverlay}
-                canvasRef={canvasRef}
-                project={editedProject}
-                productName={productName}
-                devMode={devMode}
-                toggleData={toggleData}
-                setToggleData={setToggleData}
-              >
-                {/* Children: Documents & Estimate Section (Only shown when not in overlay mode, or inside sidebar) */}
-                {!overlayMode && isStaff && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm mt-4">
-                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Downloads</h4>
-                        
-                        {/* Documents Logic */}
-                        <div className="flex flex-wrap gap-2">
-                            {(!editedProject?.product?.capabilities?.documents || editedProject.product.capabilities.documents.length === 0) && (
-                                <>
-                                    {editedProject?.product?.capabilities?.has_dxf && (
-                                        <button 
-                                            onClick={fetchDXF} 
-                                            className="buttonStyle text-sm py-2 px-3 mt-0"
-                                            disabled={!canGenerateDXF}
-                                            title={!canGenerateDXF ? 'Run Check to generate nesting.' : ''}
-                                        >Download DXF</button>
-                                    )}
-                                    {editedProject?.product?.capabilities?.has_pdf && (
-                                        <>
-                                        <button onClick={() => fetchPDF(false)} className="buttonStyle text-sm py-2 px-3 mt-0">PDF</button>
-                                        <button onClick={() => fetchPDF(true)} className="buttonStyle text-sm py-2 px-3 mt-0">PDF + BOM</button>
-                                        </>
-                                    )}
-                                </>
-                            )}
+              {/* Estimate Section (Visible in sidebar mode) */}
+              {!overlayMode && isStaff && schema && (
+                <CollapsibleCard 
+                  title="Project Estimate" 
+                  defaultOpen={false} // Collapsed by default on mobile (implied logic, though defaultOpen=true is default prop, I set explicit if desired. User asked 'could be collapsable'. I set false for compactness?)
+                  // Actually usually spec is main, estimates secondary.
+                  icon={
+                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 36-3 3-3-3m3 3V10m0 20a9 9 0 110-18 9 9 0 010 18z" />
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                       </svg>
+                  }
+                >
+                   <div className="p-5">
+                      <SimpleEstimateTable schema={schema} onTotalChange={setCurrentEstimateTotal} />
+                   </div>
+                </CollapsibleCard>
+              )}
 
-                            {/* Dropdown */}
-                            {editedProject?.product?.capabilities?.documents?.length > 0 && (
-                                <select 
-                                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
-                                    onChange={(e) => {
-                                        if (e.target.value) {
-                                            fetchDocument(e.target.value);
-                                            e.target.value = ""; 
-                                        }
-                                    }}
-                                    defaultValue=""
-                                >
-                                    <option value="" disabled>Select document...</option>
-                                    {editedProject.product.capabilities.documents.map(doc => (
-                                        <option key={doc.id} value={doc.id}>{doc.name}</option>
-                                    ))}
-                                </select>
-                            )}
-                        </div>
-                    </div>
-                )}
-              </ProjectOverlay>
+              {/* Documents Section (Visible in sidebar mode) */}
+              {!overlayMode && isStaff && (
+                 <ProjectDocuments project={editedProject} showToast={showToast} />
+              )}
+
+              <CollapsibleCard 
+                  title="Visualisation" 
+                  forceOpen={!!overlayMode}
+                  className={overlayMode ? "!border-0 !shadow-none !bg-transparent !rounded-none !overflow-visible" : ""} // Reset card styles when overlay active
+                  defaultOpen={true}
+              >
+                <ProjectOverlay
+                  mode={overlayMode}
+                  isClosing={isClosing}
+                  onClose={closeOverlay}
+                  canvasRef={canvasRef}
+                  project={editedProject}
+                  productName={productName}
+                  devMode={devMode}
+                  toggleData={toggleData}
+                  setToggleData={setToggleData}
+                />
+              </CollapsibleCard>
             </div>
 
           </div>
@@ -468,33 +452,38 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
 
       {/* Footer Action Bar */}
       {productName && (
-        <StickyActionBar className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">
+        <StickyActionBar 
+          mode="static"
+          className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">
             {overlayMode === 'confirm' ? (
             <>
-                <button 
+                <Button 
                     onClick={closeOverlay} 
-                    className="buttonStyle bg-gray-500 hover:bg-gray-600 text-white border-transparent flex-1 justify-center py-3 text-lg"
+                    className="bg-gray-500 hover:bg-gray-600 text-white border-transparent flex-1 justify-center py-3 text-lg"
+                    variant="custom"
                 >
                 Back
-                </button>
-                <button 
+                </Button>
+                <Button 
                     onClick={handleSave} 
-                    className="buttonStyle flex-[2] justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
+                    className="flex-[2] justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
+                    variant="custom"
                 >
                 Confirm & {isNew ? 'Create' : 'Save'}
-                </button>
+                </Button>
             </>
             ) : (
             <>
-                <button 
+                <Button 
                     onClick={overlayMode === 'preview' ? closeOverlay : handleCheck} 
-                    className={`buttonStyle flex-1 justify-center py-3 text-lg ${overlayMode === 'preview' ? 'bg-gray-600 hover:bg-gray-700 border-transparent text-white' : ''}`}
+                    className="flex-1 justify-center py-3 text-lg"
+                    variant={overlayMode === 'preview' ? 'danger' : 'primary'}
                 >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check / Calculate'}
-                </button>
-                <button onClick={handleSave} className="buttonStyle flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent">
-                {isNew ? 'Create Project' : 'Submit Changes'}
-                </button>
+                </Button>
+                <Button onClick={handleSave} variant="submit">
+                {isNew ? 'Submit Project' : 'Submit Changes'}
+                </Button>
             </>
             )}
         </StickyActionBar>

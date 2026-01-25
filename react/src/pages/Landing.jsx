@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import { getBaseUrl } from '../utils/baseUrl';
 import '../styles/index.css';
+import { Button } from '../components/ui';
 
 export default function Landing() {
   const [backgroundStyle, setBackgroundStyle] = useState({});
@@ -36,14 +37,14 @@ export default function Landing() {
 
       <div className="mt-6 bg-white dark:bg-gray-900 rounded-[20px] p-8 w-80 flex flex-col items-center gap-4 shadow-lg">
         <Link to="/copelands/discrepancy">
-          <button className="buttonStyle">
+          <Button>
             Open Discrepancy Calculator
-          </button>
+          </Button>
         </Link>
         <Link to="/copelands/rectangles">
-          <button className="buttonStyle">
+          <Button>
             Open Rectangle Nesting Tool
-          </button>
+          </Button>
         </Link>
       </div>
     </div>

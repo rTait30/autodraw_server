@@ -83,7 +83,7 @@ export function GeneralSection({ data, setData = () => {} }) {
               value={safe.client_id}
               onChange={updateField("client_id")}
               options={[
-                { value: "", label: "Select client" },
+                { value: "", label: "None" },
                 ...clients.map(c => ({ value: c.id, label: c.name }))
               ]}
             />

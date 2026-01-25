@@ -7,6 +7,14 @@ import { TextInput, FormContainer } from './FormUI';
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
 
 import { Button } from './ui';
+import { 
+  formStyles, 
+  authContainerStyles, 
+  authBoxStyles, 
+  authLogoStyles,
+  authErrorStyles,
+  authSuccessStyles
+} from './sharedStyles';
 
 function resetViewport() {
 
@@ -142,10 +150,10 @@ export default function Authentication() {
   }
 
   return (
-    <div className="auth-container">
+    <div className={authContainerStyles}>
       <div className="w-full flex items-center justify-center">
-        <div className="auth-box dark:bg-gray-800">
-          <div className="auth-logo">
+        <div className={authBoxStyles}>
+          <div className={authLogoStyles}>
             <img
               src={getBaseUrl('/static/img/DRlogo.png')}
               alt="Logo"
@@ -154,7 +162,7 @@ export default function Authentication() {
           </div>
 
           {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="formStyle">
+            <form onSubmit={handleLogin} className={formStyles}>
 
               <TextInput
                 label="Username"
@@ -183,7 +191,7 @@ export default function Authentication() {
                 Login
               </Button>
 
-              <button
+              <Button
                   type="button"
                   onClick={() => {
                     setRegisterForm(s => ({
@@ -200,13 +208,13 @@ export default function Authentication() {
                       setErrorText('');
                     }
                   }}
-                  className="buttonStyle w-full"
+                  className="w-full"
                   disabled={submitting}
                 >
                   Register as client
-              </button>
+              </Button>
 
-              { errorText && <div className="auth-error">{errorText} </div> }
+              { errorText && <div className={authErrorStyles}>{errorText} </div> }
 
             </form>
             
@@ -240,7 +248,7 @@ export default function Authentication() {
                 autoComplete="new-password"
               />
 
-              {errorText && <div className="auth-error mb-2">{errorText}</div>}
+              {errorText && <div className={`${authErrorStyles} mb-2`}>{errorText}</div>}
 
               <TextInput
                 label="Confirm Password"
@@ -251,20 +259,21 @@ export default function Authentication() {
                 autoComplete="new-password"
               />
 
-              <button type="submit" className="buttonStyle w-full mt-4" disabled={submitting}>
-                {submitting ? 'Registering…' : 'Register'}
-              </button>
+              <Button type="submit" className="w-full mt-4" disabled={submitting} isLoading={submitting}>
+                Register
+              </Button>
 
-              <button
+              <Button
                 type="button"
                 onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
-                className="buttonStyle w-full"
+                className="w-full"
                 disabled={submitting}
+                variant="secondary"
               >
                 Cancel
-              </button>
+              </Button>
 
-              {successText && <div className="auth-success">{successText}</div>}
+              {successText && <div className={authSuccessStyles}>{successText}</div>}
             </form>
           )}
         </div>

@@ -159,7 +159,8 @@ function Projects() {
           onClose={handleCloseProject}
           onSaved={() => {
             fetchProjects();
-            handleCloseProject();
+            // Do not close - allow ProjectInline to handle navigation or stay open
+            // handleCloseProject(); 
           }} 
         />
       )}

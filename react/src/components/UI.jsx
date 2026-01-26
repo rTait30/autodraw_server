@@ -7,7 +7,8 @@ export function Button({
 }) {
   
   // Base styles that make it feel "Solid" (consistent padding, font, focus rings)
-  const baseStyles = "inline-flex items-center justify-center px-4 py-2 font-gill font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const displayStyle = className.includes('w-full') ? 'flex w-full' : 'inline-flex';
+  const baseStyles = `${displayStyle} items-center justify-center px-4 py-2 font-gill font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`;
   
   // Variants map to your theme colors
   const variants = {

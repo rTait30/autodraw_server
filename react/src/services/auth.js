@@ -67,7 +67,7 @@ export async function apiFetch(path, options = {}, _retried = false) {
       console.error("[API] Refresh failed or session expired. Redirecting to login.");
       setAccessToken(null);
       window.location.href = "/copelands";
-      return; // Stop execution
+      throw new Error("Session expired. Redirecting...");
     }
   }
 

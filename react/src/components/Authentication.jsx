@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
-import { TextInput, FormContainer } from './FormUI';
+import { TextInput, FormSection } from './FormUI';
 // New style: access token stays in memory (not localStorage) (HttpOnly, same‑site cookie.)
 
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
@@ -36,6 +36,7 @@ export default function Authentication() {
   const [errorText, setErrorText] = useState('');
   const [successText, setSuccessText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const navigate = useNavigate();
 
   // Auto-login check on mount
@@ -140,7 +141,7 @@ export default function Authentication() {
       resetViewport();
       setTimeout(() => resetViewport(), 50);
 
-      navigate('/copelands/home');
+      navigate('/copelands/projects');
 
     } catch (err) {
       setErrorText(err.message || 'Registration failed.');
@@ -163,117 +164,143 @@ export default function Authentication() {
 
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className={formStyles}>
+              <FormSection title="Sign In">
+                <TextInput
+                  label="Username"
+                  value={loginForm.username}
+                  onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
+                  required
+                  autoComplete="username"
+                />
 
-              <TextInput
-                label="Username"
-                value={loginForm.username}
-                onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
-                required
-                autoComplete="username"
-              />
+                <TextInput
+                  label="Password"
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
+                  required
+                  autoComplete="current-password"
+                />
+                
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    className="text-sm text-blue-600 hover:underline focus:outline-none"
+                    onClick={() => setShowForgotPassword(!showForgotPassword)}
+                  >
+                    I forgot my password
+                  </button>
+                  {showForgotPassword && (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
+                      <p className="mb-1">
+                        Please call <a href="tel:555-123-4567" className="text-blue-600 font-medium">555-123-4567</a>
+                      </p>
+                      <p>
+                        or email <a href="mailto:support@example.com" className="text-blue-600 font-medium">support@example.com</a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </FormSection>
 
-              <TextInput
-                label="Password"
-                type="password"
-                value={loginForm.password}
-                onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
-                required
-                autoComplete="current-password"
-              />
-
-
-
-              <Button 
-                type="submit" 
-                className="w-full mt-4" 
-                isLoading={submitting}
-              >
-                Login
-              </Button>
-
-              <Button
-                  type="button"
-                  onClick={() => {
-                    setRegisterForm(s => ({
-                      ...s,
-                      username: loginForm.username,
-                      password1: loginForm.password,
-                      password2: ''
-                    }));
-                    setMode('register');
-                    setSuccessText('');
-                    if (loginForm.password) {
-                      setErrorText('Please re-type your password below to confirm.');
-                    } else {
-                      setErrorText('');
-                    }
-                  }}
-                  className="w-full"
-                  disabled={submitting}
+              <FormSection>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  isLoading={submitting}
                 >
-                  Register as client
-              </Button>
+                  Login
+                </Button>
 
-              { errorText && <div className={authErrorStyles}>{errorText} </div> }
+                <Button
+                    type="button"
+                    onClick={() => {
+                      setRegisterForm(s => ({
+                        ...s,
+                        username: loginForm.username,
+                        password1: loginForm.password,
+                        password2: ''
+                      }));
+                      setMode('register');
+                      setSuccessText('');
+                      if (loginForm.password) {
+                        setErrorText('Please re-type your password below to confirm.');
+                      } else {
+                        setErrorText('');
+                      }
+                    }}
+                    className="w-full"
+                    variant="primary" // Assuming variant support or default style
+                    disabled={submitting}
+                  >
+                    Register as client
+                </Button>
+              </FormSection>
+
+              { errorText && <div className={`${authErrorStyles} mt-4`}>{errorText} </div> }
 
             </form>
             
           ) : (
-            <form onSubmit={handleRegister} className="formStyle">
-              <TextInput
-                label="Username"
-                value={registerForm.username}
-                onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
-                required
-                autoComplete="username"
-              />
-              <TextInput
-                label="Email"
-                value={registerForm.email}
-                onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
-                autoComplete="email"
-              />
-              <TextInput
-                label="Address"
-                value={registerForm.address}
-                onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
-                autoComplete="street-address"
-              />
-              <TextInput
-                label="Password"
-                type="password"
-                value={registerForm.password1}
-                onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
-                required
-                autoComplete="new-password"
-              />
+            <form onSubmit={handleRegister} className={formStyles}>
+              <FormSection title="New Client Registration">
+                <TextInput
+                  label="Username"
+                  value={registerForm.username}
+                  onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
+                  required
+                  autoComplete="username"
+                />
+                <TextInput
+                  label="Email"
+                  value={registerForm.email}
+                  onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
+                  autoComplete="email"
+                />
+                <TextInput
+                  label="Address"
+                  value={registerForm.address}
+                  onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
+                  autoComplete="street-address"
+                />
+                <TextInput
+                  label="Password"
+                  type="password"
+                  value={registerForm.password1}
+                  onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
+                  required
+                  autoComplete="new-password"
+                />
 
-              {errorText && <div className={`${authErrorStyles} mb-2`}>{errorText}</div>}
+                {errorText && <div className={`${authErrorStyles} mb-2`}>{errorText}</div>}
 
-              <TextInput
-                label="Confirm Password"
-                type="password"
-                value={registerForm.password2}
-                onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
-                required
-                autoComplete="new-password"
-              />
+                <TextInput
+                  label="Confirm Password"
+                  type="password"
+                  value={registerForm.password2}
+                  onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
+                  required
+                  autoComplete="new-password"
+                />
+              </FormSection>
 
-              <Button type="submit" className="w-full mt-4" disabled={submitting} isLoading={submitting}>
-                Register
-              </Button>
+              <div className="mt-6 flex flex-col gap-3">
+                <Button type="submit" className="w-full" disabled={submitting} isLoading={submitting}>
+                  Register
+                </Button>
 
-              <Button
-                type="button"
-                onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
-                className="w-full"
-                disabled={submitting}
-                variant="secondary"
-              >
-                Cancel
-              </Button>
+                <Button
+                  type="button"
+                  onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
+                  className="w-full"
+                  disabled={submitting}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+              </div>
 
-              {successText && <div className={authSuccessStyles}>{successText}</div>}
+              {successText && <div className={`${authSuccessStyles} mt-4`}>{successText}</div>}
             </form>
           )}
         </div>

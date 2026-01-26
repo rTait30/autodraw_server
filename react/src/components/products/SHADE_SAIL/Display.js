@@ -306,76 +306,139 @@ export function render(canvas, data) {
     }
 
     // Summary metrics (responsive positioning and sizing)
-    attributes.discrepancyProblem ? ctx.fillStyle = '#F00' : ctx.fillStyle = '#000';
+    // Create a container box for the metrics
+    let yPos = startY + sailDrawingHeight + 50; // Pushed down slightly
+    const textBlockWidth = 550;
+    const startX = Math.max(25, (canvas.width - textBlockWidth) / 2);
+    const boxPadding = 20;
+    const col1X = startX + boxPadding;
+    const col2X = startX + 280; // Second column start
 
-    ctx.font = `bold 14px Arial`; 
-    let yPos = startY + sailDrawingHeight + 30;
+    // Prepare data first to calculate layout
+    const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 8);
 
-    // Center the text block based on canvas width
-    const textBlockWidth = 500;
-    const startX = Math.max(50, (canvas.width - textBlockWidth) / 2);
-    const col1X = startX;
-    const col2X = startX + 250;
-    
-    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, col1X, yPos);
-    ctx.fillText(`Discrepancy Problem: ${attributes.discrepancyProblem ? 'Yes' : 'No'}`, col2X, yPos);
-    yPos += 25;
+    const blameEntries = Object.entries(attributes.blame || {});
+    const blameGroups = new Map();
+    blameEntries.forEach(([key, val]) => {
+      const rounded = Math.abs(Number(val) || 0).toFixed(2);
+      if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
+      blameGroups.get(rounded).push(key);
+    });
+    const groupedBlame = Array.from(blameGroups.entries())
+      .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+      .slice(0, 8) // limiting length to save space
+      .filter(([rounded]) => parseFloat(rounded) > 1);
 
-    if ((attributes.pointCount || 0) >= 5) {
-      
-      let yPosDiscrep = yPos;
-      ctx.fillText('Discrepancies:', col1X, yPosDiscrep);
-      
-      yPosDiscrep += 20;
-      
-      const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
-        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-        .slice(0, 10);
-        
-      sortedDiscrepancies.forEach(([box, value]) => { 
+    const hasData = (attributes.pointCount || 0) >= 4; // Show details for Quads (4) and up
+    const isProblem = attributes.discrepancyProblem;
 
-        const corners = box.split('');
-        let longestBoxEdge = 0;
-        for (let i = 0; i < corners.length; i++) {
-          for (let j = i + 1; j < corners.length; j++) {
-            const pair = corners[i] + corners[j];
-            const revPair = corners[j] + corners[i];
-            const length = attributes.dimensions[pair] || attributes.dimensions[revPair];
-            if (length && typeof length === 'number' && length > longestBoxEdge) {
-              longestBoxEdge = length;
-            }
-          }
-        }
-
-        if (value > 0) {
-            ctx.fillText(` - ${box}: ${value.toFixed(0)} mm (${((value / (longestBoxEdge || 1)) * 100).toFixed(0)}%)`, col1X + 10, yPosDiscrep);
-            yPosDiscrep += 18;
-        }
-      });
-
-      let yPosBlame = yPos;
-      const blameEntries = Object.entries(attributes.blame || {});
-      if (blameEntries.length > 0) {
-        const blameGroups = new Map();
-        blameEntries.forEach(([key, val]) => {
-          const rounded = Math.abs(Number(val) || 0).toFixed(2);
-          if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
-          blameGroups.get(rounded).push(key);
-        });
-        const groupedSorted = Array.from(blameGroups.entries())
-          .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
-          .slice(0, 10)
-          .filter(([rounded]) => parseFloat(rounded) > 1);
-        
-        if (groupedSorted.length > 0) {
-          ctx.fillText('Blame:', col2X, yPosBlame); yPosBlame += 20;
-          groupedSorted.forEach(([rounded, keys]) => {
-            keys.sort(); const label = keys.join(', ');
-            ctx.fillText(` - ${label}: ${parseFloat(rounded).toFixed(0)} mm`, col2X + 10, yPosBlame); yPosBlame += 18;
-          });
-        }
-      }
+    let suggestionText = "";
+    if (isProblem && groupedBlame.length > 0) {
+       const topSuspectKeys = groupedBlame[0][1];
+       // If too many dimensions share the top blame score, it's ambiguous
+       if (topSuspectKeys.length > 3) {
+          suggestionText = "Cannot determine specific problem dimension.";
+       } else {
+          const topSuspects = topSuspectKeys.join(' or ');
+          suggestionText = `Check dimension ${topSuspects} or similar.`;
+       }
     }
+
+    // Determine Box Height
+    let boxHeight = 60; // Header + Status line
+    if (isProblem) boxHeight += 25; // Suggestion line
+    if (!isProblem) boxHeight += 25; // Good status message
+
+    if (hasData && (sortedDiscrepancies.length > 0 || groupedBlame.length > 0)) {
+        boxHeight += 35; // Spacing + Headers
+        const rowCount = Math.max(sortedDiscrepancies.length, groupedBlame.length);
+        boxHeight += rowCount * 18;
+    }
+
+    // Draw Box
+    ctx.save();
+    ctx.fillStyle = '#ffffff'; 
+    ctx.shadowColor = 'rgba(0,0,0,0.05)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 2;
+    ctx.fillRect(startX, yPos, textBlockWidth, boxHeight);
+    
+    ctx.strokeStyle = isProblem ? '#fca5a5' : '#86efac'; // Light red or light green border
+    ctx.lineWidth = 1;
+    ctx.strokeRect(startX, yPos, textBlockWidth, boxHeight);
+    
+    // Draw Header Content
+    let currentY = yPos + 30;
+    
+    ctx.font = "bold 15px Arial";
+    ctx.fillStyle = "#111";
+    ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, col1X, currentY);
+
+    ctx.fillStyle = isProblem ? '#dc2626' : '#16a34a';
+    ctx.fillText(isProblem ? "These dimensions have discrepancies." : "Specifications Valid", col2X, currentY);
+
+    currentY += 25; 
+    ctx.fillStyle = "#4b5563";
+    ctx.font = "italic 13px Arial";
+
+    if (isProblem) {
+       ctx.fillText("Shape does not close geometrically.", col1X, currentY);
+       if (suggestionText) {
+          ctx.fillText(suggestionText, col2X - 50, currentY); // Offset slightly
+       }
+    } else {
+       ctx.fillText("Measurements form a consistent geometric shape.", col1X, currentY);
+    }
+
+    // Draw Tables
+    if (hasData && (sortedDiscrepancies.length > 0 || groupedBlame.length > 0)) {
+        currentY += 30; // Spacing
+        const tableHeaderY = currentY;
+        
+        ctx.font = "bold 12px Arial";
+        ctx.fillStyle = "#111";
+        if (sortedDiscrepancies.length > 0) ctx.fillText("Discrepancies (Loop Errors):", col1X, tableHeaderY);
+        if (groupedBlame.length > 0) ctx.fillText("Likely Error Source:", col2X, tableHeaderY);
+        
+        currentY += 20;
+        ctx.font = "12px Arial"; // regular
+        
+        // Loop for rows
+        const maxRows = Math.max(sortedDiscrepancies.length, groupedBlame.length);
+        for(let i=0; i<maxRows; i++) {
+           let rowY = currentY + (i * 18);
+           
+           // Col 1
+           if (i < sortedDiscrepancies.length) {
+              const [box, value] = sortedDiscrepancies[i];
+              // Recalc percentage context
+              const corners = box.split('');
+              let longestBoxEdge = 0;
+              for (let ci = 0; ci < corners.length; ci++) {
+                for (let cj = ci + 1; cj < corners.length; cj++) {
+                   const pair = corners[ci] + corners[cj];
+                   const revPair = corners[cj] + corners[ci];
+                   const l = attributes.dimensions[pair] || attributes.dimensions[revPair];
+                   if (typeof l === 'number' && l > longestBoxEdge) longestBoxEdge = l;
+                }
+              }
+              const pct = ((value / (longestBoxEdge || 1)) * 100).toFixed(0);
+              
+              ctx.fillStyle = "#374151";
+              ctx.fillText(`- ${box}: ${value.toFixed(0)} mm (${pct}%)`, col1X + 5, rowY);
+           }
+
+           // Col 2
+           if (i < groupedBlame.length) {
+              const [rounded, keys] = groupedBlame[i];
+              ctx.fillStyle = "#ef4444"; // Red standout
+              ctx.fillText(`- ${keys.join(', ')}: ~${parseFloat(rounded).toFixed(0)} mm`, col2X + 5, rowY);
+           }
+        }
+    }
+    ctx.restore();
   });
 
   ctx.restore();

@@ -8,6 +8,8 @@ import ProjectDocuments from './ProjectDocuments';
 import { apiFetch } from '../services/auth';
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 import { Button } from './ui';
+import { useNavigate } from 'react-router-dom';
+
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
@@ -73,6 +75,7 @@ const CollapsibleCard = ({ title, children, defaultOpen = true, className = "", 
 };
 
 export default function ProjectInline({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) {
+  const navigate = useNavigate();
   const formRef = useRef(null);
   const canvasRef = useRef(null);
   
@@ -125,6 +128,10 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
     
     // Initial Viz Render
     if (project) renderPreview(project);
+
+    // Reset overlay mode when project prop changes (e.g. switching projects)
+    setOverlayMode(null);
+    setIsClosing(false);
   }, [project]);
 
   // Helper to load form - REMOVED (Handled by ProjectForm)
@@ -217,6 +224,13 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
     // Show confirmation screen first (Removed mobile check to allow on desktop too per request)
     if (overlayMode !== 'confirm') {
         const base = syncEditedFromForm() || editedProject;
+        
+        // Prevent submission if discrepancies exist
+        if (base.products?.some(p => p.attributes?.discrepancyProblem)) {
+            showToast(TOAST_TAGS.GENERIC_ERROR, { args: ["Please resolve discrepancies before submitting."] });
+            return;
+        }
+
         // Ensure we have the latest form data in state before showing summary
         setEditedProject(base);
         setOverlayMode('confirm');
@@ -228,6 +242,11 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
       const base = syncEditedFromForm() || editedProject;
       if (!base) {
         showToast('No edited values to submit.');
+        return;
+      }
+
+      if (base.products?.some(p => p.attributes?.discrepancyProblem)) {
+        showToast(TOAST_TAGS.GENERIC_ERROR, { args: ["Please resolve discrepancies before submitting."] });
         return;
       }
 
@@ -252,6 +271,8 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
         body: JSON.stringify(payload),
       });
 
+      if (!res) return;
+
       const json = await res.json();
       if (!res.ok || json?.error) {
         showToast(`Update failed: ${json?.error || res.statusText}`);
@@ -260,16 +281,35 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
 
       // If new, json is the full object. If edit, json might have { project: ... } or just be the project
       // Standardize response handling
-      const updatedProject = json?.project || json || { ...base }; // Fallback
+      // Ensure we preserve the product/type info from existing state if missing in response (to prevent unmount)
+      const serverData = json?.project || json || {};
+      const updatedProject = { 
+           ...base, 
+           ...serverData,
+           // Preserve nested objects if missing in server response but present in base
+           product: serverData.product || base.product || editedProject?.product,
+           type: serverData.type || base.type || editedProject?.type,
+      };
 
       console.log('Updated project:', updatedProject);
+      
+      // Update local state immediately so UI reflects changes (important for edits)
+      setEditedProject(updatedProject);
+      if (updatedProject.estimate_schema_evaluated) {
+        setSchema(updatedProject.estimate_schema_evaluated);
+      }
+
       showToast(isNew ? "Project Created!" : "Project Updated!");
       
       onSaved();
+      
+      // Close the confirmation overlay immediately upon success
+      setOverlayMode(null);
 
-      // Refresh Window to reload project data and context completely
-      // This ensures we are "redirected" to the saved state
-      window.location.reload();
+      // Only navigate if it was a new project creation to switch context to 'Edit' mode
+      if (isNew && updatedProject?.id) {
+         navigate(`/copelands/projects?open=${updatedProject.id}`);
+      }
       
     } catch (e) {
       console.error('Submit error:', e);

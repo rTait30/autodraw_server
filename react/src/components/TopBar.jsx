@@ -148,19 +148,30 @@ function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           <span className={roleStyles}>{name}</span>
           <span className={roleStyles}>{role}</span>
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="bg-none border-white rounded border p-1 text-white text-3xl cursor-pointer mr-0 leading-none burger"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            aria-label="Open menu"
-          >
-            <span className="text-lg">Menu</span>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect y="7" width="32" height="3" rx="1.5" fill="white" />
-              <rect y="14" width="32" height="3" rx="1.5" fill="white" />
-              <rect y="21" width="32" height="3" rx="1.5" fill="white" />
-            </svg>
-          </button>
+          {role === 'client' ? (
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded border border-white text-lg transition-colors duration-200"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
+              aria-label="Logout"
+            >
+              LOGOUT
+            </button>
+          ) : (
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="bg-none border-white rounded border p-1 text-white text-3xl cursor-pointer mr-0 leading-none burger"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              aria-label="Open menu"
+            >
+              <span className="text-lg">Menu</span>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect y="7" width="32" height="3" rx="1.5" fill="white" />
+                <rect y="14" width="32" height="3" rx="1.5" fill="white" />
+                <rect y="21" width="32" height="3" rx="1.5" fill="white" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 

@@ -16,7 +16,7 @@ function TopBar() {
   const handleLogout = async () => {
     await logout();
     localStorage.clear();
-    navigate('/copelands');
+    navigate('/copelands/');
   };
 
   // Redux toggles

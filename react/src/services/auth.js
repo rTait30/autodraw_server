@@ -44,29 +44,37 @@ export async function refresh() {
 }
 
 export async function apiFetch(path, options = {}, _retried = false) {
-  const headers = { ...(options.headers || {}) };
+  const { skipRefresh, ...fetchOptions } = options;
+  const headers = { ...(fetchOptions.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   console.log(`[API] Req: ${path} | Retry: ${_retried}`);
 
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',  // preserve old behavior
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
   // Preserve: one retry on 401 if refresh() succeeds
-  if (res.status === 401 && !_retried) {
+  // skipRefresh allows specific calls (like login) to handle 401s themselves
+  if (res.status === 401 && !_retried && !skipRefresh) {
     console.warn("[API] 401 Unauthorized. Attempting refresh...");
     if (await refresh()) {
       console.log("[API] Refresh worked. Retrying original request...");
-      return apiFetch(path, options, true);
+      // Re-fetch token from updated storage before retrying
+      const newToken = getAccessToken();
+      const newHeaders = { ...headers };
+      if (newToken) newHeaders.Authorization = `Bearer ${newToken}`;
+      
+      const retryOptions = { ...options, headers: newHeaders };
+      return apiFetch(path, retryOptions, true);
     } else {
       // Refresh failed (session > 14 days old). 
       // Force redirect so user isn't stuck on a zombie page.
       console.error("[API] Refresh failed or session expired. Redirecting to login.");
       setAccessToken(null);
-      window.location.href = "/copelands";
+      window.location.href = "/copelands/";
       throw new Error("Session expired. Redirecting...");
     }
   }

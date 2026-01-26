@@ -399,6 +399,7 @@ def create_project(user, data):
     return project
 
 def update_project(user, project_id, data):
+    print(f"[DEBUG] update_project: user_id={user.id if user else 'None'}, project_id={project_id}")
     general = data.get("general") or {}
     project_attributes = data.get("project_attributes")
     project_calculated = data.get("project_calculated")
@@ -528,6 +529,17 @@ def update_project(user, project_id, data):
                 status=status
             )
             db.session.add(pp)
+
+    # Check for discrepancies and raise error if found - enforces valid state on save
+    if project.project_attributes and project.project_attributes.get("discrepancyProblem"):
+         raise ValueError("Project has global discrepancies. Please resolve before saving.")
+         
+    if products_payload is not None:
+         # ProjectProduct objects are not flushed yet so checking payload directly
+         for idx, p in enumerate(products_payload):
+             attrs = p.get("attributes") or {}
+             if attrs.get("discrepancyProblem"):
+                 raise ValueError(f"Product #{idx+1} ({p.get('label', 'Item')}) has dimension discrepancies.")
 
     # ---------- Enrich wg_data from WorkGuru API if present ----------
     if project.project_attributes and isinstance(project.project_attributes.get("wg_data"), dict):

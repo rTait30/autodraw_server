@@ -65,7 +65,7 @@ export default function RequireAuth() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/copelands" state={{ from: location }} replace />;
+    return <Navigate to="/copelands/" state={{ from: location }} replace />;
   }
 
   return <Outlet />;

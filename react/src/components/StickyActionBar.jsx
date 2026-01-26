@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 export default function StickyActionBar({ children, className = '', mode = 'fixed' }) {
   // Wait for mount to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
+  const [height, setHeight] = useState(0);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -11,35 +12,29 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
   }, []);
 
   useEffect(() => {
-    if (!mounted || !ref.current || mode !== 'fixed') return;
+    if (!mounted || !ref.current) return;
 
-    const updatePadding = () => {
+    const updateHeight = () => {
       if (ref.current) {
-        // Try to find the main scroll container first
-        const main = document.querySelector('main');
-        const target = main || document.body;
-        target.style.paddingBottom = `${ref.current.offsetHeight}px`;
+        setHeight(ref.current.offsetHeight);
       }
     };
 
     // Initial update
-    updatePadding();
+    updateHeight();
 
     // Watch for size changes
-    const observer = new ResizeObserver(updatePadding);
+    const observer = new ResizeObserver(updateHeight);
     observer.observe(ref.current);
 
     return () => {
       observer.disconnect();
-      const main = document.querySelector('main');
-      const target = main || document.body;
-      target.style.removeProperty('padding-bottom');
     };
   }, [mounted, mode]);
 
   if (!mounted) return null;
 
-  // Render content
+  // Contents of the bar
   const content = (
     <div ref={ref} className={`action-bar ${mode} ${className}`}>
       {children}
@@ -60,8 +55,9 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
         box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
         
         /* Desktop: Fixed height, spacing between buttons */
-        height: 128px;
-        padding: 0 32px;
+        min-height: 80px; 
+        padding: 16px 32px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
         gap: 24px;
       }
 
@@ -82,8 +78,10 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
       @media (max-width: 799px) {
         .action-bar {
           height: auto;
-          padding: 32px;
+          padding: 24px;
+          padding-bottom: max(24px, env(safe-area-inset-bottom));
           gap: 16px;
+          flex-wrap: wrap; 
         }
       }
       
@@ -95,12 +93,18 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
   );
 
   if (mode === 'fixed') {
-    return createPortal(
+    return (
       <>
-        {styles}
-        {content}
-      </>,
-      document.body
+        {createPortal(
+          <>
+            {styles}
+            {content}
+          </>,
+          document.body
+        )}
+        {/* Spacer to prevent content from being hidden behind the fixed bar */}
+        <div style={{ height: height, width: '100%', flexShrink: 0 }} aria-hidden="true" />
+      </>
     );
   }
 

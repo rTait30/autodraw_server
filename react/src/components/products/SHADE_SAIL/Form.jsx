@@ -43,7 +43,7 @@ const FABRIC_OPTIONS = {
   ShadeCloth: ["Rainbow Z16", "Poly Fx", "Extreme 32", "Polyfab Xtra", "Tensitech 480", "Monotec 370", "DriZ"],
   PVC: ["Bochini", "Bochini Blockout", "Mehler FR580", "Ferrari 502S2", "Ferrari 502V3"]
 };
-const FOLD_SIDES = ["Underside", "Topside"];
+const FOLD_SIDES = ["Standard", "Underside", "Topside"];
 
 const COLOUR_OPTIONS = ["Charcoal", "Black", "White"];
 
@@ -115,7 +115,7 @@ export function ProductForm({
   const [pendingUfc, setPendingUfc] = useState({
     diagonal: "",
     size: "",
-    internalPocket: "no",
+    internalPocket: "standard",
     coatedCable: "no",
   });
 
@@ -162,14 +162,14 @@ const addUfc = () => {
     a.push({
       diagonal: d,
       ...(sizeNum ? { size: sizeNum } : {}),
-      internalPocket: (pendingUfc.internalPocket || "no") === "yes",
+      internalPocket: pendingUfc.internalPocket || "standard",
       coatedCable: (pendingUfc.coatedCable || "no") === "yes",
     });
     return { ...prev, ufcs: a };
   });
 
   // Reset pending line
-  setPendingUfc({ diagonal: "", size: "", internalPocket: "no", coatedCable: "no" });
+  setPendingUfc({ diagonal: "", size: "", internalPocket: "standard", coatedCable: "no" });
 };
 
 
@@ -565,7 +565,8 @@ const setPointField = (p, key, value) =>
           {/* Exit/Logo (Preserved) */}
           {!discrepancyChecker && (
              <div className="flex gap-4">
-                <SelectInput label="Exit Point" value={attributes.exitPoint} onChange={setExitPoint} options={geometry.letters.map(v => ({ label: v, value: v }))} />
+                <SelectInput label="Exit Point" value={attributes.exitPoint} onChange={setExitPoint} options={[{ label: "Any", value: "" }, { label: "Low", value: "low" }, { label: "High", value: "high" }, ...geometry.letters.map(v => ({ label: v, value: v }))]} />
+                <SelectInput label="Logo Point" value={attributes.logoPoint} onChange={setLogoPoint} options={[{ label: "Any", value: "" }, { label: "Low", value: "low" }, { label: "High", value: "high" }, ...geometry.letters.map(v => ({ label: v, value: v }))]} />
              </div>
           )}
         </FormGrid>
@@ -723,6 +724,7 @@ const setPointField = (p, key, value) =>
                     <NumberInput
                       label="Tension Allowance (mm)"
                       min={0}
+                      placeholder="Standard"
                       value={vals.tensionAllowance}
                       onChange={(v) => setPointField(p, "tensionAllowance", v)}
                     />
@@ -811,13 +813,13 @@ const setPointField = (p, key, value) =>
                     label="Size"
                     value={pendingUfc.size}
                     onChange={(val) => setPendingUfc((s) => ({ ...s, size: val }))}
-                    options={[{ label: "(auto)", value: "" }, { label: "5", value: "5" }, { label: "6", value: "6" }]}
+                    options={[{ label: "(auto)", value: "" }, { label: "5mm", value: "5" }, { label: "6mm", value: "6" }]}
                  />
                  <SelectInput
                     label="Pocket"
-                    value={pendingUfc.internalPocket ?? "no"}
+                    value={pendingUfc.internalPocket ?? "standard"}
                     onChange={(val) => setPendingUfc((s) => ({ ...s, internalPocket: val }))}
-                    options={[{ label: "No", value: "no" }, { label: "Yes", value: "yes" }]}
+                    options={[{ label: "Standard", value: "standard" }, { label: "No", value: "no" }, { label: "Yes", value: "yes" }]}
                  />
                  <button
                     type="button"
@@ -841,9 +843,9 @@ const setPointField = (p, key, value) =>
                     />
                     <SelectInput 
                       className="h-10 w-28 bg-white"
-                      value={u.internalPocket ? "yes" : "no"} 
-                      onChange={(val) => updateUfcField(i, "internalPocket", val === "yes")} 
-                      options={[{ label: "No Pocket", value: "no" }, { label: "Pocket", value: "yes" }]}
+                      value={u.internalPocket === true ? "yes" : u.internalPocket === false ? "no" : (u.internalPocket || "standard")}
+                      onChange={(val) => updateUfcField(i, "internalPocket", val)} 
+                      options={[{ label: "Standard", value: "standard" }, { label: "No Pocket", value: "no" }, { label: "Pocket", value: "yes" }]}
                     />
                      <button type="button" onClick={() => removeUfc(i)} className="text-red-600 hover:text-red-800 font-medium text-sm ml-auto">
                        Remove

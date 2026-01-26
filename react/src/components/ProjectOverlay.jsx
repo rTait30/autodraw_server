@@ -21,7 +21,7 @@ export default function ProjectOverlay({
 
   // Determine container classes based on mode
   const containerClasses = mode 
-    ? `fixed left-4 right-4 top-24 bottom-20 z-[48] flex flex-col p-2 md:p-4 shadow-2xl border-2 border-blue-500/30 ${isClosing ? 'animate-slide-down-card' : 'animate-slide-up-card'} max-w-5xl mx-auto`
+    ? `fixed left-4 right-4 top-24 bottom-36 md:bottom-28 z-[48] flex flex-col p-2 md:p-4 shadow-2xl border-2 border-blue-500/30 ${isClosing ? 'animate-slide-down-card' : 'animate-slide-up-card'} max-w-5xl mx-auto`
     : 'p-1 md:p-4';
 
   const showBackdrop = !!mode;

@@ -49,7 +49,8 @@ export const authLogoStyles = `
 `;
 
 export const authErrorStyles = `
-  text-[#DC2626] text-sm mt-2
+  text-[#DC2626] text-xl font-bold mt-4 text-center
+  border-2 border-[#DC2626] rounded-xl bg-red-50 p-4 w-full shadow-md
 `; // using hex #DC2626 for error to match --color-error if utility not set
 
 export const authSuccessStyles = `

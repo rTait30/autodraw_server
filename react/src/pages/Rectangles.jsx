@@ -114,7 +114,7 @@ export default function Rectangles() {
           <h2 className="text-xl font-bold">Rectangle Nesting Tool</h2>
           <button
             className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-            onClick={() => navigate("/copelands")}
+            onClick={() => navigate("/copelands/")}
           >
             ← Back
           </button>

@@ -67,6 +67,7 @@ export default function Authentication() {
           username: loginForm.username.trim(),
           password: loginForm.password,
         }),
+        skipRefresh: true,
       });
 
       const data = await res.json().catch(() => ({}));
@@ -116,32 +117,34 @@ export default function Authentication() {
       if (!res.ok) throw new Error(data?.error || 'Registration failed');
 
       // Attempt immediate login
-      const loginRes = await apiFetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: registerForm.username.trim(),
-          password: registerForm.password1,
-        }),
-      });
-      const loginData = await loginRes.json().catch(() => ({}));
-      if (!loginRes.ok) {
-        // If login fails, fall back to showing success message on login screen
+      try {
+        const loginRes = await apiFetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: registerForm.username.trim(),
+            password: registerForm.password1,
+          }),
+          skipRefresh: true,
+        });
+
+        const loginData = await loginRes.json();
+
+        // Login success logic
+        setAccessToken(loginData.access_token || null);
+        localStorage.setItem('role', loginData.role || 'client');
+        localStorage.setItem('username', loginData.username || 'Guest');
+        localStorage.setItem('verified', loginData.verified ? 'true' : 'false');
+
+        resetViewport();
+        setTimeout(() => resetViewport(), 50);
+
+        navigate('/copelands/projects');
+      } catch (loginErr) {
+        // Registration worked, but auto-login failed
         setSuccessText('Registration successful! Please log in.');
         setMode('login');
-        return;
       }
-
-      // Login success logic
-      setAccessToken(loginData.access_token || null);
-      localStorage.setItem('role', loginData.role || 'client');
-      localStorage.setItem('username', loginData.username || 'Guest');
-      localStorage.setItem('verified', loginData.verified ? 'true' : 'false');
-
-      resetViewport();
-      setTimeout(() => resetViewport(), 50);
-
-      navigate('/copelands/projects');
 
     } catch (err) {
       setErrorText(err.message || 'Registration failed.');

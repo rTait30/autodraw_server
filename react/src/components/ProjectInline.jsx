@@ -9,72 +9,12 @@ import { apiFetch } from '../services/auth';
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
-
+import CollapsibleCard from './CollapsibleCard';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
 
-const CollapsibleCard = ({ title, children, defaultOpen = true, className = "", contentClassName = "", forceOpen = false, icon = null }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  
-  // If forceOpen becomes true (e.g. entering overlay mode), ensure open
-  useEffect(() => {
-    if (forceOpen) setIsOpen(true);
-  }, [forceOpen]);
-
-  // When forced open, the header click will do nothing (or we could allow toggle if we want to hide overlay? but overlay mode implies active use)
-  // Let's allow toggle only if not forced, or maybe forceOpen just means "initially open and reset"? 
-  // No, forceOpen usually means "Stay Open". 
-  // If overlayMode is active, the viz panel displays the specific overlay UI. We probably don't want to collapse it.
-  
-  const toggle = () => {
-    if (forceOpen) return; 
-    setIsOpen(prev => !prev);
-  }
-
-  const show = isOpen || forceOpen;
-
-  // Use hidden class for content to preserve internal state (like canvas) instead of unmounting
-  return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
-      {/* Header - hide if forceOpen is true? No, usually user wants context, but if overlayMode is active, maybe hide header? 
-          Actually if overlayMode='preview', the overlay takes over screen roughly. 
-          But keeping header allows collapsing IF we didn't block it. 
-          If forceOpen is true, let's hide the chevron to indicate locked state or just keep it open.
-       */}
-      {!forceOpen && (
-        <div 
-            className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
-            onClick={toggle}
-        >
-            <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                {icon && <span className="text-gray-500">{icon}</span>}
-                <span className="font-bold text-lg">{title}</span>
-            </div>
-            <div className="text-gray-500 dark:text-gray-400">
-                <svg 
-                    className={`w-5 h-5 transition-transform duration-200 ${show ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
-        </div>
-      )}
-      
-      {/* If forceOpen (overlay mode), perhaps we shouldn't even render the card wrapper styles if we passed !border-0? 
-          The passing of className handling border-0 handles the container.
-      */}
-      <div className={show ? contentClassName : "hidden"}>
-          {children}
-      </div>
-    </div>
-  );
-};
-
-export default function ProjectInline({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) {
+const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) => {
   const navigate = useNavigate();
   const formRef = useRef(null);
   const canvasRef = useRef(null);
@@ -226,8 +166,16 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
         const base = syncEditedFromForm() || editedProject;
         
         // Prevent submission if discrepancies exist
-        if (base.products?.some(p => p.attributes?.discrepancyProblem)) {
-            showToast(TOAST_TAGS.GENERIC_ERROR, { args: ["Please resolve discrepancies before submitting."] });
+        const problems = (base.products || []).reduce((acc, p, idx) => {
+            const orig = editedProject?.products?.[idx];
+            if (p.attributes?.discrepancyProblem || orig?.attributes?.discrepancyProblem) {
+                acc.push(`${p.name || orig?.name || 'Sail'} (#${idx + 1})`);
+            }
+            return acc;
+        }, []);
+
+        if (problems.length > 0) {
+            showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`Please resolve discrepancies in: ${problems.join(', ')}`] });
             return;
         }
 
@@ -245,8 +193,16 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
         return;
       }
 
-      if (base.products?.some(p => p.attributes?.discrepancyProblem)) {
-        showToast(TOAST_TAGS.GENERIC_ERROR, { args: ["Please resolve discrepancies before submitting."] });
+      const problems = (base.products || []).reduce((acc, p, idx) => {
+        const orig = editedProject?.products?.[idx];
+        if (p.attributes?.discrepancyProblem || orig?.attributes?.discrepancyProblem) {
+            acc.push(`${p.name || orig?.name || 'Sail'} (#${idx + 1})`);
+        }
+        return acc;
+      }, []);
+
+      if (problems.length > 0) {
+        showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`Please resolve discrepancies in: ${problems.join(', ')}`] });
         return;
       }
 
@@ -516,7 +472,7 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
             <>
                 <Button 
                     onClick={overlayMode === 'preview' ? closeOverlay : handleCheck} 
-                    className="flex-1 justify-center py-3 text-lg"
+                    className="flex-1 justify-center py-3 text-md"
                     variant={overlayMode === 'preview' ? 'danger' : 'primary'}
                 >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check / Calculate'}
@@ -555,4 +511,6 @@ export default function ProjectInline({ project = null, isNew = false, onClose =
     </div>
   );
 }
+
+export default ProjectInline;
 

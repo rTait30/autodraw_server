@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from endpoints.api.auth.utils import current_user, role_required
 from endpoints.api.products import get_product_capabilities
@@ -29,8 +29,10 @@ def get_products():
 @projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
+    print(f"[DEBUG] save_project_config hit. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
     if not user:
+        print(f"[AUTH ERROR] save_project_config: Valid JWT identity '{get_jwt_identity()}' but User not found in DB.")
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json() or {}
@@ -70,7 +72,12 @@ def save_project_config():
 @projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
 @jwt_required()
 def upsert_project_and_attributes(project_id):
+    print(f"[DEBUG] upsert_project_and_attributes hit for ID {project_id}. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
+    if not user:
+        print(f"[AUTH ERROR] upsert_project_and_attributes: Valid JWT identity '{get_jwt_identity()}' but User not found in DB.")
+        return jsonify({"error": "Unauthorized"}), 401
+        
     payload = request.get_json(silent=True) or {}
 
     try:

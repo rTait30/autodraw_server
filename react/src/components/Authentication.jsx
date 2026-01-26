@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CollapsibleCard from './CollapsibleCard';
 import { getBaseUrl } from '../utils/baseUrl';
 import { TextInput } from './FormUI';
 // New style: access token stays in memory (not localStorage) (HttpOnly, same‑site cookie.)
@@ -154,10 +155,14 @@ export default function Authentication() {
   }
 
   return (
-    <div className={authContainerStyles}>
-      <div className="w-full flex items-center justify-center">
-        <div className={authBoxStyles}>
-          <div className={authLogoStyles}>
+    <div className="my-4 w-full flex justify-center px-4">
+      <CollapsibleCard 
+        title={mode === 'login' ? 'Sign In / Register' : 'New Client Registration'}
+        defaultOpen={true}
+        className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+        contentClassName="p-4 flex flex-col items-center bg-white dark:bg-gray-800 max-h-[60vh] overflow-y-auto"
+      >
+          <div className={`${authLogoStyles} mt-2`}>
             <img
               src={getBaseUrl('/static/img/DRlogo.png')}
               alt="Logo"
@@ -168,7 +173,6 @@ export default function Authentication() {
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
               <div className="w-full">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Sign In / Register</h3>
                 <div className="space-y-3">
                   <TextInput
                     label="Username"
@@ -250,7 +254,6 @@ export default function Authentication() {
           ) : (
             <form onSubmit={handleRegister} className="w-full flex flex-col gap-4">
               <div className="w-full">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">New Client Registration</h3>
                 <div className="space-y-3">
                   <TextInput
                     label="Username"
@@ -312,8 +315,7 @@ export default function Authentication() {
               {successText && <div className={`${authSuccessStyles} mt-2`}>{successText}</div>}
             </form>
           )}
-        </div>
-      </div>
+      </CollapsibleCard>
     </div>
   );
 }

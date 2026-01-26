@@ -18,45 +18,47 @@ export default function Landing() {
   }, []);
 
   return (
-    <div
-      style={{
-        margin: 0,
-        padding: '20px',
-        minHeight: '100vh',
-        width: '100vw',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflowY: 'auto',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        transition: 'background-image 0.3s ease-in-out',
-        ...backgroundStyle,
-      }}
-    >
-      <Authentication />
-
-      <div className="mt-6 w-full flex justify-center px-4">
-        <CollapsibleCard 
-            title="Tools" 
-            defaultOpen={false}
-            className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
-            contentClassName="p-4 flex flex-col gap-4 bg-white dark:bg-gray-800"
-        >
-            <Link to="/copelands/discrepancy" className="w-full">
-            <Button className="w-full" >
-                Discrepancy Calculator
-            </Button>
-            </Link>
-            <Link to="/copelands/rectangles" className="w-full">
-            <Button className="w-full">
-                Rectangle Nesting Tool
-            </Button>
-            </Link>
-        </CollapsibleCard>
-      </div>
+    <>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: -1,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          transition: 'background-image 0.3s ease-in-out',
+          ...backgroundStyle,
+        }}
+      />
       
-    </div>
+      <div className="absolute inset-0 w-full h-full overflow-y-auto">
+        <div className="min-h-full flex flex-col items-center justify-center p-5">
+          <Authentication />
+
+          <div className="mt-6 w-full flex justify-center px-4">
+            <CollapsibleCard 
+                title="Tools" 
+                defaultOpen={false}
+                className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+                contentClassName="p-4 flex flex-col gap-4 bg-white dark:bg-gray-800 max-h-60 overflow-y-auto"
+            >
+                <Link to="/copelands/discrepancy" className="w-full">
+                <Button className="w-full" >
+                    Discrepancy Calculator
+                </Button>
+                </Link>
+                <Link to="/copelands/rectangles" className="w-full">
+                <Button className="w-full">
+                    Rectangle Nesting Tool
+                </Button>
+                </Link>
+            </CollapsibleCard>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

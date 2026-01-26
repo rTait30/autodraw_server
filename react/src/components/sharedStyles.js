@@ -37,15 +37,15 @@ export const formStyles = `
 `;
 
 export const authContainerStyles = `
-  flex items-center justify-center
+  flex items-center justify-center p-4
 `;
 
 export const authBoxStyles = `
-  rounded-2xl bg-white p-8 w-80 shadow-lg flex flex-col items-center dark:bg-gray-800
+  rounded-2xl bg-white p-4 w-full max-w-xs shadow-lg flex flex-col items-center dark:bg-gray-800
 `;
 
 export const authLogoStyles = `
-  flex justify-center w-full mb-5
+  flex justify-center w-full mb-2
 `;
 
 export const authErrorStyles = `

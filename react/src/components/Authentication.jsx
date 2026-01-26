@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
-import { TextInput, FormSection } from './FormUI';
+import { TextInput } from './FormUI';
 // New style: access token stays in memory (not localStorage) (HttpOnly, same‑site cookie.)
 
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
@@ -163,47 +163,50 @@ export default function Authentication() {
           </div>
 
           {mode === 'login' ? (
-            <form onSubmit={handleLogin} className={formStyles}>
-              <FormSection title="Sign In">
-                <TextInput
-                  label="Username"
-                  value={loginForm.username}
-                  onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
-                  required
-                  autoComplete="username"
-                />
+            <form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
+              <div className="w-full">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Sign In / Register</h3>
+                <div className="space-y-3">
+                  <TextInput
+                    label="Username"
+                    value={loginForm.username}
+                    onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
+                    required
+                    autoComplete="username"
+                  />
 
-                <TextInput
-                  label="Password"
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
-                  required
-                  autoComplete="current-password"
-                />
-                
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    className="text-sm text-blue-600 hover:underline focus:outline-none"
-                    onClick={() => setShowForgotPassword(!showForgotPassword)}
-                  >
-                    I forgot my password
-                  </button>
-                  {showForgotPassword && (
-                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
-                      <p className="mb-1">
-                        Please call <a href="tel:555-123-4567" className="text-blue-600 font-medium">555-123-4567</a>
-                      </p>
-                      <p>
-                        or email <a href="mailto:support@example.com" className="text-blue-600 font-medium">support@example.com</a>
-                      </p>
-                    </div>
-                  )}
+                  <TextInput
+                    label="Password"
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
+                    required
+                    autoComplete="current-password"
+                  />
+                  
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className="text-xs text-blue-600 hover:underline focus:outline-none"
+                      onClick={() => setShowForgotPassword(!showForgotPassword)}
+                    >
+                      I forgot my password
+                    </button>
+                    {showForgotPassword && (
+                      <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700">
+                        <p className="mb-1">
+                          Please call <a href="tel:555-123-4567" className="text-blue-600 font-medium">555-123-4567</a>
+                        </p>
+                        <p>
+                          or email <a href="mailto:support@example.com" className="text-blue-600 font-medium">support@example.com</a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </FormSection>
+              </div>
 
-              <FormSection>
+              <div className="flex flex-col gap-2 mt-2">
                 <Button 
                   type="submit" 
                   className="w-full" 
@@ -235,56 +238,59 @@ export default function Authentication() {
                   >
                     Register as client
                 </Button>
-              </FormSection>
+              </div>
 
-              { errorText && <div className={`${authErrorStyles} mt-4`}>{errorText} </div> }
+              { errorText && <div className={`${authErrorStyles} mt-2`}>{errorText} </div> }
 
             </form>
             
           ) : (
-            <form onSubmit={handleRegister} className={formStyles}>
-              <FormSection title="New Client Registration">
-                <TextInput
-                  label="Username"
-                  value={registerForm.username}
-                  onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
-                  required
-                  autoComplete="username"
-                />
-                <TextInput
-                  label="Email"
-                  value={registerForm.email}
-                  onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
-                  autoComplete="email"
-                />
-                <TextInput
-                  label="Address"
-                  value={registerForm.address}
-                  onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
-                  autoComplete="street-address"
-                />
-                <TextInput
-                  label="Password"
-                  type="password"
-                  value={registerForm.password1}
-                  onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
-                  required
-                  autoComplete="new-password"
-                />
+            <form onSubmit={handleRegister} className="w-full flex flex-col gap-4">
+              <div className="w-full">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">New Client Registration</h3>
+                <div className="space-y-3">
+                  <TextInput
+                    label="Username"
+                    value={registerForm.username}
+                    onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
+                    required
+                    autoComplete="username"
+                  />
+                  <TextInput
+                    label="Email"
+                    value={registerForm.email}
+                    onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
+                    autoComplete="email"
+                  />
+                  <TextInput
+                    label="Address"
+                    value={registerForm.address}
+                    onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
+                    autoComplete="street-address"
+                  />
+                  <TextInput
+                    label="Password"
+                    type="password"
+                    value={registerForm.password1}
+                    onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
+                    required
+                    autoComplete="new-password"
+                  />
 
-                {errorText && <div className={`${authErrorStyles} mb-2`}>{errorText}</div>}
+                  {errorText && <div className={`${authErrorStyles} mb-1`}>{errorText}</div>}
 
-                <TextInput
-                  label="Confirm Password"
-                  type="password"
-                  value={registerForm.password2}
-                  onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
-                  required
-                  autoComplete="new-password"
-                />
-              </FormSection>
+                  <TextInput
+                    label="Confirm Password"
+                    type="password"
+                    value={registerForm.password2}
+                    onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
 
-              <div className="mt-6 flex flex-col gap-3">
+              <div className="mt-2 flex flex-col gap-2">
                 <Button type="submit" className="w-full" disabled={submitting} isLoading={submitting}>
                   Register
                 </Button>
@@ -300,7 +306,7 @@ export default function Authentication() {
                 </Button>
               </div>
 
-              {successText && <div className={`${authSuccessStyles} mt-4`}>{successText}</div>}
+              {successText && <div className={`${authSuccessStyles} mt-2`}>{successText}</div>}
             </form>
           )}
         </div>

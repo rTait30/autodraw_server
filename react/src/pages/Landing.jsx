@@ -37,12 +37,12 @@ export default function Landing() {
 
       <div className="mt-6 bg-white dark:bg-gray-900 rounded-[20px] p-8 w-80 flex flex-col items-center gap-4 shadow-lg">
         <Link to="/copelands/discrepancy">
-          <Button>
+          <Button className="w-full" >
             Open Discrepancy Calculator
           </Button>
         </Link>
         <Link to="/copelands/rectangles">
-          <Button>
+          <Button className="w-full">
             Open Rectangle Nesting Tool
           </Button>
         </Link>

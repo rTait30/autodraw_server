@@ -43,7 +43,7 @@ export default function Landing() {
                 title="Tools" 
                 defaultOpen={false}
                 className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
-                contentClassName="p-4 flex flex-col gap-4 bg-white dark:bg-gray-800 max-h-60 overflow-y-auto"
+                contentClassName="p-4 flex flex-col gap-4 bg-white dark:bg-gray-800"
             >
                 <Link to="/copelands/discrepancy" className="w-full">
                 <Button className="w-full" >

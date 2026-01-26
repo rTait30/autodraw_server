@@ -160,7 +160,7 @@ export default function Authentication() {
         title={mode === 'login' ? 'Sign In / Register' : 'New Client Registration'}
         defaultOpen={true}
         className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
-        contentClassName="p-4 flex flex-col items-center bg-white dark:bg-gray-800 max-h-[60vh] overflow-y-auto"
+        contentClassName="p-4 flex flex-col items-center bg-white dark:bg-gray-800"
       >
           <div className={`${authLogoStyles} mt-2`}>
             <img

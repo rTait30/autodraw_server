@@ -6,7 +6,7 @@ import { apiFetch } from '../services/auth';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 import { headingStyles } from '../components/sharedStyles';
 
 function Projects() {

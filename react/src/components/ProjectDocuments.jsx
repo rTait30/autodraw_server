@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from './ui';
+import { Button } from './UI';
 import { apiFetch } from '../services/auth';
 import { TOAST_TAGS } from "../config/toastRegistry";
 

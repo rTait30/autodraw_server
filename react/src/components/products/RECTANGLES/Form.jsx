@@ -6,7 +6,7 @@ import {
   TextInput, 
   CheckboxInput 
 } from "../../FormUI";
-import { Button } from "../../ui";
+import { Button } from "../../UI";
 
 export const PROJECT_DEFAULTS = Object.freeze({
   rectangles: [

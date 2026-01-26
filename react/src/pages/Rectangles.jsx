@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from '../services/auth';
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 
 const RectanglesForm = React.lazy(() =>
   import("../components/products/RECTANGLES/Form.jsx").then((module) => ({

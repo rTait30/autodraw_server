@@ -6,7 +6,7 @@ import { TextInput, FormSection } from './FormUI';
 
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
 
-import { Button } from './ui';
+import { Button } from './UI';
 import { 
   formStyles, 
   authContainerStyles, 

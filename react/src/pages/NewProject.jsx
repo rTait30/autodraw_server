@@ -5,7 +5,7 @@ import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import StickyActionBar from "../components/StickyActionBar";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 
 export default function NewProject() {
 

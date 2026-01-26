@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import { getBaseUrl } from '../utils/baseUrl';
 import '../styles/index.css';
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 
 export default function Landing() {
   const [backgroundStyle, setBackgroundStyle] = useState({});

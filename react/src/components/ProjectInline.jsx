@@ -7,7 +7,7 @@ import SimpleEstimateTable from './SimpleEstimateTable';
 import ProjectDocuments from './ProjectDocuments';
 import { apiFetch } from '../services/auth';
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
-import { Button } from './ui';
+import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
 
 

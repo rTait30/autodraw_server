@@ -7,7 +7,7 @@ import SchemaEditor from '../components/products/SchemaEditor';
 
 import ProjectForm from "../components/ProjectForm";
 import StickyActionBar from "../components/StickyActionBar";
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 
 import { apiFetch } from '../services/auth';
 

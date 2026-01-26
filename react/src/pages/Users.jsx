@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../services/auth';
-import { Button } from '../components/ui';
+import { Button } from '../components/UI';
 import { TextInput, SelectInput, FormContainer } from '../components/FormUI';
 import GenericTable from '../components/GenericTable';
 

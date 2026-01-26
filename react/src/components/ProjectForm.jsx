@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 
 import { GeneralSection } from "./GeneralSection";
 import { CheckboxInput, SelectInput, TextInput } from "./FormUI";
-import { Button } from "./ui";
+import { Button } from "./UI";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
 
 // Default general values

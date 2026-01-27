@@ -194,10 +194,10 @@ export default function Authentication() {
                     {showForgotPassword && (
                       <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700">
                         <p className="mb-1">
-                          Please call <a href="tel:555-123-4567" className="text-blue-600 font-medium">555-123-4567</a>
+                          Please call <a href="tel:0466185676" className="text-blue-600 font-medium">0466 185 676</a>
                         </p>
                         <p>
-                          or email <a href="mailto:support@example.com" className="text-blue-600 font-medium">support@example.com</a>
+                          or email <a href="mailto:rtait@drgroup.com.au" className="text-blue-600 font-medium">rtait@drgroup.com.au</a>
                         </p>
                       </div>
                     )}

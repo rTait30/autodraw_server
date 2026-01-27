@@ -720,15 +720,17 @@ const setPointField = (p, key, value) =>
                       />
                     </>
                   )}
-                  <div className={discrepancyChecker ? "col-span-1 md:col-span-3" : ""}>
-                    <NumberInput
-                      label="Tension Allowance (mm)"
-                      min={0}
-                      placeholder="Standard"
-                      value={vals.tensionAllowance}
-                      onChange={(v) => setPointField(p, "tensionAllowance", v)}
-                    />
-                  </div>
+                  {!discrepancyChecker && (
+                    <div className={discrepancyChecker ? "col-span-1 md:col-span-3" : ""}>
+                      <NumberInput
+                        label="Tension Allowance (mm)"
+                        min={0}
+                        placeholder="Standard"
+                        value={vals.tensionAllowance}
+                        onChange={(v) => setPointField(p, "tensionAllowance", v)}
+                      />
+                    </div>
+                  )}
                 </div>
 
               </div>

@@ -89,8 +89,13 @@ function Projects() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-      <div className="sm:flex sm:items-center justify-between mb-6">
+      <div className="flex flex-row items-center justify-between mb-6 gap-4">
         <h1 className="heading-page">Projects</h1>
+        <div className="flex-shrink-0">
+            <Link to="/copelands/discrepancy" className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors text-center inline-block">
+                Check Sail Discrepancy
+            </Link>
+        </div>
       </div>
       
       <div className="mt-2 flex flex-col">

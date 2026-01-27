@@ -235,7 +235,7 @@ export default function Discrepancy() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
       
       {/* Toast Overlay */}
       {toast && (

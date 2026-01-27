@@ -45,6 +45,7 @@ export default function ProjectForm({
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
   productProps = {},
+  generalSectionProps = {},
 }) {
   // Top-level WG submit state
   const [submitToWG, setSubmitToWG] = useState(false);
@@ -326,7 +327,7 @@ export default function ProjectForm({
       )}
 
       {hideGeneralSection === false && (
-        <GeneralSection data={generalData} setData={setGeneralData} />
+        <GeneralSection data={generalData} setData={setGeneralData} {...generalSectionProps} />
       )}
 
       {/* WorkGuru Data Section */}

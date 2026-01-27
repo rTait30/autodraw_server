@@ -28,12 +28,12 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "5.4 Completed" },
 ];
 
-export function GeneralSection({ data, setData = () => {} }) {
+export function GeneralSection({ data, setData = () => {}, onlyName = false }) {
   const [clients, setClients] = useState([]);
   const [clientsError, setClientsError] = useState(null);
   
   const role = localStorage.getItem('role');
-  const staffFields = (role === 'estimator' || role === 'admin' || role === 'designer');
+  const staffFields = !onlyName && (role === 'estimator' || role === 'admin' || role === 'designer');
 
   // Fetch clients on mount if user is staff
   useEffect(() => {
@@ -46,7 +46,7 @@ export function GeneralSection({ data, setData = () => {} }) {
           setClientsError(err.message);
         });
     }
-  }, []);
+  }, [staffFields]);
 
   // Always return all general fields, defaulting to empty string if not present
   const safe = useMemo(() => {
@@ -103,19 +103,23 @@ export function GeneralSection({ data, setData = () => {} }) {
         </> // End of staffFields block
       )}
 
-      <TextInput
-        label="Due Date"
-        type="date"
-        value={safe.due_date}
-        onChange={updateField("due_date")}
-      />
+      {!onlyName && (
+        <TextInput
+          label="Due Date"
+          type="date"
+          value={safe.due_date}
+          onChange={updateField("due_date")}
+        />
+      )}
 
-      <TextInput
-        label="Info"
-        value={safe.info}
-        onChange={updateField("info")}
-        placeholder="Notes or special instructions"
-      />
+      {!onlyName && (
+        <TextInput
+          label="Info"
+          value={safe.info}
+          onChange={updateField("info")}
+          placeholder="Notes or special instructions"
+        />
+      )}
     </div>
   );
 }

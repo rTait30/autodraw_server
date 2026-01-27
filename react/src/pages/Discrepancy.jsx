@@ -175,12 +175,20 @@ export default function Discrepancy() {
 
     const now = new Date();
     const dateStr = now.toISOString().replace('T', ' ').split('.')[0];
-    const name = `Discrepancy Check ${dateStr}`;
+    
+    // Naming logic: User provided Name > Location > Check {time}
+    let finalName = currentData.general?.name;
+    if (!finalName && currentData.project_attributes?.location) {
+       finalName = currentData.project_attributes.location;
+    }
+    if (!finalName) {
+       finalName = `Check ${dateStr}`;
+    }
 
     const payload = {
       general: {
         ...(currentData.general || {}),
-        name: name,
+        name: finalName,
       },
       product_id: 2, // SHADE_SAIL
       project_attributes: currentData.project_attributes || {},
@@ -199,9 +207,9 @@ export default function Discrepancy() {
         const projectId = data.id || (data.project && data.project.id);
 
         if (projectId) {
-             navigate(`/copelands/projects/${projectId}`);
+             showToast("Draft saved! You can find it in the Projects list.", "success");
         } else {
-             showToast("Saved, but could not redirect.", "success");
+             showToast("Saved draft successfully.", "success");
         }
       } else {
         const err = await response.json();
@@ -336,7 +344,8 @@ export default function Discrepancy() {
                 <ProjectForm 
                   formRef={formRef} 
                   product="SHADE_SAIL" 
-                  hideGeneralSection={true} 
+                  hideGeneralSection={false} 
+                  generalSectionProps={{ onlyName: true }}
                   productProps={{ discrepancyChecker: true }}
                 />
               </div>

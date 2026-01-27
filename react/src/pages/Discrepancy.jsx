@@ -5,6 +5,7 @@ import ProjectForm from "../components/ProjectForm";
 import ProjectOverlay from "../components/ProjectOverlay";
 import StickyActionBar from "../components/StickyActionBar";
 import CollapsibleCard from "../components/CollapsibleCard";
+import TopBar from "../components/TopBar";
 import { Button } from '../components/UI';
 
 export default function Discrepancy() {
@@ -27,6 +28,9 @@ export default function Discrepancy() {
   // Toast / Result State
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef();
+
+  // Simple check for active account (token/user existence)
+  const isLoggedIn = !!localStorage.getItem('username');
 
   const showToast = (msg, type = 'info') => {
     setToast({ msg, type });
@@ -236,22 +240,44 @@ export default function Discrepancy() {
       )}
 
       {/* Header Bar */}
-      <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">
-        <div className="flex items-center gap-4">
-            <button 
-                onClick={() => navigate("/copelands/")}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
-            >
-                <span>← Back</span>
-            </button>
-            <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                Sail Discrepancy Checker
-                </h2>
+      {isLoggedIn ? (
+        <div className="flex-none z-10 flex flex-col">
+          <TopBar />
+          <div className="flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm">
+            <div className="flex items-center gap-4">
+              <button 
+                  onClick={() => navigate("/copelands/projects")}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
+              >
+                  <span>← Back to Projects</span>
+              </button>
+              <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+              <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                  Sail Discrepancy Checker
+                  </h2>
+              </div>
             </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">
+          <div className="flex items-center gap-4">
+              <button 
+                  onClick={() => navigate("/copelands/")}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
+              >
+                  <span>← Back</span>
+              </button>
+              <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+              <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                  Sail Discrepancy Checker
+                  </h2>
+              </div>
+          </div>
+        </div>
+      )}
 
       {/* Login Modal */}
       {showLoginModal && (
@@ -354,6 +380,15 @@ export default function Discrepancy() {
             >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check Discrepancy'}
             </Button>
+            {isLoggedIn && (
+              <Button 
+                  onClick={onSave} 
+                  className="flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
+                  variant="custom"
+              >
+                  Save as Draft
+              </Button>
+            )}
       </StickyActionBar>
 
       <style>{`

@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-bg-base: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-hover: #f9fafb;
+  
+  --color-text-primary: #111827; 
+  --color-text-secondary: #374151; 
+  --color-text-muted: #6b7280; 
+  
+  --color-border-base: #e5e7eb; 
+}
+
+.dark {
+  --color-bg-base: #111827; 
+  --color-bg-surface: #1f2937; 
+  --color-bg-surface-hover: #374151; 
+  
+  --color-text-primary: #f9fafb; 
+  --color-text-secondary: #e5e7eb; 
+  --color-text-muted: #9ca3af; 
+  
+  --color-border-base: #374151; 
+}
+
 @theme {
   --font-gill: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
 
@@ -23,8 +49,16 @@
   --color-toggle-inactive: #DC2626;
   --color-toggle-active: #16A34A;
   
-  /* Dark Mode Backgrounds */
-  --color-bg-dark: #111827; /* gray-900 */
+  /* Semantic Colors */
+  --color-background: var(--color-bg-base);
+  --color-surface: var(--color-bg-surface);
+  --color-surface-hover: var(--color-bg-surface-hover);
+  
+  --color-text-main: var(--color-text-primary);
+  --color-text-sub: var(--color-text-secondary);
+  --color-text-dim: var(--color-text-muted);
+  
+  --color-border: var(--color-border-base);
 }
 
 @layer base {
@@ -33,7 +67,75 @@
     margin: 0;
     padding: 0;
   }
+  
   body {
-    @apply font-gill bg-white text-black dark:bg-gray-900 dark:text-white;
+    @apply font-gill bg-background text-text-main;
+  }
+}
+
+@layer components {
+  /* -- Typography -- */
+  .heading-page {
+    @apply text-2xl font-bold text-gray-900 dark:text-white mb-6 text-left;
+  }
+  .heading-sub {
+    @apply text-xl font-bold text-gray-900 dark:text-white;
+  }
+  .heading-section {
+    @apply text-xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-2 dark:text-white dark:border-gray-700;
+  }
+  .link-nav {
+    @apply text-white no-underline font-bold text-xl tracking-wide hover:text-[#FEF08A] hover:underline transition-all duration-200;
+  }
+  .txt-role {
+    @apply font-medium text-sm opacity-80;
+  }
+
+  /* -- Forms -- */
+  .input-base {
+    @apply w-full h-12 px-4 bg-white border border-gray-300 rounded-lg shadow-sm text-base text-gray-900 placeholder-gray-400
+           dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400
+           disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+           dark:disabled:bg-gray-800 dark:disabled:text-gray-500
+           transition-all duration-100 ease-in-out
+           focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none focus:!bg-[#FEF08A] dark:focus:!bg-gray-600;
+  }
+  .input-label {
+    @apply block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none dark:text-white;
+  }
+  .input-compact {
+    @apply p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 text-base md:text-xs transition-all duration-100 ease-in-out
+           focus:scale-[1.02] focus:shadow-md dark:border-gray-600 dark:bg-gray-800 dark:text-white
+           focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none focus:!bg-[#FEF08A] dark:focus:!bg-gray-600;
+  }
+  
+  /* -- Tables -- */
+  .table-base {
+    @apply w-full border-collapse border border-warm-grey bg-white 
+           [&_tbody_tr:nth-child(even)]:bg-warm-grey [&_tbody_tr:nth-child(odd)]:bg-white 
+           [&_tbody_tr:hover]:bg-warm-grey [&_tbody_tr:hover]:transition-colors [&_tbody_tr:hover]:duration-150;
+  }
+  .table-header {
+    @apply text-left font-sans text-base font-semibold text-secondary tracking-wide bg-warm-grey border-b border-warm-grey py-2 px-3;
+  }
+  .table-cell {
+    @apply p-2 border-b border-warm-grey text-sm;
+  }
+  .table-calc {
+    @apply bg-warm-grey;
+  }
+
+  /* -- Auth -- */
+  .auth-container {
+    @apply flex items-center justify-center p-4;
+  }
+  .auth-box {
+    @apply rounded-2xl bg-white p-4 w-full max-w-xs shadow-lg flex flex-col items-center dark:bg-gray-800;
+  }
+  .auth-error {
+    @apply text-error text-xl font-bold mt-4 text-center border-2 border-error rounded-xl bg-red-50 p-4 w-full shadow-md;
+  }
+  .auth-success {
+    @apply text-success text-sm mt-2;
   }
 }

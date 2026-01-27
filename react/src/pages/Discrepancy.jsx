@@ -1,7 +1,10 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch, setAccessToken } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
+import ProjectOverlay from "../components/ProjectOverlay";
+import StickyActionBar from "../components/StickyActionBar";
+import CollapsibleCard from "../components/CollapsibleCard";
 import { Button } from '../components/UI';
 
 export default function Discrepancy() {
@@ -9,14 +12,29 @@ export default function Discrepancy() {
 
   const formRef = useRef(null);
   const canvasRef = useRef(null);
-  const [checkSign, setCheckSign] = useState({ text: "", ok: null });
-  const [projectData, setProjectData] = useState(null);
-
+  
+  const [editedProject, setEditedProject] = useState({});
+  const [overlayMode, setOverlayMode] = useState(null); // 'preview' | null
+  const [isClosing, setIsClosing] = useState(false);
+  const [toggleData, setToggleData] = useState(false);
+  
+  // Login modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
+  // Toast / Result State
+  const [toast, setToast] = useState(null);
+  const toastTimeoutRef = useRef();
+
+  const showToast = (msg, type = 'info') => {
+    setToast({ msg, type });
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 5000);
+  };
+
+  // Login handler
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError("");
@@ -46,15 +64,15 @@ export default function Discrepancy() {
 
   // Render canvas using Display module when project data changes
   useEffect(() => {
-    if (!projectData || !canvasRef.current) return;
+    if (!editedProject || !canvasRef.current) return;
 
     // Dynamically import Display module for SHADE_SAIL
     import("../components/products/SHADE_SAIL/Display.js")
       .then((module) => {
         const data = {
-          products: projectData.products || [],
-          project_attributes: projectData.project_attributes || {},
-          discrepancyChecker: true,
+          products: editedProject.products || [],
+          project_attributes: editedProject.project_attributes || {},
+          discrepancyChecker: true, 
         };
         if (typeof module.render === "function") {
           module.render(canvasRef.current, data);
@@ -63,17 +81,26 @@ export default function Discrepancy() {
       .catch((e) => {
         console.warn("No Display module for SHADE_SAIL:", e.message);
       });
-  }, [projectData]);
+  }, [editedProject]);
+
+  const syncEditedFromForm = () => {
+    const values = formRef.current?.getValues?.();
+    if (!values) return editedProject || {};
+    
+    return {
+      ...(editedProject || {}),
+      general: values.general || editedProject?.general || {},
+      project_attributes: values.project_attributes || editedProject?.project_attributes || {},
+      products: values.products || editedProject?.products || [],
+    };
+  };
 
   const onCheck = async () => {
-    // Clear sign while checking
-    setCheckSign({ text: "", ok: null });
-    
-    const formData = formRef.current?.getValues?.() ?? {};
-    const products = formData.products || [];
+    const currentData = syncEditedFromForm();
+    const products = currentData.products || [];
     
     if (products.length === 0) {
-      setCheckSign({ text: "Please add at least one sail", ok: false });
+      showToast("Please add at least one sail", "error");
       return;
     }
 
@@ -84,11 +111,10 @@ export default function Discrepancy() {
     }
 
     try {
-      // Server-side calculation for SHADE_SAIL (dbId: 2)
       const payload = {
-        product_id: 2,
-        general: formData.general || {},
-        project_attributes: formData.project_attributes || {},
+        product_id: 2, // SHADE_SAIL
+        general: currentData.general || {},
+        project_attributes: currentData.project_attributes || {},
         products: products,
       };
 
@@ -99,14 +125,16 @@ export default function Discrepancy() {
       });
 
       const result = await response.json();
-
-      // Update for rendering
-      setProjectData({
-        products: result.products || [],
+      
+      // Update state with result
+      const updated = {
+        ...currentData,
+        products: result.products || [], // Server returns products with analyzed attributes
         project_attributes: result.project_attributes || {},
-      });
+      };
+      setEditedProject(updated);
 
-      // Check for discrepancies across all products
+      // Check for discrepancies
       let anyProblem = false;
       let maxDisc = 0;
       (result.products || []).forEach(p => {
@@ -116,37 +144,42 @@ export default function Discrepancy() {
       });
 
       if (anyProblem) {
-        setCheckSign({ text: `Discrepancies found\n(max: ${maxDisc.toFixed(0)}mm)`, ok: false });
+        showToast(`Discrepancies found (max: ${maxDisc.toFixed(0)}mm)`, "error");
       } else {
-        setCheckSign({ text: `Within tolerance\n(max: ${maxDisc.toFixed(0)}mm)`, ok: true });
+        showToast(`Within tolerance (max: ${maxDisc.toFixed(0)}mm)`, "success");
       }
+
+      // Automatically show overlay on mobile/tablet like ProjectInline
+      if (window.innerWidth < 1024) {
+        setOverlayMode('preview');
+      }
+
     } catch (error) {
       console.error("Discrepancy check error:", error);
-      setCheckSign({ text: `Error: ${error.message}`, ok: false });
+      showToast(`Error: ${error.message}`, "error");
     }
   };
 
   const onSave = async () => {
-    const formData = formRef.current?.getValues?.() ?? {};
-    const products = formData.products || [];
+    const currentData = syncEditedFromForm();
+    const products = currentData.products || [];
     
     if (products.length === 0) {
-      setCheckSign({ text: "Please add at least one sail before saving", ok: false });
+      showToast("Please add at least one sail before saving", "error");
       return;
     }
 
     const now = new Date();
-    // Format: YYYY-MM-DD HH:mm:ss
     const dateStr = now.toISOString().replace('T', ' ').split('.')[0];
     const name = `Discrepancy Check ${dateStr}`;
 
     const payload = {
       general: {
-        ...(formData.general || {}),
+        ...(currentData.general || {}),
         name: name,
       },
       product_id: 2, // SHADE_SAIL
-      project_attributes: formData.project_attributes || {},
+      project_attributes: currentData.project_attributes || {},
       products: products,
     };
 
@@ -159,19 +192,14 @@ export default function Discrepancy() {
 
       if (response.ok) {
         const data = await response.json();
-        // The API returns the project object directly (e.g. { id: 123, ... })
-        // OR it might return { project: { id: 123 } } depending on the endpoint version.
-        // Based on projects_api.py, it returns { id: ..., client_id: ... } directly.
         const projectId = data.id || (data.project && data.project.id);
 
         if (projectId) {
              navigate(`/copelands/projects/${projectId}`);
         } else {
-             console.warn("No project id in response", data);
-             setCheckSign({ text: "Saved, but could not redirect.", ok: true });
+             showToast("Saved, but could not redirect.", "success");
         }
       } else {
-        // Should be caught by apiFetch throw, but just in case
         const err = await response.json();
         throw new Error(err.error || "Unknown error");
       }
@@ -182,72 +210,52 @@ export default function Discrepancy() {
         return;
       }
       console.error("Save error:", error);
-      setCheckSign({ text: `Save Error: ${error.message}`, ok: false });
+      showToast(`Save Error: ${error.message}`, "error");
     }
   };
 
+  const closeOverlay = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setOverlayMode(null);
+      setIsClosing(false);
+    }, 300);
+  };
+
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold dark:text-white">Sail Discrepancy Checker</h2>
-          <Button
-            className="bg-[#AA0000] hover:bg-[#880000] text-white focus:ring-[#AA0000]"
-            variant="custom" // The component supports arbitrary classNames, but overriding base variant colors might need "bg-[#AA0000]" to be important or just relying on cascade. 
-            // Since "primary" variant has "bg-primary", our "bg-[#AA0000]" in className should override it if defined later in CSS generated by Tailwind.
-            // Let's assume standard behavior. To be safe, we can use style prop or just rely on className.
-            onClick={() => navigate("/copelands/")}
-          >
-            ← Back
-          </Button>
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      
+      {/* Toast Overlay */}
+      {toast && (
+        <div className={`fixed left-1/2 bottom-24 md:bottom-28 z-[100] w-[90%] max-w-lg -translate-x-1/2 rounded border px-4 py-3 shadow-xl text-sm break-words border-l-4 ${toast.type === 'error' ? 'bg-white border-l-red-600' : 'bg-white border-l-green-600'}`}>
+          <div className="flex justify-between items-start gap-2">
+            <div>{toast.msg}</div>
+            <button className="text-gray-400 hover:text-black" onClick={() => setToast(null)}>✕</button>
+          </div>
         </div>
+      )}
 
-        <div className="flex flex-col md:flex-row gap-10">
-          {/* Left: form + action */}
-          <div className="flex-1 min-w-[360px]">
-            <ProjectForm 
-              formRef={formRef} 
-              product="SHADE_SAIL" 
-              hideGeneralSection={true} 
-              productProps={{ discrepancyChecker: true }}
-            />
-
-            <div className="flex flex-col gap-3 mt-4">
-              <div className="flex gap-2">
-                <Button onClick={onCheck} className="whitespace-nowrap">
-                  Check Discrepancy
-                </Button>
-                <Button onClick={onSave} className="whitespace-nowrap bg-green-600 hover:bg-green-700">
-                  Save as Draft
-                </Button>
-              </div>
-              <span className="text-lg" aria-live="polite">
-                {checkSign.ok === null ? (
-                  ""
-                ) : (
-                  <span className={checkSign.ok ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                    {checkSign.text}
-                  </span>
-                )}
-              </span>
+      {/* Header Bar */}
+      <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">
+        <div className="flex items-center gap-4">
+            <button 
+                onClick={() => navigate("/copelands/")}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
+            >
+                <span>← Back</span>
+            </button>
+            <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+            <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                Sail Discrepancy Checker
+                </h2>
             </div>
-          </div>
-
-          {/* Right: canvas */}
-          <div className="flex-1 min-w-[360px] flex flex-col items-center">
-            <canvas
-              ref={canvasRef}
-              data-dynamic-sail="true"
-              width={800}
-              height={500}
-              className="border border-gray-300 dark:border-gray-600 mt-5 w-full block bg-gray-50 dark:bg-gray-800 shadow-sm"
-            />
-          </div>
         </div>
-      </main>
+      </div>
 
+      {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110]">
           <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-96 relative">
             <h3 className="text-lg font-bold mb-4 dark:text-white">Login to Save Draft</h3>
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
@@ -286,6 +294,85 @@ export default function Discrepancy() {
           </div>
         </div>
       )}
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
+        <div className="max-w-[1800px] mx-auto p-2 md:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
+            
+            {/* Left: Form */}
+            <CollapsibleCard 
+              title="Requirements" 
+              className="lg:col-span-7 xl:col-span-8"
+              defaultOpen={true}
+            >
+              <div className="p-1">
+                <ProjectForm 
+                  formRef={formRef} 
+                  product="SHADE_SAIL" 
+                  hideGeneralSection={true} 
+                  productProps={{ discrepancyChecker: true }}
+                />
+              </div>
+            </CollapsibleCard>
+
+            {/* Right: Viz */}
+            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar">
+              <CollapsibleCard 
+                  title="Visualisation" 
+                  forceOpen={!!overlayMode}
+                  className={overlayMode ? "!border-0 !shadow-none !bg-transparent !rounded-none !overflow-visible" : ""} 
+                  defaultOpen={true}
+              >
+                  {/* Container for render. ProjectOverlay handles modes. */}
+                  <ProjectOverlay
+                    mode={overlayMode}
+                    isClosing={isClosing}
+                    onClose={closeOverlay}
+                    canvasRef={canvasRef}
+                    project={editedProject}
+                    productName="SHADE_SAIL"
+                    devMode={false}
+                    toggleData={toggleData}
+                    setToggleData={setToggleData}
+                  />
+              </CollapsibleCard>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+       {/* Footer Action Bar */}
+       <StickyActionBar 
+          mode="static"
+          className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">
+            <Button 
+                onClick={overlayMode === 'preview' ? closeOverlay : onCheck} 
+                className="flex-1 justify-center py-3 text-lg"
+                variant={overlayMode === 'preview' ? 'danger' : 'primary'}
+            >
+                {overlayMode === 'preview' ? 'Close Preview' : 'Check Discrepancy'}
+            </Button>
+      </StickyActionBar>
+
+      <style>{`
+        @keyframes slide-up-card {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up-card {
+          animation: slide-up-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slide-down-card {
+          from { transform: translateY(0); opacity: 1; }
+          to { transform: translateY(100%); opacity: 0; }
+        }
+        .animate-slide-down-card {
+          animation: slide-down-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+
     </div>
   );
 }

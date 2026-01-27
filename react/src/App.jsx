@@ -33,6 +33,14 @@ function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  useEffect(() => {
     dispatch(fetchProducts());
     const favicon = document.querySelector("link[rel~='icon']");
     if (favicon) {
@@ -55,9 +63,6 @@ function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [dispatch]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
 
   return (
     <Router>

@@ -511,7 +511,7 @@ const setPointField = (p, key, value) =>
 
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white shadow-sm rounded-xl">
+    <div className="max-w-5xl mx-auto">
       
       {/* SECTION 1: MAIN SPECS */}
       {!discrepancyChecker && (
@@ -555,11 +555,11 @@ const setPointField = (p, key, value) =>
         <FormGrid columns={2}>
           {/* Points +/- Control (Preserved) */}
           <div className="flex flex-col">
-            <label className="block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none">Points</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1.5 ml-1 select-none">Points</label>
             <div className="flex items-center">
-              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-100 border border-gray-300 border-r-0 rounded-l-lg active:bg-gray-200" onClick={() => setCount(Math.max(3, Number(attributes.pointCount) - 1))}>−</button>
+              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-r-0 rounded-l-lg dark:text-white" onClick={() => setCount(Math.max(3, Number(attributes.pointCount) - 1))}>−</button>
               <NumberInput className="md:rounded-lg rounded-none text-center" step={1} min={3} max={MAX_POINTS} placeholder="—" value={attributes.pointCount} onChange={(v) => setCount(v)} />
-              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-100 border border-gray-300 border-l-0 rounded-r-lg active:bg-gray-200" onClick={() => setCount(Math.min(MAX_POINTS, (Number(attributes.pointCount)||0) + 1))}>+</button>
+              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-l-0 rounded-r-lg dark:text-white" onClick={() => setCount(Math.min(MAX_POINTS, (Number(attributes.pointCount)||0) + 1))}>+</button>
             </div>
           </div>
           {/* Exit/Logo (Preserved) */}
@@ -600,7 +600,7 @@ const setPointField = (p, key, value) =>
           ))}
         </FormGrid>
         {geometry.edges.length > 0 && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center font-medium text-gray-700">
+            <div className="mt-4 p-4 bg-gray-500/5 rounded-lg border border-gray-500/20 text-center font-medium text-gray-700 dark:text-gray-300">
               Total Perimeter: {geometry.perimeterMM}mm ({geometry.perimeterMeters}m)
             </div>
         )}
@@ -613,7 +613,7 @@ const setPointField = (p, key, value) =>
           {/* Required */}
           {geometry.mandatory.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide">Required</h4>
+              <h4 className="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide dark:text-red-400">Required</h4>
               <FormGrid columns={3}>
                 {geometry.mandatory.map(([label, value]) => (
                   <NumberInput
@@ -632,8 +632,8 @@ const setPointField = (p, key, value) =>
 
           {/* Tip */}
           {geometry.tip.length > 0 && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-              <h4 className="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wide">Tip Diagonals (At least one)</h4>
+            <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+              <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 uppercase tracking-wide">Tip Diagonals (At least one)</h4>
               <FormGrid columns={3}>
                 {geometry.tip.map(([label, value]) => (
                   <NumberInput
@@ -654,7 +654,7 @@ const setPointField = (p, key, value) =>
           {/* Optional */}
           {geometry.optional.length > 0 && (
             <div>
-              <h4 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">Optional</h4>
+              <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wide">Optional</h4>
               <FormGrid columns={4}>
                 {geometry.optional.map(([label, value]) => (
                   <NumberInput
@@ -677,11 +677,11 @@ const setPointField = (p, key, value) =>
       <FormSection title="Point Specifications">
         <div className="flex flex-col space-y-2">
           {Object.entries(attributes.points).map(([p, vals]) => (
-            <div key={p} className="py-4 border-b border-gray-200 last:border-0">
+            <div key={p} className="py-4 border-b border-gray-200 dark:border-gray-700 last:border-0">
               <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
                 
                 {/* PRIORITY BOX */}
-                <div className="flex-none w-full lg:w-56 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center gap-4">
+                <div className="flex-none w-full lg:w-56 bg-blue-500/5 p-3 rounded-lg border border-blue-500/20 flex items-center gap-4">
                   <div className="flex-none flex items-center justify-center w-12 h-12 rounded-full bg-blue-900 text-white text-xl font-bold shadow-sm">
                     {p}
                   </div>
@@ -701,7 +701,7 @@ const setPointField = (p, key, value) =>
                   </div>
                 </div>
 
-                <div className="hidden lg:block text-gray-300 text-2xl">→</div>
+                <div className="hidden lg:block text-gray-300 dark:text-gray-600 text-2xl">→</div>
 
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
                   {!discrepancyChecker && (
@@ -739,17 +739,17 @@ const setPointField = (p, key, value) =>
 
       {/* --- SECTION 5: EXTRAS (DETAILS) --- */}
       {!discrepancyChecker && (
-        <details className="group mt-8 border-t border-gray-200 pt-6">
-          <summary className="cursor-pointer text-xl font-bold text-gray-700 flex items-center gap-2 select-none list-none">
+        <details className="group mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+          <summary className="cursor-pointer text-xl font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 select-none list-none">
              <span className="group-open:rotate-90 transition-transform">▶</span>
              Extras (Trace Cables & UFCs)
           </summary>
           
-          <div className="mt-6 space-y-8 pl-4 border-l-2 border-gray-100 ml-2">
+          <div className="mt-6 space-y-8 pl-4 border-l-2 border-gray-100 dark:border-gray-700 ml-2">
             
             {/* TRACE CABLES */}
             <div>
-              <h4 className="font-bold text-gray-900 mb-4">Trace Cables</h4>
+              <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-4">Trace Cables</h4>
               <div className="flex flex-wrap items-end gap-4 mb-4">
                 <div className="w-32">
                   <SelectInput
@@ -769,7 +769,7 @@ const setPointField = (p, key, value) =>
                 <button
                   type="button"
                   onClick={addTraceCable}
-                  className="h-12 px-6 bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition-colors"
+                  className="h-12 px-6 bg-gray-900 text-white font-bold rounded-lg hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors shadow-sm"
                 >
                   Add
                 </button>
@@ -778,8 +778,8 @@ const setPointField = (p, key, value) =>
               {/* List */}
               <div className="space-y-3">
                 {(attributes.traceCables || []).map((tc, i) => (
-                  <div key={i} className="flex items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200 w-max pr-4">
-                     <span className="font-bold text-gray-700 w-8 text-center">{tc.point}</span>
+                  <div key={i} className="flex items-center gap-4 bg-gray-500/5 p-2 rounded-lg border border-gray-500/20 w-max pr-4">
+                     <span className="font-bold text-gray-700 dark:text-gray-200 w-8 text-center">{tc.point}</span>
                      <div className="w-32">
                        <NumberInput 
                          value={tc.length} 
@@ -798,7 +798,7 @@ const setPointField = (p, key, value) =>
 
             {/* UFCs */}
             <div>
-              <h4 className="font-bold text-gray-900 mb-4">UFCs</h4>
+              <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-4">UFCs</h4>
               <FormGrid columns={4} className="items-end">
                  <SelectInput
                     label="Diagonal"
@@ -824,7 +824,7 @@ const setPointField = (p, key, value) =>
                  <button
                     type="button"
                     onClick={addUfc}
-                    className="h-12 w-full bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition-colors"
+                    className="h-12 w-full bg-gray-900 text-white font-bold rounded-lg hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors shadow-sm"
                  >
                     Add UFC
                  </button>
@@ -833,16 +833,16 @@ const setPointField = (p, key, value) =>
               {/* UFC List */}
               <div className="space-y-3 mt-4">
                 {(attributes.ufcs || []).map((u, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200">
-                    <span className="font-bold text-gray-700 w-12">{u.diagonal}</span>
+                  <div key={i} className="flex flex-wrap items-center gap-4 bg-gray-500/5 p-2 rounded-lg border border-gray-500/20">
+                    <span className="font-bold text-gray-700 dark:text-gray-200 w-12">{u.diagonal}</span>
                     <SelectInput 
-                      className="h-10 w-24 bg-white"
+                      className="h-10 w-24 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       value={u.size ?? ""} 
                       onChange={(val) => updateUfcSize(i, val)} 
                       options={[{ label: "Auto", value: "" }, { label: "5mm", value: "5" }, { label: "6mm", value: "6" }]}
                     />
                     <SelectInput 
-                      className="h-10 w-28 bg-white"
+                      className="h-10 w-28 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       value={u.internalPocket === true ? "yes" : u.internalPocket === false ? "no" : (u.internalPocket || "standard")}
                       onChange={(val) => updateUfcField(i, "internalPocket", val)} 
                       options={[{ label: "Standard", value: "standard" }, { label: "No Pocket", value: "no" }, { label: "Pocket", value: "yes" }]}
@@ -893,12 +893,5 @@ function makeDiagonalLabels(n) {
   }
   return out;
 }
-
-// --- Recursively convert all numeric-like strings to numbers ---
-/* 
- deepNumberify is now imported from shared/FormUI 
- but we keep it here if not imported, but wait we imported it.
- Removing the local declaration.
-*/
 
 export default ProductForm;

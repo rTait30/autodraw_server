@@ -36,7 +36,7 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
 
   // Contents of the bar
   const content = (
-    <div ref={ref} className={`action-bar ${mode} ${className}`}>
+    <div ref={ref} className={`action-bar ${mode} border-t border-border bg-surface ${className}`}>
       {children}
     </div>
   );
@@ -46,8 +46,7 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
     <style>{`
       .action-bar {
         box-sizing: border-box;
-        background-color: white;
-        border-top: 1px solid #e5e7eb;
+        /* background/border handled by Tailwind utility classes */
         z-index: 50;
         display: flex;
         justify-content: space-around;
@@ -83,11 +82,6 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
           gap: 16px;
           flex-wrap: wrap; 
         }
-      }
-      
-      .dark .action-bar {
-         background-color: #1f2937;
-         border-top-color: #374151;
       }
     `}</style>
   );

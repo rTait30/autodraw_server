@@ -7,7 +7,6 @@ import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
 import { Button } from '../components/UI';
-import { headingStyles } from '../components/sharedStyles';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -91,7 +90,7 @@ function Projects() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="sm:flex sm:items-center justify-between mb-6">
-        <h1 className={headingStyles}>Projects</h1>
+        <h1 className="heading-page">Projects</h1>
       </div>
       
       <div className="mt-2 flex flex-col">

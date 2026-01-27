@@ -8,14 +8,6 @@ import { TextInput } from './FormUI';
 import { setAccessToken, apiFetch, refresh } from '../services/auth';
 
 import { Button } from './UI';
-import { 
-  formStyles, 
-  authContainerStyles, 
-  authBoxStyles, 
-  authLogoStyles,
-  authErrorStyles,
-  authSuccessStyles
-} from './sharedStyles';
 
 function resetViewport() {
 
@@ -160,9 +152,9 @@ export default function Authentication() {
         title={mode === 'login' ? 'Sign In / Register' : 'New Client Registration'}
         defaultOpen={true}
         className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
-        contentClassName="p-4 flex flex-col items-center bg-white dark:bg-gray-800"
+        contentClassName="auth-box mt-0 shadow-none !p-4"
       >
-          <div className={`${authLogoStyles} mt-2`}>
+          <div className="flex justify-center w-full mb-2 mt-2">
             <img
               src={getBaseUrl('/static/img/DRlogo.png')}
               alt="Logo"
@@ -247,7 +239,7 @@ export default function Authentication() {
                 </Button>
               </div>
 
-              { errorText && <div className={`${authErrorStyles} mt-2`}>{errorText} </div> }
+              { errorText && <div className="auth-error mt-2">{errorText} </div> }
 
             </form>
             
@@ -283,7 +275,7 @@ export default function Authentication() {
                     autoComplete="new-password"
                   />
 
-                  {errorText && <div className={`${authErrorStyles} mb-1`}>{errorText}</div>}
+                  {errorText && <div className="auth-error mb-1">{errorText}</div>}
 
                   <TextInput
                     label="Confirm Password"
@@ -312,7 +304,7 @@ export default function Authentication() {
                 </Button>
               </div>
 
-              {successText && <div className={`${authSuccessStyles} mt-2`}>{successText}</div>}
+              {successText && <div className="auth-success mt-2">{successText}</div>}
             </form>
           )}
       </CollapsibleCard>

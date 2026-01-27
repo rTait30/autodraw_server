@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, useId } from "react";
-
-const baseInputStyles = `
-  w-full h-12 px-4 
-  bg-white border border-gray-300 rounded-lg shadow-sm
-  text-base text-gray-900 placeholder-gray-400
-  focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none 
-  focus:bg-yellow-100 
-  disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-  transition-colors duration-75 ease-out
-`;
-
-const labelStyles = `
-  block text-sm font-bold text-gray-700 mb-1.5 ml-1 select-none
-`;
+// Shared styles imported via CSS classes (see src/styles/index.css)
 
 // --- Helpers ---
 
@@ -138,7 +125,7 @@ export function NumberInput({
   return (
     <div className={wrapperClassName}>
       {label && (
-        <label htmlFor={inputId} className={labelStyles}>
+        <label htmlFor={inputId} className="input-label">
           {label}
         </label>
       )}
@@ -148,7 +135,7 @@ export function NumberInput({
         type="number"
         step="any"
         inputMode="decimal"
-        className={`${baseInputStyles} ${className}`}
+        className={`input-base ${className}`}
         placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={(e) => {
@@ -182,7 +169,7 @@ export function TextInput({
   return (
     <div className={wrapperClassName}>
       {label && (
-        <label htmlFor={inputId} className={labelStyles}>
+        <label htmlFor={inputId} className="input-label">
           {label}
         </label>
       )}
@@ -190,7 +177,7 @@ export function TextInput({
         id={inputId}
         ref={ref}
         type="text"
-        className={`${baseInputStyles} ${className}`}
+        className={`input-base ${className}`}
         placeholder={placeholder || ""}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
@@ -220,7 +207,7 @@ export function SelectInput({
   return (
     <div className={`flex flex-col ${wrapperClassName}`}>
       {label && (
-        <label htmlFor={inputId} className={labelStyles}>
+        <label htmlFor={inputId} className="input-label">
           {label}
         </label>
       )}
@@ -230,7 +217,7 @@ export function SelectInput({
           id={inputId}
           ref={ref}
           // 'pr-10' makes room for the chevron so text doesn't overlap it
-          className={`${baseInputStyles} appearance-none cursor-pointer pr-10 ${className}`}
+          className={`input-base appearance-none cursor-pointer pr-10 ${className}`}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           {...(nav ? nav.bind(name) : {})}
@@ -244,7 +231,7 @@ export function SelectInput({
         </select>
 
         {/* Custom Chevron - pointer-events-none ensures clicks pass through to the select */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 dark:text-gray-400">
           <svg className="h-5 w-5 fill-current" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
@@ -259,13 +246,14 @@ export function CheckboxInput({ label, checked, onChange, ...props }) {
     // h-12 (48px) matches the height of our TextInputs exactly.
     // rounded-lg matches the curvature of the inputs.
     // hover:bg-gray-50 gives a tactile feel when hovering.
-    <label className="flex items-center h-12 px-3 -ml-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group select-none">
+    <label className="flex items-center h-12 px-3 -ml-3 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group select-none">
       <input
         type="checkbox"
         className="
           appearance-none
           w-6 h-6 border-2 border-gray-300 rounded 
           bg-white checked:bg-primary checked:border-primary
+          dark:bg-gray-700 dark:border-gray-500 dark:checked:bg-primary dark:checked:border-primary
           focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:outline-none
           transition duration-75 ease-out
         "
@@ -287,7 +275,7 @@ export function CheckboxInput({ label, checked, onChange, ...props }) {
         <polyline points="20 6 9 17 4 12" />
       </svg>
 
-      <span className="ml-3 text-base font-bold text-gray-700 group-hover:text-gray-900">
+      <span className="ml-3 text-base font-bold text-gray-700 group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white">
         {label}
       </span>
     </label>
@@ -302,7 +290,7 @@ export function FormSection({ title, children, className = "" }) {
   return (
     <div className={`mb-8 ${className}`}>
       {title && (
-        <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-2">
+        <h3 className="heading-section">
           {title}
         </h3>
       )}
@@ -346,11 +334,7 @@ export function CompactTextInput({ className = "", ...props }) {
     <input
       type="text"
       className={`
-        p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
-        text-base md:text-xs 
-        transition-all duration-100 ease-in-out 
-        focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
-        dark:border-gray-600 dark:bg-gray-800 dark:text-white
+        input-compact
         ${className}
       `}
       {...props}
@@ -363,11 +347,7 @@ export function CompactNumberInput({ className = "", ...props }) {
       <input
         type="number"
         className={`
-          p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
-          text-base md:text-xs 
-          transition-all duration-100 ease-in-out 
-          focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
-          dark:border-gray-600 dark:bg-gray-800 dark:text-white
+          input-compact
           ${className}
         `}
         step="any"
@@ -380,11 +360,7 @@ export function CompactNumberInput({ className = "", ...props }) {
     return (
         <select
             className={`
-                p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
-                text-base md:text-xs 
-                transition-all duration-100 ease-in-out 
-                focus:bg-yellow-100 focus:scale-[1.01] focus:shadow-md focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none
-                dark:border-gray-600 dark:bg-gray-800 dark:text-white
+                input-compact
                 ${className}
             `}
             {...props}
@@ -403,14 +379,7 @@ export function SimpleTable({ children, className = "", ...props }) {
     return (
         <table 
             className={`
-                w-full border-collapse border border-warm-grey bg-white 
-                dark:border-gray-700 dark:bg-gray-900
-                [&_tbody_tr:nth-child(even)]:bg-warm-grey 
-                [&_tbody_tr:nth-child(even)]:dark:bg-gray-800
-                [&_tbody_tr:nth-child(odd)]:bg-white 
-                [&_tbody_tr:nth-child(odd)]:dark:bg-gray-900
-                [&_tbody_tr:hover]:bg-warm-grey [&_tbody_tr:hover]:transition-colors [&_tbody_tr:hover]:duration-150
-                [&_tbody_tr:hover]:dark:bg-gray-700
+                table-base
                 ${className}
             `} 
             {...props}
@@ -425,9 +394,7 @@ export function SimpleTh({ children, className = "", align = "left", ...props })
     return (
         <th 
             className={`
-                font-sans text-base font-semibold text-secondary tracking-wide 
-                bg-warm-grey border-b border-warm-grey py-2 px-3
-                dark:bg-gray-800 dark:border-gray-700 dark:text-blue-400
+                table-header
                 ${alignClass}
                 ${className}
             `}
@@ -443,8 +410,7 @@ export function SimpleTd({ children, className = "", align = "left", ...props })
     return (
         <td 
             className={`
-                p-2 border-b border-warm-grey text-sm
-                dark:border-gray-700 dark:text-gray-200
+                table-cell
                 ${alignClass}
                 ${className}
             `}

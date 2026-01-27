@@ -125,11 +125,11 @@ function Users() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">User Management</h1>
+      <h1 className="heading-page">User Management</h1>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">All Users</h3>
+            <h3 className="heading-sub">All Users</h3>
         </div>
         {loading ? (
           <p className="p-6 text-gray-500 dark:text-gray-400">Loading users...</p>
@@ -144,7 +144,7 @@ function Users() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Create Staff User</h3>
+        <h3 className="heading-sub mb-6">Create Staff User</h3>
         <form onSubmit={handleCreate} className="max-w-md space-y-4">
             <FormContainer>
                 <TextInput

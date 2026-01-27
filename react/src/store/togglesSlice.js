@@ -1,38 +1,34 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const getInitialDarkMode = () => {
-  const stored = localStorage.getItem('darkMode');
-  if (stored !== null) {
-    return stored === 'true';
-  }
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
+
 
 const togglesSlice = createSlice({
   name: 'toggles',
   initialState: {
-    darkMode: getInitialDarkMode(),
     devMode: localStorage.getItem('devMode') === 'true',
+    darkMode: localStorage.getItem('darkMode') === 'true' || 
+              (localStorage.getItem('darkMode') === null && window.matchMedia('(prefers-color-scheme: dark)').matches),
   },
   reducers: {
-    toggleDarkMode: (state) => { 
-      state.darkMode = !state.darkMode; 
+    toggleDarkMode: (state) => {
+      state.darkMode = !state.darkMode;
       localStorage.setItem('darkMode', state.darkMode);
+    },
+    setDarkMode: (state, action) => {
+      state.darkMode = action.payload;
+      localStorage.setItem('darkMode', state.darkMode);
+    },
+    syncDarkMode: (state, action) => {
+      state.darkMode = action.payload;
+      // Do not write to localStorage on sync, to respect system preference until overridden
     },
     toggleDevMode: (state) => { 
       state.devMode = !state.devMode; 
       localStorage.setItem('devMode', state.devMode);
     },
-    setDarkMode: (state, action) => { 
-      state.darkMode = action.payload; 
-      localStorage.setItem('darkMode', state.darkMode);
-    },
     setDevMode: (state, action) => { 
       state.devMode = action.payload; 
       localStorage.setItem('devMode', state.devMode);
-    },
-    syncDarkMode: (state, action) => {
-      state.darkMode = action.payload;
     },
   },
 });

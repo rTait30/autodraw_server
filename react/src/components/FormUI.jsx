@@ -135,9 +135,10 @@ export function NumberInput({
         type="number"
         step="any"
         inputMode="decimal"
-        className={`input-base ${className}`}
+        className={`input-base [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${className}`}
         placeholder={placeholder || ""}
         value={value ?? ""}
+        onFocus={(e) => e.target.select()}
         onChange={(e) => {
           const v = e.currentTarget.valueAsNumber;
           onChange(Number.isNaN(v) ? null : v);

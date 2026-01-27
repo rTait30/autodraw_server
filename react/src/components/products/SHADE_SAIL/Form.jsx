@@ -108,6 +108,41 @@ export function ProductForm({
     }
   });
 
+  // UNIT CONVERSION STATE
+  const [unit, setUnit] = useState("mm");
+  const unitFactor = { mm: 1, cm: 10, m: 1000 }[unit];
+
+  // MM conversions (Edges, Diagonals, TraceCables)
+  const toDisplay = (valMM) => {
+    if (valMM === "" || valMM === undefined || valMM === null) return "";
+    const num = Number(valMM);
+    if (!Number.isFinite(num)) return "";
+    // Avoid floating point errors (e.g. 0.3000000004)
+    return parseFloat((num / unitFactor).toFixed(4));
+  };
+  const fromDisplay = (valDisp) => {
+    if (valDisp === "" || valDisp === undefined) return "";
+    const num = Number(valDisp);
+    if (!Number.isFinite(num)) return "";
+    return num * unitFactor;
+  };
+
+  // Height conversions (Stored as Meters)
+  const toDisplayHeight = (valM) => {
+    if (valM === "" || valM === undefined || valM === null) return "";
+    const num = Number(valM);
+    if (!Number.isFinite(num)) return "";
+    // Convert m -> mm then to display unit
+    return parseFloat(((num * 1000) / unitFactor).toFixed(4));
+  };
+  const fromDisplayHeight = (valDisp) => {
+    if (valDisp === "" || valDisp === undefined) return "";
+    const num = Number(valDisp);
+    if (!Number.isFinite(num)) return "";
+    // Convert display unit -> mm then to m
+    return (num * unitFactor) / 1000;
+  };
+
   // pending trace input (choose point + length)
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
 
@@ -122,7 +157,9 @@ export function ProductForm({
   // Add a trace cable entry { point, length }
   const addTraceCable = () => {
     const point = String(pendingTrace.point || "").trim() || "A";
-    const length = Number(pendingTrace.length) || 0;
+    const lengthDisp = Number(pendingTrace.length) || 0;
+    const length = fromDisplay(lengthDisp); // Store in MM
+
     setAttributes((prev) => {
       const tc = (prev.traceCables || []).slice();
       tc.push({ point, length });
@@ -133,7 +170,7 @@ export function ProductForm({
 
   // Update an existing trace cable length (by index)
   const updateTraceCableLength = (idx, raw) => {
-    const length = Number(raw) || 0;
+    const length = fromDisplay(raw);
     setAttributes((prev) => {
       const tc = (prev.traceCables || []).slice();
       if (!tc[idx]) return prev;
@@ -275,56 +312,9 @@ const setPointField = (p, key, value) =>
     return { ...prev, points: newPoints };
   });
 
-  // Mobile convenience: clear all edge dimensions //DEPRECATED
-  const clearAllEdges = () =>
-    setAttributes((prev) => {
-      const n = clamp(prev.pointCount, 1, MAX_POINTS);
-      const dims = { ...(prev.dimensions || {}) };
-      makeEdgeLabels(n).forEach((lbl) => {
-        if (dims.hasOwnProperty(lbl)) dims[lbl] = "";
-      });
-      return { ...prev, dimensions: dims };
-    });
 
-  // Mobile convenience: clear all diagonal dimensions //DEPRECATED
-  const clearAllDiagonals = () =>
-    setAttributes((prev) => {
-      const n = clamp(prev.pointCount, 1, MAX_POINTS);
-      const dims = { ...(prev.dimensions || {}) };
-      makeDiagonalLabels(n).forEach((lbl) => {
-        if (dims.hasOwnProperty(lbl)) dims[lbl] = "";
-      });
-      return { ...prev, dimensions: dims };
-    });
 
-  // Mobile convenience: clear all heights //DEPRECATED
-  const clearAllHeights = () =>
-    setAttributes((prev) => {
-      const pts = { ...(prev.points || {}) };
-      Object.keys(pts).forEach((p) => {
-        pts[p] = { ...pts[p], height: "" };
-      });
-      return { ...prev, points: pts };
-    });
 
-  // Mobile convenience: clear all measurements //DEPRECATED
-  const clearAllMeasurements = () => {
-    // Single batched update: clear all edges, diagonals, and heights
-    setAttributes((prev) => {
-      const n = clamp(prev.pointCount, 1, MAX_POINTS);
-
-      // Clear edge and diagonal dimensions
-      const dims = { ...(prev.dimensions || {}) };
-      makeEdgeLabels(n).forEach((lbl) => { if (dims.hasOwnProperty(lbl)) dims[lbl] = ""; });
-      makeDiagonalLabels(n).forEach((lbl) => { if (dims.hasOwnProperty(lbl)) dims[lbl] = ""; });
-
-      // Clear heights
-      const pts = { ...(prev.points || {}) };
-      Object.keys(pts).forEach((p) => { pts[p] = { ...pts[p], height: "" }; });
-
-      return { ...prev, dimensions: dims, points: pts };
-    });
-  };
 
   // Toggle sailtrack presence for a given edge label
   const toggleSailTrack = (edgeLabel) =>
@@ -551,15 +541,38 @@ const setPointField = (p, key, value) =>
       )}
 
       {/* SECTION 2: GEOMETRY SETUP */}
-      <FormSection title="Geometry Configuration">
+      <FormSection title={
+        <div className="flex justify-between items-center w-full">
+          <span>Geometry Configuration</span>
+          <div className="flex items-center text-sm font-normal">
+            <label className="mr-2 text-gray-500 dark:text-gray-400">Values in:</label>
+            <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-0.5">
+              {['mm', 'cm', 'm'].map(u => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setUnit(u)}
+                  className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
+                    unit === u
+                      ? 'bg-white dark:bg-gray-600 text-black dark:text-white shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {u.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      }>
         <FormGrid columns={2}>
           {/* Points +/- Control (Preserved) */}
           <div className="flex flex-col">
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1.5 ml-1 select-none">Points</label>
             <div className="flex items-center">
-              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-r-0 rounded-l-lg dark:text-white" onClick={() => setCount(Math.max(3, Number(attributes.pointCount) - 1))}>−</button>
+              <button type="button" className="flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-r-0 rounded-l-lg dark:text-white" onClick={() => setCount(Math.max(3, Number(attributes.pointCount) - 1))}>−</button>
               <NumberInput className="md:rounded-lg rounded-none text-center" step={1} min={3} max={MAX_POINTS} placeholder="—" value={attributes.pointCount} onChange={(v) => setCount(v)} />
-              <button type="button" className="md:hidden flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-l-0 rounded-r-lg dark:text-white" onClick={() => setCount(Math.min(MAX_POINTS, (Number(attributes.pointCount)||0) + 1))}>+</button>
+              <button type="button" className="flex items-center justify-center w-12 h-12 bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 border-l-0 rounded-r-lg dark:text-white" onClick={() => setCount(Math.min(MAX_POINTS, (Number(attributes.pointCount)||0) + 1))}>+</button>
             </div>
           </div>
           {/* Exit/Logo (Preserved) */}
@@ -575,7 +588,10 @@ const setPointField = (p, key, value) =>
       {/* --- SECTION 3: EDGES & DIAGONALS (Updated with Nav) --- */}
       
       {/* EDGES */}
-      <FormSection title="Edges">
+      <FormSection title="Edge Dimensions">
+        <div className="mb-4 text-sm text-gray-500 dark:text-gray-400 italic">
+          Enter the measurement of each side.
+        </div>
         <FormGrid columns={geometry.edges.length > 4 ? 3 : 2}>
           {geometry.edges.map(({ label, value }) => (
             <div key={label} className="flex flex-col">
@@ -584,10 +600,10 @@ const setPointField = (p, key, value) =>
                 nav={nav}
                 name={`edge-${label}`} // Matches fieldOrder
                 // Basics
-                label={`Edge ${label}`}
+                label={`Edge ${label[0]}-${label[1]} (${unit})`}
                 min={0}
-                value={value}
-                onChange={(v) => setDimension(label, v)}
+                value={toDisplay(value)}
+                onChange={(v) => setDimension(label, fromDisplay(v))}
               />
               <div className="mt-1">
                 <CheckboxInput
@@ -608,7 +624,10 @@ const setPointField = (p, key, value) =>
 
       {/* DIAGONALS */}
       {(geometry.mandatory.length > 0 || geometry.tip.length > 0 || geometry.optional.length > 0) && (
-        <FormSection title="Diagonals">
+        <FormSection title="Diagonal Dimensions">
+          <div className="mb-4 text-sm text-gray-500 dark:text-gray-400 italic">
+            Measure across the sail to check determine geometry. 'Required' measurements (red) are needed to calculate shape.
+          </div>
           
           {/* Required */}
           {geometry.mandatory.length > 0 && (
@@ -619,11 +638,12 @@ const setPointField = (p, key, value) =>
                   <NumberInput
                     key={label}
                     nav={nav}
+                    className={"text-red border-red-400 focus:border-red-500"}
                     name={`diag-${label}`} // Matches fieldOrder
-                    label={label}
+                    label={`${label[0]}-${label[1]} (${unit})`}
                     min={0}
-                    value={value}
-                    onChange={(v) => setDimension(label, v)}
+                    value={toDisplay(value)}
+                    onChange={(v) => setDimension(label, fromDisplay(v))}
                   />
                 ))}
               </FormGrid>
@@ -640,11 +660,11 @@ const setPointField = (p, key, value) =>
                     key={label}
                     nav={nav}
                     name={`diag-${label}`}
-                    label={label}
+                    label={`${label[0]}-${label[1]} (${unit})`}
                     className="border-blue-300 focus:border-blue-500"
                     min={0}
-                    value={value}
-                    onChange={(v) => setDimension(label, v)}
+                    value={toDisplay(value)}
+                    onChange={(v) => setDimension(label, fromDisplay(v))}
                   />
                 ))}
               </FormGrid>
@@ -661,10 +681,10 @@ const setPointField = (p, key, value) =>
                     key={label}
                     nav={nav}
                     name={`diag-${label}`}
-                    label={label}
+                    label={`${label}(${unit})`}
                     min={0}
-                    value={value}
-                    onChange={(v) => setDimension(label, v)}
+                    value={toDisplay(value)}
+                    onChange={(v) => setDimension(label, fromDisplay(v))}
                   />
                 ))}
               </FormGrid>
@@ -675,6 +695,9 @@ const setPointField = (p, key, value) =>
 
       {/* --- SECTION 4: POINT SPECIFICATIONS (With Priority Box + Nav) --- */}
       <FormSection title="Point Specifications">
+        <div className="mb-4 text-sm text-gray-500 dark:text-gray-400 italic">
+          Enter the height of each corner point from the ground or datum point.
+        </div>
         <div className="flex flex-col space-y-2">
           {Object.entries(attributes.points).map(([p, vals]) => (
             <div key={p} className="py-4 border-b border-gray-200 dark:border-gray-700 last:border-0">
@@ -690,13 +713,13 @@ const setPointField = (p, key, value) =>
                       // NAVIGATION BINDING (Next in list after Diagonals)
                       nav={nav}
                       name={`height-${p}`} 
-                      label="Height (m)" 
+                      label={`Height (${unit})`}
                       className="border-blue-300 focus:border-blue-500 font-bold text-lg"
                       wrapperClassName="mb-0"
                       min={0}
                       step="any"
-                      value={vals.height}
-                      onChange={(v) => setPointField(p, "height", v)}
+                      value={toDisplayHeight(vals.height)}
+                      onChange={(v) => setPointField(p, "height", fromDisplayHeight(v))}
                     />
                   </div>
                 </div>
@@ -763,9 +786,9 @@ const setPointField = (p, key, value) =>
                 </div>
                 <div className="w-40">
                   <NumberInput
-                    label="Length (mm)"
-                    value={pendingTrace.length}
-                    onChange={(val) => setPendingTrace((s) => ({ ...s, length: val }))}
+                    label={`Length (${unit})`}
+                    value={toDisplay(pendingTrace.length)}
+                    onChange={(val) => setPendingTrace((s) => ({ ...s, length: fromDisplay(val) }))}
                   />
                 </div>
                 <button
@@ -784,13 +807,17 @@ const setPointField = (p, key, value) =>
                      <span className="font-bold text-gray-700 dark:text-gray-200 w-8 text-center">{tc.point}</span>
                      <div className="w-32">
                        <NumberInput 
-                         value={tc.length} 
+                         value={toDisplay(tc.length)} 
                          onChange={(v) => updateTraceCableLength(i, v)} 
                          className="h-10 bg-white" // Slightly smaller for list items
                        />
                      </div>
-                     <span className="text-gray-500 text-sm">mm</span>
-                     <button type="button" onClick={() => removeTraceCable(i)} className="text-red-600 hover:text-red-800 font-medium text-sm">
+                     <span className="text-gray-500 text-sm">{unit}</span>
+                     <button 
+                       type="button" 
+                       onClick={() => removeTraceCable(i)} 
+                       className="ml-auto px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded border border-red-200 dark:border-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/50 text-sm font-medium transition-colors"
+                     >
                        Remove
                      </button>
                   </div>
@@ -849,7 +876,11 @@ const setPointField = (p, key, value) =>
                       onChange={(val) => updateUfcField(i, "internalPocket", val)} 
                       options={[{ label: "Standard", value: "standard" }, { label: "No Pocket", value: "no" }, { label: "Pocket", value: "yes" }]}
                     />
-                     <button type="button" onClick={() => removeUfc(i)} className="text-red-600 hover:text-red-800 font-medium text-sm ml-auto">
+                     <button 
+                       type="button" 
+                       onClick={() => removeUfc(i)} 
+                       className="ml-auto px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded border border-red-200 dark:border-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/50 text-sm font-medium transition-colors"
+                     >
                        Remove
                      </button>
                   </div>

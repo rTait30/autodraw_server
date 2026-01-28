@@ -576,7 +576,7 @@ const setPointField = (p, key, value) =>
       {/* EDGES */}
       <FormSection title="Edge Dimensions">
         <div className="mb-4 text-sm text-gray-500 dark:text-gray-400 italic">
-          Enter the measurement of each side.
+          Enter the measurement of each edge.
         </div>
         <FormGrid columns={geometry.edges.length > 4 ? 3 : 2}>
           {geometry.edges.map(({ label, value }) => (
@@ -612,7 +612,7 @@ const setPointField = (p, key, value) =>
       {(geometry.mandatory.length > 0 || geometry.tip.length > 0 || geometry.optional.length > 0) && (
         <FormSection title="Diagonal Dimensions">
           <div className="mb-4 text-sm text-gray-500 dark:text-gray-400 italic">
-            Measure across the sail to check determine geometry. 'Required' measurements (red) are needed to calculate shape.
+            Measure sail diagonals. 'Required' measurements (red) are needed to calculate shape.
           </div>
           
           {/* Required */}

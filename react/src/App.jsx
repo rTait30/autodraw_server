@@ -26,7 +26,6 @@ import Analytics from './pages/Analytics';
 
 import RequireAuth from './components/RequireAuth';
 
-import './styles/index.css';
 
 function App() {
   const darkMode = useSelector((state) => state.toggles.darkMode);

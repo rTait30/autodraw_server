@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import CollapsibleCard from '../components/CollapsibleCard';
 import { getBaseUrl } from '../utils/baseUrl';
-import '../styles/index.css';
 import { Button } from '../components/UI';
 
 export default function Landing() {

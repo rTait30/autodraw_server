@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
@@ -27,7 +28,14 @@
 }
 
 @theme {
-  --font-gill: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+  /* 
+     REMOVED: "Gill Sans", "Gill Sans MT", Calibri
+     REASON:  Ensures we only use the free Google Font "Cabin". 
+              If it fails to load, we fall back to the system default path (sans-serif)
+              instead of checking for licensed fonts on the user's machine.
+  */
+  --font-gill: "Cabin", sans-serif;
+  --font-sans: "Cabin", sans-serif;
 
   /* Centralized Color Palette */
   --color-primary: #004A7C; /*0, 74, 124*/

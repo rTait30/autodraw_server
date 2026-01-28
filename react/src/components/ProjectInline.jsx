@@ -36,6 +36,18 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
   // Autosave status state
   const [lastAutoSaved, setLastAutoSaved] = useState(null);
+  const [savedIndicatorVisible, setSavedIndicatorVisible] = useState(false);
+
+  // Handle autosave indicator visibility
+  useEffect(() => {
+    if (lastAutoSaved) {
+      setSavedIndicatorVisible(true);
+      const timer = setTimeout(() => {
+        setSavedIndicatorVisible(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastAutoSaved]);
 
   // Toast State
   const { showToast, ToastDisplay } = useToast();
@@ -250,10 +262,13 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
         showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`Please resolve discrepancies in: ${problems.join(', ')}`] });
         return;
       }
+      
+      const effectiveId = base.id || editedProject?.id;
+      const isCreating = isNew && !effectiveId;
 
       const payload = {
         // If updating, include ID
-        ...(isNew ? {} : { id: base.id }),
+        ...(isCreating ? {} : { id: effectiveId }),
         product_id: base.product_id || base.product?.id,
         general: base.general || {},
         project_attributes: base.project_attributes || {},
@@ -263,8 +278,8 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       
       console.log('Submitting payload:', JSON.parse(JSON.stringify(payload)));
 
-      let url = isNew ? "/projects/create" : `/products/edit/${base.id}`;
-      let method = isNew ? "POST" : "PUT";
+      let url = isCreating ? "/projects/create" : `/products/edit/${effectiveId}`;
+      let method = isCreating ? "POST" : "PUT";
 
       const res = await apiFetch(url, {
         method: method,
@@ -307,12 +322,19 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       
       onSaved();
       
-      // Close the confirmation overlay immediately upon success
-      setOverlayMode(null);
-
-      // Only navigate if it was a new project creation to switch context to 'Edit' mode
+      // Improve UX: Show success message in overlay instead of abrupt close/navigate
+      setOverlayMode('success');
+      
+      // If this was a NEW project, we technically need to switch the URL context to Edit check
+      // so if they choose "Continue Editing", they are on the edit page, not "create new" page.
+      // However, navigating might unmount this component.
+      // If we are in "NewProject" component, this ProjectInline is child.
+      // If we navigate, we lose state.
+      // For now, let's keep them here. If they refresh, they lose it, but "Continue Editing" just closes overlay.
+      // The local state `editedProject` is updated with ID, so subsequent saves should be updates.
+      // Ideally we'd replace the URL history without reloading.
       if (isNew && updatedProject?.id) {
-         navigate(`/copelands/projects?open=${updatedProject.id}`);
+          window.history.replaceState(null, '', `/copelands/projects?open=${updatedProject.id}`);
       }
       
     } catch (e) {
@@ -373,6 +395,10 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
         setOverlayMode(null);
     }, 300); // match animation duration
   };
+  
+  const handleReturnToProjects = () => {
+      navigate('/copelands/projects');
+  };
 
   const productName = editedProject?.product?.name || editedProject?.type?.name;
 
@@ -410,11 +436,13 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             </div>
         </div>
         {lastAutoSaved && (
-            <div className="text-lg text-gray-300 dark:text-gray-600 font-normal flex items-center gap-2 animate-fade-in select-none">
-                <svg className="w-8 h-8 text-green-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Last saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <div 
+                className={`absolute right-4 top-[12%] flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-20 transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
+            >
+                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
             </div>
         )}
       </div>
@@ -426,7 +454,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             
             {/* Left: Form */}
             <CollapsibleCard 
-              title="Project Specification" 
+              title="Project Specifications" 
               className="lg:col-span-7 xl:col-span-8"
               defaultOpen={true}
             >
@@ -483,6 +511,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                   mode={overlayMode}
                   isClosing={isClosing}
                   onClose={closeOverlay}
+                  onReturn={handleReturnToProjects}
                   canvasRef={canvasRef}
                   project={editedProject}
                   productName={productName}
@@ -498,7 +527,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       </div>
 
       {/* Footer Action Bar */}
-      {productName && (
+      {productName && overlayMode !== 'success' && (
         <StickyActionBar 
           mode="static"
           className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">

@@ -5,8 +5,9 @@ import StickyActionBar from './StickyActionBar';
 import ProjectOverlay from './ProjectOverlay';
 import SimpleEstimateTable from './SimpleEstimateTable';
 import ProjectDocuments from './ProjectDocuments';
+import { useToast } from './Toast';
 import { apiFetch } from '../services/auth';
-import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
+import { TOAST_TAGS } from "../config/toastRegistry";
 import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
 import CollapsibleCard from './CollapsibleCard';
@@ -33,9 +34,11 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   const [currentEstimateTotal, setCurrentEstimateTotal] = useState(0);
   const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
+  // Autosave status state
+  const [lastAutoSaved, setLastAutoSaved] = useState(null);
+
   // Toast State
-  const [toast, setToast] = useState(null);
-  const toastTimeoutRef = useRef();
+  const { showToast, ToastDisplay } = useToast();
   
   // Dev mode toggle
   const devMode = useSelector(state => state.toggles.devMode);
@@ -44,14 +47,6 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   const role = localStorage.getItem('role');
   const isAdminOrEstimator = ['estimator', 'admin'].includes(role);
   const isStaff = ['estimator', 'admin', 'designer'].includes(role);
-
-  const showToast = (tagOrMsg, opts = {}) => {
-    const { args = [], ...restOpts } = opts;
-    const msg = resolveToastMessage(tagOrMsg, ...args);
-    setToast({ msg: String(msg), ...restOpts });
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), restOpts.duration || 30000);
-  };
 
   // Load type-specific form & schema when project changes
   useEffect(() => {
@@ -112,7 +107,48 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
     };
   };
 
+  // Autosave Draft
+  useEffect(() => {
+    const saveDraft = () => {
+      // Don't save if in overlay mode (confirming/previewing) or closing
+      if (overlayMode === 'confirm' || isClosing) return;
+
+      // CRITICAL: Only save if we can actually read the form.
+      // If formRef isn't attached, we might overwrite a good draft with an empty shell.
+      if (!formRef.current || !formRef.current.getValues) return;
+
+      const currentData = syncEditedFromForm();
+      if (!currentData) return;
+
+      // Basic validity check - don't save empty shells if not useful
+      if (!currentData.product && !currentData.type) return;
+
+      try {
+        const draft = {
+           project: currentData,
+           isNew: isNew,
+           timestamp: Date.now()
+        };
+        localStorage.setItem('autodraw_draft', JSON.stringify(draft));
+        setLastAutoSaved(Date.now());
+      } catch (e) {
+        console.warn("Autosave failed", e);
+      }
+    };
+
+    // Save less frequently (10s) to avoid performance hits
+    const intervalId = setInterval(saveDraft, 30000); 
+    return () => clearInterval(intervalId);
+  }, [editedProject, isNew, overlayMode, isClosing]); // Deps are fine, syncEditedFromForm uses ref
+
   const handleCheck = async () => {
+    // Ensure form is accessible before checking
+    if (!formRef.current) {
+        // If the form isn't ready, don't submit empty data (which wipes the project)
+        console.warn("Form reference missing - cannot calculate.");
+        return;
+    }
+
     const base = syncEditedFromForm();
     if (!base) return;
 
@@ -135,7 +171,16 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       if (!res.ok) throw new Error('Calculation failed');
       
       const result = await res.json();
-      const updated = { ...base, ...result, products: result.products || base.products };
+      
+      // Merge result but preserve product/type objects if backend returns incomplete data
+      const updated = { 
+          ...base, 
+          ...result, 
+          products: result.products || base.products,
+          product: result.product || base.product, // Preserve product object
+          type: result.type || base.type           // Preserve type object
+      };
+      
       setEditedProject(updated);
 
       // Temporary update of schema for preview without save
@@ -257,6 +302,9 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
       showToast(isNew ? "Project Created!" : "Project Updated!");
       
+      // Clear draft on success
+      localStorage.removeItem('autodraw_draft');
+      
       onSaved();
       
       // Close the confirmation overlay immediately upon success
@@ -334,21 +382,14 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
     <div className="fixed inset-0 top-[60px] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
       
       {/* Toast Overlay */}
-      {toast && (
-        <div className="fixed left-1/2 bottom-24 md:bottom-8 z-[100] w-[90%] max-w-lg -translate-x-1/2 rounded border bg-white px-4 py-3 shadow-xl text-sm break-words border-l-4 border-l-blue-600">
-          <div className="flex justify-between items-start gap-2">
-            <div>{toast.msg}</div>
-            <button className="text-gray-400 hover:text-black" onClick={() => setToast(null)}>✕</button>
-          </div>
-        </div>
-      )}
+      <ToastDisplay className="bottom-24 md:bottom-8" /> 
 
       {/* Header Bar */}
       <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">
         <div className="flex items-center gap-4">
             <button 
                 onClick={onClose}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
+                className="flex text-md items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
                 aria-label="Back to Projects"
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -358,14 +399,24 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             </button>
             <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
             <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                {editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
-                </h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                        {editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
+                    </h2>
+                </div>
                 <div className="text-sm text-gray-500 font-medium">
                 {editedProject?.status || 'New'} {productName ? `• ${productName}` : ''}
                 </div>
             </div>
         </div>
+        {lastAutoSaved && (
+            <div className="text-lg text-gray-300 dark:text-gray-600 font-normal flex items-center gap-2 animate-fade-in select-none">
+                <svg className="w-8 h-8 text-green-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Last saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        )}
       </div>
 
       {/* Scrollable Content */}

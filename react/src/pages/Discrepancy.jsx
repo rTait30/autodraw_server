@@ -6,6 +6,7 @@ import ProjectOverlay from "../components/ProjectOverlay";
 import StickyActionBar from "../components/StickyActionBar";
 import CollapsibleCard from "../components/CollapsibleCard";
 import TopBar from "../components/TopBar";
+import Toast from '../components/Toast';
 import { Button } from '../components/UI';
 
 export default function Discrepancy() {
@@ -27,15 +28,12 @@ export default function Discrepancy() {
 
   // Toast / Result State
   const [toast, setToast] = useState(null);
-  const toastTimeoutRef = useRef();
 
   // Simple check for active account (token/user existence)
   const isLoggedIn = !!localStorage.getItem('username');
 
   const showToast = (msg, type = 'info') => {
     setToast({ msg, type });
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 5000);
   };
 
   // Login handler
@@ -239,12 +237,13 @@ export default function Discrepancy() {
       
       {/* Toast Overlay */}
       {toast && (
-        <div className={`fixed left-1/2 bottom-24 md:bottom-28 z-[100] w-[90%] max-w-lg -translate-x-1/2 rounded border px-4 py-3 shadow-xl text-sm break-words border-l-4 ${toast.type === 'error' ? 'bg-white border-l-red-600' : 'bg-white border-l-green-600'}`}>
-          <div className="flex justify-between items-start gap-2">
-            <div>{toast.msg}</div>
-            <button className="text-gray-400 hover:text-black" onClick={() => setToast(null)}>✕</button>
-          </div>
-        </div>
+        <Toast
+          message={toast.msg}
+          onClose={() => setToast(null)}
+          duration={5000}
+          type={toast.type}
+          className="bottom-24 md:bottom-28"
+        />
       )}
 
       {/* Header Bar */}
@@ -384,7 +383,7 @@ export default function Discrepancy() {
           className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">
             <Button 
                 onClick={overlayMode === 'preview' ? closeOverlay : onCheck} 
-                className="flex-1 justify-center py-3 text-lg"
+                className="flex-1 justify-center py-3 text-md"
                 variant={overlayMode === 'preview' ? 'danger' : 'primary'}
             >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check Discrepancy'}

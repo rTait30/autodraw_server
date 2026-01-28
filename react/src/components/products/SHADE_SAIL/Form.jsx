@@ -127,21 +127,7 @@ export function ProductForm({
     return num * unitFactor;
   };
 
-  // Height conversions (Stored as Meters)
-  const toDisplayHeight = (valM) => {
-    if (valM === "" || valM === undefined || valM === null) return "";
-    const num = Number(valM);
-    if (!Number.isFinite(num)) return "";
-    // Convert m -> mm then to display unit
-    return parseFloat(((num * 1000) / unitFactor).toFixed(4));
-  };
-  const fromDisplayHeight = (valDisp) => {
-    if (valDisp === "" || valDisp === undefined) return "";
-    const num = Number(valDisp);
-    if (!Number.isFinite(num)) return "";
-    // Convert display unit -> mm then to m
-    return (num * unitFactor) / 1000;
-  };
+
 
   // pending trace input (choose point + length)
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
@@ -632,7 +618,7 @@ const setPointField = (p, key, value) =>
           {/* Required */}
           {geometry.mandatory.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide dark:text-red-400">Required</h4>
+              <h4 className="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide dark:text-red-400">Required Diagonals</h4>
               <FormGrid columns={3}>
                 {geometry.mandatory.map(([label, value]) => (
                   <NumberInput
@@ -653,7 +639,7 @@ const setPointField = (p, key, value) =>
           {/* Tip */}
           {geometry.tip.length > 0 && (
             <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-              <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 uppercase tracking-wide">Tip Diagonals (At least one)</h4>
+              <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 tracking-wide">Final Required Diagonal(s) (At least one)</h4>
               <FormGrid columns={3}>
                 {geometry.tip.map(([label, value]) => (
                   <NumberInput
@@ -674,7 +660,7 @@ const setPointField = (p, key, value) =>
           {/* Optional */}
           {geometry.optional.length > 0 && (
             <div>
-              <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wide">Optional</h4>
+              <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 tracking-wide">Optional Diagonals (To verify geometry)</h4>
               <FormGrid columns={4}>
                 {geometry.optional.map(([label, value]) => (
                   <NumberInput
@@ -718,8 +704,8 @@ const setPointField = (p, key, value) =>
                       wrapperClassName="mb-0"
                       min={0}
                       step="any"
-                      value={toDisplayHeight(vals.height)}
-                      onChange={(v) => setPointField(p, "height", fromDisplayHeight(v))}
+                      value={toDisplay(vals.height)}
+                      onChange={(v) => setPointField(p, "height", fromDisplay(v))}
                     />
                   </div>
                 </div>

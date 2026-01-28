@@ -19,6 +19,61 @@ function Projects() {
   
   const navigate = useNavigate();
 
+  // Draft State -- null if no draft, else object { isNew, id, name }
+  const [draftInfo, setDraftInfo] = useState(null);
+
+  useEffect(() => {
+    const checkDraft = () => {
+        const draftStr = localStorage.getItem('autodraw_draft');
+        if (draftStr) {
+            try {
+                const draft = JSON.parse(draftStr);
+                if (draft && draft.project) {
+                    setDraftInfo({
+                        isNew: draft.isNew,
+                        id: draft.project.id,
+                        name: draft.project.general?.name || 'Untitled'
+                    });
+                } else {
+                    setDraftInfo(null);
+                }
+            } catch (e) {
+                console.error("Invalid draft", e);
+                setDraftInfo(null);
+            }
+        } else {
+            setDraftInfo(null);
+        }
+    };
+    
+    checkDraft();
+    // Check less frequently to avoid constant re-renders/reads
+    const interval = setInterval(checkDraft, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleContinueDraft = () => {
+      try {
+          const draftStr = localStorage.getItem('autodraw_draft');
+          if (!draftStr) return;
+          const draft = JSON.parse(draftStr);
+          
+          if (draft && draft.project) {
+              // Set draft flag to prevent useEffect overwrite
+              draft.project._isDraft = true;
+              setExpandedProject(draft.project);
+              
+              if (draft.isNew) {
+                  setSearchParams({ new: 'true' });
+              } else if (draft.project.id) {
+                  setSearchParams({ open: draft.project.id });
+              }
+          }
+      } catch (e) {
+          console.error("Failed to restore draft", e);
+      }
+  };
+
   // 1. Load the list
   const fetchProjects = async () => {
     try {
@@ -43,6 +98,13 @@ function Projects() {
     const isNew = searchParams.get('new');
 
     if (openId) {
+       // If we have a draft loaded for this ID, don't re-fetch
+      if (expandedProject && String(expandedProject.id) === String(openId)) {
+          // If we are currently viewing the requested project, don't re-fetch from server
+          // This avoids overwriting local state if parent re-renders
+          return;
+      }
+      
       // Fetch full details for this ID
       apiFetch(`/project/${openId}`)
         .then(res => res.json())
@@ -51,9 +113,12 @@ function Projects() {
     } else if (isNew) {
       // New mode, wait for user selection or invalidation
     } else {
-      setExpandedProject(null);
+      // Only clear if NOT a draft we just loaded (prevents race condition where state updates before params)
+      if (!expandedProject?._isDraft) {
+          setExpandedProject(null);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, expandedProject]);
 
   const handleOpenProject = (id) => {
     setSearchParams({ open: id });
@@ -85,16 +150,37 @@ function Projects() {
   if (loading) return <div className="p-8 text-center text-gray-500">Loading projects...</div>;
 
   const isNewMode = searchParams.get('new') === 'true';
-  const showSelector = isNewMode && (!expandedProject || !expandedProject.product);
+  // Don't show selector if we have a draft loaded, even if product object might be momentarily checking
+  const showSelector = isNewMode && (!expandedProject || (!expandedProject.product && !expandedProject._isDraft));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-      <div className="flex flex-row items-center justify-between mb-6 gap-4">
+      <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
         <h1 className="heading-page">Projects</h1>
-        <div className="flex-shrink-0">
-            <Link to="/copelands/discrepancy" className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors text-center inline-block">
-                Check Sail Discrepancy
-            </Link>
+        <div className="flex flex-col-reverse md:flex-row items-end md:items-center gap-2 md:gap-3">
+            {draftInfo && (
+                 <Button
+                    variant="warning"
+                    onClick={handleContinueDraft}
+                    className="flex items-center gap-2 text-sm font-bold"
+                 >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {draftInfo.isNew 
+                        ? "Continue New Project" 
+                        : `Continue Editing #${draftInfo.id}`}
+                 </Button>
+             )}
+            <div className="flex-shrink-0">
+                <Button
+                    variant="soft-blue"
+                    onClick={() => navigate('/copelands/discrepancy')}
+                    className="text-sm font-medium"
+                >
+                    Check Sail Discrepancy
+                </Button>
+            </div>
         </div>
       </div>
       
@@ -105,7 +191,10 @@ function Projects() {
       
       <StickyActionBar>
           <Button
-            onClick={() => setSearchParams({ new: 'true' })}
+            onClick={() => {
+                localStorage.removeItem('autodraw_draft');
+                setSearchParams({ new: 'true' });
+            }}
             className="w-full"
           >
             New Project

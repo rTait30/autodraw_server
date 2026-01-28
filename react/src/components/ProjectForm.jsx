@@ -59,7 +59,9 @@ export default function ProjectForm({
       return;
     }
     let alive = true;
-    import(`../components/products/${product}/Form.jsx`)
+    // Normalize component path to match directory convention (UPPER_CASE_WITH_UNDERSCORES)
+    const productDir = (product || "").toUpperCase().replace(/\s+/g, "_");
+    import(`../components/products/${productDir}/Form.jsx`)
       .then((mod) => {
         if (alive) {
           // Only set ProductForm if it exists in the module

@@ -381,8 +381,8 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   return (
     <div className="fixed inset-0 top-[60px] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
       
-      {/* Toast Overlay */}
-      <ToastDisplay className="bottom-24 md:bottom-8" /> 
+      {/* Toast Overlay - Positioned above StickyActionBar (approx 80px + margin) */}
+      <ToastDisplay className="bottom-[100px] mb-safe" /> 
 
       {/* Header Bar */}
       <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">

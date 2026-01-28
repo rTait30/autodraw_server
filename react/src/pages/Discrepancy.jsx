@@ -242,7 +242,7 @@ export default function Discrepancy() {
           onClose={() => setToast(null)}
           duration={5000}
           type={toast.type}
-          className="bottom-24 md:bottom-28"
+          className="bottom-[100px] mb-safe"
         />
       )}
 

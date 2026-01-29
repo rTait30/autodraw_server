@@ -22,6 +22,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   
   // Local state for the "working copy"
   const [editedProject, setEditedProject] = useState(project);
+  const [hasCalculatedOrSaved, setHasCalculatedOrSaved] = useState(!isNew);
   // const [Form, setForm] = useState(null); // REMOVED
   const [toggleData, setToggleData] = useState(false);
   const [overlayMode, setOverlayMode] = useState(null); // 'preview' | 'confirm' | null
@@ -63,6 +64,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   // Load type-specific form & schema when project changes
   useEffect(() => {
     setEditedProject(project);
+    setHasCalculatedOrSaved(!isNew);
     if (!project) return;
     // loadFormForProject(project); // Legacy loader removed
     
@@ -80,6 +82,13 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
     setOverlayMode(null);
     setIsClosing(false);
   }, [project]);
+
+  // Ensure visualization updates when project data or visibility changes
+  useEffect(() => {
+    if (hasCalculatedOrSaved && editedProject && canvasRef.current) {
+        renderPreview(editedProject);
+    }
+  }, [hasCalculatedOrSaved, editedProject]);
 
   // Helper to load form - REMOVED (Handled by ProjectForm)
   /*
@@ -185,6 +194,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       const result = await res.json();
       
       // Merge result but preserve product/type objects if backend returns incomplete data
+      setHasCalculatedOrSaved(true);
       const updated = { 
           ...base, 
           ...result, 
@@ -299,6 +309,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       // Standardize response handling
       // Ensure we preserve the product/type info from existing state if missing in response (to prevent unmount)
       const serverData = json?.project || json || {};
+      setHasCalculatedOrSaved(true);
       const updatedProject = { 
            ...base, 
            ...serverData,
@@ -501,6 +512,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                  <ProjectDocuments project={editedProject} showToast={showToast} />
               )}
 
+              {hasCalculatedOrSaved && (
               <CollapsibleCard 
                   title="Visualisation" 
                   forceOpen={!!overlayMode}
@@ -520,6 +532,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                   setToggleData={setToggleData}
                 />
               </CollapsibleCard>
+              )}
             </div>
 
           </div>

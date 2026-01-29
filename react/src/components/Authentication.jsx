@@ -20,7 +20,7 @@ function resetViewport() {
   document.body.style.height = "100%";
 }
 
-export default function Authentication() {
+export default function Authentication({ onAuthSuccess, onCancel }) {
   const [mode, setMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [registerForm, setRegisterForm] = useState({
@@ -38,8 +38,23 @@ export default function Authentication() {
       console.log("[Authentication] Checking for existing session...");
       const success = await refresh();
       if (success) {
+        if (onAuthSuccess) {
+            console.log("[Authentication] Existing session found. Calling onSuccess.");
+            onAuthSuccess();
+            return;
+        }
         console.log("[Authentication] Existing session found. Redirecting to projects.");
-        navigate('/copelands/projects');
+        const draftStr = localStorage.getItem('autodraw_draft');
+        let destination = '/copelands/projects';
+        if (draftStr) {
+          try {
+            const draft = JSON.parse(draftStr);
+            if (draft.from === 'discrepancy') {
+                destination = '/copelands/discrepancy';
+            }
+          } catch(e) {}
+        }
+        navigate(destination);
       } else {
         console.log("[Authentication] No valid previous session found.");
       }
@@ -80,7 +95,17 @@ export default function Authentication() {
       // Small delay can help some Android devices apply the change
       setTimeout(() => resetViewport(), 50);
 
-      navigate('/copelands/projects');
+      const draftStr = localStorage.getItem('autodraw_draft');
+      let destination = '/copelands/projects';
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          if (draft.from === 'discrepancy') {
+              destination = '/copelands/discrepancy';
+          }
+        } catch(e) {}
+      }
+      navigate(destination);
 
     } catch (err) {
       setErrorText(err.message || 'Login failed.');
@@ -130,9 +155,34 @@ export default function Authentication() {
         localStorage.setItem('verified', loginData.verified ? 'true' : 'false');
 
         resetViewport();
-        setTimeout(() => resetViewport(), 50);
+        
+        if (onAuthSuccess) {
+            onAuthSuccess();
+            return;
+        }
 
-        navigate('/copelands/projects');
+        const draftStr = localStorage.getItem('autodraw_draft');
+        let destination = '/copelands/projects';
+        if (draftStr) {
+          try {
+            const draft = JSON.parse(draftStr);
+            if (draft.from === 'discrepancy') {
+                destination = '/copelands/discrepancy';
+            }
+          } catch(e) {}
+        }
+
+        if (onAuthSuccess) {
+            onAuthSuccess();
+            // Don't navigate if handling inline
+            return;
+        }
+
+        setTimeout(() => {
+          resetViewport();
+          navigate(destination);
+        }, 50);
+
       } catch (loginErr) {
         // Registration worked, but auto-login failed
         setSuccessText('Registration successful! Please log in.');
@@ -147,27 +197,21 @@ export default function Authentication() {
   }
 
   return (
-    <div className="my-4 w-full flex justify-center px-4">
-      <CollapsibleCard 
-        title={mode === 'login' ? 'Sign In / Register' : 'New Client Registration'}
-        defaultOpen={true}
-        className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
-        contentClassName="auth-box mt-0 shadow-none !p-4"
-      >
-          <div className="flex justify-center w-full mb-2 mt-2">
+    <div className="w-full flex flex-col items-center px-4 py-4">
+          <div className="flex justify-center w-full mb-4">
             <img
               src={getBaseUrl('/static/img/DRlogo.png')}
               alt="Logo"
-              className="mx-auto"
+              className="mx-auto max-h-16"
             />
           </div>
 
           {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
+            <form onSubmit={handleLogin} className="w-full max-w-xs flex flex-col gap-4">
               <div className="w-full">
                 <div className="space-y-3">
                   <TextInput
-                    label="Username"
+                    label="Username (Required)"
                     value={loginForm.username}
                     onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
                     required
@@ -175,7 +219,7 @@ export default function Authentication() {
                   />
 
                   <TextInput
-                    label="Password"
+                    label="Password (Required)"
                     type="password"
                     value={loginForm.password}
                     onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
@@ -232,11 +276,22 @@ export default function Authentication() {
                       }
                     }}
                     className="w-full"
-                    variant="primary" // Assuming variant support or default style
+                    variant="primary" 
                     disabled={submitting}
                   >
                     Register as client
                 </Button>
+
+                {onCancel && (
+                  <Button
+                    type="button"
+                    onClick={onCancel}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white border-transparent"
+                    variant="custom"
+                  >
+                    Cancel Login / Registration
+                  </Button>
+                )}
               </div>
 
               { errorText && <div className="auth-error mt-2">{errorText} </div> }
@@ -244,11 +299,12 @@ export default function Authentication() {
             </form>
             
           ) : (
-            <form onSubmit={handleRegister} className="w-full flex flex-col gap-4">
+            <form onSubmit={handleRegister} className="w-full max-w-xs flex flex-col gap-4">
               <div className="w-full">
                 <div className="space-y-3">
                   <TextInput
-                    label="Username"
+                    label="Username (Required)"
+                    className="text-red"
                     value={registerForm.username}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
                     required
@@ -267,7 +323,7 @@ export default function Authentication() {
                     autoComplete="street-address"
                   />
                   <TextInput
-                    label="Password"
+                    label="Password (Required)"
                     type="password"
                     value={registerForm.password1}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
@@ -278,7 +334,7 @@ export default function Authentication() {
                   {errorText && <div className="auth-error mb-1">{errorText}</div>}
 
                   <TextInput
-                    label="Confirm Password"
+                    label="Confirm Password (Required)"
                     type="password"
                     value={registerForm.password2}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
@@ -300,14 +356,24 @@ export default function Authentication() {
                   disabled={submitting}
                   variant="secondary"
                 >
-                  Cancel
+                  Back to Login
                 </Button>
+
+                {onCancel && (
+                  <Button
+                    type="button"
+                    onClick={onCancel}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white border-transparent"
+                    variant="custom"
+                  >
+                    Cancel Login / Registration
+                  </Button>
+                )}
               </div>
 
               {successText && <div className="auth-success mt-2">{successText}</div>}
             </form>
           )}
-      </CollapsibleCard>
     </div>
   );
 }

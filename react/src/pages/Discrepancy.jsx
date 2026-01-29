@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch, setAccessToken } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
+import Authentication from "../components/Authentication";
 import ProjectOverlay from "../components/ProjectOverlay";
 import StickyActionBar from "../components/StickyActionBar";
 import CollapsibleCard from "../components/CollapsibleCard";
@@ -22,9 +23,6 @@ export default function Discrepancy() {
   
   // Login modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginUsername, setLoginUsername] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
 
   // Toast / Result State
   const [toast, setToast] = useState(null);
@@ -32,36 +30,24 @@ export default function Discrepancy() {
   // Simple check for active account (token/user existence)
   const isLoggedIn = !!localStorage.getItem('username');
 
+  // Check for saved draft on mount
+  useEffect(() => {
+    const draftStr = localStorage.getItem('autodraw_draft');
+    if (draftStr) {
+      try {
+        const draft = JSON.parse(draftStr);
+        if (draft.from === 'discrepancy' && draft.project) {
+          setEditedProject(draft.project);
+          setToast({ msg: "Restored draft project.", type: "info" });
+        }
+      } catch (e) {
+        console.error("Failed to restore draft", e);
+      }
+    }
+  }, []);
+
   const showToast = (msg, type = 'info') => {
     setToast({ msg, type });
-  };
-
-  // Login handler
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginError("");
-    try {
-      const res = await apiFetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: loginUsername.trim(),
-          password: loginPassword,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Login failed');
-
-      setAccessToken(data.access_token || null);
-      localStorage.setItem('role', data.role || 'client');
-      localStorage.setItem('username', data.username || 'Guest');
-      
-      setShowLoginModal(false);
-      onSave(); // Retry save
-    } catch (err) {
-      setLoginError(err.message || 'Login failed.');
-    }
   };
 
   // Render canvas using Display module when project data changes
@@ -183,6 +169,22 @@ export default function Discrepancy() {
        finalName = `Check ${dateStr}`;
     }
 
+    if (!isLoggedIn) {
+      const draft = {
+        isNew: true,
+        from: 'discrepancy',
+        project: {
+          general: { ...(currentData.general || {}), name: finalName },
+          product_id: 2,
+          project_attributes: currentData.project_attributes || {},
+          products: products,
+        }
+      };
+      localStorage.setItem('autodraw_draft', JSON.stringify(draft));
+      setShowLoginModal(true);
+      return;
+    }
+
     const payload = {
       general: {
         ...(currentData.general || {}),
@@ -288,43 +290,27 @@ export default function Discrepancy() {
 
       {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110]">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-96 relative">
-            <h3 className="text-lg font-bold mb-4 dark:text-white">Login to Save Draft</h3>
-            <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <input
-                type="text"
-                placeholder="Username"
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                className="border p-2 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                autoFocus
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="border p-2 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
-              {loginError && <p className="text-red-500 text-sm">{loginError}</p>}
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowLoginModal(false)}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Login & Save
-                </button>
-              </div>
-            </form>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in">
+          <div className="w-full max-w-md">
+               <CollapsibleCard 
+                    title="Save Project" 
+                    defaultOpen={true}
+                    className="w-full !rounded-2xl !shadow-2xl border-opacity-50"
+                    contentClassName="bg-white dark:bg-gray-800"
+               > 
+                    <Authentication 
+                        onAuthSuccess={() => {
+                            setShowLoginModal(false);
+                            onSave();
+                        }} 
+                        onCancel={() => setShowLoginModal(false)}
+                    />
+               </CollapsibleCard>
           </div>
+          <style>{`
+            @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+            .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+          `}</style>
         </div>
       )}
 
@@ -388,15 +374,14 @@ export default function Discrepancy() {
             >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check Discrepancy'}
             </Button>
-            {isLoggedIn && (
-              <Button 
-                  onClick={onSave} 
-                  className="flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
-                  variant="custom"
-              >
-                  Save as Draft
-              </Button>
-            )}
+            
+            <Button 
+                onClick={onSave} 
+                className="flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
+                variant="custom"
+            >
+                Save as Draft
+            </Button>
       </StickyActionBar>
 
       <style>{`

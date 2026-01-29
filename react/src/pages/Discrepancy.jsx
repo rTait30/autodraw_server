@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiFetch, setAccessToken } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import Authentication from "../components/Authentication";
+import ProjectConfirmation from "../components/ProjectConfirmation";
 import ProjectOverlay from "../components/ProjectOverlay";
 import StickyActionBar from "../components/StickyActionBar";
 import CollapsibleCard from "../components/CollapsibleCard";
@@ -23,6 +24,7 @@ export default function Discrepancy() {
   
   // Login modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [savedProject, setSavedProject] = useState(null);
 
   // Toast / Result State
   const [toast, setToast] = useState(null);
@@ -169,7 +171,10 @@ export default function Discrepancy() {
        finalName = `Check ${dateStr}`;
     }
 
-    if (!isLoggedIn) {
+    // Check login status dynamically as this might be called from a callback
+    const userIsLoggedIn = !!localStorage.getItem('username');
+
+    if (!userIsLoggedIn) {
       const draft = {
         isNew: true,
         from: 'discrepancy',
@@ -204,10 +209,10 @@ export default function Discrepancy() {
 
       if (response.ok) {
         const data = await response.json();
-        const projectId = data.id || (data.project && data.project.id);
+        const project = data.project || data;
 
-        if (projectId) {
-             showToast("Draft saved! You can find it in the Projects list.", "success");
+        if (project && project.id) {
+             setSavedProject(project);
         } else {
              showToast("Saved draft successfully.", "success");
         }
@@ -311,6 +316,43 @@ export default function Discrepancy() {
             @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
             .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
           `}</style>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {savedProject && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in">
+          <div className="w-full max-w-md">
+               <CollapsibleCard 
+                    title="Project Saved Successfully" 
+                    defaultOpen={true}
+                    className="w-full !rounded-2xl !shadow-2xl border-opacity-50"
+                    contentClassName="bg-white dark:bg-gray-800"
+               > 
+                    <div className="p-4 space-y-4">
+                        <ProjectConfirmation 
+                            project={savedProject} 
+                            productName="SHADE_SAIL" 
+                        />
+                        <div className="flex flex-col gap-3 pt-2">
+                             <Button 
+                                variant="primary"
+                                onClick={() => navigate(`/copelands/projects?open=${savedProject.id}`)}
+                                className="w-full justify-center text-lg"
+                             >
+                                Edit Project
+                             </Button>
+                             <Button 
+                                variant="secondary"
+                                onClick={() => navigate('/copelands/projects')}
+                                className="w-full justify-center"
+                             >
+                                Go to Projects List
+                             </Button>
+                        </div>
+                    </div>
+               </CollapsibleCard>
+          </div>
         </div>
       )}
 

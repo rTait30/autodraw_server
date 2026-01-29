@@ -95,6 +95,11 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
       // Small delay can help some Android devices apply the change
       setTimeout(() => resetViewport(), 50);
 
+      if (onAuthSuccess) {
+        onAuthSuccess();
+        return;
+      }
+
       const draftStr = localStorage.getItem('autodraw_draft');
       let destination = '/copelands/projects';
       if (draftStr) {

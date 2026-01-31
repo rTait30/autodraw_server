@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import CollapsibleCard from './CollapsibleCard';
 import { getBaseUrl } from '../utils/baseUrl';
 import { TextInput } from './FormUI';
@@ -21,6 +22,7 @@ function resetViewport() {
 }
 
 export default function Authentication({ onAuthSuccess, onCancel }) {
+  const darkMode = useSelector(state => state.toggles.darkMode);
   const [mode, setMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [registerForm, setRegisterForm] = useState({
@@ -205,7 +207,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
     <div className="w-full flex flex-col items-center px-4 py-4">
           <div className="flex justify-center w-full mb-4">
             <img
-              src={getBaseUrl('/static/img/DRlogoH.png')}
+              src={getBaseUrl(darkMode ? '/static/img/DRlogoHDark.png' : '/static/img/DRlogoH.png')}
               alt="Logo"
               className="mx-auto max-h-16"
             />

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from 'react-redux';
 
 import { GeneralSection } from "./GeneralSection";
@@ -61,18 +61,18 @@ export default function ProjectForm({
     let alive = true;
     // Normalize component path to match directory convention (UPPER_CASE_WITH_UNDERSCORES)
     const productDir = (product || "").toUpperCase().replace(/\s+/g, "_");
-    import(`../components/products/${productDir}/Form.jsx`)
+    import(`./products/${productDir}/Form.jsx`)
       .then((mod) => {
         if (alive) {
           // Only set ProductForm if it exists in the module
           if (mod.ProductForm) {
-            setProductForm(() => React.lazy(() => Promise.resolve({ default: mod.ProductForm })));
+            setProductForm(() => mod.ProductForm);
           } else {
-            setProductForm(null);
+            setProductForm(() => mod.default);
           }
           // Only set ProjectForm if it exists in the module
           if (mod.ProjectForm) {
-            setProjectFormComponent(() => React.lazy(() => Promise.resolve({ default: mod.ProjectForm })));
+            setProjectFormComponent(() => mod.ProjectForm);
           } else {
             setProjectFormComponent(null);
           }
@@ -406,12 +406,10 @@ export default function ProjectForm({
         {/* Global project form above item selector */}
         {ProjectFormComponent && (
           <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-6 transition-colors dark:text-gray-100">
-            <Suspense fallback={<div className="p-3"></div>}>
-              <ProjectFormComponent
-                formRef={projectFormRef}
-                projectDataHydrate={projectData}
-              />
-            </Suspense>
+            <ProjectFormComponent
+              formRef={projectFormRef}
+              projectDataHydrate={projectData}
+            />
           </div>
         )}
         
@@ -541,15 +539,13 @@ export default function ProjectForm({
                     </div>
 
                     
-                    <Suspense fallback={<div className="p-12 text-center text-gray-400 font-medium">Loading form...</div>}>
-                      <div className={PRODUCT_FORM_WRAPPER_CLASSES}>
-                        <ProductForm
-                          formRef={ref}
-                          hydrate={it.attributesHydrate}
-                          {...productProps}
-                        />
-                      </div>
-                    </Suspense>
+                    <div className={PRODUCT_FORM_WRAPPER_CLASSES}>
+                      <ProductForm
+                        formRef={ref}
+                        hydrate={it.attributesHydrate}
+                        {...productProps}
+                      />
+                    </div>
                   </div>
                 );
               })}

@@ -11,6 +11,7 @@ import { getBaseUrl } from './utils/baseUrl';
 import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
 import Rectangles from './pages/Rectangles';
+import FabricCatalog from './pages/FabricCatalog';
 
 import TopBar from './components/TopBar';
 
@@ -69,6 +70,7 @@ function App() {
         <Route path="/copelands" element={<Landing />} />
         <Route path="/copelands/discrepancy" element={<Discrepancy />} />
         <Route path="/copelands/rectangles" element={<Rectangles />} />
+        <Route path="/copelands/fabric" element={<FabricCatalog />} />
         <Route element={<RequireAuth />}>
           <Route element={<TopBar />}>
             <Route path="/copelands/projects" element={<Projects />} />

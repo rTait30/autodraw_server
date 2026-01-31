@@ -13,6 +13,10 @@ import {
   FormGrid
 } from "../../FormUI";
 
+import { Button } from "../../UI";
+
+import FabricSelector from "../../FabricSelector";
+
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
 const MAX_POINTS = 21;
@@ -104,7 +108,11 @@ export function ProductForm({
       ...DEFAULT_ATTRIBUTES,
       sailTracks: [],
       dimensions: {},
-      points: {}
+      points: {},
+      fabric_id: null,
+      fabric_name: "",
+      color_id: null,
+      color_name: "",
     }
   });
 
@@ -131,6 +139,9 @@ export function ProductForm({
 
   // pending trace input (choose point + length)
   const [pendingTrace, setPendingTrace] = useState({ point: "A", length: "" });
+
+  // Fabric selector overlay state
+  const [showFabricSelector, setShowFabricSelector] = useState(false);
 
   // pending UFC input (choose diagonal + optional size)
   const [pendingUfc, setPendingUfc] = useState({
@@ -485,6 +496,33 @@ const setPointField = (p, key, value) =>
   // Initialize the hook
   const nav = useFormNavigation(fieldOrder);
 
+  const handleFabricSelect = (selection) => {
+    const { fabric, color } = selection;
+    // Map catalog categories to form categories
+    const categoryMapping = {
+      'Shade': 'ShadeCloth',
+      'PVC': 'PVC'
+    };
+
+    const mappedCategory = categoryMapping[fabric.category] || fabric.category;
+
+    // Set new fields
+    setAttributes(prev => ({
+      ...prev,
+      fabric_id: fabric.id,
+      fabric_name: fabric.name,
+      color_id: color.id,
+      color_name: color.name,
+      // Override old fields with proper mapping
+      fabricCategory: mappedCategory,
+      fabricType: fabric.name,
+      colour: color.name,
+    }));
+    
+    // Don't close the overlay in selector mode - let user see the highlighting
+    // setShowFabricSelector(false);
+  };
+
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -492,6 +530,33 @@ const setPointField = (p, key, value) =>
       {/* SECTION 1: MAIN SPECS */}
       {!discrepancyChecker && (
         <FormSection title="Fabric & Cable Specifications">
+           <div className="mb-4">
+             <div className="text-left mb-2">
+                 Choose your fabric type and color (In development)
+             </div>
+             <Button 
+               onClick={() => setShowFabricSelector(true)}
+               className="w-full h-16 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+               variant="outline"
+             >
+               <div className="flex items-center justify-center gap-3">
+                 <span className="text-2xl">🎨</span>
+                 <div className="text-center">
+                   <div className="font-bold">
+                     {attributes.fabric_name && attributes.color_name 
+                       ? `${attributes.fabric_name} - ${attributes.color_name}`
+                       : 'Select Fabric & Color'
+                     }
+                   </div>
+                   {!attributes.fabric_name && (
+                     <div className="text-sm opacity-90">Click here to browse fabrics</div>
+                   )}
+                 </div>
+                 <span className="text-xl">▶</span>
+               </div>
+             </Button>
+           </div>
+           
            <FormGrid columns={3}>
               <SelectInput 
                 label="Fabric Category" 
@@ -878,6 +943,52 @@ const setPointField = (p, key, value) =>
         </details>
       )}
 
+      {/* Fabric Selector Overlay */}
+      {showFabricSelector && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/40 z-[45] transition-opacity duration-300 opacity-100"
+            onClick={() => setShowFabricSelector(false)}
+          />
+          
+          {/* Container */}
+          <div className="fixed left-4 right-4 top-24 bottom-36 md:bottom-28 z-[48] flex flex-col shadow-2xl animate-slide-up-card max-w-5xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 flex flex-col h-full">
+              
+              {/* Overlay Header */}
+              <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 shrink-0 px-4 py-3">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                  Select Fabric & Color
+                </h3>
+                <button 
+                  onClick={() => setShowFabricSelector(false)}
+                  className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900/50 rounded-b-xl">
+                <div className="p-6">
+                  <FabricSelector 
+                    mode="selector"
+                    onSelect={handleFabricSelect} 
+                    onClose={() => setShowFabricSelector(false)}
+                    selectedFabric={attributes.fabric_id ? { id: attributes.fabric_id, name: attributes.fabric_name } : null}
+                    selectedColor={attributes.color_id ? { id: attributes.color_id, name: attributes.color_name } : null}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   );
 }
@@ -912,5 +1023,15 @@ function makeDiagonalLabels(n) {
   }
   return out;
 }
+
+<style>{`
+  @keyframes slide-up-card {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-slide-up-card {
+    animation: slide-up-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+`}</style>
 
 export default ProductForm;

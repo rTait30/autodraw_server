@@ -18,6 +18,7 @@ from endpoints.api.workguru import workguru_api_bp
 from endpoints.api.projects.projects_calc_api import projects_calc_api_bp
 from endpoints.api.automation.routes import automation_bp
 from endpoints.api.user_preferences import user_bp
+from endpoints.api.fabric import fabric_bp
 
 
 # --- Env & app ---
@@ -98,6 +99,8 @@ def create_app():
     app.register_blueprint(projects_calc_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(automation_bp, url_prefix="/copelands/api")
     app.register_blueprint(user_bp, url_prefix="/copelands/api/user")
+    app.register_blueprint(fabric_bp, url_prefix="/copelands/api")
+    print("DEBUG: Registered fabric_bp")
 
     # --- One-time DB create ---
     with app.app_context():
@@ -118,6 +121,7 @@ def create_app():
     @app.route('/copelands/', defaults={'path': ''})
     @app.route('/copelands/<path:path>')
     def serve_react_app(path):
+        print(f"DEBUG: serve_react_app called for path: {path}")
         # Let React Router handle the path; index.html must exist in templates/
         return render_template('index.html')
 

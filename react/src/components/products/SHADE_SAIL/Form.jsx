@@ -566,7 +566,7 @@ const setPointField = (p, key, value) =>
           {!discrepancyChecker && (
              <div className="flex gap-4">
                 <SelectInput label="Exit Point" value={attributes.exitPoint} onChange={setExitPoint} options={[{ label: "Any", value: "" }, { label: "Low", value: "low" }, { label: "High", value: "high" }, ...geometry.letters.map(v => ({ label: v, value: v }))]} />
-                <SelectInput label="Logo Point" value={attributes.logoPoint} onChange={setLogoPoint} options={[{ label: "Any", value: "" }, { label: "Low", value: "low" }, { label: "High", value: "high" }, ...geometry.letters.map(v => ({ label: v, value: v }))]} />
+                <SelectInput label="Logo Point" value={attributes.logoPoint} onChange={setLogoPoint} options={[{ label: "None", value: "none" }, { label: "Any", value: "" }, { label: "Low", value: "low" }, { label: "High", value: "high" }, ...geometry.letters.map(v => ({ label: v, value: v }))]} />
              </div>
           )}
         </FormGrid>

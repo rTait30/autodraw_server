@@ -536,8 +536,7 @@ const setPointField = (p, key, value) =>
              </div>
              <Button 
                onClick={() => setShowFabricSelector(true)}
-               className="w-full h-16 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
-               variant="outline"
+               variant="primary"
              >
                <div className="flex items-center justify-center gap-3">
                  <span className="text-2xl">🎨</span>

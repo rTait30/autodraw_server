@@ -113,6 +113,8 @@ class Project(db.Model):
     # WorkGuru integration data (lead_id, quote_id, project_id, etc.)
     wg_data = db.Column(db.JSON, default=dict)
 
+    deleted = db.Column(db.Boolean, default=False, nullable=False)
+
     def get_estimated_price(self):
         from estimation import estimate_price_from_schema
         # If we have items, prefer summing their estimates (compute on the fly if missing)
@@ -164,6 +166,8 @@ class ProjectProduct(db.Model):
     autodraw_record = db.Column(db.JSON, default=dict)
     autodraw_meta = db.Column(db.JSON, default=lambda: {"current_step": 0, "current_sub_step": 0})
     status = db.Column(db.String(32), default="pending")
+
+    deleted = db.Column(db.Boolean, default=False, nullable=False)
 
     project = db.relationship("Project", back_populates="products")
 

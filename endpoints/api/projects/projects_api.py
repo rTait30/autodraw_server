@@ -126,6 +126,27 @@ def list_project_configs():
 
     return jsonify(result), 200
 
+
+# -------------------------------
+# List deleted projects (auth required; client sees own only)
+# -------------------------------
+@projects_api_bp.route("/projects/list/deleted", methods=["GET"])
+@jwt_required()
+def list_deleted_project_configs():
+    user = current_user(required=True)
+    client_id = request.args.get("client_id")
+    
+    try:
+        result = project_service.list_deleted_projects(user, client_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        print(f"Error listing deleted projects: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+    return jsonify(result), 200
+
+
 # -------------------------------
 # Get a single project (auth required; client can only access own)
 # -------------------------------
@@ -173,13 +194,14 @@ def get_project_config(project_id):
     # --- Items (covers, sails, etc.) ---
     items = []
     for p in project.products:
-        items.append({
-            "id": p.id,
-            "name": p.label,
-            "productIndex": p.item_index,
-            "attributes": p.attributes or {},
-            "calculated": p.calculated or {},
-        })
+        if not p.deleted:  # Only include non-deleted products
+            items.append({
+                "id": p.id,
+                "name": p.label,
+                "productIndex": p.item_index,
+                "attributes": p.attributes or {},
+                "calculated": p.calculated or {},
+            })
 
     # --- Response payload ---
     data = {
@@ -251,6 +273,69 @@ def generate_document():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
+
+
+# -------------------------------
+# Delete project (soft delete - mark as deleted)
+# -------------------------------
+@projects_api_bp.route("/project/<int:project_id>", methods=["DELETE"])
+@jwt_required()
+def delete_project(project_id):
+    user = current_user(required=True)
+    
+    try:
+        project_service.delete_project(user, project_id)
+    except ValueError as e:
+        if str(e) == "Project not found":
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        print(f"Error deleting project: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+    return jsonify({"message": "Project deleted successfully"}), 200
+
+
+# -------------------------------
+# Delete project product (soft delete - mark as deleted)
+# -------------------------------
+@projects_api_bp.route("/project/product/<int:product_id>", methods=["DELETE"])
+@jwt_required()
+def delete_project_product(product_id):
+    user = current_user(required=True)
+    
+    try:
+        project_service.delete_project_product(user, product_id)
+    except ValueError as e:
+        if str(e) in ["Project product not found", "Project not found"]:
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        print(f"Error deleting project product: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+    return jsonify({"message": "Project product deleted successfully"}), 200
+
+
+# -------------------------------
+# Recover project (undelete - mark as not deleted)
+# -------------------------------
+@projects_api_bp.route("/project/<int:project_id>/recover", methods=["POST"])
+@jwt_required()
+def recover_project(project_id):
+    user = current_user(required=True)
+    
+    try:
+        project_service.recover_project(user, project_id)
+    except ValueError as e:
+        if str(e) == "Project not found or not deleted":
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        print(f"Error recovering project: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+    return jsonify({"message": "Project recovered successfully"}), 200
 
 
 

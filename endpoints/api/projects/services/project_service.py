@@ -232,7 +232,8 @@ def create_project(user, data):
     project.project_calculated = project_calculated or {}
 
     # ---------- Replace products from payload ----------
-    ProjectProduct.query.filter_by(project_id=project.id).delete(synchronize_session=False)
+    # Mark existing products as deleted instead of hard deleting
+    ProjectProduct.query.filter_by(project_id=project.id, deleted=False).update({"deleted": True})
 
     for idx, p in enumerate(products_payload):
         if not isinstance(p, dict):
@@ -414,7 +415,7 @@ def update_project(user, project_id, data):
             raise ValueError("product_id must be an integer")
 
     # Ensure project exists
-    project = Project.query.get(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
     if not project:
         raise ValueError("Project not found")
 
@@ -508,7 +509,7 @@ def update_project(user, project_id, data):
     # ---------- Update products if provided ----------
     if products_payload is not None:
         # Simple semantics: replace all products with the new list
-        ProjectProduct.query.filter_by(project_id=project.id).delete(synchronize_session=False)
+        ProjectProduct.query.filter_by(project_id=project.id, deleted=False).update({"deleted": True})
 
         for idx, p in enumerate(products_payload):
             if not isinstance(p, dict):
@@ -553,7 +554,7 @@ def update_project(user, project_id, data):
     return project
 
 def list_projects(user, client_id=None):
-    query = Project.query
+    query = Project.query.filter_by(deleted=False)
     if user.role == "client":
         query = query.filter_by(client_id=user.id)
     else:
@@ -580,8 +581,38 @@ def list_projects(user, client_id=None):
         })
     return result
 
+def list_deleted_projects(user, client_id=None):
+    """List soft deleted projects (same authorization as list_projects)."""
+    query = Project.query.filter_by(deleted=True)
+    if user.role == "client":
+        query = query.filter_by(client_id=user.id)
+    else:
+        if client_id:
+            try:
+                query = query.filter_by(client_id=int(client_id))
+            except ValueError:
+                raise ValueError("client_id must be an integer")
+
+    projects = query.all()
+    result = []
+
+    for project in projects:
+        client_user = User.query.get(project.client_id)
+
+        result.append({
+            "id": project.id,
+            "name": project.name,
+            "type": project.product.name if project.product else None,
+            "status": project.status.name if hasattr(project.status, "name") else project.status,
+            "due_date": project.due_date.isoformat() if project.due_date else None,
+            "info": project.info,
+            "client": client_user.username if client_user else None,
+        })
+
+    return result
+
 def get_project(user, project_id):
-    project = Project.query.get(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
     if not project:
         raise ValueError("Project not found")
 
@@ -621,7 +652,7 @@ def list_client_users():
 
 def list_project_products_for_editor(project_id, order_by_item_index=False):
     """Return ProjectProduct rows formatted for save/edit responses."""
-    query = ProjectProduct.query.filter_by(project_id=project_id)
+    query = ProjectProduct.query.filter_by(project_id=project_id, deleted=False)
     if order_by_item_index:
         query = query.order_by(ProjectProduct.item_index)
 
@@ -709,7 +740,7 @@ def _serialize_project_plain(prj):
 
 
 def generate_document_for_project(user, project_id, doc_id, **kwargs):
-    project = Project.query.get(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
@@ -794,3 +825,62 @@ def generate_record_template(product_id: str, product_type: str, config: dict) -
     except ValidationError as e:
         print(f"CRITICAL: Template generation failed validation.\n{e}")
         raise e
+
+
+def delete_project(user, project_id):
+    """Mark a project as deleted (soft delete)."""
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
+    if not project:
+        raise ValueError("Project not found")
+
+    # Authorization check
+    if user.role == "client" and project.client_id != user.id:
+        raise ValueError("Unauthorized")
+
+    # Mark the project as deleted
+    project.deleted = True
+
+    # Also mark all associated project products as deleted
+    ProjectProduct.query.filter_by(project_id=project_id, deleted=False).update({"deleted": True})
+
+    db.session.commit()
+    return project
+
+
+def delete_project_product(user, project_product_id):
+    """Mark a project product as deleted (soft delete)."""
+    product = ProjectProduct.query.filter_by(id=project_product_id, deleted=False).first()
+    if not product:
+        raise ValueError("Project product not found")
+
+    # Check if user has access to the project
+    project = Project.query.filter_by(id=product.project_id, deleted=False).first()
+    if not project:
+        raise ValueError("Project not found")
+
+    if user.role == "client" and project.client_id != user.id:
+        raise ValueError("Unauthorized")
+
+    product.deleted = True
+    db.session.commit()
+    return product
+
+
+def recover_project(user, project_id):
+    """Recover a soft deleted project and all its products."""
+    project = Project.query.filter_by(id=project_id, deleted=True).first()
+    if not project:
+        raise ValueError("Project not found or not deleted")
+
+    # Authorization check
+    if user.role == "client" and project.client_id != user.id:
+        raise ValueError("Unauthorized")
+
+    # Mark the project as not deleted
+    project.deleted = False
+
+    # Also recover all associated project products
+    ProjectProduct.query.filter_by(project_id=project_id, deleted=True).update({"deleted": False})
+
+    db.session.commit()
+    return project

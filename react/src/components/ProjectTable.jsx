@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import GenericTable from './GenericTable';
 
-export default function ProjectTable({ projects = [], onOpen }) {
+export default function ProjectTable({ projects = [], onOpen, onDelete }) {
   const navigate = useNavigate();
   const role = localStorage.getItem("role") || "client";
   const isClient = role === 'client';
@@ -36,7 +36,25 @@ export default function ProjectTable({ projects = [], onOpen }) {
           {project.status}
         </span>
       )
-    }
+    },
+    ...(onDelete ? [{
+      header: 'Actions',
+      accessor: 'actions',
+      render: (project) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(project.id, project.name);
+          }}
+          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+          title="Delete project"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )
+    }] : [])
   ];
 
   const renderProjectList = (projList, showHeader) => {
@@ -57,15 +75,31 @@ export default function ProjectTable({ projects = [], onOpen }) {
               className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <div className="flex justify-between items-start mb-2">
-                <div>
+                <div className="flex-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">ID: {project.id}</span>
                   <h3 className="font-bold text-lg text-gray-900 dark:text-white">{project.name || "Untitled"}</h3>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                  getStatusColor(project.status)
-                }`}>
-                  {project.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    getStatusColor(project.status)
+                  }`}>
+                    {project.status}
+                  </span>
+                  {onDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(project.id, project.name);
+                      }}
+                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Delete project"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-2 text-sm">

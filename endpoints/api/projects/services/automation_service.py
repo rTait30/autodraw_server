@@ -71,7 +71,7 @@ def initialize_automation(project_id: int):
     """
     Main Service Function: Called by the API to bootstrap the project.
     """
-    project = Project.query.get(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
     if not project:
         return None, "Project not found"
     
@@ -126,7 +126,7 @@ def automation_continue(project_id: int, updated_record: dict = None, updated_me
     """
     print(f"\n--- automation_continue(project_id={project_id}) START ---")
     
-    project = Project.query.get(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first()
     if not project:
         print(f"Error: Project {project_id} not found")
         return "Project not found"

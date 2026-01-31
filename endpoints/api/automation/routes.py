@@ -26,7 +26,7 @@ def automation_start(project_id):
     Returns the full context required for automation.
     Lazy-initializes the 'autodraw_record' if it doesn't exist yet.
     """
-    project = Project.query.get_or_404(project_id)
+    project = Project.query.filter_by(id=project_id, deleted=False).first_or_404()
     
     # 1. Product Validation
     product = project.product

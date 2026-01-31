@@ -12,7 +12,9 @@ import { Button } from '../components/UI';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
+  const [deletedProjects, setDeletedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingDeleted, setLoadingDeleted] = useState(false);
   const productsList = useSelector(state => state.products.list);
   
   // Inline expansion state
@@ -23,6 +25,12 @@ function Projects() {
 
   // Draft State -- null if no draft, else object { isNew, id, name }
   const [draftInfo, setDraftInfo] = useState(null);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, projectId: null, projectName: null });
+
+  // Recover confirmation state
+  const [recoverConfirm, setRecoverConfirm] = useState({ show: false, projectId: null, projectName: null });
 
   useEffect(() => {
     const checkDraft = () => {
@@ -90,8 +98,24 @@ function Projects() {
     }
   };
 
+  // Load deleted projects list
+  const fetchDeletedProjects = async () => {
+    setLoadingDeleted(true);
+    try {
+      const res = await apiFetch('/projects/list/deleted');
+      if (!res.ok) throw new Error('Failed to fetch deleted project list');
+      const data = await res.json();
+      setDeletedProjects(data);
+    } catch (err) {
+      console.error('Failed to fetch deleted project list:', err);
+    } finally {
+      setLoadingDeleted(false);
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
+    fetchDeletedProjects(); // Also fetch deleted projects on mount
   }, []);
 
   // 2. Handle URL "open" param checks
@@ -146,6 +170,51 @@ function Projects() {
     });
   };
 
+  // Handle delete confirmation
+  const handleDeleteProject = (id, name) => {
+    setDeleteConfirm({ show: true, projectId: id, projectName: name });
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const res = await apiFetch(`/project/${deleteConfirm.projectId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete project');
+      // Refresh the list
+      fetchProjects();
+      setDeleteConfirm({ show: false, projectId: null, projectName: null });
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+      // Optionally show error message
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, projectId: null, projectName: null });
+  };
+
+  // Handle recover confirmation
+  const handleRecoverProject = (id, name) => {
+    setRecoverConfirm({ show: true, projectId: id, projectName: name });
+  };
+
+  const confirmRecover = async () => {
+    try {
+      const res = await apiFetch(`/project/${recoverConfirm.projectId}/recover`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to recover project');
+      // Refresh both lists
+      fetchProjects();
+      fetchDeletedProjects();
+      setRecoverConfirm({ show: false, projectId: null, projectName: null });
+    } catch (err) {
+      console.error('Failed to recover project:', err);
+      // Optionally show error message
+    }
+  };
+
+  const cancelRecover = () => {
+    setRecoverConfirm({ show: false, projectId: null, projectName: null });
+  };
+
   // Format Helper
   const formatName = (name) => name ? name.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase()) : '';
 
@@ -184,8 +253,44 @@ function Projects() {
             title="Projects" 
             defaultOpen={true}
         >
-             {/* Pass custom onOpen handler to override default navigation */}
-             <ProjectTable projects={projects} onOpen={handleOpenProject} />
+             {/* Pass custom onOpen and onDelete handlers */}
+             <ProjectTable projects={projects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
+        </CollapsibleCard>
+
+        <CollapsibleCard 
+            title="Recovery" 
+            defaultOpen={false}
+        >
+            {loadingDeleted ? (
+                <div className="text-center py-4 text-gray-500">Loading deleted projects...</div>
+            ) : deletedProjects.length > 0 ? (
+                <div className="space-y-2">
+                    {deletedProjects.map((project) => (
+                        <div
+                            key={project.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                        >
+                            <div className="flex-1">
+                                <div className="font-medium text-gray-900 dark:text-white">
+                                    {project.name || "Untitled"}
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {project.type || "No type"} • {project.client || "No client"} • {project.status}
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => handleRecoverProject(project.id, project.name)}
+                                variant="success"
+                                size="sm"
+                            >
+                                Recover
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-4 text-gray-500">No deleted projects found.</div>
+            )}
         </CollapsibleCard>
       </div>
       
@@ -241,6 +346,62 @@ function Projects() {
             @keyframes fade-in-down { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
             .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
           `}</style>
+        </div>
+      )}
+
+      {/* Delete Confirmation Overlay */}
+      {deleteConfirm.show && (
+        <div 
+          className="fixed inset-0 z-[300] flex justify-center items-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelDelete}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 max-w-sm w-full mx-4 animate-fade-in-down"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Confirm Delete</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Are you sure you want to delete "{deleteConfirm.projectName}"? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button onClick={cancelDelete} variant="secondary" className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={confirmDelete} variant="danger" className="flex-1">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recover Confirmation Overlay */}
+      {recoverConfirm.show && (
+        <div 
+          className="fixed inset-0 z-[300] flex justify-center items-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelRecover}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 max-w-sm w-full mx-4 animate-fade-in-down"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Confirm Recovery</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Are you sure you want to recover "{recoverConfirm.projectName}"? This will restore the project and all its products.
+              </p>
+              <div className="flex gap-3">
+                <Button onClick={cancelRecover} variant="secondary" className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={confirmRecover} variant="success" className="flex-1">
+                  Recover
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

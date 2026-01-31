@@ -213,3 +213,21 @@ class SKU(db.Model):
             "costPrice": self.costPrice,
             "sellPrice": self.sellPrice,
         }
+
+class FabricType(db.Model):
+    __tablename__ = 'fabric_types'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    category = db.Column(db.String(50), nullable=False) # "PVC", "Shade", "Canvas", etc.
+    description = db.Column(db.Text)
+    tech_specs = db.Column(db.JSON, default=dict)
+    
+    colors = db.relationship('FabricColor', backref='fabric_type', cascade="all, delete-orphan")
+
+class FabricColor(db.Model):
+    __tablename__ = 'fabric_colors'
+    id = db.Column(db.Integer, primary_key=True)
+    fabric_type_id = db.Column(db.Integer, db.ForeignKey('fabric_types.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    hex_value = db.Column(db.String(7))      # For CSS e.g. "#RRGGBB"
+    texture_path = db.Column(db.String(200)) # Relative to static folder

@@ -133,7 +133,7 @@ function TopBar() {
       <header className="topbar flex-none flex items-center justify-between px-5 h-[60px] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
         <div className="flex items-center gap-6 flex-1">
           <img
-            src={getBaseUrl('/static/img/DRlogo.png')}
+            src={getBaseUrl('/static/img/DRlogoH.png')}
             alt="Logo"
             className="h-9 mr-5"
           />

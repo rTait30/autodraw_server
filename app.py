@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
 
 from models import db, User  # and your models are imported within blueprints as needed
 
@@ -42,6 +43,9 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///autodraw.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    db.init_app(app)
+    migrate = Migrate(app, db) # Initialize Flask-Migrate
+
     # --- JWT config (access in header, refresh in cookie) ---
     app.config.update(
         JWT_SECRET_KEY=jwt_secret,
@@ -67,8 +71,10 @@ def create_app():
 ], supports_credentials=True)
 
     # --- Init extensions ---
-    db.init_app(app)
+    if 'sqlalchemy' not in app.extensions:
+        db.init_app(app)
     jwt = JWTManager(app)
+    migrate = Migrate(app, db)
 
     # Optional JWT error handlers (good DX for the SPA)
     @jwt.invalid_token_loader
@@ -127,9 +133,8 @@ def create_app():
     return app
 
 
-app = create_app()
-
 if __name__ == '__main__':
+    app = create_app()
     # For local dev only
 
     print ("Starting Flask dev server...")

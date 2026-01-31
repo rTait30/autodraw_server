@@ -71,7 +71,7 @@
 
 @layer base {
   html, body, #root {
-    @apply h-full overflow-hidden;
+    @apply h-full;
     margin: 0;
     padding: 0;
   }

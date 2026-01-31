@@ -363,7 +363,7 @@ export default function Discrepancy() {
             
             {/* Left: Form */}
             <CollapsibleCard 
-              title="Requirements" 
+              title="Specifications" 
               className="lg:col-span-7 xl:col-span-8"
               defaultOpen={true}
             >

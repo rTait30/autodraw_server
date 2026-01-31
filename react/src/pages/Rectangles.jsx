@@ -108,12 +108,12 @@ export default function Rectangles() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       <main className="flex-1 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Rectangle Nesting Tool</h2>
           <button
-            className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+            className="px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded transition-colors"
             onClick={() => navigate("/copelands/")}
           >
             ← Back
@@ -134,7 +134,7 @@ export default function Rectangles() {
               {nestStatus.ok === null ? (
                 ""
               ) : (
-                <span className={nestStatus.ok ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                <span className={nestStatus.ok ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
                   {nestStatus.text}
                 </span>
               )}
@@ -149,8 +149,8 @@ export default function Rectangles() {
             data-dynamic-rectangles="true"
             width={2000}
             height={2000}
+            className="border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm"
             style={{
-              border: "1px solid #ccc",
               width: "100%",
               display: "block",
               background: "#fff",

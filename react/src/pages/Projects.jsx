@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 import { apiFetch } from '../services/auth';
+import CollapsibleCard from '../components/CollapsibleCard';
+import ToolsCard from '../components/ToolsCard';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
@@ -172,21 +174,19 @@ function Projects() {
                         : `Continue Editing #${draftInfo.id}`}
                  </Button>
              )}
-            <div className="flex-shrink-0">
-                <Button
-                    variant="soft-blue"
-                    onClick={() => navigate('/copelands/discrepancy')}
-                    className="text-sm font-medium"
-                >
-                    Check Sail Discrepancy
-                </Button>
-            </div>
         </div>
       </div>
       
-      <div className="mt-2 flex flex-col">
-        {/* Pass custom onOpen handler to override default navigation */}
-        <ProjectTable projects={projects} onOpen={handleOpenProject} />
+      <div className="mt-2 flex flex-col gap-4">
+        <ToolsCard defaultOpen={false} />
+
+        <CollapsibleCard 
+            title="Projects" 
+            defaultOpen={true}
+        >
+             {/* Pass custom onOpen handler to override default navigation */}
+             <ProjectTable projects={projects} onOpen={handleOpenProject} />
+        </CollapsibleCard>
       </div>
       
       <StickyActionBar>

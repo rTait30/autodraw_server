@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Authentication from '../components/Authentication';
 import CollapsibleCard from '../components/CollapsibleCard';
 import { getBaseUrl } from '../utils/baseUrl';
-import '../styles/index.css';
 import { Button } from '../components/UI';
 
 export default function Landing() {
@@ -36,7 +35,16 @@ export default function Landing() {
       
       <div className="absolute inset-0 w-full h-full overflow-y-auto">
         <div className="min-h-full flex flex-col items-center justify-center p-5">
-          <Authentication />
+          <div className="w-full flex justify-center px-4">
+            <CollapsibleCard 
+                title="Sign In / Register" 
+                defaultOpen={true}
+                className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+                contentClassName="bg-white dark:bg-gray-800"
+            >
+              <Authentication />
+            </CollapsibleCard>
+          </div>
 
           <div className="mt-6 w-full flex justify-center px-4">
             <CollapsibleCard 

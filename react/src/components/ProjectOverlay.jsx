@@ -4,7 +4,8 @@ import ProjectConfirmation from './ProjectConfirmation';
 export default function ProjectOverlay({ 
   mode, // 'preview' | 'confirm' | null
   isClosing,
-  onClose, 
+  onClose,
+  onReturn,
   canvasRef, 
   project, 
   productName,
@@ -46,7 +47,7 @@ export default function ProjectOverlay({
         {mode && (
             <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                    {mode === 'confirm' ? 'Confirm Details' : 'Check Visualisation'}
+                    {mode === 'confirm' ? 'Confirm Details' : mode === 'success' ? 'Success' : 'Check Visualisation'}
                 </h3>
                 <button 
                     onClick={onClose}
@@ -65,7 +66,35 @@ export default function ProjectOverlay({
         
         <div className={`${mode ? 'flex-1 overflow-auto bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700' : ''}`}>
             
-            {mode === 'confirm' ? (
+            {mode === 'success' ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center h-full min-h-[400px]">
+                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6 animate-fade-in-up">
+                        <svg className="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+                        Project Submitted!
+                    </h2>
+                    <p className="text-lg text-gray-500 dark:text-gray-400 mb-10 max-w-md">
+                        Your project has been successfully saved. What would you like to do next?
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                         <button
+                            onClick={onReturn}
+                            className="flex-1 py-4 px-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all hover:scale-[1.02]"
+                         >
+                            Return to Projects
+                         </button>
+                         <button
+                            onClick={onClose}
+                            className="flex-1 py-4 px-6 rounded-xl bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                         >
+                            Continue Editing
+                         </button>
+                    </div>
+                </div>
+            ) : mode === 'confirm' ? (
                 <ProjectConfirmation project={project} productName={productName} />
             ) : (
                 /* Default / Preview Mode: Canvas */

@@ -36,7 +36,7 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
 
   // Contents of the bar
   const content = (
-    <div ref={ref} className={`action-bar ${mode} ${className}`}>
+    <div ref={ref} className={`action-bar ${mode} border-t border-border bg-surface ${className}`}>
       {children}
     </div>
   );
@@ -46,8 +46,7 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
     <style>{`
       .action-bar {
         box-sizing: border-box;
-        background-color: white;
-        border-top: 1px solid #e5e7eb;
+        /* background/border handled by Tailwind utility classes */
         z-index: 50;
         display: flex;
         justify-content: space-around;
@@ -66,6 +65,8 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
         bottom: 0;
         left: 0;
         right: 0;
+        /* Mobile keyboard fix: ensure it sticks to bottom of viewport, not document */
+        /* Use modern viewport unit if available, fallback to fixed bottom */
       }
 
       .action-bar.static {
@@ -78,21 +79,24 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
       @media (max-width: 799px) {
         .action-bar {
           height: auto;
-          padding: 24px;
-          padding-bottom: max(24px, env(safe-area-inset-bottom));
-          gap: 16px;
+          padding: 12px 16px;
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
+          gap: 12px;
           flex-wrap: wrap; 
         }
-      }
-      
-      .dark .action-bar {
-         background-color: #1f2937;
-         border-top-color: #374151;
+        
+        /* Hide if keyboard is likely open (focus within inputs) - optional approach */
+        /* Better approach: Use static positioning on small screens to avoid covering content */
       }
     `}</style>
   );
 
-  if (mode === 'fixed') {
+  // Responsive mode: On mobile, force 'static' to participate in flow and avoid keyboard issues
+  // unless explicitly requested to be fixed
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 800;
+  const effectiveMode = (isMobile && mode === 'fixed') ? 'static' : mode;
+
+  if (effectiveMode === 'fixed') {
     return (
       <>
         {createPortal(

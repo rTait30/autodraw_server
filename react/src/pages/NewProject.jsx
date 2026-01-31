@@ -256,8 +256,9 @@ export default function NewProject() {
     const productName = (createdProject.product?.name || '');
     if (!productName) return;
 
+    const productDir = productName.toUpperCase().replace(/\s+/g, '_');
     // Dynamically import Display module for the product type
-    import(`../components/products/${productName}/Display.js`)
+    import(`../components/products/${productDir}/Display.js`)
       .then((module) => {
         const data = {
           products: createdProject.products || [],

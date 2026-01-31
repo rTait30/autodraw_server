@@ -4,7 +4,6 @@ import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
 import { logout } from '../services/auth';
-import { linkStyles, roleStyles } from './sharedStyles';
 
 function TopBar() {
   const name = localStorage.getItem('username');
@@ -20,7 +19,7 @@ function TopBar() {
   };
 
   // Redux toggles
-  const darkMode = useSelector(state => state.toggles.darkMode);
+  //const darkMode = useSelector(state => state.toggles.darkMode);
   const devMode = useSelector(state => state.toggles.devMode);
   const dispatch = useDispatch();
 
@@ -48,17 +47,17 @@ function TopBar() {
 
   const navLinks = (
     <>
-      <Link to="/copelands/projects" className={linkStyles} onClick={() => setMenuOpen(false)}>Projects</Link>
-      <Link to="/copelands/newproject" className={linkStyles} onClick={() => setMenuOpen(false)}>New Project</Link>
+      <Link to="/copelands/projects" className="link-nav" onClick={() => setMenuOpen(false)}>Projects</Link>
+      <Link to="/copelands/newproject" className="link-nav" onClick={() => setMenuOpen(false)}>New Project</Link>
       {role === 'admin' && (
         <>
-          <Link to="/copelands/users" className={linkStyles} onClick={() => setMenuOpen(false)}>Users</Link>
-          <Link to="/copelands/database" className={linkStyles} onClick={() => setMenuOpen(false)}>Database</Link>
+          <Link to="/copelands/users" className="link-nav" onClick={() => setMenuOpen(false)}>Users</Link>
+          <Link to="/copelands/database" className="link-nav" onClick={() => setMenuOpen(false)}>Database</Link>
         </>
       )}
       {role !== 'client' && (
         <>
-          <Link to="/copelands/analytics" className={linkStyles} onClick={() => setMenuOpen(false)}>Analytics</Link>
+          <Link to="/copelands/analytics" className="link-nav" onClick={() => setMenuOpen(false)}>Analytics</Link>
         </>
       )}
     </>
@@ -84,10 +83,6 @@ function TopBar() {
       
       {/* Toggle buttons row */}
       <div className="flex items-center mb-6 space-x-2">
-        <button
-          onClick={handleDarkModeToggle}
-          style={toggleBtnStyle(darkMode)}
-        >🌙 Dark</button>
         <button
           onClick={handleDevModeToggle}
           style={toggleBtnStyle(devMode)}
@@ -146,8 +141,8 @@ function TopBar() {
 
         {/* Right side: name, role, burger icon */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <span className={roleStyles}>{name}</span>
-          <span className={roleStyles}>{role}</span>
+          <span className="txt-role">{name}</span>
+          <span className="txt-role">{role}</span>
           {role === 'client' ? (
             <button
               onClick={handleLogout}

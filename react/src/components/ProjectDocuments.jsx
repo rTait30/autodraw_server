@@ -71,10 +71,30 @@ export default function ProjectDocuments({ project, showToast }) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
+
+      // Determine filename from header or fallback to type
+      let filename = `document_${project.id}`;
+      const disposition = response.headers.get('Content-Disposition');
+      if (disposition) {
+          const matchStar = disposition.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)\s*;?/i);
+          if (matchStar && matchStar[2]) {
+            try { filename = decodeURIComponent(matchStar[2]); } catch { filename = matchStar[2]; }
+          } else {
+            const match = disposition.match(/filename\s*=\s*"?([^"]+)"?/i);
+            if (match && match[1]) filename = match[1];
+          }
+      } else {
+          // Fallback if header missing/inaccessible
+          const docMeta = project.product?.capabilities?.documents?.find(d => d.id === docId);
+          if (docMeta?.type) {
+              filename += `.${docMeta.type}`;
+          }
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `document_${project.id}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();

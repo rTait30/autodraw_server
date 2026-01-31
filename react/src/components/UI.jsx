@@ -17,8 +17,10 @@ export function Button({
     danger: "bg-tertiary text-white hover:bg-tertiary-hover focus:ring-tertiary",
     dev: "bg-gray-400 text-white text-xs py-1 px-3 hover:bg-gray-500 shadow-none rounded-md",
     submit: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-600 flex-1 justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent",
+    warning: "bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500",
+    "soft-blue": "bg-blue-50 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 focus:ring-blue-500 border border-blue-200 dark:border-blue-800",
   };
-
+    
   return (
     <button 
       className={`${baseStyles} ${variants[variant]} ${className}`}

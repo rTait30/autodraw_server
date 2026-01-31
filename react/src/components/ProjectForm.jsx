@@ -30,6 +30,13 @@ function normalizeAttributes(productsHydrate) {
   return [];
 }
 
+/* 
+  Define styles for the dynamically imported form wrapper here.
+  You can use Tailwind's arbitrary variants (e.g., [&_input]:border-red-500) 
+  to target elements inside the imported form without modifying the form file.
+*/
+const PRODUCT_FORM_WRAPPER_CLASSES = "w-full dark:text-gray-100";
+
 
 
 export default function ProjectForm({
@@ -38,6 +45,7 @@ export default function ProjectForm({
   hideGeneralSection = false,
   rehydrate: initialRehydrate = null,
   productProps = {},
+  generalSectionProps = {},
 }) {
   // Top-level WG submit state
   const [submitToWG, setSubmitToWG] = useState(false);
@@ -51,7 +59,9 @@ export default function ProjectForm({
       return;
     }
     let alive = true;
-    import(`../components/products/${product}/Form.jsx`)
+    // Normalize component path to match directory convention (UPPER_CASE_WITH_UNDERSCORES)
+    const productDir = (product || "").toUpperCase().replace(/\s+/g, "_");
+    import(`../components/products/${productDir}/Form.jsx`)
       .then((mod) => {
         if (alive) {
           // Only set ProductForm if it exists in the module
@@ -319,7 +329,7 @@ export default function ProjectForm({
       )}
 
       {hideGeneralSection === false && (
-        <GeneralSection data={generalData} setData={setGeneralData} />
+        <GeneralSection data={generalData} setData={setGeneralData} {...generalSectionProps} />
       )}
 
       {/* WorkGuru Data Section */}
@@ -395,12 +405,14 @@ export default function ProjectForm({
       <section className="space-y-3">
         {/* Global project form above item selector */}
         {ProjectFormComponent && (
-          <Suspense fallback={<div className="p-3"></div>}>
-            <ProjectFormComponent
-              formRef={projectFormRef}
-              projectDataHydrate={projectData}
-            />
-          </Suspense>
+          <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-6 transition-colors dark:text-gray-100">
+            <Suspense fallback={<div className="p-3"></div>}>
+              <ProjectFormComponent
+                formRef={projectFormRef}
+                projectDataHydrate={projectData}
+              />
+            </Suspense>
+          </div>
         )}
         
 
@@ -410,12 +422,12 @@ export default function ProjectForm({
             
             {/* Mobile: Item Selector Dropdown (visible < md) */}
             <div className="md:hidden mb-4">
-               <label className="block text-sm font-bold text-gray-700 mb-1">Select Item to Edit:</label>
+               <label className="block text-sm font-bold text-gray-700 mb-1 dark:text-gray-300">Select Item to Edit:</label>
                <div className="relative">
                   <select
                     value={activeIndex}
                     onChange={(e) => setActiveIndex(Number(e.target.value))}
-                    className="w-full p-3 pl-4 pr-10 bg-white border-2 border-gray-300 rounded-lg text-lg font-medium text-blue-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none transition-all"
+                    className="w-full p-3 pl-4 pr-10 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg text-lg font-medium text-blue-800 dark:text-blue-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 appearance-none transition-all"
                   >
                     {items.map((it, index) => (
                       <option key={it.productIndex} value={it.productIndex}>
@@ -451,8 +463,8 @@ export default function ProjectForm({
                     className={`
                       relative px-4 lg:px-6 py-3 rounded-t-lg border-t-2 border-l-2 border-r-2 cursor-pointer select-none transition-all min-w-[140px] text-center flex-shrink-0 mt-2
                       ${isActive 
-                        ? "bg-white border-gray-300 border-b-white -mb-0.5 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700" 
-                        : "bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                        ? "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 border-b-white dark:border-b-gray-800 -mb-0.5 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700 dark:text-blue-400" 
+                        : "bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200"
                       }
                     `}
                   >
@@ -481,7 +493,7 @@ export default function ProjectForm({
             </div>
 
             {/* Tab Content Panel */}
-            <div className="bg-white border-2 md:border-t-0 border-gray-300 rounded-lg md:rounded-t-none md:rounded-b-lg p-3 md:p-6 min-h-[300px] shadow-sm w-full">
+            <div className="bg-white dark:bg-gray-800 border-2 md:border-t-0 border-gray-300 dark:border-gray-700 rounded-lg md:rounded-t-none md:rounded-b-lg p-3 md:p-6 min-h-[300px] shadow-sm w-full transition-colors">
               {items.map((it, index) => {
                 const ref = getItemRef(it.productIndex);
                 const isActive = it.productIndex === activeIndex;
@@ -493,7 +505,7 @@ export default function ProjectForm({
                   >
                     
                     {/* Unified Item Header (Name + Delete) - Visible on both Mobile & Desktop */}
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
                        <div className="flex-1 w-full">
                           <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
                             Item Name (Optional)
@@ -504,7 +516,7 @@ export default function ProjectForm({
                               value={it.name || ""}
                               onChange={(e) => handleTabNameChange(it.productIndex, e.target.value)}
                               placeholder={`Item ${index + 1}`}
-                              className="text-xl md:text-2xl font-bold text-gray-800 bg-transparent border border-transparent hover:border-gray-300 focus:bg-white focus:border-blue-500 rounded px-2 -ml-2 w-full transition-all outline-none placeholder-gray-300"
+                              className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:bg-white dark:focus:bg-gray-700 focus:border-blue-500 rounded px-2 -ml-2 w-full transition-all outline-none placeholder-gray-300 dark:placeholder-gray-600"
                             />
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -530,11 +542,13 @@ export default function ProjectForm({
 
                     
                     <Suspense fallback={<div className="p-12 text-center text-gray-400 font-medium">Loading form...</div>}>
-                      <ProductForm
-                        formRef={ref}
-                        hydrate={it.attributesHydrate}
-                        {...productProps}
-                      />
+                      <div className={PRODUCT_FORM_WRAPPER_CLASSES}>
+                        <ProductForm
+                          formRef={ref}
+                          hydrate={it.attributesHydrate}
+                          {...productProps}
+                        />
+                      </div>
                     </Suspense>
                   </div>
                 );

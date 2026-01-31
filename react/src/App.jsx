@@ -26,11 +26,18 @@ import Analytics from './pages/Analytics';
 
 import RequireAuth from './components/RequireAuth';
 
-import './styles/index.css';
 
 function App() {
   const darkMode = useSelector((state) => state.toggles.darkMode);
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -55,9 +62,6 @@ function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [dispatch]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
 
   return (
     <Router>

@@ -1,88 +1,107 @@
 # api/estimating_schemas_api.py
 from flask import Blueprint, request, jsonify, g
-from flask_jwt_extended import jwt_required
-
 from models import db, EstimatingSchema, Product
-from endpoints.api.auth.utils import role_required, _json, _user_by_credentials
+from endpoints.api.auth.utils import role_required, current_user
 
-estimating_schemas_api_bp = Blueprint(
-    "est_schemas_api",
+est_schemas_bp = Blueprint(
+    "est_schemas",
     __name__,
-    url_prefix="/api/est_schemas"
 )
 
-@estimating_schemas_api_bp.route("/create", methods=["POST"])
-@role_required("estimator")
+@est_schemas_bp.route("/est_schemas/test", methods=["GET"])
+def test():
+    return jsonify({'message': 'Estimating Schemas API working'})
+
+@est_schemas_bp.route("/est_schemas/create", methods=["POST"])
+@role_required("estimator", "admin")
 def create_schema():
     """
-    Create a new estimating schema attached to a project type.
-
-    Body:
-    {
-      "project_type_id": 3,          // required
-      "data": { ... schema JSON ... }, // required
-      "name": "Cover Estimating v1", // optional (defaults to 'Untitled Schema')
-      "version": 1                   // optional (default 1)
-    }
-
-    Returns: { "id": <new_schema_id> }
+    Create a new estimating schema for a product.
     """
-    user = g.current_user(required=True)
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        user = current_user()
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
 
-    payload = request.get_json(silent=True) or {}
-    project_type_id = payload.get("project_type_id")
-    data = payload.get("data")
-    name = (payload.get("name") or "Untitled Schema").strip()
-    version = int(payload.get("version") or 1)
+        payload = request.get_json(silent=True) or {}
+        product_id = payload.get("product_id")
+        data = payload.get("data")
+        name = (payload.get("name") or "Untitled Schema").strip()
 
-    if not project_type_id:
-        return jsonify({"error": "project_type_id is required"}), 400
-    if data is None:
-        return jsonify({"error": "data (schema JSON) is required"}), 400
+        if not product_id:
+            return jsonify({"error": "product_id is required"}), 400
+        if data is None:
+            return jsonify({"error": "data (schema JSON) is required"}), 400
 
         prod = Product.query.get(product_id)
         if not prod:
             return jsonify({"error": f"Product {product_id} not found"}), 404
 
-    schema = EstimatingSchema(
-        project_id=None,
-        project_type_id=project_type_id,
-        name=name,
-        data=data,
-        is_default=False,
-        version=version,
-    )
-    db.session.add(schema)
-    db.session.commit()
+        schema = EstimatingSchema(
+            product_id=product_id,
+            name=name,
+            data=data,
+            is_default=payload.get("is_default", False),
+            version=int(payload.get("version", 1)),
+        )
+        db.session.add(schema)
+        db.session.commit()
+        print(f"DEBUG: Schema created with ID {schema.id}")
 
-    return jsonify({"id": schema.id}), 201
+        return jsonify({"id": schema.id}), 201
+    except Exception as e:
+        print(f"DEBUG: Error in create_schema: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
-
-@estimating_schemas_api_bp.route("/get_by_type", methods=["POST"])
-@role_required("estimator")
-def get_schemas_by_type():
+@est_schemas_bp.route("/est_schemas/get_by_product", methods=["POST"])
+@role_required("estimator", "admin", "designer")
+def get_schemas_by_product():
     """
-    Get all estimating schemas for a specific project type.
-
-    Body:
-    {
-      "project_type_id": 3
-    }
-
-    Returns: [ { "id": <schema_id>, "name": <schema_name>, "version": <schema_version> }, ... ]
+    Get all estimating schemas for a specific product.
     """
-    user = current_user(required=True)
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        print("DEBUG: get_schemas_by_product called")
+        payload = request.get_json(silent=True) or {}
+        product_id = payload.get("product_id")
 
-    payload = request.get_json(silent=True) or {}
-    project_type_id = payload.get("project_type_id")
+        if not product_id:
+            return jsonify({"error": "product_id is required"}), 400
+        
+        print(f"DEBUG: Fetching schemas for product_id={product_id}")
 
-    if not project_type_id:
-        return jsonify({"error": "project_type_id is required"}), 400
+        schemas = EstimatingSchema.query.filter_by(product_id=product_id).all()
+        # Sort by default first, then name
+        schemas.sort(key=lambda x: (not x.is_default, x.name))
+        
+        print(f"DEBUG: Found {len(schemas)} schemas")
+        return jsonify([{
+            "id": s.id, 
+            "name": s.name, 
+            "version": s.version, 
+            "is_default": s.is_default,
+            "data": s.data
+        } for s in schemas]), 200
+    except Exception as e:
+        print(f"DEBUG: Error in get_schemas_by_product: {e}")
+        return jsonify({'error': str(e)}), 500
 
-    schemas = EstimatingSchema.query.filter_by(project_type_id=project_type_id).all()
-    return jsonify([{"id": s.id, "name": s.name, "version": s.version} for s in schemas]), 200
+@est_schemas_bp.route("/est_schemas/<int:schema_id>", methods=["GET"])
+@role_required("estimator", "admin", "designer")
+def get_schema(schema_id):
+    try:
+        print(f"DEBUG: get_schema called for schema_id={schema_id}")
+        schema = EstimatingSchema.query.get(schema_id)
+        if not schema:
+            print(f"DEBUG: Schema {schema_id} not found")
+            return jsonify({"error": "Schema not found"}), 404
+        return jsonify({
+            "id": schema.id, 
+            "name": schema.name, 
+            "version": schema.version, 
+            "is_default": schema.is_default, 
+            "data": schema.data
+        }), 200
+    except Exception as e:
+        print(f"DEBUG: Error in get_schema: {e}")
+        return jsonify({'error': str(e)}), 500

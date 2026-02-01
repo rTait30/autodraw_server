@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Authentication from '../components/Authentication';
 import CollapsibleCard from '../components/CollapsibleCard';
 import ToolsCard from '../components/ToolsCard';
+import LegalCard from '../components/LegalCard';
 import { getBaseUrl } from '../utils/baseUrl';
 
 export default function Landing() {
@@ -49,6 +50,12 @@ export default function Landing() {
             <div className="mt-6 w-full flex justify-center px-4">
               <ToolsCard 
                   defaultOpen={false}
+                  className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+              />
+            </div>
+
+            <div className="mt-6 w-full flex justify-center px-4">
+              <LegalCard 
                   className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
               />
             </div>

@@ -365,10 +365,16 @@ def estimate_price_from_schema(schema_data: Any, attributes: Dict[str, Any], sku
     
     section_totals = {}
     
+    sku_lookup = {}
+    if skus:
+        for code, obj in skus.items():
+            sku_lookup[code] = float(obj.costPrice or 0.0)
+
     # Context available to expressions
     eval_context = {
         **attributes,
         "inputs": input_state,
+        "skus": sku_lookup,
         "global": {
             "contingencyPercent": schema_data.get("_constants", {}).get("contingencyPercent", 3),
             "marginPercent": schema_data.get("_constants", {}).get("marginPercent", 45),
@@ -439,14 +445,16 @@ def estimate_price_from_schema(schema_data: Any, attributes: Dict[str, Any], sku
     }
 
 
+from datetime import datetime, timezone
+
 def evaluate_schema_structure(schema_data: Any, attributes: Dict[str, Any], skus = None) -> Dict[str, Any]:
     """
     Evaluates schema but returns the structure with resolved quantities and unitCosts 
     instead of just the total price.
-    Returns: { "sections": { "SectionName": [rows...] }, "_constants": {...} }
+    Returns: { "sections": { "SectionName": [rows...] }, "_constants": {...}, "meta": {...} }
     """
     if not isinstance(schema_data, dict):
-        return {"sections": {}, "_constants": {}}
+        return {"sections": {}, "_constants": {}, "meta": {}}
 
     input_state = {}
     
@@ -461,9 +469,18 @@ def evaluate_schema_structure(schema_data: Any, attributes: Dict[str, Any], skus
                         input_state[key] = default_val
 
     # 2. Build Context
+    sku_lookup = {}
+    if skus:
+        # Create a safe lookup dict for expressions: skus['CODE'] -> cost
+        # Or skus['CODE'].cost
+        # Let's map to a simple object or dict
+        for code, obj in skus.items():
+            sku_lookup[code] = float(obj.costPrice or 0.0)
+            
     eval_context = {
         **attributes,
         "inputs": input_state,
+        "skus": sku_lookup, # Allow skus['CODE'] in expressions
         "global": {
             "contingencyPercent": schema_data.get("_constants", {}).get("contingencyPercent", 3),
             "marginPercent": schema_data.get("_constants", {}).get("marginPercent", 45),
@@ -541,7 +558,11 @@ def evaluate_schema_structure(schema_data: Any, attributes: Dict[str, Any], skus
         "_constants": schema_data.get("_constants", {
             "contingencyPercent": 3, 
             "marginPercent": 45
-        })
+        }),
+        "meta": {
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "grand_total": (sum(section_totals.values()) * (1 + (schema_data.get("_constants", {}).get("contingencyPercent", 3)/100))) / (1 - (schema_data.get("_constants", {}).get("marginPercent", 45)/100)),
+        }
     }
 
 

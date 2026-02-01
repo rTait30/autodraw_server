@@ -1,247 +1,529 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { apiFetch } from '../services/auth';
+import SchemaSelector from './SchemaSelector';
 
-// Simplified Estimate Table
-// Expects schema to contain computed defaults from backend.
-// Structure: { items: [ { name, contingencyPercent, marginPercent, sections: { "Section": [ { description, quantity, unitCost } ] } } ] }
-export default function SimpleEstimateTable({ schema, onTotalChange }) {
-  // Normalize schema to ensure it has 'items' array
+// Enhanced Estimate Editor
+// 'schema' prop contains the formulas (source of truth for editing)
+// 'evaluatedSchema' prop contains the calculated values (snapshot)
+export default function SimpleEstimateTable({ 
+    schema, 
+    evaluatedSchema, 
+    onTotalChange, 
+    onChange, 
+    onRecost,
+    projectId, 
+    productId, 
+    canSaveTemplate = false,
+    devMode = false
+}) {
+  // Normalize schema to ensure it has 'items' array or sections
   const normalize = (data) => {
-    if (!data) return { items: [] };
-    if (data.items && Array.isArray(data.items)) return data;
+    if (!data) return { sections: {}, _constants: { contingencyPercent: 3, marginPercent: 45 } };
     
-    // Legacy/Migration: Wrap single object schema into one item
-    const { _constants, ...sections } = data;
-    const cPct = _constants?.contingencyPercent ?? 3;
-    const mPct = _constants?.marginPercent ?? 45;
-    
-    // Filter out non-array keys just in case
-    const validSections = {};
-    Object.entries(sections).forEach(([k, v]) => {
-        if (Array.isArray(v)) validSections[k] = v;
-    });
+    let processed = data;
 
+    // 1. Handle Wrapper (Evaluated Schema format where sections are inside items[0])
+    // If we receive the *entire* evaluated object as 'schema' (which happens sometimes),
+    // we just want to extract the structure from the first item to use as our editing base.
+    if (processed.items && Array.isArray(processed.items)) {
+        processed = processed.items.length > 0 ? processed.items[0] : {};
+    }
+
+    // 2. Identify Sections & Constants
+    let sections = {};
+    let constants = {};
+
+    if (processed.sections) {
+        // Standard Format
+        sections = processed.sections;
+        constants = processed._constants || {};
+        
+        // Sometimes constants are at root in this format
+        if (processed.contingencyPercent !== undefined) constants.contingencyPercent = processed.contingencyPercent;
+        if (processed.marginPercent !== undefined) constants.marginPercent = processed.marginPercent;
+    } else {
+        // Legacy / Flat Format
+        const { _constants, ...rest } = processed;
+        constants = _constants || {};
+        
+        Object.entries(rest).forEach(([k, v]) => {
+            if (Array.isArray(v)) {
+                sections[k] = v;
+            }
+        });
+    }
+
+    // 3. Ensure defaults
     return {
-        items: [{
-            id: 'default',
-            name: 'Project Estimate',
-            contingencyPercent: cPct,
-            marginPercent: mPct,
-            sections: validSections
-        }]
+        sections: sections,
+        _constants: { 
+            contingencyPercent: constants.contingencyPercent ?? 3, 
+            marginPercent: constants.marginPercent ?? 45 
+        }
     };
   };
 
+  // Logging
+  useEffect(() => {
+    console.log('[SimpleEstimateTable] Received props:', { 
+        hasSchema: !!schema, 
+        hasEvaluated: !!evaluatedSchema,
+        schemaKeys: schema ? Object.keys(schema) : [],
+        evaluatedMeta: evaluatedSchema?.meta,
+        itemCount: evaluatedSchema?.items?.length
+    });
+  }, [schema, evaluatedSchema]);
+
   const [estData, setEstData] = useState(() => normalize(schema));
-  const [activeTab, setActiveTab] = useState(0);
+  const [showSchemaSelector, setShowSchemaSelector] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [activeItemIdx, setActiveItemIdx] = useState(0);
 
   useEffect(() => {
-    const norm = normalize(schema);
-    setEstData(norm);
-    // If active tab is out of bounds, reset
-    if (activeTab >= norm.items.length) {
-        setActiveTab(0);
-    }
+     if (schema) {
+         setEstData(normalize(schema));
+     }
   }, [schema]);
 
+  // Resolve the actual evaluated data object for the currently selected item
+  const targetEvaluated = useMemo(() => {
+      if (!evaluatedSchema) return null;
+      if (evaluatedSchema.items && Array.isArray(evaluatedSchema.items)) {
+         return evaluatedSchema.items[activeItemIdx] || null;
+      }
+      return evaluatedSchema; // Fallback for single-object structures
+  }, [evaluatedSchema, activeItemIdx]);
+
+  const evaluatedItems = useMemo(() => {
+      if (evaluatedSchema?.items && Array.isArray(evaluatedSchema.items)) {
+          return evaluatedSchema.items;
+      }
+      // If we have a single object with 'sections', wrap it in an item structure
+      if (evaluatedSchema?.sections) {
+          return [{
+             id: 'single',
+             name: 'Estimate',
+             sections: evaluatedSchema.sections,
+             contingencyPercent: evaluatedSchema._constants?.contingencyPercent,
+             marginPercent: evaluatedSchema._constants?.marginPercent
+          }];
+      }
+      return evaluatedSchema ? [evaluatedSchema] : [];
+  }, [evaluatedSchema]);
+
+  const emitChange = useCallback((newData) => {
+    if (onChange) {
+        // Flatten the structure for the backend (which expects { "Section": [], "_constants": {} })
+        // instead of { sections: { "Section": [] }, _constants: {} }
+        const flat = { ...newData.sections, _constants: newData._constants };
+        onChange(flat);
+    }
+  }, [onChange]);
+
   // Handle value changes (deep update)
-  const handleItemChange = (itemIdx, field, val) => {
+  const handleConstantChange = (field, val) => {
     setEstData(prev => {
-        const next = { ...prev, items: [...prev.items] };
-        next.items[itemIdx] = { ...next.items[itemIdx], [field]: parseFloat(val) || 0 };
+        const next = { ...prev, _constants: { ...prev._constants, [field]: parseFloat(val) || 0 } };
+        emitChange(next);
         return next;
     });
   };
 
-  const handleRowChange = (itemIdx, sectionName, rowIdx, field, val) => {
+  const handleRowChange = (sectionName, rowIdx, field, val) => {
     setEstData(prev => {
-        const next = { ...prev, items: [...prev.items] };
-        const item = { ...next.items[itemIdx] };
-        const sections = { ...item.sections };
+        const next = { ...prev };
+        const sections = { ...next.sections };
         const rows = [...(sections[sectionName] || [])];
         
-        rows[rowIdx] = { ...rows[rowIdx], [field]: val }; // Keep string for inputs to allow decimals
+        rows[rowIdx] = { ...rows[rowIdx], [field]: val };
         sections[sectionName] = rows;
-        item.sections = sections;
-        next.items[itemIdx] = item;
+        next.sections = sections;
+        emitChange(next);
         return next;
     });
   };
 
-  // Calculate Totals
-  const calculatedItems = useMemo(() => {
-    return estData.items.map(item => {
-        let baseCost = 0;
-        const sectionGlobals = {};
-
-        Object.entries(item.sections || {}).forEach(([secName, rows]) => {
-            const secTotal = rows.reduce((acc, r) => {
-                 return acc + ((parseFloat(r.quantity) || 0) * (parseFloat(r.unitCost) || 0));
-            }, 0);
-            baseCost += secTotal;
-            sectionGlobals[secName] = secTotal;
-        });
-
-        const contingency = baseCost * ((item.contingencyPercent || 0) / 100);
-        const subTotal = baseCost + contingency;
-        // Margin formula: Cost / (1 - Margin%)
-        const marginDecimal = (item.marginPercent || 0) / 100;
-        const sellPrice = marginDecimal >= 1 ? 0 : subTotal / (1 - marginDecimal);
-
-        return {
-            ...item,
-            _baseCost: baseCost,
-            _contingencyAmt: contingency,
-            _sellPrice: sellPrice,
-            _sections: sectionGlobals
-        };
+  // Structure Editing
+  const addRow = (sectionName) => {
+    setEstData(prev => {
+        const next = { ...prev };
+        const sections = { ...next.sections };
+        const rows = [...(sections[sectionName] || [])];
+        rows.push({ description: 'New Item', quantity: "1", unitCost: "0" });
+        sections[sectionName] = rows;
+        next.sections = sections;
+        emitChange(next);
+        return next;
     });
-  }, [estData]);
+  };
 
-  const grandTotal = calculatedItems.reduce((acc, item) => acc + item._sellPrice, 0);
+  const removeRow = (sectionName, rowIdx) => {
+    setEstData(prev => {
+        const next = { ...prev };
+        const sections = { ...next.sections };
+        const rows = [...(sections[sectionName] || [])];
+        rows.splice(rowIdx, 1);
+        sections[sectionName] = rows;
+        next.sections = sections;
+        emitChange(next);
+        return next;
+    });
+  };
+
+  const addSection = () => {
+      const name = prompt("Enter section name (e.g., 'Installation'):");
+      if (!name) return;
+      setEstData(prev => {
+        const next = { ...prev };
+        const sections = { ...next.sections, [name]: [] };
+        next.sections = sections;
+        emitChange(next);
+        return next;
+      });
+  };
+
+  // Template Actions
+  const handleSelectTemplate = (template) => {
+      setShowSchemaSelector(false);
+      if (!window.confirm(`Replace current estimate with '${template.name}'? This cannot be undone.`)) return;
+      
+      const newData = normalize(template.data);
+      setEstData(newData);
+      emitChange(newData);
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!productId) {
+        alert("Cannot save template: No Product Context found.");
+        return;
+    }
+    const name = prompt("Template Name:", "New Custom Template");
+    if (!name) return;
+    
+    setSavingTemplate(true);
+    try {
+        // Flatten data for storage
+        const flatData = { ...estData.sections, _constants: estData._constants };
+        
+        const res = await apiFetch('/est_schemas/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                product_id: productId,
+                name: name,
+                data: flatData,
+                is_default: false
+            })
+        });
+        if (res.ok) {
+            alert("Template saved successfully!");
+        } else {
+            const err = await res.json();
+            alert(`Failed to save template: ${err.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error saving template.");
+    } finally {
+        setSavingTemplate(false);
+    }
+  };
+
+  // Helper to get evaluated value safely
+  const getEvaluated = (sectionName, rowIdx) => {
+      if (!targetEvaluated || !targetEvaluated.sections) return null;
+      const rows = targetEvaluated.sections[sectionName];
+      if (!rows || !rows[rowIdx]) return null;
+      return rows[rowIdx];
+  };
+
+  // Totals from evaluated schema preferably, or calculate from rows
+  const grandTotal = useMemo(() => {
+      if (evaluatedSchema?.meta?.grand_total != null) {
+          return evaluatedSchema.meta.grand_total;
+      }
+      
+      // Calculate from all items if available
+      if (evaluatedItems.length > 0) {
+          return evaluatedItems.reduce((totalAcc, item) => {
+              if (!item.sections) return totalAcc;
+              const itemTotal = Object.values(item.sections).reduce((secAcc, rows) => {
+                  return secAcc + (Array.isArray(rows) 
+                    ? rows.reduce((s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)), 0) 
+                    : 0);
+              }, 0);
+              return totalAcc + itemTotal;
+          }, 0);
+      }
+      
+      return 0;
+  }, [evaluatedSchema, evaluatedItems]);
+
+  const evaluatedAt = evaluatedSchema?.meta?.evaluated_at;
 
   useEffect(() => {
-    onTotalChange(grandTotal);
+    // Defer update to avoid "update while rendering" error
+    const t = setTimeout(() => {
+        onTotalChange(grandTotal);
+    }, 0);
+    return () => clearTimeout(t);
   }, [grandTotal, onTotalChange]);
 
-  if (calculatedItems.length === 0) {
-      return <div className="text-sm text-gray-500 italic p-4">No estimate data available. Run "Check/Calculate".</div>;
+  // If no schema, empty state
+  if (Object.keys(estData.sections).length === 0) {
+      return (
+        <div className="p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center">
+            <div className="text-gray-500 mb-4">No estimate data. Start by loading a template.</div>
+            <button 
+                onClick={() => setShowSchemaSelector(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow-sm text-sm"
+            >
+                Load From Template
+            </button>
+            {showSchemaSelector && (
+                <SchemaSelector 
+                    productId={productId} 
+                    onSelect={handleSelectTemplate} 
+                    onClose={() => setShowSchemaSelector(false)} 
+                />
+            )}
+        </div>
+      );
   }
 
-  const activeItem = calculatedItems[activeTab] || calculatedItems[0];
-
   return (
-    <div className="space-y-0">
+    <div className="space-y-4">
         
-        {/* Tabs Header */}
-        <div className="flex flex-wrap items-end gap-1 border-b border-gray-200 dark:border-gray-700 mb-0 px-1 w-full">
-            {calculatedItems.map((item, index) => {
-                const isActive = index === activeTab;
-                return (
-                    <button
-                        key={index}
-                        onClick={() => setActiveTab(index)}
-                        className={`
-                            relative px-4 py-2 text-sm font-medium rounded-t-lg border-t border-l border-r border-transparent transition-all
-                            ${isActive 
-                                ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 border-b-white dark:border-b-gray-800 -mb-px text-blue-600 dark:text-blue-400 z-10" 
-                                : "bg-gray-50 dark:bg-gray-900/50 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
-                            }
-                        `}
-                    >
-                        {item.name || `Item ${index + 1}`}
-                         <span className="ml-2 text-xs opacity-70 font-mono">${item._sellPrice.toFixed(0)}</span>
-                    </button>
-                );
-            })}
+        {/* Toolbar */}
+        <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-4">
+                 <button 
+                    onClick={onRecost}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm shadow-sm transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    Check / Recost
+                </button>
+                {evaluatedAt && (
+                    <div className="text-xs text-gray-500 flex flex-col leading-tight">
+                        <span>Prices as of:</span>
+                        <span className="font-mono text-gray-700 dark:text-gray-300">
+                             {new Date(evaluatedAt).toLocaleString()}
+                        </span>
+                    </div>
+                )}
+            </div>
+            
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => setShowSchemaSelector(true)}
+                    className="text-xs px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors shadow-sm"
+                >
+                    Load Template
+                </button>
+                <button 
+                    onClick={handleSaveAsTemplate}
+                    disabled={savingTemplate || !canSaveTemplate}
+                    className={`text-xs px-3 py-1.5 rounded transition-colors border border-transparent ${canSaveTemplate ? 'bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                >
+                    {savingTemplate ? 'Saving...' : 'Save as Template'}
+                </button>
+            </div>
         </div>
-        
-        {/* Active Tab Content */}
-        {activeItem && (
-            <div className="bg-white dark:bg-gray-800 border-l border-r border-b border-gray-200 dark:border-gray-700 rounded-b-lg p-0 md:p-4 mb-4 shadow-sm">
-                
-                <div className="flex flex-wrap items-center justify-between mb-4 gap-4 pb-3 border-b border-gray-100 dark:border-gray-700/50 p-3 md:p-0">
-                    <h5 className="font-bold text-lg text-gray-800 dark:text-gray-100">{activeItem.name || `Item ${activeTab + 1}`}</h5>
-                    
-                    {/* Controls */}
-                    <div className="flex items-center gap-4 text-sm">
-                        <label className="flex items-center gap-2">
-                            <span className="text-gray-500">Contingency %</span>
-                            <input 
-                                type="number" 
-                                className="w-16 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-center"
-                                value={activeItem.contingencyPercent}
-                                onChange={e => handleItemChange(activeTab, 'contingencyPercent', e.target.value)}
-                            />
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <span className="text-gray-500">Margin %</span>
-                            <input 
-                                type="number" 
-                                className="w-16 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-center"
-                                value={activeItem.marginPercent}
-                                onChange={e => handleItemChange(activeTab, 'marginPercent', e.target.value)}
-                            />
-                        </label>
-                    </div>
-                </div>
 
-                {/* Sections */}
-                <div className="space-y-6 px-3 md:px-0">
-                {Object.entries(activeItem.sections).map(([secName, rows]) => (
-                    <div key={secName}>
-                        <div className="flex justify-between items-end mb-1">
-                            <h6 className="text-xs font-bold uppercase text-gray-400 tracking-wider">{secName}</h6>
-                            <span className="text-xs font-mono text-gray-500">${(activeItem._sections[secName] || 0).toFixed(2)}</span>
-                        </div>
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-100 dark:bg-gray-700/50 text-xs text-gray-500">
-                                <tr>
-                                    <th className="text-left py-1 px-2 rounded-l">Description</th>
-                                    <th className="text-right py-1 px-2 w-20">Qty</th>
-                                    <th className="text-right py-1 px-2 w-24">Rate</th>
-                                    <th className="text-right py-1 px-2 w-24 rounded-r">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {rows.map((row, rIdx) => {
-                                    const q = parseFloat(row.quantity) || 0;
-                                    const c = parseFloat(row.unitCost) || 0;
-                                    return (
-                                        <tr key={rIdx} className="group hover:bg-white dark:hover:bg-gray-700 transition-colors">
-                                            <td className="py-1 px-2">
-                                                <div className="truncate max-w-[150px] md:max-w-xs" title={row.description}>
-                                                    {row.description || (row.sku ? `SKU: ${row.sku}` : '-')}
-                                                </div>
-                                            </td>
-                                            <td className="py-1 px-2">
-                                                <input 
-                                                    className="w-full bg-transparent text-right outline-none focus:text-blue-600 font-mono border-b border-transparent focus:border-blue-300"
-                                                    value={row.quantity}
-                                                    onChange={e => handleRowChange(activeTab, secName, rIdx, 'quantity', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="py-1 px-2">
-                                                <input 
-                                                    className="w-full bg-transparent text-right outline-none focus:text-blue-600 font-mono border-b border-transparent focus:border-blue-300"
-                                                    value={row.unitCost}
-                                                    onChange={e => handleRowChange(activeTab, secName, rIdx, 'unitCost', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="py-1 px-2 text-right font-mono text-gray-700 dark:text-gray-300">
-                                                {(q * c).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+        {/* Item Tabs (if multiple items) */}
+        {evaluatedItems.length > 0 && (
+            <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+                {evaluatedItems.map((item, idx) => (
+                    <button
+                        key={item.id || idx}
+                        onClick={() => setActiveItemIdx(idx)}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                            activeItemIdx === idx 
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' 
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        {item.name || `Item ${idx + 1}`}
+                        <span className="ml-2 text-xs opacity-70 font-normal">
+                             ${(Object.values(item.sections || {}).reduce((acc, rows) => {
+                                 return acc + (Array.isArray(rows) ? rows.reduce((s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)), 0) : 0);
+                             }, 0)).toFixed(2)}
+                        </span>
+                    </button>
                 ))}
-                </div>
-
-                {/* Item Summary */}
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col items-end gap-1 text-sm px-3 md:px-0">
-                    <div className="flex justify-between w-full max-w-xs text-gray-500">
-                        <span>Base Cost:</span>
-                        <span className="font-mono">${activeItem._baseCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between w-full max-w-xs text-gray-500">
-                        <span>Contingency ({activeItem.contingencyPercent}%):</span>
-                        <span className="font-mono">${activeItem._contingencyAmt.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between w-full max-w-xs font-bold text-gray-800 dark:text-white text-base mt-1 pt-1 border-t border-dashed border-gray-300">
-                        <span>Item Total (Margin {activeItem.marginPercent}%):</span>
-                        <span className="font-mono text-blue-600 dark:text-blue-400">${activeItem._sellPrice.toFixed(2)}</span>
-                    </div>
-                </div>
             </div>
         )}
-        
-        {/* Grand Total - Always Visible */}
-        <div className="bg-white dark:bg-gray-800 p-4 border rounded-lg border-gray-200 dark:border-gray-700 shadow-sm flex justify-between items-center text-lg">
-            <span className="text-gray-500 font-medium uppercase tracking-widest text-sm">Project Grand Total</span>
-            <span className="text-4xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">${grandTotal.toFixed(2)}</span>
+
+        {/* Sections */}
+        <div className="space-y-6">
+            {Object.entries(estData.sections).map(([secName, rows]) => (
+                <div key={secName} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center group">
+                        <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">{secName}</h3>
+                        <div className="text-xs text-gray-500">
+                            {/* Section Total from Evaluated */}
+                            Total: <span className="font-mono font-medium">${(targetEvaluated?.sections?.[secName]?.reduce((a, b) => a + (b.quantity * b.unitCost), 0) || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="text-xs text-gray-500 border-b border-gray-100 dark:border-gray-700">
+                            <tr>
+                                <th className="text-left py-2 px-4 w-[40%]">Description</th>
+                                <th className="text-right py-2 px-2 w-24">Quantity</th> 
+                                <th className="text-right py-2 px-2 w-24">Unit Cost</th>
+                                <th className="text-right py-2 px-4 w-24">Total</th>
+                                <th className="w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {rows.map((row, rIdx) => {
+                                const evalRow = getEvaluated(secName, rIdx);
+                                const qVal = evalRow ? evalRow.quantity : 0;
+                                const cVal = evalRow ? evalRow.unitCost : 0;
+                                const total = qVal * cVal;
+
+                                return (
+                                    <React.Fragment key={rIdx}>
+                                        <tr className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                                            <td className="py-2 px-4 align-top">
+                                                <input 
+                                                    className="w-full bg-transparent outline-none focus:text-blue-600 border-b border-transparent focus:border-blue-300 py-1"
+                                                    value={row.description || ''}
+                                                    onChange={e => handleRowChange(secName, rIdx, 'description', e.target.value)}
+                                                    placeholder="Description"
+                                                />
+                                            </td>
+                                            
+                                            {/* Evaluated Quantity */}
+                                            <td className="py-2 px-2 text-right font-mono text-sm text-gray-700 dark:text-gray-300 align-top">
+                                                {qVal?.toFixed(2) || '-'}
+                                            </td>
+                                            
+                                            {/* Evaluated Cost */}
+                                            <td className="py-2 px-2 text-right font-mono text-sm text-gray-700 dark:text-gray-300 align-top">
+                                                {cVal?.toFixed(2) || '-'}
+                                            </td>
+                                            
+                                            {/* Line Total */}
+                                            <td className="py-2 px-4 text-right font-mono font-medium text-gray-900 dark:text-white align-top">
+                                                {total?.toFixed(2) || '-'}
+                                            </td>
+                                            
+                                            <td className="py-2 px-1 text-center align-top">
+                                                <button 
+                                                    onClick={() => removeRow(secName, rIdx)}
+                                                    className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                    tabIndex={-1}
+                                                >
+                                                    &times;
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {/* Expressions Row (Dev Mode Only) */}
+                                        {devMode && (
+                                            <tr className="bg-gray-50/50 dark:bg-gray-900/20 border-b border-gray-100 dark:border-gray-800">
+                                                <td colSpan={5} className="py-2 px-8">
+                                                    <div className="flex flex-col gap-2 text-xs font-mono">
+                                                        <div className="flex items-center gap-2 w-full">
+                                                            <span className="text-blue-500 font-bold opacity-70 w-12 text-right">Qty=</span>
+                                                            <input 
+                                                                className="flex-1 bg-transparent text-blue-700 dark:text-blue-300 outline-none border-b border-gray-300 dark:border-gray-600 focus:border-blue-500 px-1"
+                                                                value={row.quantity || ''}
+                                                                onChange={e => handleRowChange(secName, rIdx, 'quantity', e.target.value)}
+                                                                placeholder="Quantity Expression"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 w-full">
+                                                            <span className="text-green-500 font-bold opacity-70 w-12 text-right">Cost=</span>
+                                                            <input 
+                                                                className="flex-1 bg-transparent text-green-700 dark:text-green-300 outline-none border-b border-gray-300 dark:border-gray-600 focus:border-green-500 px-1"
+                                                                value={row.unitCost || ''}
+                                                                onChange={e => handleRowChange(secName, rIdx, 'unitCost', e.target.value)}
+                                                                placeholder="Cost Expression"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                            
+                            {/* Add Row Button Row */}
+                            <tr>
+                                <td colSpan={5} className="py-1 px-4">
+                                     <button 
+                                        onClick={() => addRow(secName)}
+                                        className="text-xs text-gray-400 hover:text-blue-500 transition-colors flex items-center gap-1 py-1"
+                                    >
+                                        <span className="text-lg leading-none">+</span> Add Line Item
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+            ))}
+            
+            <button 
+                onClick={addSection}
+                className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-blue-300 text-gray-400 hover:text-blue-500 rounded-lg text-sm font-medium transition-all"
+            >
+                + Add New Section
+            </button>
         </div>
+
+        {/* Global Parameters */}
+        <div className="bg-white dark:bg-gray-800 p-4 border rounded-lg border-gray-200 dark:border-gray-700 shadow-sm">
+             <div className="flex flex-wrap items-center justify-between gap-4">
+                 <div className="flex gap-6">
+                    <label className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Contingency</span>
+                        <div className="relative">
+                            <input 
+                                type="number" 
+                                className="w-16 pl-2 pr-6 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-right font-mono"
+                                value={estData._constants?.contingencyPercent}
+                                onChange={e => handleConstantChange('contingencyPercent', e.target.value)}
+                            />
+                            <span className="absolute right-2 top-1 text-gray-400">%</span>
+                        </div>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500 font-medium">Margin</span>
+                         <div className="relative">
+                            <input 
+                                type="number" 
+                                className="w-16 pl-2 pr-6 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-right font-mono"
+                                value={estData._constants?.marginPercent}
+                                onChange={e => handleConstantChange('marginPercent', e.target.value)}
+                            />
+                             <span className="absolute right-2 top-1 text-gray-400">%</span>
+                        </div>
+                    </label>
+                 </div>
+                 
+                 <div className="text-right">
+                     <div className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Estimated Price</div>
+                     <div className="text-3xl font-bold text-gray-900 dark:text-white font-mono tracking-tighter">
+                         ${grandTotal.toFixed(2)}
+                     </div>
+                 </div>
+             </div>
+        </div>
+
+        {showSchemaSelector && (
+            <SchemaSelector 
+                productId={productId} 
+                onSelect={handleSelectTemplate} 
+                onClose={() => setShowSchemaSelector(false)} 
+            />
+        )}
     </div>
   );
 }

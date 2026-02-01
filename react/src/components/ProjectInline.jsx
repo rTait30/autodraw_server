@@ -69,11 +69,11 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
     // loadFormForProject(project); // Legacy loader removed
     
     // Load schema
-    // Prefer the Evaluated schema (results of calculation)
-    // Fallback to template schema if not yet calculated
-    const backendSchema = project?.estimate_schema_evaluated || project?.estimate_schema || null;
-    setSchema(backendSchema);
-    setEditedSchema(backendSchema);
+    // Use the source of truth (formulas) for editing
+    // The evaluated schema is passed separately for display
+    const formulaSchema = project?.estimate_schema || null;
+    setSchema(formulaSchema);
+    setEditedSchema(formulaSchema);
     
     // Initial Viz Render
     if (project) renderPreview(project);
@@ -181,6 +181,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
         general: base.general || {},
         project_attributes: base.project_attributes || {},
         products: base.products || [],
+        estimate_schema: editedSchema, // Send current schema state for immediate recosting with edits
       };
 
       const res = await apiFetch('/projects/calculate', {
@@ -502,7 +503,17 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                   }
                 >
                    <div className="p-5">
-                      <SimpleEstimateTable schema={schema} onTotalChange={setCurrentEstimateTotal} />
+                      <SimpleEstimateTable 
+                          schema={editedSchema} 
+                          evaluatedSchema={editedProject?.estimate_schema_evaluated}
+                          onTotalChange={setCurrentEstimateTotal} 
+                          onChange={handleSchemaCheck}
+                          onRecost={handleCheck}
+                          projectId={editedProject?.id}
+                          productId={editedProject?.product?.id || editedProject?.product_id || editedProject?.type?.id}
+                          canSaveTemplate={isAdminOrEstimator}
+                          devMode={devMode}
+                        />
                    </div>
                 </CollapsibleCard>
               )}

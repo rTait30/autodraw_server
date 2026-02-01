@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { apiFetch } from '../services/auth';
 import CollapsibleCard from '../components/CollapsibleCard';
 import ToolsCard from '../components/ToolsCard';
+import LegalCard from '../components/LegalCard';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
@@ -224,6 +225,10 @@ function Projects() {
   // Don't show selector if we have a draft loaded, even if product object might be momentarily checking
   const showSelector = isNewMode && (!expandedProject || (!expandedProject.product && !expandedProject._isDraft));
 
+  // Split projects
+  const activeProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
+  const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
@@ -250,11 +255,19 @@ function Projects() {
         <ToolsCard defaultOpen={false} />
 
         <CollapsibleCard 
-            title="Projects" 
+            title="Active Projects" 
             defaultOpen={true}
         >
              {/* Pass custom onOpen and onDelete handlers */}
-             <ProjectTable projects={projects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
+             <ProjectTable projects={activeProjects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
+        </CollapsibleCard>
+
+        <CollapsibleCard 
+            title="Completed Projects" 
+            defaultOpen={false}
+        >
+             {/* Pass custom onOpen and onDelete handlers */}
+             <ProjectTable projects={completedProjects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
         </CollapsibleCard>
 
         <CollapsibleCard 
@@ -292,6 +305,8 @@ function Projects() {
                 <div className="text-center py-4 text-gray-500">No deleted projects found.</div>
             )}
         </CollapsibleCard>
+
+        <LegalCard />
       </div>
       
       <StickyActionBar>

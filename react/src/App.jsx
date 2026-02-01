@@ -12,6 +12,8 @@ import Landing from './pages/Landing';
 import Discrepancy from './pages/Discrepancy';
 import Rectangles from './pages/Rectangles';
 import FabricCatalog from './pages/FabricCatalog';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 import TopBar from './components/TopBar';
 
@@ -71,6 +73,8 @@ function App() {
         <Route path="/copelands/discrepancy" element={<Discrepancy />} />
         <Route path="/copelands/rectangles" element={<Rectangles />} />
         <Route path="/copelands/fabric" element={<FabricCatalog />} />
+        <Route path="/copelands/legal/terms" element={<TermsOfService />} />
+        <Route path="/copelands/legal/privacy" element={<PrivacyPolicy />} />
         <Route element={<RequireAuth />}>
           <Route element={<TopBar />}>
             <Route path="/copelands/projects" element={<Projects />} />

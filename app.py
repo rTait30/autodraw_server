@@ -19,6 +19,7 @@ from endpoints.api.projects.projects_calc_api import projects_calc_api_bp
 from endpoints.api.automation.routes import automation_bp
 from endpoints.api.user_preferences import user_bp
 from endpoints.api.fabric import fabric_bp
+from endpoints.api.estimating_schemas import est_schemas_bp
 
 
 # --- Env & app ---
@@ -100,6 +101,7 @@ def create_app():
     app.register_blueprint(automation_bp, url_prefix="/copelands/api")
     app.register_blueprint(user_bp, url_prefix="/copelands/api/user")
     app.register_blueprint(fabric_bp, url_prefix="/copelands/api")
+    app.register_blueprint(est_schemas_bp, url_prefix="/copelands/api")
     print("DEBUG: Registered fabric_bp")
 
     # --- One-time DB create ---

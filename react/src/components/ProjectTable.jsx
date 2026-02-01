@@ -19,10 +19,6 @@ export default function ProjectTable({ projects = [], onOpen, onDelete }) {
     return <div className="text-gray-500 italic p-4">No projects found.</div>;
   }
 
-  // Filter projects by status
-  const currentProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
-  const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
-
   const columns = [
     { header: 'ID', accessor: 'id', cellClassName: 'font-medium' },
     ...(!isClient ? [{ header: 'Client', accessor: 'client' }] : []),
@@ -57,18 +53,11 @@ export default function ProjectTable({ projects = [], onOpen, onDelete }) {
     }] : [])
   ];
 
-  const renderProjectList = (projList, showHeader) => {
-    if (!projList.length) return null;
-
-    return (
-      <div className="mb-8 last:mb-0">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-          {showHeader} ({projList.length})
-        </h3>
-        
+  return (
+    <div className="mb-0">
         {/* Mobile View: Cards */}
         <div className="md:hidden space-y-4">
-          {projList.map((project) => (
+          {projects.map((project) => (
             <div
               key={project.id}
               onClick={() => handleProjectClick(project.id)}
@@ -121,19 +110,11 @@ export default function ProjectTable({ projects = [], onOpen, onDelete }) {
         {/* Desktop View: Table */}
         <GenericTable 
             columns={columns}
-            data={projList}
+            data={projects}
             onRowClick={(row) => handleProjectClick(row.id)}
             className="hidden md:block" // GenericTable handles the shadow/rounded/overflow
         />
-      </div>
-    );
-  };
-
-  return (
-    <>
-      {renderProjectList(currentProjects, "Active Projects")}
-      {renderProjectList(completedProjects, "Completed Projects")}
-    </>
+    </div>
   );
 }
 

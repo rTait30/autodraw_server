@@ -100,7 +100,7 @@ def create_app():
     app.register_blueprint(projects_calc_api_bp, url_prefix="/copelands/api")
     app.register_blueprint(automation_bp, url_prefix="/copelands/api")
     app.register_blueprint(user_bp, url_prefix="/copelands/api/user")
-    app.register_blueprint(fabric_bp, url_prefix="/copelands/api")
+    app.register_blueprint(fabric_bp, url_prefix="/copelands/api/fabric")
     app.register_blueprint(est_schemas_bp, url_prefix="/copelands/api")
     print("DEBUG: Registered fabric_bp")
 

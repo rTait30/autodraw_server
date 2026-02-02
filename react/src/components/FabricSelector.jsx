@@ -56,27 +56,61 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
   const [selectionComplete, setSelectionComplete] = useState(false);
   const [selectedColorData, setSelectedColorData] = useState(null);
   const [userNavigatedBack, setUserNavigatedBack] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newFabric, setNewFabric] = useState({ name: '', category: 'Shade', description: '' });
+  
+  const [showColorForm, setShowColorForm] = useState(false);
+  const [newColor, setNewColor] = useState({ name: '', hex_value: '#000000' });
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchTypes = async () => {
+    try {
+      const res = await apiFetch('/fabric/types');
+      if (res.ok) {
+        const data = await res.json();
+        setFabricTypes(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch fabric types', err);
+    }
+  };
 
   useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const res = await apiFetch('/types');
-        if (res.ok) {
-          const data = await res.json();
-          setFabricTypes(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch fabric types', err);
-      }
-    };
     fetchTypes();
   }, []);
+
+  const handleCreateFabric = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await apiFetch('/fabric/add_fabric', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFabric)
+      });
+      
+      if (res.ok) {
+        await fetchTypes();
+        setShowCreateForm(false);
+        setNewFabric({ name: '', category: 'Shade', description: '' });
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to create fabric'}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Failed to connect to server');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedType) {
       const fetchColors = async () => {
         try {
-          const res = await apiFetch(`/type/${selectedType.id}/colors`);
+          const res = await apiFetch(`/fabric/type/${selectedType.id}/colors`);
           if (res.ok) {
             const data = await res.json();
             setColors(data);
@@ -93,7 +127,38 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
 
   const handleTypeSelect = (type) => {
     setSelectedType(type);
+    setShowColorForm(false);
     setUserNavigatedBack(false); // Reset the flag when user selects a fabric
+  };
+
+  const handleCreateColor = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await apiFetch(`/fabric/type/${selectedType.id}/colors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newColor)
+      });
+
+      if (res.ok) {
+        // Refresh colors
+        const colorsRes = await apiFetch(`/fabric/type/${selectedType.id}/colors`);
+        if (colorsRes.ok) {
+           setColors(await colorsRes.json());
+        }
+        setShowColorForm(false);
+        setNewColor({ name: '', hex_value: '#000000' });
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to add color'}`);
+      }
+    } catch (error) {
+       console.error(error);
+       alert('Failed to connect to server');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleColorSelect = (color) => {
@@ -117,7 +182,16 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
     return acc;
   }, {});
 
-  const categoryOrder = ['Shade', 'PVC'];
+  // Dynamically determine categories, keeping Shade and PVC first
+  const dynamicCategories = Object.keys(groupedFabrics).sort((a, b) => {
+    const specials = ['Shade', 'PVC'];
+    const aIdx = specials.indexOf(a);
+    const bIdx = specials.indexOf(b);
+    if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+    if (aIdx !== -1) return -1;
+    if (bIdx !== -1) return 1;
+    return a.localeCompare(b);
+  });
 
   // Check if we have a selection from props
   const hasSelection = selectedFabric && selectedColor;
@@ -167,9 +241,17 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
           </div>
         </div>
       )}
-      {!selectedType ? (
+      {!selectedType && !showCreateForm ? (
         <div>
-          {categoryOrder.map(category => (
+           <div className="flex justify-end mb-2">
+            <Button size="sm" variant="ghost" className="text-sm" onClick={() => setShowCreateForm(true)}>
+              + New Fabric
+            </Button>
+          </div>
+          {dynamicCategories.length === 0 && (
+            <div className="text-center p-4 text-gray-500">No fabrics found. Create one?</div>
+          )}
+          {dynamicCategories.map(category => (
             groupedFabrics[category] && (
               <div key={category} className="mb-4">
                 <button
@@ -210,18 +292,114 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
             )
           ))}
         </div>
+      ) : showCreateForm ? (
+        <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+          <h3 className="text-lg font-semibold mb-3">Add New Fabric</h3>
+          <form onSubmit={handleCreateFabric} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Name</label>
+              <input 
+                type="text" 
+                required
+                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                value={newFabric.name}
+                onChange={e => setNewFabric({...newFabric, name: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Category</label>
+              <select 
+                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                value={newFabric.category}
+                onChange={e => setNewFabric({...newFabric, category: e.target.value})}
+              >
+                <option value="Shade">Shade</option>
+                <option value="PVC">PVC</option>
+                <option value="Canvas">Canvas</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <textarea 
+                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                rows="2"
+                value={newFabric.description}
+                onChange={e => setNewFabric({...newFabric, description: e.target.value})}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={isSubmitting}>
+                Create Fabric
+              </Button>
+            </div>
+          </form>
+        </div>
       ) : (
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Button onClick={() => {
-              setSelectedType(null);
-              setUserNavigatedBack(true);
-            }} variant="ghost" size="sm">
-              ← Back to Fabrics
-            </Button>
-            <h3 className="text-lg font-semibold">Select {selectedType.name} Color</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Button onClick={() => {
+                setSelectedType(null);
+                setUserNavigatedBack(true);
+              }} variant="ghost" size="sm">
+                ← Back
+              </Button>
+              <h3 className="text-lg font-semibold">{selectedType.name} Colors</h3>
+            </div>
+            {!showColorForm && (
+              <Button size="sm" variant="ghost" className="text-sm" onClick={() => setShowColorForm(true)}>
+                + Add Color
+              </Button>
+            )}
           </div>
           
+          {showColorForm && (
+            <div className="mb-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800/50">
+               <h4 className="font-medium mb-2">Add New Color</h4>
+               <form onSubmit={handleCreateColor} className="space-y-3">
+                 <div>
+                   <label className="block text-sm font-medium mb-1">Color Name</label>
+                   <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Royal Blue"
+                      className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                      value={newColor.name}
+                      onChange={e => setNewColor({...newColor, name: e.target.value})}
+                   />
+                   <p className="text-xs text-gray-500 mt-1">
+                     Image path will be: /static/textures/{selectedType.name.toLowerCase().replace(/\s+/g, '')}/{newColor.name.toLowerCase().replace(/\s+/g, '')}.jpg
+                   </p>
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium mb-1">Hex Fallback</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="color" 
+                        className="h-10 w-12 p-0 border-0 rounded"
+                        value={newColor.hex_value}
+                        onChange={e => setNewColor({...newColor, hex_value: e.target.value})}
+                      />
+                      <input 
+                        type="text" 
+                        className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                        value={newColor.hex_value}
+                        onChange={e => setNewColor({...newColor, hex_value: e.target.value})}
+                      />
+                    </div>
+                 </div>
+                 <div className="flex justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setShowColorForm(false)}>Cancel</Button>
+                    <Button type="submit" isLoading={isSubmitting}>Add Color</Button>
+                 </div>
+               </form>
+            </div>
+          )}
+
           {selectedType.tech_specs && Object.keys(selectedType.tech_specs).length > 0 && (
             (() => {
               const nonZeroSpecs = Object.entries(selectedType.tech_specs).filter(([key, value]) => value !== 0 && value !== "0");

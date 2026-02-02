@@ -19,6 +19,9 @@ def main():
     if not os.path.exists('migrations'):
         print("Initializing migrations directory...")
         run_command('-m flask db init', use_python=True)
+
+    print("Ensuring database is up to date...")
+    run_command('-m flask db upgrade', use_python=True)
     
     print("Generating migration script...")
     # Using a generic message. In production, you might want to ask for a message.

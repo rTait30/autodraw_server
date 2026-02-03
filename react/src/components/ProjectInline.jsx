@@ -125,6 +125,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       general: values.general || editedProject?.general || {},
       project_attributes: values.project_attributes || editedProject?.project_attributes || {},
       products: values.products || editedProject?.products || [],
+      submitToWG: values.submitToWG,
     };
   };
 
@@ -285,6 +286,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
         project_attributes: base.project_attributes || {},
         products: base.products || [],
         estimate_total: currentEstimateTotal,
+        submitToWG: base.submitToWG,
       };
       
       console.log('Submitting payload:', JSON.parse(JSON.stringify(payload)));

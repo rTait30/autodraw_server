@@ -295,6 +295,7 @@ export default function ProjectForm({
       : [{ ...makeEntry(undefined, 0), name: 'Item 1' }];
     setItems(newItems);
     setActiveIndex(newItems?.[0]?.productIndex ?? 0);
+    if (rehydrate.submitToWG !== undefined) setSubmitToWG(rehydrate.submitToWG);
   }, [rehydrate]);
 
   const handleTabNameChange = (productIndex, value) => {

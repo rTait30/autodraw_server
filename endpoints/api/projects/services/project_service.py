@@ -170,20 +170,10 @@ def create_project(user, data):
         project.estimate_schema = product.default_schema.data
 
         # Optionally compute an initial estimate_total
-        try:
-            from estimation import estimate_price_from_schema
-            results = estimate_price_from_schema(
-                project.estimate_schema,
-                project.project_attributes or {},
-            ) or {}
-            totals = results.get("totals") or {}
-            project.estimate_total = (
-                totals.get("grand_total")
-                or totals.get("grandTotal")
-                or totals.get("total")
-            )
-        except Exception as e:
-            print("Initial estimate failed:", e)
+        # REMOVED: This was causing "variable not defined" errors because it runs the product schema 
+        # against global project attributes only, missing per-product fields like cableSize.
+        # The real calculation happens in estimate_project_total(project) below.
+        pass
 
     # ---------- Unified enrichment (single raw format) ----------
     if project.product:

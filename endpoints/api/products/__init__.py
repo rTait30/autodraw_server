@@ -157,23 +157,41 @@ def dispatch_document(product_type: str, doc_id: str, project, **kwargs):
     raise ValueError(f"No document generator for product type: {product_type}, document: {doc_id}")
 
 
-def get_product_documents(product_type: str) -> list:
-    """Get list of available documents for a product type."""
+def get_product_documents(product_type: str, include_staff_only: bool = True) -> list:
+    """Get list of available documents for a product type.
+    
+    Args:
+        product_type: The product type (e.g., 'SHADE_SAIL')
+        include_staff_only: If True, include all documents. If False, only return
+                           documents with client_visible=True.
+    """
     pt = (product_type or "").upper()
     
     # Refresh logic
     if pt in _PRODUCT_DIR_NAMES:
         _load_generators(pt, _PRODUCT_DIR_NAMES[pt])
-        
-    return _AVAILABLE_DOCUMENTS_BY_NAME.get(pt, [])
+    
+    all_docs = _AVAILABLE_DOCUMENTS_BY_NAME.get(pt, [])
+    
+    if include_staff_only:
+        return all_docs
+    else:
+        # Filter to only client-visible documents
+        return [doc for doc in all_docs if doc.get("client_visible", False)]
 
 
-def get_product_capabilities(product_type: str) -> dict:
-    """Get the capabilities (calc, dxf, pdf) for a given product type."""
+def get_product_capabilities(product_type: str, include_staff_only: bool = True) -> dict:
+    """Get the capabilities (calc, dxf, pdf) for a given product type.
+    
+    Args:
+        product_type: The product type (e.g., 'SHADE_SAIL')
+        include_staff_only: If True, include all documents. If False, only return
+                           documents with client_visible=True.
+    """
     pt = (product_type or "").upper()
     return {
         "has_calculator": pt in _CALCULATORS_BY_NAME,
-        "documents": get_product_documents(pt)
+        "documents": get_product_documents(pt, include_staff_only)
     }
 
 # Expose available product types

@@ -185,10 +185,12 @@ def get_project_config(project_id):
     }
 
     # --- Product info ---
+    # Staff (admin, estimator, designer) can see all documents; clients only see client_visible ones
+    is_staff = user.role in ("admin", "estimator", "designer")
     product_info = {
         "id": project.product.id if project.product else None,
         "name": project.product.name if project.product else None,
-        "capabilities": get_product_capabilities(project.product.name) if project.product else {},
+        "capabilities": get_product_capabilities(project.product.name, include_staff_only=is_staff) if project.product else {},
     }
 
     # --- Items (covers, sails, etc.) ---

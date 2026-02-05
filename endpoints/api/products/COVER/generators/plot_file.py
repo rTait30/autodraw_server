@@ -65,58 +65,87 @@ def _dims_map_from_raw(nested_panels: dict) -> dict:
     return out
 
 
-def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, seam_flag, panel_name):
-    """Draw stayput points on the left fold line (at x + height) for MAIN panels.
+def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, seam_flag, panel_name, rotated=False):
+    """Draw stayput points on the fold line for MAIN panels.
     
-    Points are positioned at 1/4 and 3/4 of the ORIGINAL width attribute (no seam in calculation),
-    but drawn with 20mm offset from bottom edge to account for seam allowance.
+    For non-rotated: on the left fold line (at x + height), points along y.
+    For rotated: on the bottom fold line (at y + height), points along x.
     Accounts for split panel offsets and 25mm weld allowances.
     
     Note: width attribute becomes panel_h when plotted; length attribute becomes panel_w
     """
-    # Left fold line x-coordinate
-    fold_x = x + height
-    
-    # Calculate mark positions based on original width only (no seam added)
-    # This is the width attribute without any seam allowances
-    original_panel_height = original_width
-    
-    # Marks at 1/4 and 3/4 of original width only
-    mark_pos_1 = original_panel_height * 0.25
-    mark_pos_2 = original_panel_height * 0.75
-    
-    # Seam offset - all panels have 20mm seam at bottom
-    seam_offset = 20.0  # mm offset from bottom edge where actual drawing starts
-    
-    # Determine offset for split panels
-    offset = 0.0
-    weld_allowance = 25.0  # Standard weld allowance added to split panels
-    
-    if "_TOP" in panel_name or "_BOTTOM" in panel_name:
-        # This is a split panel
-        if seam_flag == "top":
-            # TOP = Main large piece - starts at offset 0 in original coordinates
-            offset = 0.0
-        elif seam_flag == "bottom":
-            # BOTTOM = Small strip piece at the end
-            # The current panel_h includes the 25mm weld allowance
-            # We need to find where this piece starts in the original panel (without seams)
-            actual_piece_height = panel_h - weld_allowance - (2 * seam_offset)  # Remove weld and both seams
-            offset = original_panel_height - actual_piece_height
-    
-    # Calculate actual Y positions in the current panel's coordinate system
-    # Start with mark positions relative to original panel, subtract offset for split panels,
-    # then add seam_offset to account for the 20mm bottom seam in the actual drawn panel
-    actual_y_1 = y + seam_offset + (mark_pos_1 - offset)
-    actual_y_2 = y + seam_offset + (mark_pos_2 - offset)
-    
-    # Only draw points that fall within this panel's bounds
-    # Check against the position before seam offset is added
-    if 0 <= (mark_pos_1 - offset) <= (panel_h - 2 * seam_offset):
-        msp.add_point((fold_x, actual_y_1), dxfattribs={"layer": "PEN"})
-    
-    if 0 <= (mark_pos_2 - offset) <= (panel_h - 2 * seam_offset):
-        msp.add_point((fold_x, actual_y_2), dxfattribs={"layer": "PEN"})
+    if not rotated:
+        # Left fold line x-coordinate
+        fold_x = x + height
+        
+        # Calculate mark positions based on original width only (no seam added)
+        # This is the width attribute without any seam allowances
+        original_panel_height = original_width
+        
+        # Marks at 1/4 and 3/4 of original width only
+        mark_pos_1 = original_panel_height * 0.25
+        mark_pos_2 = original_panel_height * 0.75
+        
+        # Seam offset - all panels have 20mm seam at bottom
+        seam_offset = 20.0  # mm offset from bottom edge where actual drawing starts
+        
+        # Determine offset for split panels
+        offset = 0.0
+        weld_allowance = 25.0  # Standard weld allowance added to split panels
+        
+        if "_TOP" in panel_name or "_BOTTOM" in panel_name:
+            # This is a split panel
+            if seam_flag == "top":
+                # TOP = Main large piece - starts at offset 0 in original coordinates
+                offset = 0.0
+            elif seam_flag == "bottom":
+                # BOTTOM = Small strip piece at the end
+                # The current panel_h includes the 25mm weld allowance
+                # We need to find where this piece starts in the original panel (without seams)
+                actual_piece_height = panel_h - weld_allowance - (2 * seam_offset)  # Remove weld and both seams
+                offset = original_panel_height - actual_piece_height
+        
+        # Calculate actual Y positions in the current panel's coordinate system
+        # Start with mark positions relative to original panel, subtract offset for split panels,
+        # then add seam_offset to account for the 20mm bottom seam in the actual drawn panel
+        actual_y_1 = y + seam_offset + (mark_pos_1 - offset)
+        actual_y_2 = y + seam_offset + (mark_pos_2 - offset)
+        
+        # Only draw points that fall within this panel's bounds
+        # Check against the position before seam offset is added
+        if 0 <= (mark_pos_1 - offset) <= (panel_h - 2 * seam_offset):
+            msp.add_point((fold_x, actual_y_1), dxfattribs={"layer": "PEN"})
+        
+        if 0 <= (mark_pos_2 - offset) <= (panel_h - 2 * seam_offset):
+            msp.add_point((fold_x, actual_y_2), dxfattribs={"layer": "PEN"})
+    else:
+        # Rotated: fold line at y + height, points along x
+        fold_y = y + height
+        
+        # Marks at 1/4 and 3/4 of original width
+        mark_pos_1 = original_width * 0.25
+        mark_pos_2 = original_width * 0.75
+        
+        seam_offset = 20.0
+        
+        offset = 0.0
+        weld_allowance = 25.0
+        
+        if "_TOP" in panel_name or "_BOTTOM" in panel_name:
+            if seam_flag == "top":
+                offset = 0.0
+            elif seam_flag == "bottom":
+                actual_piece_width = panel_w - weld_allowance - (2 * seam_offset)
+                offset = original_width - actual_piece_width
+        
+        actual_x_1 = x + seam_offset + (mark_pos_1 - offset)
+        actual_x_2 = x + seam_offset + (mark_pos_2 - offset)
+        
+        if 0 <= (mark_pos_1 - offset) <= (panel_w - 2 * seam_offset):
+            msp.add_point((actual_x_1, fold_y), dxfattribs={"layer": "PEN"})
+        
+        if 0 <= (mark_pos_2 - offset) <= (panel_w - 2 * seam_offset):
+            msp.add_point((actual_x_2, fold_y), dxfattribs={"layer": "PEN"})
 
 
 def generate_dxf(project, download_name: str):
@@ -229,51 +258,104 @@ def generate_dxf(project, download_name: str):
         width = prod_dim.get("width", 0) or 0
         height = prod_dim.get("height", 0) or 0
         has_stayputs = prod_dim.get("stayputs", False)
+        has_zips = prod_dim.get("zips", False)
         
         # print(f"[DXF] panel: name='{name}' base='{base}' w={w} h={h} seams={seam_flag} x={x} y={y} rot={bool(pos.get('rotated'))} prod_idx={prod_idx} L={length} W={width} H={height}")
 
         # helpers to avoid duplication
-        def _draw_top_marks(msp, x, y, height, width, length, *,
+        def _draw_top_marks(msp, x, y, height, width, length, rotated=False, has_zips=False,
                             half_tick=20, layer="PEN"):
-            # marks along the TOP edge (near y + width)
-            msp.add_line((x + height - half_tick,         y + h - half_tick),
-                        (x + height + half_tick,         y + h - half_tick),
-                        dxfattribs={"layer": layer})  # horizontal
-            msp.add_line((x + height,                     y + h - half_tick),
-                        (x + height,                     y + h - half_tick * 2),
-                        dxfattribs={"layer": layer})     # vertical
+            if not rotated:
+                seam_offset = 20.0
+                # marks along the TOP edge (near y + h)
+                y_pos = y + h - seam_offset
+                msp.add_line((x + height - half_tick,         y_pos - half_tick),
+                            (x + height + half_tick,         y_pos - half_tick),
+                            dxfattribs={"layer": layer})  # horizontal
+                msp.add_line((x + height,                     y_pos - half_tick),
+                            (x + height,                     y_pos - half_tick * 2),
+                            dxfattribs={"layer": layer})     # vertical
 
-            msp.add_line((x + height + length - half_tick, y + h - half_tick),
-                        (x + height + length + half_tick, y + h - half_tick),
-                        dxfattribs={"layer": layer})
-            msp.add_line((x + height + length,             y + h - half_tick),
-                        (x + height + length,             y + h - half_tick * 2),
-                        dxfattribs={"layer": layer})
+                msp.add_line((x + height + length - half_tick, y_pos - half_tick),
+                            (x + height + length + half_tick, y_pos - half_tick),
+                            dxfattribs={"layer": layer})
+                msp.add_line((x + height + length,             y_pos - half_tick),
+                            (x + height + length,             y_pos - half_tick * 2),
+                            dxfattribs={"layer": layer})
 
-            msp.add_line((x,                                y + h -50),
-                        (x + height,               y + h -50),
-                        dxfattribs={"layer": layer})
+                if has_zips:
+                    msp.add_line((x,                                y + h -50),
+                                (x + height,               y + h -50),
+                                dxfattribs={"layer": layer})
+            else:
+                seam_offset = 20.0
+                x_pos = x + w - seam_offset
+                # rotated: top is right edge x + w, fold at y + height, length along y
+                # T at y + height: crossbar vertical along edge, stem horizontal into material
+                msp.add_line((x_pos, y + height - half_tick),
+                            (x_pos, y + height + half_tick),
+                            dxfattribs={"layer": layer})  # vertical crossbar
+                msp.add_line((x_pos, y + height),
+                            (x_pos - half_tick, y + height),
+                            dxfattribs={"layer": layer})  # horizontal stem left
+                # T at y + height + length
+                msp.add_line((x_pos, y + height + length - half_tick),
+                            (x_pos, y + height + length + half_tick),
+                            dxfattribs={"layer": layer})
+                msp.add_line((x_pos, y + height + length),
+                            (x_pos - half_tick, y + height + length),
+                            dxfattribs={"layer": layer})
+                if has_zips:
+                    msp.add_line((x + w - seam_offset -30, y + height),
+                                (x + w - seam_offset -30, y + height + length),
+                                dxfattribs={"layer": layer})
 
-        def _draw_bottom_marks(msp, x, y, height, width, length, *,
+        def _draw_bottom_marks(msp, x, y, height, width, length, rotated=False, has_zips=False,
                             half_tick=20, layer="PEN"):
-            # marks along the BOTTOM edge (near y)
-            msp.add_line((x + height - half_tick,         y + half_tick),
-                        (x + height + half_tick,         y + half_tick),
-                        dxfattribs={"layer": layer})
-            msp.add_line((x + height,                     y + half_tick),
-                        (x + height,                     y + 2 * half_tick),
-                        dxfattribs={"layer": layer})
+            if not rotated:
+                seam_offset = 20.0
+                y_pos = y + seam_offset
+                # marks along the BOTTOM edge (near y)
+                msp.add_line((x + height - half_tick,         y_pos + half_tick),
+                            (x + height + half_tick,         y_pos + half_tick),
+                            dxfattribs={"layer": layer})
+                msp.add_line((x + height,                     y_pos + half_tick),
+                            (x + height,                     y_pos + 2 * half_tick),
+                            dxfattribs={"layer": layer})
 
-            msp.add_line((x + height + length - half_tick, y + half_tick),
-                        (x + height + length + half_tick, y + half_tick),
-                        dxfattribs={"layer": layer})
-            msp.add_line((x + height + length,             y + half_tick),
-                        (x + height + length,             y + 2 * half_tick),
-                        dxfattribs={"layer": layer})
+                msp.add_line((x + height + length - half_tick, y_pos + half_tick),
+                            (x + height + length + half_tick, y_pos + half_tick),
+                            dxfattribs={"layer": layer})
+                msp.add_line((x + height + length,             y_pos + half_tick),
+                            (x + height + length,             y_pos + 2 * half_tick),
+                            dxfattribs={"layer": layer})
 
-            msp.add_line((x,                                y + 50),
-                        (x + height,               y + 50),
-                        dxfattribs={"layer": layer})
+                if has_zips:
+                    msp.add_line((x,                                y + 50),
+                                (x + height,               y + 50),
+                                dxfattribs={"layer": layer})
+            else:
+                seam_offset = 20.0
+                x_pos = x + seam_offset
+                # rotated: bottom is left edge x, fold at y + height, length along y
+                # T at y + height: crossbar vertical along edge, stem horizontal into material
+                msp.add_line((x_pos, y + height - half_tick),
+                            (x_pos, y + height + half_tick),
+                            dxfattribs={"layer": layer})  # vertical crossbar
+                msp.add_line((x_pos, y + height),
+                            (x_pos + half_tick, y + height),
+                            dxfattribs={"layer": layer})  # horizontal stem right  # horizontal stem left
+                # T at y + height + length
+                msp.add_line((x_pos, y + height + length - half_tick),
+                            (x_pos, y + height + length + half_tick),
+                            dxfattribs={"layer": layer})
+                msp.add_line((x_pos, y + height + length),
+                            (x_pos + half_tick, y + height + length),
+                            dxfattribs={"layer": layer})
+                if has_zips:
+                    msp.add_line((x + seam_offset +30, y + height),
+                                (x + seam_offset +30, y + height + length),
+                                dxfattribs={"layer": layer})
 
         # fold/seam lines
         if "MAIN" in base or "main" in base.lower():
@@ -282,16 +364,16 @@ def generate_dxf(project, download_name: str):
             # seams == "bottom" -> only TOP marks
             # seams == "no"     -> both TOP and BOTTOM marks
             if seam_flag == "top":
-                _draw_bottom_marks(msp, x, y, height, width, length)
+                _draw_bottom_marks(msp, x, y, height, width, length, rotated=pos.get("rotated"), has_zips=has_zips)
             elif seam_flag == "bottom":
-                _draw_top_marks(msp, x, y, height, width, length)
+                _draw_top_marks(msp, x, y, height, width, length, rotated=pos.get("rotated"), has_zips=has_zips)
             elif seam_flag == "no":
-                _draw_top_marks(msp, x, y, height, width, length)
-                _draw_bottom_marks(msp, x, y, height, width, length)
+                _draw_top_marks(msp, x, y, height, width, length, rotated=pos.get("rotated"), has_zips=has_zips)
+                _draw_bottom_marks(msp, x, y, height, width, length, rotated=pos.get("rotated"), has_zips=has_zips)
             
             # Stayput points (if enabled for this product)
             if has_stayputs:
-                _draw_stayput_points(msp, x, y, w, h, height, width, seam_flag, name)
+                _draw_stayput_points(msp, x, y, w, h, height, width, seam_flag, name, rotated=pos.get("rotated"))
         
         # Panel rectangle edges
         add_h(y, x, x + w)             # bottom

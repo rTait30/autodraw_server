@@ -520,8 +520,8 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                 </CollapsibleCard>
               )}
 
-              {/* Documents Section (Visible in sidebar mode) */}
-              {!overlayMode && isStaff && (
+              {/* Documents Section - Show for staff always, show for clients if they have visible documents */}
+              {!overlayMode && (isStaff || editedProject?.product?.capabilities?.documents?.length > 0) && (
                  <ProjectDocuments project={editedProject} showToast={showToast} />
               )}
 

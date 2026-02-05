@@ -83,6 +83,50 @@ def generate_dxf(project, download_name: str):
         
         # Add generated drawing entities
         add_entities_to_msp(msp, entities)
+        
+        # Add algorithm legend to the right of the sail
+        min_x, min_y, max_x, max_y = geo['bbox']
+        sail_width = max_x - min_x
+        legend_x = x_offset + sail_width + 500  # 500mm to the right of sail
+        legend_y = max_y  # Start at top
+        legend_spacing = 400  # Spacing between legend entries
+        
+        msp.add_mtext("WORKPOINT ALGORITHMS", dxfattribs={"layer": "AD_INFO", "char_height": 200}).set_location((legend_x, legend_y))
+        legend_y -= legend_spacing
+        
+        # Color 1 = Red = Centroid
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_CENTROID", "color": 1})
+        msp.add_mtext("Centroid", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 6 = Magenta = Bisect
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT", "color": 6})
+        msp.add_mtext("Bisect", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 3 = Green = Area Centroid
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_AREA", "color": 3})
+        msp.add_mtext("Area Centroid", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 4 = Cyan = Midpoint
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_MIDPOINT", "color": 4})
+        msp.add_mtext("Midpoint", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 5 = Blue = Weighted (Edge Tension)
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_WEIGHTED", "color": 5})
+        msp.add_mtext("Weighted (Edge Tension)", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 2 = Yellow = Minimal Surface
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_MINIMAL", "color": 2})
+        msp.add_mtext("Minimal Surface", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 30 = Orange = Bisect-Rotate
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30})
+        msp.add_mtext("Bisect-Rotate", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
 
     tmp = tempfile.NamedTemporaryFile(suffix=".dxf", delete=False)
     tmp_path = tmp.name

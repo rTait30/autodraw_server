@@ -498,28 +498,55 @@ def update_project(user, project_id, data):
 
     # ---------- Update products if provided ----------
     if products_payload is not None:
-        # Simple semantics: replace all products with the new list
-        ProjectProduct.query.filter_by(project_id=project.id, deleted=False).update({"deleted": True})
-
+        # Collect item_indices from payload
+        payload_item_indices = {p.get("productIndex", idx) for idx, p in enumerate(products_payload)}
+        
         for idx, p in enumerate(products_payload):
             if not isinstance(p, dict):
                 raise ValueError("each product must be an object")
 
             attrs = p.get("attributes") or {}
+            if not isinstance(attrs, dict):
+                raise ValueError("product.attributes must be an object")
+
+            item_index = p.get("productIndex", idx)
+            label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
+            calc = p.get("calculated") or {}
             autodraw_record = p.get("autodraw_record") or {}
             autodraw_meta = p.get("autodraw_meta") or {}
             status = p.get("status", "pending")
 
-            pp = ProjectProduct(
-                project_id=project.id,
-                item_index=idx,
-                label=p.get("label"),
-                attributes=attrs,
-                autodraw_record=autodraw_record,
-                autodraw_meta=autodraw_meta,
-                status=status
-            )
-            db.session.add(pp)
+            pp = ProjectProduct.query.filter_by(project_id=project.id, item_index=item_index, deleted=False).first()
+            if pp:
+                # Update existing
+                pp.label = label
+                pp.attributes = attrs
+                pp.calculated = calc
+                pp.autodraw_record = autodraw_record
+                pp.autodraw_meta = autodraw_meta
+                pp.status = status
+                flag_modified(pp, "attributes")
+                flag_modified(pp, "calculated")
+                flag_modified(pp, "autodraw_record")
+                flag_modified(pp, "autodraw_meta")
+            else:
+                # Create new
+                pp = ProjectProduct(
+                    project_id=project.id,
+                    item_index=item_index,
+                    label=label,
+                    attributes=attrs,
+                    calculated=calc,
+                    autodraw_record=autodraw_record,
+                    autodraw_meta=autodraw_meta,
+                    status=status,
+                )
+                db.session.add(pp)
+
+        # Mark products with item_indices not in payload as deleted
+        ProjectProduct.query.filter_by(project_id=project.id, deleted=False).filter(
+            ProjectProduct.item_index.not_in(payload_item_indices)
+        ).update({"deleted": True})
 
     # Check for discrepancies and raise error if found - enforces valid state on save
     if project.project_attributes and project.project_attributes.get("discrepancyProblem"):
@@ -650,7 +677,7 @@ def list_project_products_for_editor(project_id, order_by_item_index=False):
         {
             "id": pp.id,
             "itemIndex": pp.item_index,
-            "label": pp.label,
+            "name": pp.label,
             "attributes": pp.attributes,
             "calculated": pp.calculated,
             "autodraw_record": pp.autodraw_record or {},
@@ -688,6 +715,10 @@ def _serialize_project_plain(prj):
     # Serialize related products rows generically
     items = []
     for p in prj.products:
+        # Skip deleted products
+        if getattr(p, 'deleted', False):
+            continue
+            
         item = _row_to_dict(p)
         # Keep only fields commonly used on the frontend
         item = {

@@ -103,7 +103,7 @@ export default function ProjectOverlay({
                         ref={canvasRef} 
                         width={800} 
                         height={600} 
-                        className={`${mode ? 'max-w-full max-h-full object-contain' : 'w-full h-auto'} bg-white rounded`}
+                        className={`${mode ? 'max-w-full h-auto' : 'w-full h-auto'} bg-white rounded`}
                     />
                 </div>
             )}

@@ -267,20 +267,17 @@ def generate_dxf(project, download_name: str):
                             half_tick=20, layer="PEN"):
             if not rotated:
                 seam_offset = 20.0
-                # marks along the TOP edge (near y + h)
                 y_pos = y + h - seam_offset
-                msp.add_line((x + height - half_tick,         y_pos - half_tick),
-                            (x + height + half_tick,         y_pos - half_tick),
-                            dxfattribs={"layer": layer})  # horizontal
+                
+                # Unrotated Top: Marks point DOWN (-Y)
+                # Left Fold: Diagonal Left-Down
                 msp.add_line((x + height,                     y_pos - half_tick),
-                            (x + height,                     y_pos - half_tick * 2),
-                            dxfattribs={"layer": layer})     # vertical
-
-                msp.add_line((x + height + length - half_tick, y_pos - half_tick),
-                            (x + height + length + half_tick, y_pos - half_tick),
+                            (x + height - half_tick,         y_pos - 2 * half_tick),
                             dxfattribs={"layer": layer})
+
+                # Right Fold: Diagonal Right-Down
                 msp.add_line((x + height + length,             y_pos - half_tick),
-                            (x + height + length,             y_pos - half_tick * 2),
+                            (x + height + length + half_tick, y_pos - 2 * half_tick),
                             dxfattribs={"layer": layer})
 
                 if has_zips:
@@ -290,21 +287,18 @@ def generate_dxf(project, download_name: str):
             else:
                 seam_offset = 20.0
                 x_pos = x + w - seam_offset
-                # rotated: top is right edge x + w, fold at y + height, length along y
-                # T at y + height: crossbar vertical along edge, stem horizontal into material
-                msp.add_line((x_pos, y + height - half_tick),
-                            (x_pos, y + height + half_tick),
-                            dxfattribs={"layer": layer})  # vertical crossbar
+                
+                # Rotated Top (Right Edge): Marks point LEFT (-X)
+                # Bottom Fold (Left Flap): Diagonal Bottom-Left
                 msp.add_line((x_pos, y + height),
-                            (x_pos - half_tick, y + height),
-                            dxfattribs={"layer": layer})  # horizontal stem left
-                # T at y + height + length
-                msp.add_line((x_pos, y + height + length - half_tick),
-                            (x_pos, y + height + length + half_tick),
+                            (x_pos - half_tick, y + height - half_tick),
                             dxfattribs={"layer": layer})
+                
+                # Top Fold (Right Flap): Diagonal Top-Left
                 msp.add_line((x_pos, y + height + length),
-                            (x_pos - half_tick, y + height + length),
+                            (x_pos - half_tick, y + height + length + half_tick),
                             dxfattribs={"layer": layer})
+
                 if has_zips:
                     msp.add_line((x + w - seam_offset -30, y + height),
                                 (x + w - seam_offset -30, y + height + length),
@@ -315,19 +309,16 @@ def generate_dxf(project, download_name: str):
             if not rotated:
                 seam_offset = 20.0
                 y_pos = y + seam_offset
-                # marks along the BOTTOM edge (near y)
-                msp.add_line((x + height - half_tick,         y_pos + half_tick),
-                            (x + height + half_tick,         y_pos + half_tick),
-                            dxfattribs={"layer": layer})
+                
+                # Unrotated Bottom: Marks point UP (+Y)
+                # Left Fold: Diagonal Left-Up
                 msp.add_line((x + height,                     y_pos + half_tick),
-                            (x + height,                     y_pos + 2 * half_tick),
+                            (x + height - half_tick,         y_pos + 2 * half_tick),
                             dxfattribs={"layer": layer})
 
-                msp.add_line((x + height + length - half_tick, y_pos + half_tick),
-                            (x + height + length + half_tick, y_pos + half_tick),
-                            dxfattribs={"layer": layer})
+                # Right Fold: Diagonal Right-Up
                 msp.add_line((x + height + length,             y_pos + half_tick),
-                            (x + height + length,             y_pos + 2 * half_tick),
+                            (x + height + length + half_tick, y_pos + 2 * half_tick),
                             dxfattribs={"layer": layer})
 
                 if has_zips:
@@ -337,21 +328,18 @@ def generate_dxf(project, download_name: str):
             else:
                 seam_offset = 20.0
                 x_pos = x + seam_offset
-                # rotated: bottom is left edge x, fold at y + height, length along y
-                # T at y + height: crossbar vertical along edge, stem horizontal into material
-                msp.add_line((x_pos, y + height - half_tick),
-                            (x_pos, y + height + half_tick),
-                            dxfattribs={"layer": layer})  # vertical crossbar
+                
+                # Rotated Bottom (Left Edge): Marks point RIGHT (+X)
+                # Bottom Fold (Left Flap): Diagonal Bottom-Right
                 msp.add_line((x_pos, y + height),
-                            (x_pos + half_tick, y + height),
-                            dxfattribs={"layer": layer})  # horizontal stem right  # horizontal stem left
-                # T at y + height + length
-                msp.add_line((x_pos, y + height + length - half_tick),
-                            (x_pos, y + height + length + half_tick),
+                            (x_pos + half_tick, y + height - half_tick),
                             dxfattribs={"layer": layer})
+
+                # Top Fold (Right Flap): Diagonal Top-Right
                 msp.add_line((x_pos, y + height + length),
-                            (x_pos + half_tick, y + height + length),
+                            (x_pos + half_tick, y + height + length + half_tick),
                             dxfattribs={"layer": layer})
+
                 if has_zips:
                     msp.add_line((x + seam_offset +30, y + height),
                                 (x + seam_offset +30, y + height + length),

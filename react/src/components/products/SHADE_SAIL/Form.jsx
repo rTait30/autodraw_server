@@ -255,6 +255,7 @@ const addUfc = () => {
           tensionHardware: old.tensionHardware ?? TENSION_HARDWARE_OPTIONS[0],
           tensionAllowance: old.tensionAllowance ?? 50,
           cornerFitting: old.cornerFitting ?? CORNER_FITTING_OPTIONS[0],
+          Structure: old.Structure ?? "Pole",
         };
       });
 
@@ -776,7 +777,7 @@ const setPointField = (p, key, value) =>
 
                 <div className="hidden lg:block text-gray-300 dark:text-gray-600 text-2xl">→</div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
                   {!discrepancyChecker && (
                     <>
                       <SelectInput
@@ -791,10 +792,16 @@ const setPointField = (p, key, value) =>
                         value={vals.tensionHardware ?? ""}
                         onChange={(val) => setPointField(p, "tensionHardware", val)}
                       />
+                      <SelectInput
+                        label="Structure"
+                        options={["Pole", "Wall", "Roof"]}
+                        value={vals.Structure ?? "Pole"}
+                        onChange={(val) => setPointField(p, "Structure", val)}
+                      />
                     </>
                   )}
                   {!discrepancyChecker && (
-                    <div className={discrepancyChecker ? "col-span-1 md:col-span-3" : ""}>
+                    <div className={discrepancyChecker ? "col-span-1 md:col-span-4" : ""}>
                       <NumberInput
                         label="Tension Allowance (mm)"
                         min={0}

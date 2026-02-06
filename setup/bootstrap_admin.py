@@ -388,6 +388,21 @@ RECTANGLES_DEFAULT_SCHEMA = {
   }
 }
 
+TARPAULIN_DEFAULT_SCHEMA = {
+  "Combined": [
+    {
+      "description": "Tarpaulin",
+      "quantity": "1",
+      "type": "row",
+      "unitCost": "final_length * final_width * 0.0001"  # Example: 0.0001 per mm²
+    }
+  ],
+  "_constants": {
+    "contingencyPercent": 0,
+    "marginPercent": 0
+  }
+}
+
 
 def bootstrap_products():
     """Bootstrap default Product records and their default estimating schemas."""
@@ -434,7 +449,20 @@ def bootstrap_products():
     else:
         print(f"Product 'RECTANGLES' already exists (id={rectangles.id}).")
 
-    # --- 4. Ensure default COVER schema exists ---
+    # --- 4. Ensure TARPAULIN product exists ---
+    tarpaulin = Product.query.filter_by(name="TARPAULIN").first()
+    if not tarpaulin:
+        tarpaulin = Product(
+            name="TARPAULIN",
+            description="Tarpaulins with pocket",
+        )
+        db.session.add(tarpaulin)
+        db.session.flush()  # get tarpaulin.id
+        print(f"Bootstrapped Product 'TARPAULIN' (id={tarpaulin.id}).")
+    else:
+        print(f"Product 'TARPAULIN' already exists (id={tarpaulin.id}).")
+
+    # --- 5. Ensure default COVER schema exists ---
     cover_schema = (
         EstimatingSchema.query
         .filter_by(product_id=cover.id, name="COVER default v1")
@@ -464,7 +492,7 @@ def bootstrap_products():
         cover.default_schema_id = cover_schema.id
         print(f"Set COVER.default_schema_id = {cover_schema.id}")
 
-    # --- 5. Ensure stub SHADE_SAIL schema exists ---
+    # --- 6. Ensure stub SHADE_SAIL schema exists ---
     shade_schema = (
         EstimatingSchema.query
         .filter_by(product_id=shade_sail.id, name="SHADE_SAIL default v1")
@@ -494,7 +522,7 @@ def bootstrap_products():
         shade_sail.default_schema_id = shade_schema.id
         print(f"Set SHADE_SAIL.default_schema_id = {shade_schema.id}")
 
-    # --- 6. Ensure stub RECTANGLES schema exists ---
+    # --- 7. Ensure stub RECTANGLES schema exists ---
     rectangles_schema = (
         EstimatingSchema.query
         .filter_by(product_id=rectangles.id, name="RECTANGLES default v1")
@@ -518,6 +546,31 @@ def bootstrap_products():
     if rectangles.default_schema_id != rectangles_schema.id:
         rectangles.default_schema_id = rectangles_schema.id
         print(f"Set RECTANGLES.default_schema_id = {rectangles_schema.id}")
+
+    # --- 8. Ensure stub TARPAULIN schema exists ---
+    tarpaulin_schema = (
+        EstimatingSchema.query
+        .filter_by(product_id=tarpaulin.id, name="TARPAULIN default v1")
+        .first()
+    )
+    if not tarpaulin_schema:
+        tarpaulin_schema = EstimatingSchema(
+            product_id=tarpaulin.id,
+            name="TARPAULIN default v1",
+            data=TARPAULIN_DEFAULT_SCHEMA,
+            is_default=True,
+            version=1,
+        )
+        db.session.add(tarpaulin_schema)
+        db.session.flush()
+        print(f"Created stub default schema for 'TARPAULIN' (schema id={tarpaulin_schema.id}).")
+    else:
+        print(f"Default schema for 'TARPAULIN' already exists (schema id={tarpaulin_schema.id}).")
+
+    # Link TARPAULIN to its default schema if not already
+    if tarpaulin.default_schema_id != tarpaulin_schema.id:
+        tarpaulin.default_schema_id = tarpaulin_schema.id
+        print(f"Set TARPAULIN.default_schema_id = {tarpaulin_schema.id}")
 
     db.session.commit()
     print("Bootstrap complete.")

@@ -747,10 +747,14 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         
         # Get corner info
         point_info = points_data.get(label, {})
+
+        print (f"Point {label} info: {point_info}")  # Debug print
+
         height_val = point_info.get("height", 0)
         fitting = point_info.get("cornerFitting", "")
         hardware = point_info.get("tensionHardware", "")
         allowance = point_info.get("tensionAllowance", 0)
+        structure = point_info.get("Structure", "Pole")
         
         # Check for special points
         extra_tags = []
@@ -821,6 +825,8 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             info_lines.append(f"Allow: {int(allowance)}mm")
         if hardware:
             info_lines.append(f"HW: {hardware}")
+        if structure:  # Only show if not default Pole
+            info_lines.append(f"Struct: {structure}")
         
         if info_lines:
             c.setFont(FONT_REGULAR, 6)
@@ -863,6 +869,224 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
 # ISOMETRIC VIEW (3D - 45° from Southwest) - with catenaries and workpoints
 # =============================================================================
 
+def _draw_pole_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a pole attachment (vertical post from ground to fitting point)"""
+    # Draw pole shadow on ground
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(8)
+    shadow_len = min(15, abs(top_pt[1] - ground_pt[1]) * 0.3)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 2)
+    
+    # Pole body - grey structure
+    pole_width = 4
+    
+    # Pole outline (darker grey)
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(pole_width + 2)
+    c.setLineCap(1)  # Round cap
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Main pole body - grey
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(pole_width)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Pole highlight (lighter grey side)
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(2)
+    c.line(ground_pt[0] + 0.8, ground_pt[1], top_pt[0] + 0.8, top_pt[1])
+    
+    # Base plate - grey
+    c.setFillColor(Color(0.55, 0.55, 0.55))
+    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    c.setLineWidth(0.5)
+    base_w, base_h = 10, 4
+    c.rect(ground_pt[0] - base_w/2, ground_pt[1] - base_h/2, base_w, base_h, stroke=1, fill=1)
+
+def _draw_roof_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a roof attachment (horizontal beam from wall to fitting point)"""
+    # Draw shadow
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(6)
+    shadow_len = min(12, abs(top_pt[1] - ground_pt[1]) * 0.2)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1)
+    
+    # Roof beam - horizontal from wall to fitting point
+    beam_width = 5
+    
+    # Beam outline (darker grey)
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(beam_width + 2)
+    c.setLineCap(1)  # Round cap
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Main beam body - grey
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(beam_width)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Beam highlight
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(2)
+    c.line(ground_pt[0] + 0.6, ground_pt[1], top_pt[0] + 0.6, top_pt[1])
+    
+    # Wall mounting plate
+    c.setFillColor(Color(0.6, 0.6, 0.6))
+    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    c.setLineWidth(0.5)
+    plate_w, plate_h = 8, 6
+    c.rect(ground_pt[0] - plate_w/2, ground_pt[1] - plate_h/2, plate_w, plate_h, stroke=1, fill=1)
+
+def _draw_wall_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a wall attachment (vertical beam along wall surface)"""
+    # Draw shadow
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(6)
+    shadow_len = min(12, abs(top_pt[1] - ground_pt[1]) * 0.2)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1)
+    
+    # Wall beam - vertical along wall
+    beam_width = 4
+    
+    # Beam outline (darker grey)
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(beam_width + 2)
+    c.setLineCap(1)  # Round cap
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Main beam body - grey
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(beam_width)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Beam highlight
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(2)
+    c.line(ground_pt[0] + 0.6, ground_pt[1], top_pt[0] + 0.6, top_pt[1])
+    
+    # Wall mounting bracket
+    c.setFillColor(Color(0.5, 0.5, 0.5))
+    c.setStrokeColor(Color(0.3, 0.3, 0.3))
+    c.setLineWidth(0.5)
+    bracket_w, bracket_h = 6, 8
+    c.rect(ground_pt[0] - bracket_w/2, ground_pt[1] - bracket_h/2, bracket_w, bracket_h, stroke=1, fill=1)
+
+def _draw_ground_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a ground attachment (low mounting point)"""
+    # Draw shadow
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(4)
+    shadow_len = min(8, abs(top_pt[1] - ground_pt[1]) * 0.15)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 0.5)
+    
+    # Ground mount - short stub
+    mount_height = min(15, abs(top_pt[1] - ground_pt[1]) * 0.3)
+    mount_width = 3
+    
+    # Mount outline
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(mount_width + 2)
+    c.setLineCap(1)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0], ground_pt[1] + mount_height)
+    
+    # Main mount body
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(mount_width)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0], ground_pt[1] + mount_height)
+    
+    # Mount highlight
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(1.5)
+    c.line(ground_pt[0] + 0.4, ground_pt[1], ground_pt[0] + 0.4, ground_pt[1] + mount_height)
+    
+    # Ground plate
+    c.setFillColor(Color(0.55, 0.55, 0.55))
+    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    c.setLineWidth(0.5)
+    plate_w, plate_h = 12, 3
+    c.rect(ground_pt[0] - plate_w/2, ground_pt[1] - plate_h/2, plate_w, plate_h, stroke=1, fill=1)
+
+def _draw_beam_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a beam attachment (horizontal beam with support)"""
+    # Draw shadow
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(7)
+    shadow_len = min(14, abs(top_pt[1] - ground_pt[1]) * 0.25)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1.5)
+    
+    # Horizontal beam
+    beam_width = 5
+    
+    # Beam outline
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(beam_width + 2)
+    c.setLineCap(1)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Main beam body
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(beam_width)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Beam highlight
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(2)
+    c.line(ground_pt[0] + 0.7, ground_pt[1], top_pt[0] + 0.7, top_pt[1])
+    
+    # Support post (angled)
+    support_height = abs(top_pt[1] - ground_pt[1]) * 0.6
+    support_end_x = ground_pt[0] - 8
+    support_end_y = ground_pt[1] + support_height
+    
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(3)
+    c.line(ground_pt[0], ground_pt[1], support_end_x, support_end_y)
+    
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(2.5)
+    c.line(ground_pt[0], ground_pt[1], support_end_x, support_end_y)
+    
+    # Support base
+    c.setFillColor(Color(0.55, 0.55, 0.55))
+    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    c.setLineWidth(0.5)
+    base_w, base_h = 6, 3
+    c.rect(support_end_x - base_w/2, support_end_y - base_h/2, base_w, base_h, stroke=1, fill=1)
+
+def _draw_column_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
+    """Draw a column attachment (thick structural column)"""
+    # Draw shadow
+    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
+    c.setLineWidth(10)
+    shadow_len = min(18, abs(top_pt[1] - ground_pt[1]) * 0.35)
+    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 2.5)
+    
+    # Column body - thicker than pole
+    column_width = 6
+    
+    # Column outline (darker grey)
+    c.setStrokeColor(Color(0.35, 0.35, 0.35))
+    c.setLineWidth(column_width + 2)
+    c.setLineCap(1)  # Round cap
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Main column body - grey
+    c.setStrokeColor(STRUCTURE_COLOR)
+    c.setLineWidth(column_width)
+    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    
+    # Column highlight (lighter grey side)
+    c.setStrokeColor(STRUCTURE_LIGHT)
+    c.setLineWidth(2.5)
+    c.line(ground_pt[0] + 1, ground_pt[1], top_pt[0] + 1, top_pt[1])
+    
+    # Large base plate
+    c.setFillColor(Color(0.55, 0.55, 0.55))
+    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    c.setLineWidth(0.5)
+    base_w, base_h = 14, 5
+    c.rect(ground_pt[0] - base_w/2, ground_pt[1] - base_h/2, base_w, base_h, stroke=1, fill=1)
+
 def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                           x: float, y: float, width: float, height: float):
     """
@@ -881,12 +1105,12 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     #c.rect(x, y, width, height, stroke=1, fill=1)
     
     # Draw ground plane indicator
-    ground_y = y + height * 0.12
-    c.setFillColor(GROUND_COLOR)
-    c.rect(x, y, width, ground_y - y, stroke=0, fill=1)
-    c.setStrokeColor(Color(0.7, 0.68, 0.65))
-    c.setLineWidth(0.5)
-    c.line(x, ground_y, x + width, ground_y)
+    #ground_y = y + height * 0.12
+    #c.setFillColor(GROUND_COLOR)
+    #c.rect(x, y, width, ground_y - y, stroke=0, fill=1)
+    #c.setStrokeColor(Color(0.7, 0.68, 0.65))
+    #c.setLineWidth(0.5)
+    #c.line(x, ground_y, x + width, ground_y)
     
     positions = geometry.get("positions", {})
     # Use workpoints_bisect_rotate specifically (as user requested)
@@ -1037,45 +1261,28 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # Get sail tracks
     sail_tracks = set(attrs.get("sailTracks", []) or [])
     
+    # Get points data for attachment types
+    points_data = attrs.get("points", {})
+    
     # Sort points by depth for proper rendering order
     sorted_posts = sorted(points_3d_posts, key=lambda p: iso_points_post_top[p[0]][1])
     
-    # ========== DRAW POLES (all corners - structure in grey) ==========
+    # ========== DRAW STRUCTURES (corners - different types based on attachment) ==========
     for label, px, py, pz in sorted_posts:
         ground_pt = to_canvas_iso(iso_points_post_ground[label])
         top_pt = to_canvas_iso(iso_points_post_top[label])
         
-        # Draw pole shadow on ground
-        c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-        c.setLineWidth(8)
-        shadow_len = min(15, abs(top_pt[1] - ground_pt[1]) * 0.3)
-        c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 2)
+        # Get attachment type for this corner (default to "Pole")
+        attachment_type = points_data.get(label, {}).get("Structure", "Pole")
         
-        # Pole body - grey structure
-        pole_width = 4
-        
-        # Pole outline (darker grey)
-        c.setStrokeColor(Color(0.35, 0.35, 0.35))
-        c.setLineWidth(pole_width + 2)
-        c.setLineCap(1)  # Round cap
-        c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-        
-        # Main pole body - grey
-        c.setStrokeColor(STRUCTURE_COLOR)
-        c.setLineWidth(pole_width)
-        c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-        
-        # Pole highlight (lighter grey side)
-        c.setStrokeColor(STRUCTURE_LIGHT)
-        c.setLineWidth(2)
-        c.line(ground_pt[0] + 0.8, ground_pt[1], top_pt[0] + 0.8, top_pt[1])
-        
-        # Base plate - grey
-        c.setFillColor(Color(0.55, 0.55, 0.55))
-        c.setStrokeColor(Color(0.4, 0.4, 0.4))
-        c.setLineWidth(0.5)
-        base_w, base_h = 10, 4
-        c.rect(ground_pt[0] - base_w/2, ground_pt[1] - base_h/2, base_w, base_h, stroke=1, fill=1)
+        # Draw different attachment types (only Pole, Wall, Roof for now)
+        if attachment_type.lower() == "wall":
+            _draw_wall_attachment(c, ground_pt, top_pt)
+        elif attachment_type.lower() == "roof":
+            _draw_roof_attachment(c, ground_pt, top_pt)
+        else:
+            # Default to pole for "Pole" or any other/unknown type
+            _draw_pole_attachment(c, ground_pt, top_pt)
         
         # Draw line from structure top (fitting point) to workpoint (sail attachment)
         if use_workpoints and label in iso_points_sail:
@@ -1215,7 +1422,6 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         fitting = point_info.get("cornerFitting", "")
         hardware = point_info.get("tensionHardware", "")
         allowance = point_info.get("tensionAllowance", 0)
-        height_val = float(point_info.get("height", 0) or 0)
         
         # Check for special points
         extra_tags = []

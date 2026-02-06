@@ -869,223 +869,257 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
 # ISOMETRIC VIEW (3D - 45° from Southwest) - with catenaries and workpoints
 # =============================================================================
 
-def _draw_pole_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a pole attachment (vertical post from ground to fitting point)"""
-    # Draw pole shadow on ground
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(8)
-    shadow_len = min(15, abs(top_pt[1] - ground_pt[1]) * 0.3)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 2)
-    
-    # Pole body - grey structure
-    pole_width = 4
-    
-    # Pole outline (darker grey)
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(pole_width + 2)
-    c.setLineCap(1)  # Round cap
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Main pole body - grey
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(pole_width)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Pole highlight (lighter grey side)
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(2)
-    c.line(ground_pt[0] + 0.8, ground_pt[1], top_pt[0] + 0.8, top_pt[1])
-    
-    # Base plate - grey
-    c.setFillColor(Color(0.55, 0.55, 0.55))
-    c.setStrokeColor(Color(0.4, 0.4, 0.4))
-    c.setLineWidth(0.5)
-    base_w, base_h = 10, 4
-    c.rect(ground_pt[0] - base_w/2, ground_pt[1] - base_h/2, base_w, base_h, stroke=1, fill=1)
+def _project_point(p, func):
+    """Helper to project a 3D point (x,y,z) or dict using projector function."""
+    if isinstance(p, (list, tuple)):
+        return func(p[0], p[1], p[2])
+    return func(p.get('x',0), p.get('y',0), p.get('z',0))
 
-def _draw_roof_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a roof attachment (horizontal beam from wall to fitting point)"""
-    # Draw shadow
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(6)
-    shadow_len = min(12, abs(top_pt[1] - ground_pt[1]) * 0.2)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1)
+def _draw_3d_box(c, center, size, orientation_vec, projector, color=STRUCTURE_COLOR, stroke=Color(0.4,0.4,0.4)):
+    """
+    Draw a 3D box centered at `center` with `size` (w, d, h).
+    Oriented such that width is along tangent, depth along normal (away from sail).
+    orientation_vec is vector towards sail center (normal points away).
+    """
+    cx, cy, cz = center
+    w, d, h = size
     
-    # Roof beam - horizontal from wall to fitting point
-    beam_width = 5
+    # Normalize orientation vector (u)
+    ux, uy = orientation_vec
+    dist = math.sqrt(ux*ux + uy*uy) or 1.0
+    ux, uy = ux/dist, uy/dist
     
-    # Beam outline (darker grey)
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(beam_width + 2)
-    c.setLineCap(1)  # Round cap
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    # Tangent vector (v)
+    vx, vy = -uy, ux
     
-    # Main beam body - grey
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(beam_width)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    # Corner offsets relative to center (x, y)
+    # We want depth to go AWAY from sail. So backward along u.
+    # corners:
+    # Front-Left:  center + w/2 * (-v)
+    # Front-Right: center + w/2 * (v)
+    # Back-Left:   center + w/2 * (-v) - d * u
+    # Back-Right:  center + w/2 * (v) - d * u
     
-    # Beam highlight
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(2)
-    c.line(ground_pt[0] + 0.6, ground_pt[1], top_pt[0] + 0.6, top_pt[1])
+    dx_w = vx * (w/2)
+    dy_w = vy * (w/2)
+    dx_d = -ux * d
+    dy_d = -uy * d
     
-    # Wall mounting plate
-    c.setFillColor(Color(0.6, 0.6, 0.6))
-    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+    # Bottom face corners (z = cz - h/2)
+    z_bot = cz - h/2
+    z_top = cz + h/2
+    
+    # 8 coordinates
+    p1 = (cx - dx_w, cy - dy_w, z_bot) # Front Left Bot
+    p2 = (cx + dx_w, cy + dy_w, z_bot) # Front Right Bot
+    p3 = (cx + dx_w + dx_d, cy + dy_w + dy_d, z_bot) # Back Right Bot
+    p4 = (cx - dx_w + dx_d, cy - dy_w + dy_d, z_bot) # Back Left Bot
+    
+    p5 = (cx - dx_w, cy - dy_w, z_top) # FL Top
+    p6 = (cx + dx_w, cy + dy_w, z_top) # FR Top
+    p7 = (cx + dx_w + dx_d, cy + dy_w + dy_d, z_top) # BR Top
+    p8 = (cx - dx_w + dx_d, cy - dy_w + dy_d, z_top) # BL Top
+    
+    vertices = [p1, p2, p3, p4, p5, p6, p7, p8]
+    proj_verts = [_project_point(v, projector) for v in vertices]
+    
+    c.setStrokeColor(stroke)
     c.setLineWidth(0.5)
-    plate_w, plate_h = 8, 6
-    c.rect(ground_pt[0] - plate_w/2, ground_pt[1] - plate_h/2, plate_w, plate_h, stroke=1, fill=1)
+    c.setLineJoin(1) # Round join
+    
+    # Simple painter's algo: Back faces, then Side/Front, then Top.
+    # Faces: Bottom(0123), Top(4567), Front(0154), Right(1265), Back(2376), Left(3047)
+    
+    faces = [
+        ([0, 1, 2, 3], 0.5), # Bottom
+        ([3, 0, 4, 7], 0.7), # Left
+        ([2, 3, 7, 6], 0.6), # Back
+        ([1, 2, 6, 5], 0.8), # Right
+        ([0, 1, 5, 4], 0.9), # Front
+        ([4, 5, 6, 7], 1.0), # Top
+    ]
+    
+    # Sort faces by "distance" (high X+Y-Z constitutes far)
+    face_depths = []
+    for indices, shade_mult in faces:
+        # Calculate centroid
+        cent_x = sum(vertices[i][0] for i in indices)/len(indices)
+        cent_y = sum(vertices[i][1] for i in indices)/len(indices)
+        cent_z = sum(vertices[i][2] for i in indices)/len(indices)
+        
+        # Sort Key: X + Y - Z (High = Far)
+        key = cent_x + cent_y - cent_z
+        face_depths.append((key, indices, shade_mult))
+        
+    # Sort descending
+    face_depths.sort(key=lambda x: x[0], reverse=True)
+    
+    for _, indices, shade_mult in face_depths:
+        path = c.beginPath()
+        first = True
+        for i in indices:
+            px, py = proj_verts[i]
+            if first: path.moveTo(px, py); first=False
+            else: path.lineTo(px, py)
+        path.close()
+        
+        # Shade color
+        r, g, b = color.red, color.green, color.blue
+        shaded = Color(r*shade_mult, g*shade_mult, b*shade_mult)
+        c.setFillColor(shaded)
+        c.drawPath(path, stroke=1, fill=1)
 
-def _draw_wall_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a wall attachment (vertical beam along wall surface)"""
-    # Draw shadow
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(6)
-    shadow_len = min(12, abs(top_pt[1] - ground_pt[1]) * 0.2)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1)
-    
-    # Wall beam - vertical along wall
-    beam_width = 4
-    
-    # Beam outline (darker grey)
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(beam_width + 2)
-    c.setLineCap(1)  # Round cap
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Main beam body - grey
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(beam_width)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Beam highlight
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(2)
-    c.line(ground_pt[0] + 0.6, ground_pt[1], top_pt[0] + 0.6, top_pt[1])
-    
-    # Wall mounting bracket
-    c.setFillColor(Color(0.5, 0.5, 0.5))
-    c.setStrokeColor(Color(0.3, 0.3, 0.3))
-    c.setLineWidth(0.5)
-    bracket_w, bracket_h = 6, 8
-    c.rect(ground_pt[0] - bracket_w/2, ground_pt[1] - bracket_h/2, bracket_w, bracket_h, stroke=1, fill=1)
 
-def _draw_ground_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a ground attachment (low mounting point)"""
-    # Draw shadow
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(4)
-    shadow_len = min(8, abs(top_pt[1] - ground_pt[1]) * 0.15)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 0.5)
+def _draw_3d_wall(c, p_attach, projector, sail_center):
+    """Draw a 3D wall block around the attachment point."""
+    px, py, pz = p_attach
+    cx, cy = sail_center
     
-    # Ground mount - short stub
-    mount_height = min(15, abs(top_pt[1] - ground_pt[1]) * 0.3)
-    mount_width = 3
+    # Wall dimensions
+    width = 1200
+    depth = 250
     
-    # Mount outline
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(mount_width + 2)
-    c.setLineCap(1)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0], ground_pt[1] + mount_height)
+    # Calculate orientation vector (to sail center)
+    ux, uy = cx - px, cy - py
     
-    # Main mount body
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(mount_width)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0], ground_pt[1] + mount_height)
-    
-    # Mount highlight
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(1.5)
-    c.line(ground_pt[0] + 0.4, ground_pt[1], ground_pt[0] + 0.4, ground_pt[1] + mount_height)
-    
-    # Ground plate
-    c.setFillColor(Color(0.55, 0.55, 0.55))
-    c.setStrokeColor(Color(0.4, 0.4, 0.4))
-    c.setLineWidth(0.5)
-    plate_w, plate_h = 12, 3
-    c.rect(ground_pt[0] - plate_w/2, ground_pt[1] - plate_h/2, plate_w, plate_h, stroke=1, fill=1)
+    # If pz is low (ground mount wall?), extend to ground
+    # Otherwise floating wall block
+    if pz < 2500:
+        h_wall = max(pz + 600, 2400)
+        z_center = h_wall / 2
+        _draw_3d_box(c, (px, py, z_center), (width, depth, h_wall), (ux, uy), projector, color=Color(0.85, 0.85, 0.85))
+    else:
+        # Floating block centered on point
+        block_h = 2400
+        z_center = pz
+        _draw_3d_box(c, (px, py, z_center), (width, depth, block_h), (ux, uy), projector, color=Color(0.85, 0.85, 0.85))
 
-def _draw_beam_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a beam attachment (horizontal beam with support)"""
-    # Draw shadow
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(7)
-    shadow_len = min(14, abs(top_pt[1] - ground_pt[1]) * 0.25)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 1.5)
-    
-    # Horizontal beam
-    beam_width = 5
-    
-    # Beam outline
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(beam_width + 2)
-    c.setLineCap(1)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Main beam body
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(beam_width)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
-    
-    # Beam highlight
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(2)
-    c.line(ground_pt[0] + 0.7, ground_pt[1], top_pt[0] + 0.7, top_pt[1])
-    
-    # Support post (angled)
-    support_height = abs(top_pt[1] - ground_pt[1]) * 0.6
-    support_end_x = ground_pt[0] - 8
-    support_end_y = ground_pt[1] + support_height
-    
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(3)
-    c.line(ground_pt[0], ground_pt[1], support_end_x, support_end_y)
-    
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(2.5)
-    c.line(ground_pt[0], ground_pt[1], support_end_x, support_end_y)
-    
-    # Support base
-    c.setFillColor(Color(0.55, 0.55, 0.55))
-    c.setStrokeColor(Color(0.4, 0.4, 0.4))
-    c.setLineWidth(0.5)
-    base_w, base_h = 6, 3
-    c.rect(support_end_x - base_w/2, support_end_y - base_h/2, base_w, base_h, stroke=1, fill=1)
 
-def _draw_column_attachment(c: canvas.Canvas, ground_pt: tuple, top_pt: tuple):
-    """Draw a column attachment (thick structural column)"""
-    # Draw shadow
-    c.setStrokeColor(Color(0, 0, 0, alpha=0.12))
-    c.setLineWidth(10)
-    shadow_len = min(18, abs(top_pt[1] - ground_pt[1]) * 0.35)
-    c.line(ground_pt[0], ground_pt[1], ground_pt[0] + shadow_len, ground_pt[1] - 2.5)
+def _draw_3d_roof(c, p_attach, projector, sail_center):
+    """Draw a 3D roof eave section."""
+    px, py, pz = p_attach
+    cx, cy = sail_center
     
-    # Column body - thicker than pole
-    column_width = 6
+    width = 1500
+    depth = 800
+    height = 250
     
-    # Column outline (darker grey)
-    c.setStrokeColor(Color(0.35, 0.35, 0.35))
-    c.setLineWidth(column_width + 2)
-    c.setLineCap(1)  # Round cap
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    # Calculate orientation vector (to sail center)
+    ux, uy = cx - px, cy - py
     
-    # Main column body - grey
-    c.setStrokeColor(STRUCTURE_COLOR)
-    c.setLineWidth(column_width)
-    c.line(ground_pt[0], ground_pt[1], top_pt[0], top_pt[1])
+    # Offset roof so attachment is on the fascia
+    # The box function centers width and depth on the 'center' point given, but 
+    # we want the front face to be at p_attach (roughly).
+    # `_draw_3d_box` aligns center with p_attach for width, but depth is pushed BACK from 'center'
+    # if we assume 'center' is the front face center?
+    # No, `_draw_3d_box` inputs `center` as the geometric center of the box.
+    # We want `p_attach` to be on the FRONT face.
+    # The front face is at distance d/2 from center in direction (vx, vy)? No normal direction.
+    # The normal direction is -u. So Front face is "forward" towards sail.
+    # Actually box logic: Front-Left: center + w/2*(-v). Front-Right: center + w/2*(v).
+    # This assumes center is at the centroid.
+    # The Front face is aligned with center along the normal axis? No, Z axis.
+    # Wait, `center` in box function is geometric center.
+    # Depth displacement: `dx_d = -ux * d`.
+    # P1 (Front) = center ... P3 (Back) = center ... - d*u.
+    # So P1/P2/P5/P6 are "Front" relative to the backing displacement `d*u`.
+    # This means the provided `center` IS the Front Face Center in terms of depth?
+    # Let's check:
+    # p1 = cx - dx_w, cy - dy_w, ...
+    # p3 = cx + dx_w + dx_d, ...
+    # dx_d = -ux * d.
+    # So p3 is displaced by -u*d from p2? No.
+    # p2 = cx + dx_w...
+    # p3 = cx + dx_w - ux*d...
+    # So P3 is "behind" P2 along the U vector (towards sail). 
+    # Wait. U points TO sail. We want wall BEHIND point relative to sail.
+    # So we want to move AWAY from U.
+    # Displacement is `-ux * d`. This moves coordinate in direction -U.
+    # Correct.
+    # So P1/P2/P5/P6 are at `center` (along normal axis).
+    # So `center` IS the front face location.
+    # Excellent.
     
-    # Column highlight (lighter grey side)
-    c.setStrokeColor(STRUCTURE_LIGHT)
-    c.setLineWidth(2.5)
-    c.line(ground_pt[0] + 1, ground_pt[1], top_pt[0] + 1, top_pt[1])
+    # For roof, align top with attachment? Or bottom?
+    # Usually attachment is in middle of fascia.
+    z_center = pz
     
-    # Large base plate
-    c.setFillColor(Color(0.55, 0.55, 0.55))
+    _draw_3d_box(c, (px, py, z_center), (width, depth, height), (ux, uy), projector, color=Color(0.7, 0.7, 0.75))
+    
+    # Add a roof top surface (sloped)
+    # Just a larger thin box on top
+    overhang = 200
+    _draw_3d_box(c, (px, py, z_center + height/2 + 20), (width + 100, depth + overhang, 40), (ux, uy), projector, color=Color(0.5, 0.5, 0.55))
+
+
+def _draw_3d_pole(c, p_base, p_top, projector, diameter=150):
+    """Draw a 3D polygonal cylinder (prism)."""
+    bx, by, bz = p_base
+    tx, ty, tz = p_top
+    
+    radius = diameter / 2
+    sides = 12
+    angle_step = 2 * math.pi / sides
+    
+    vertices_bot = []
+    vertices_top = []
+    
+    for i in range(sides):
+        ang = i * angle_step
+        dx = math.cos(ang) * radius
+        dy = math.sin(ang) * radius
+        vertices_bot.append((bx+dx, by+dy, bz))
+        vertices_top.append((tx+dx, ty+dy, tz))
+        
+    proj_bot = [_project_point(p, projector) for p in vertices_bot]
+    proj_top = [_project_point(p, projector) for p in vertices_top]
+    
+    c.setLineWidth(0.3)
     c.setStrokeColor(Color(0.4, 0.4, 0.4))
-    c.setLineWidth(0.5)
-    base_w, base_h = 14, 5
-    c.rect(ground_pt[0] - base_w/2, ground_pt[1] - base_h/2, base_w, base_h, stroke=1, fill=1)
+    
+    # Faces
+    faces = []
+    for i in range(sides):
+        next_i = (i+1)%sides
+        
+        # Centroid X,Y,Z
+        cx = (vertices_bot[i][0] + vertices_bot[next_i][0] + vertices_top[next_i][0] + vertices_top[i][0]) / 4
+        cy = (vertices_bot[i][1] + vertices_bot[next_i][1] + vertices_top[next_i][1] + vertices_top[i][1]) / 4
+        cz = (vertices_bot[i][2] + vertices_bot[next_i][2] + vertices_top[next_i][2] + vertices_top[i][2]) / 4
+        
+        key = cx + cy - cz
+        faces.append((key, [proj_bot[i], proj_bot[next_i], proj_top[next_i], proj_top[i]], i))
+        
+    faces.sort(key=lambda x: x[0], reverse=True)
+    
+    for key, pts, idx in faces:
+        path = c.beginPath()
+        path.moveTo(pts[0][0], pts[0][1])
+        path.lineTo(pts[1][0], pts[1][1])
+        path.lineTo(pts[2][0], pts[2][1])
+        path.lineTo(pts[3][0], pts[3][1])
+        path.close()
+        
+        # Shading
+        ang = idx * angle_step + angle_step/2
+        nx, ny = math.cos(ang), math.sin(ang)
+        # Light from SW (-1,-1)
+        light_x, light_y = -0.707, -0.707
+        dot = nx*light_x + ny*light_y
+        intensity = 0.5 + 0.4 * (dot + 1)/2
+        
+        col = STRUCTURE_COLOR
+        c.setFillColor(Color(col.red*intensity, col.green*intensity, col.blue*intensity))
+        c.drawPath(path, stroke=1, fill=1)
+        
+    # Cap
+    path = c.beginPath()
+    path.moveTo(proj_top[0][0], proj_top[0][1])
+    for p in proj_top[1:]:
+        path.lineTo(p[0], p[1])
+    path.close()
+    c.setFillColor(STRUCTURE_LIGHT)
+    c.drawPath(path, stroke=1, fill=1)
 
 def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                           x: float, y: float, width: float, height: float):
@@ -1098,26 +1132,13 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     c.setFont(FONT_BOLD, MEDIUM_FONT)
     c.drawString(x, y + height + 3 * mm, "3D VIEW (SW 45°)")
     
-    # Draw subtle background with gradient effect
-    #c.setFillColor(Color(0.95, 0.97, 1.0))  # Light sky blue
-    #c.setStrokeColor(lightgrey)
-    #c.setLineWidth(0.5)
-    #c.rect(x, y, width, height, stroke=1, fill=1)
-    
-    # Draw ground plane indicator
-    #ground_y = y + height * 0.12
-    #c.setFillColor(GROUND_COLOR)
-    #c.rect(x, y, width, ground_y - y, stroke=0, fill=1)
-    #c.setStrokeColor(Color(0.7, 0.68, 0.65))
-    #c.setLineWidth(0.5)
-    #c.line(x, ground_y, x + width, ground_y)
-    
     positions = geometry.get("positions", {})
     # Use workpoints_bisect_rotate specifically (as user requested)
     workpoints = geometry.get("workpoints_bisect_rotate", {}) or geometry.get("workpoints", {})
     point_order = geometry.get("point_order", [])
     points_data = geometry.get("points_data", {})
     centroid = geometry.get("centroid", (0, 0, 0))
+    print(f"[DEBUG] Isometric view points_data: {points_data}")  # Debug print
     
     if not positions or not point_order:
         c.setFont(FONT_REGULAR, MEDIUM_FONT)
@@ -1192,6 +1213,11 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         points_3d_posts = [(label, px, py, default_height) for label, px, py, _ in points_3d_posts]
         points_3d_sail = [(label, px, py, default_height) for label, px, py, _ in points_3d_sail]
     
+    # Calculate sail centroid (2D) for orientation
+    sail_cx = sum(p[1] for p in points_3d_sail) / len(points_3d_sail)
+    sail_cy = sum(p[2] for p in points_3d_sail) / len(points_3d_sail)
+    sail_center_2d = (sail_cx, sail_cy)
+
     # 45° Southwest isometric projection
     azimuth = math.radians(225)  # 225° = Southwest
     elevation = math.radians(35)  # 35° elevation
@@ -1201,7 +1227,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     cos_el = math.cos(elevation)
     sin_el = math.sin(elevation)
     
-    def to_iso(px, py, pz):
+    def to_iso_raw(px, py, pz):
         """Convert 3D point to 2D isometric from SW at 45°."""
         rx = px * cos_az - py * sin_az
         ry = px * sin_az + py * cos_az
@@ -1210,24 +1236,19 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         screen_y = ry * sin_el + rz * cos_el
         return screen_x, screen_y
     
-    # Transform all points - posts at ground and top, sail at workpoints
-    iso_points_post_top = {}    # Post tops (pole height at position)
-    iso_points_post_ground = {} # Post bases
-    iso_points_sail = {}        # Sail corners (at workpoints with allowance)
-    heights_3d = {}
-    
-    for label, px, py, pz in points_3d_posts:
-        iso_points_post_top[label] = to_iso(px, py, pz)
-        iso_points_post_ground[label] = to_iso(px, py, 0)
-        heights_3d[label] = pz
-    
-    for label, px, py, pz in points_3d_sail:
-        iso_points_sail[label] = to_iso(px, py, pz)
-    
     # Calculate bounds for scaling (include all points)
-    all_iso_points = list(iso_points_post_top.values()) + list(iso_points_post_ground.values()) + list(iso_points_sail.values())
-    iso_xs = [p[0] for p in all_iso_points]
-    iso_ys = [p[1] for p in all_iso_points]
+    raw_points = []
+    # Include post tops and bottoms
+    for label, px, py, ph in points_3d_posts:
+         raw_points.append(to_iso_raw(px, py, 0))
+         raw_points.append(to_iso_raw(px, py, ph))
+
+    # Also include sail points
+    for label, px, py, pz in points_3d_sail:
+        raw_points.append(to_iso_raw(px, py, pz))
+        
+    iso_xs = [p[0] for p in raw_points]
+    iso_ys = [p[1] for p in raw_points]
     
     if not iso_xs or not iso_ys:
         return
@@ -1252,7 +1273,8 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     iso_center_x = (iso_min_x + iso_max_x) / 2
     iso_center_y = (iso_min_y + iso_max_y) / 2
     
-    def to_canvas_iso(iso_pt):
+    def to_canvas_iso(px, py, pz):
+        iso_pt = to_iso_raw(px, py, pz)
         return (
             center_x + (iso_pt[0] - iso_center_x) * scale,
             center_y + (iso_pt[1] - iso_center_y) * scale
@@ -1261,45 +1283,45 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # Get sail tracks
     sail_tracks = set(attrs.get("sailTracks", []) or [])
     
-    # Get points data for attachment types
-    points_data = attrs.get("points", {})
-    
-    # Sort points by depth for proper rendering order
-    sorted_posts = sorted(points_3d_posts, key=lambda p: iso_points_post_top[p[0]][1])
+    # Sort points by depth for proper rendering order (X + Y is a good proxy for depth in SW view)
+    sorted_posts = sorted(points_3d_posts, key=lambda p: p[1] + p[2], reverse=True)
     
     # ========== DRAW STRUCTURES (corners - different types based on attachment) ==========
     for label, px, py, pz in sorted_posts:
-        ground_pt = to_canvas_iso(iso_points_post_ground[label])
-        top_pt = to_canvas_iso(iso_points_post_top[label])
-        
         # Get attachment type for this corner (default to "Pole")
-        attachment_type = points_data.get(label, {}).get("Structure", "Pole")
+        point_info = points_data.get(label, {})
+        attachment_type = point_info.get("Structure", "Pole")
         
-        # Draw different attachment types (only Pole, Wall, Roof for now)
+        # Draw different attachment types
         if attachment_type.lower() == "wall":
-            _draw_wall_attachment(c, ground_pt, top_pt)
+            _draw_3d_wall(c, (px, py, pz), to_canvas_iso, sail_center_2d)
         elif attachment_type.lower() == "roof":
-            _draw_roof_attachment(c, ground_pt, top_pt)
+            _draw_3d_roof(c, (px, py, pz), to_canvas_iso, sail_center_2d)
         else:
             # Default to pole for "Pole" or any other/unknown type
-            _draw_pole_attachment(c, ground_pt, top_pt)
+            _draw_3d_pole(c, (px, py, 0), (px, py, pz), to_canvas_iso)
         
         # Draw line from structure top (fitting point) to workpoint (sail attachment)
-        if use_workpoints and label in iso_points_sail:
-            sail_pt = to_canvas_iso(iso_points_sail[label])
-            if abs(sail_pt[0] - top_pt[0]) > 2 or abs(sail_pt[1] - top_pt[1]) > 2:
-                c.setStrokeColor(Color(0.4, 0.4, 0.4))
-                c.setLineWidth(1)
-                c.setDash([2, 2])
-                c.line(top_pt[0], top_pt[1], sail_pt[0], sail_pt[1])
-                c.setDash([])
+        if use_workpoints:
+            sail_pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
+            if sail_pt_3d:
+                top_pt = to_canvas_iso(px, py, pz)
+                sail_pt = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
+                
+                if abs(sail_pt[0] - top_pt[0]) > 2 or abs(sail_pt[1] - top_pt[1]) > 2:
+                    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+                    c.setLineWidth(1)
+                    c.setDash([2, 2])
+                    c.line(top_pt[0], top_pt[1], sail_pt[0], sail_pt[1])
+                    c.setDash([])
     
     # ========== DRAW SAIL SHADOW ==========
     shadow_path = c.beginPath()
     first = True
     for label in point_order:
-        if label in iso_points_post_ground:
-            px, py = to_canvas_iso(iso_points_post_ground[label])
+        post = next((p for p in points_3d_posts if p[0] == label), None)
+        if post:
+            px, py = to_canvas_iso(post[1], post[2], 0)
             if first:
                 shadow_path.moveTo(px + 6, py - 4)
                 first = False
@@ -1313,17 +1335,18 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # Calculate sail center in canvas coordinates for inward catenaries
     sail_canvas_points = []
     for i, label in enumerate(point_order):
-        if label in iso_points_sail:
-            px, py = to_canvas_iso(iso_points_sail[label])
+        pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
+        if pt_3d:
+            px, py = to_canvas_iso(pt_3d[1], pt_3d[2], pt_3d[3])
             sail_canvas_points.append((label, (px, py)))
     
     # Calculate sail centroid for inward catenary direction
     if sail_canvas_points:
-        sail_center_x = sum(p[1][0] for p in sail_canvas_points) / len(sail_canvas_points)
-        sail_center_y = sum(p[1][1] for p in sail_canvas_points) / len(sail_canvas_points)
-        sail_center = (sail_center_x, sail_center_y)
+        scx = sum(p[1][0] for p in sail_canvas_points) / len(sail_canvas_points)
+        scy = sum(p[1][1] for p in sail_canvas_points) / len(sail_canvas_points)
+        canvas_sail_center = (scx, scy)
     else:
-        sail_center = (center_x, center_y)
+        canvas_sail_center = (center_x, center_y)
     
     # Draw sail with texture if available
     if texture_path and sail_canvas_points:
@@ -1341,7 +1364,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
             p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
             edge_key = f"{label_a}{label_b}"
-            _add_catenary_edge_to_path(clip_path, p1, p2, sail_center, 
+            _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
                                         catenary_ratio, sail_tracks, edge_key)
         
         clip_path.close()
@@ -1350,37 +1373,42 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         # Calculate bounding box for texture placement
         sail_xs = [p[1][0] for p in sail_canvas_points]
         sail_ys = [p[1][1] for p in sail_canvas_points]
-        sail_min_x, sail_max_x = min(sail_xs), max(sail_xs)
-        sail_min_y, sail_max_y = min(sail_ys), max(sail_ys)
-        sail_w = sail_max_x - sail_min_x
-        sail_h = sail_max_y - sail_min_y
+        s_min_x, s_max_x = min(sail_xs), max(sail_xs)
+        s_min_y, s_max_y = min(sail_ys), max(sail_ys)
+        s_w = s_max_x - s_min_x
+        s_h = s_max_y - s_min_y
         
         try:
             # Draw solid background first to ensure opacity
             c.setFillColor(sail_fill)
-            c.rect(sail_min_x - 5, sail_min_y - 5, sail_w + 10, sail_h + 10, stroke=0, fill=1)
+            c.rect(s_min_x - 5, s_min_y - 5, s_w + 10, s_h + 10, stroke=0, fill=1)
             
             # Draw texture image on top
             img = ImageReader(texture_path)
-            c.drawImage(img, sail_min_x - 5, sail_min_y - 5, 
-                       width=sail_w + 10, height=sail_h + 10,
+            c.drawImage(img, s_min_x - 5, s_min_y - 5, 
+                       width=s_w + 10, height=s_h + 10,
                        preserveAspectRatio=False, mask=None)
         except Exception:
             c.setFillColor(sail_fill)
-            c.rect(sail_min_x, sail_min_y, sail_w, sail_h, stroke=0, fill=1)
+            c.rect(s_min_x, s_min_y, s_w, s_h, stroke=0, fill=1)
         
         c.restoreState()
     else:
         # No texture - draw with solid color
         path = c.beginPath()
         first = True
-        for label, pt in sail_canvas_points:
-            if first:
-                path.moveTo(pt[0], pt[1])
-                first = False
-            else:
-                path.lineTo(pt[0], pt[1])
-        path.close()
+        
+        if sail_canvas_points:
+             first_pt = sail_canvas_points[0][1]
+             path.moveTo(first_pt[0], first_pt[1])
+             for i in range(len(sail_canvas_points)):
+                 label_a = sail_canvas_points[i][0]
+                 p1 = sail_canvas_points[i][1]
+                 label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
+                 p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
+                 edge_key = f"{label_a}{label_b}"
+                 _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
+             path.close()
         
         c.setFillColor(sail_fill)
         c.setStrokeColor(sail_stroke)
@@ -1392,11 +1420,15 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         a = point_order[i]
         b = point_order[(i + 1) % len(point_order)]
         
-        if a not in iso_points_sail or b not in iso_points_sail:
+        # Find connection points
+        pa = next((p for p in sail_canvas_points if p[0] == a), None)
+        pb = next((p for p in sail_canvas_points if p[0] == b), None)
+        
+        if not pa or not pb:
             continue
         
-        p1 = to_canvas_iso(iso_points_sail[a])
-        p2 = to_canvas_iso(iso_points_sail[b])
+        p1 = pa[1]
+        p2 = pb[1]
         
         edge_key = f"{a}{b}"
         edge_key_rev = f"{b}{a}"
@@ -1411,17 +1443,18 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             # Cable edge - draw catenary curve INWARD toward sail center
             c.setStrokeColor(sail_stroke)
             c.setLineWidth(2)
-            _draw_catenary_curve_inward(c, p1, p2, sail_center, catenary_ratio)
+            _draw_catenary_curve_inward(c, p1, p2, canvas_sail_center, catenary_ratio)
     
     # ========== DRAW POLE CAPS, LABELS AND CORNER INFO ==========
     for label, px, py, pz in sorted_posts:
-        top_pt = to_canvas_iso(iso_points_post_top[label])
+        top_pt = to_canvas_iso(px, py, pz)
         
         # Get corner info
         point_info = points_data.get(label, {})
         fitting = point_info.get("cornerFitting", "")
         hardware = point_info.get("tensionHardware", "")
         allowance = point_info.get("tensionAllowance", 0)
+        structure = point_info.get("Structure", "Pole")
         
         # Check for special points
         extra_tags = []
@@ -1430,7 +1463,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         if label == geometry.get("logo_point"):
             extra_tags.append("Logo")
         
-        # Pole cap / connection fitting - grey
+        # Pole cap / fitting - grey
         c.setStrokeColor(Color(0.35, 0.35, 0.35))
         c.setFillColor(STRUCTURE_LIGHT)
         c.setLineWidth(1.5)
@@ -1469,14 +1502,16 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         c.setFillColor(black)
         
         # Draw workpoint marker at sail attachment point
-        if use_workpoints and label in iso_points_sail:
-            sail_pt = to_canvas_iso(iso_points_sail[label])
-            if abs(sail_pt[0] - top_pt[0]) > 2 or abs(sail_pt[1] - top_pt[1]) > 2:
-                # Small workpoint marker (sail attachment point)
-                c.setFillColor(Color(0.9, 0.9, 0.9))
-                c.setStrokeColor(Color(0.4, 0.4, 0.4))
-                c.setLineWidth(0.5)
-                c.circle(sail_pt[0], sail_pt[1], 3, stroke=1, fill=1)
+        if use_workpoints:
+            sail_pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
+            if sail_pt_3d:
+                sail_pt_2d = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
+                if abs(sail_pt_2d[0] - top_pt[0]) > 2 or abs(sail_pt_2d[1] - top_pt[1]) > 2:
+                    # Small workpoint marker (sail attachment point)
+                    c.setFillColor(Color(0.9, 0.9, 0.9))
+                    c.setStrokeColor(Color(0.4, 0.4, 0.4))
+                    c.setLineWidth(0.5)
+                    c.circle(sail_pt_2d[0], sail_pt_2d[1], 3, stroke=1, fill=1)
 
 
 # =============================================================================

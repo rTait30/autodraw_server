@@ -166,6 +166,7 @@ def extract_sail_geometry(sail: dict) -> dict:
             "cornerFitting": point.get("cornerFitting", ""),
             "tensionHardware": point.get("tensionHardware", ""),
             "tensionAllowance": _safe_num(point.get("tensionAllowance")) or 0.0,
+            "Structure": point.get("Structure", "Pole"),
             "x": _safe_num(positions_raw.get(label, {}).get("x")) or 0.0,
             "y": _safe_num(positions_raw.get(label, {}).get("y")) or 0.0,
         }

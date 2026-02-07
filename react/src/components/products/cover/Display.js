@@ -8,19 +8,28 @@ export function render(canvas, data) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // Clear & init drawing state
-  ctx.setTransform(1,0,0,1,0,0);
+  const products = data.products || [];
+  const projectAttrs = data.project_attributes || {};
+
+  // 1. Calculate required height using a mock context pass
+  const layoutDryRun = { yPos: 0 };
+  const mockCtx = getMockContext(canvas.width);
+  
+  drawCover3DPreviews(mockCtx, products, layoutDryRun);
+  drawFlattenedPanels(mockCtx, products, layoutDryRun);
+  drawSplitPanels(mockCtx, products, layoutDryRun);
+  drawNestLayout(mockCtx, products, projectAttrs, layoutDryRun);
+
+  // 2. Resize Canvas with buffer
+  canvas.height = Math.max(800, layoutDryRun.yPos + 100);
+
+  // 3. Real Render
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#f9fafb';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
 
-  const products = data.products || [];
-  const projectAttrs = data.project_attributes || {};
-
-  canvas.height = 1100 + (projectAttrs.nest?.num_rolls || 0) * 100;
-
-  // Global vertical layout state that steps can update
   const layout = { yPos: 0 };
 
   // Draw everything
@@ -28,9 +37,19 @@ export function render(canvas, data) {
   drawFlattenedPanels(ctx, products, layout);
   drawSplitPanels(ctx, products, layout);
   drawNestLayout(ctx, products, projectAttrs, layout);
+}
 
-  // Resize canvas to fit content
-  //canvas.height = Math.ceil(layout.yPos + 40);
+function getMockContext(width) {
+  // Returns a proxy that accepts all calls but does nothing, except returning width for canvas
+  const noop = () => {};
+  return new Proxy({}, {
+      get(target, prop) {
+          if (prop === 'canvas') return { width: width, height: 20000 };
+          if (prop === 'measureText') return () => ({ width: 0 });
+          return noop;
+      },
+      set() { return true; }
+  });
 }
 
 function drawCover3DPreviews(ctx, products, layout) {
@@ -354,6 +373,17 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
   // Multi-roll display: stack bins vertically
   const rollGap = 40;
   let currentY = offsetY + padding;
+
+  // Prominent Top Label for Final Roll Length
+  if (nest.last_roll_length) {
+    ctx.save();
+    ctx.fillStyle = '#dc2626'; // Prominent Red
+    ctx.font = `bold 24px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(`Final Roll Length: ${nest.last_roll_length}mm`, padding, currentY + 10);
+    ctx.restore();
+    currentY += 50; 
+  }
   
   const colors = { MAIN: '#ef4444', SIDE_L: '#3b82f6', SIDE_R: '#10b981', DEFAULT: '#9ca3af' };
 
@@ -363,8 +393,9 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     const rs = Math.min(1, maxRollW / Math.max(1, roll.width));
     const binX = padding;
     const binY = currentY;
-    const binW = Math.round(roll.width * rs);
-    const binH = Math.round(roll.height * rs);
+    // Ensure height is not zero to prevent rendering issues
+    const binW = Math.max(1, Math.round(roll.width * rs));
+    const binH = Math.max(1, Math.round(roll.height * rs));
 
     // Highlight last roll
     if (roll.is_last) {
@@ -444,15 +475,23 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
 
   // Summary at the bottom
   if (rolls.length > 0) {
-    ctx.fillStyle = '#111827';
-    ctx.font = `bold 11px sans-serif`;
+    // Divider
+    ctx.fillStyle = '#e5e7eb';
+    ctx.fillRect(padding, currentY, 700, 2);
+    currentY += 20;
+
+    // Prominent Bottom Label
+    ctx.save();
+    ctx.fillStyle = '#dc2626'; // Prominent Red
+    ctx.font = `bold 24px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(
-      `Total: ${rolls.length} roll${rolls.length > 1 ? 's' : ''} | Final roll length: ${nest.last_roll_length}mm`,
+      `Total Rolls: ${rolls.length} | Final Roll Length: ${nest.last_roll_length}mm`,
       padding,
-      currentY
+      currentY + 10
     );
-    currentY += 20;
+    ctx.restore();
+    currentY += 40;
   }
 
   layout.yPos = Math.ceil(currentY + 20);

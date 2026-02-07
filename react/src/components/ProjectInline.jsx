@@ -11,6 +11,7 @@ import { TOAST_TAGS } from "../config/toastRegistry";
 import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
 import CollapsibleCard from './CollapsibleCard';
+import PageHeader from './PageHeader';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
@@ -85,8 +86,16 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
   // Ensure visualization updates when project data or visibility changes
   useEffect(() => {
-    if (hasCalculatedOrSaved && editedProject && canvasRef.current && !overlayMode) {
-        renderPreview(editedProject);
+    // Only render in inline mode (null) or preview mode. 
+    // Confirm/Success modes don't use the canvas.
+    const shouldRender = !overlayMode || overlayMode === 'preview';
+    
+    if (hasCalculatedOrSaved && editedProject && canvasRef.current && shouldRender) {
+        // Small timeout to ensure DOM is settled if switching modes (rendering into overlay)
+        // Especially important since CollapsibleCard reparents the canvas
+        requestAnimationFrame(() => {
+             renderPreview(editedProject);
+        });
     }
   }, [hasCalculatedOrSaved, editedProject, overlayMode]);
 
@@ -430,39 +439,22 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   if (!productName) return null;
 
   return (
-    <div className="fixed inset-0 top-[60px] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
+    <div className="fixed inset-0 top-[var(--header-height)] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
       
       {/* Toast Overlay - Positioned above StickyActionBar (approx 80px + margin) */}
       <ToastDisplay className="bottom-[100px] mb-safe" /> 
 
-      {/* Header Bar */}
-      <div className="flex-none flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm z-10">
-        <div className="flex items-center gap-4">
-            <button 
-                onClick={onClose}
-                className="flex text-md items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 font-medium text-lg"
-                aria-label="Back to Projects"
-            >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Back to Projects</span>
-            </button>
-            <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
-            <div>
-                <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                        {editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
-                    </h2>
-                </div>
-                <div className="text-sm text-gray-500 font-medium">
-                {editedProject?.status || 'New'} {productName ? `• ${productName}` : ''}
-                </div>
-            </div>
-        </div>
-        {lastAutoSaved && (
+      {/* Header Bar - includeNav={false} because parent layout already has Nav */}
+      <PageHeader
+        title={editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
+        subtitle={`${editedProject?.status || 'New'} ${productName ? `• ${productName}` : ''}`}
+        backLabel="Back to Projects"
+        onBack={onClose}
+        includeNav={false}
+      />
+      {lastAutoSaved && (
             <div 
-                className={`absolute right-4 top-[12%] flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-20 transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
+                className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-30 transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
             >
                 <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
@@ -470,7 +462,6 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
                 </span>
             </div>
         )}
-      </div>
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
@@ -538,10 +529,12 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
               {hasCalculatedOrSaved && (
               <CollapsibleCard 
-                  title="Visualisation" 
-                  forceOpen={!!overlayMode}
-                  className={overlayMode ? "!border-0 !shadow-none !bg-transparent !rounded-none !overflow-visible" : ""} // Reset card styles when overlay active
+                  title={overlayMode === 'confirm' ? "Confirm Details" : overlayMode === 'success' ? "Success" : "Visualisation"}
+                  isOverlay={!!overlayMode}
+                  onClose={overlayMode ? closeOverlay : null}
                   defaultOpen={true}
+                  className="!top-2 !bottom-24 md:!top-8 md:!bottom-24"
+                  contentClassName={(!overlayMode || overlayMode === 'preview') ? "!p-0 bg-gray-50 dark:bg-gray-900 relative" : ""}
               >
                 <ProjectOverlay
                   mode={overlayMode}
@@ -571,16 +564,14 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             {overlayMode === 'confirm' ? (
             <>
                 <Button 
-                    onClick={closeOverlay} 
-                    className="bg-gray-500 hover:bg-gray-600 text-white border-transparent flex-1 justify-center py-3 text-lg"
-                    variant="custom"
+                    onClick={closeOverlay}
+                    variant="primary"
                 >
                 Back
                 </Button>
                 <Button 
                     onClick={handleSave} 
-                    className="flex-[2] justify-center py-3 text-lg bg-green-600 hover:bg-green-700 text-white border-transparent"
-                    variant="custom"
+                    variant="submit"
                 >
                 Confirm & {isNew ? 'Create' : 'Save'}
                 </Button>

@@ -300,7 +300,7 @@ export function render(canvas, data) {
       }
       const label = `${edgeKey}: ${dimValue}mm`;
 
-      console.log("Drawing dimension label:", label, "at", midX, midY, "angle", angle);
+      //console.log("[DEBUG] Drawing dimension label:", label, "at", midX, midY, "angle", angle);
 
       ctx.save(); ctx.translate(midX, midY); ctx.rotate(angle); ctx.fillText(label, 0, -6); ctx.restore();
     }

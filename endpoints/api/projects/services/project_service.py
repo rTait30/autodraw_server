@@ -390,7 +390,7 @@ def create_project(user, data):
     return project
 
 def update_project(user, project_id, data):
-    print(f"[DEBUG] update_project: user_id={user.id if user else 'None'}, project_id={project_id}")
+    #print(f"[DEBUG] update_project: user_id={user.id if user else 'None'}, project_id={project_id}")
     general = data.get("general") or {}
     project_attributes = data.get("project_attributes")
     project_calculated = data.get("project_calculated")

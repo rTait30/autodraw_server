@@ -348,9 +348,9 @@ export default function Discrepancy() {
             {/* Right: Viz */}
             <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar">
               <CollapsibleCard 
-                  title="Visualisation" 
-                  forceOpen={!!overlayMode}
-                  className={overlayMode ? "!border-0 !shadow-none !bg-transparent !rounded-none !overflow-visible" : ""} 
+                  title={overlayMode ? "Check Visualisation" : "Visualisation"}
+                  isOverlay={!!overlayMode}
+                  onClose={overlayMode ? closeOverlay : null}
                   defaultOpen={true}
               >
                   {/* Container for render. ProjectOverlay handles modes. */}

@@ -2,6 +2,8 @@ import React, { useRef, useEffect, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from '../services/auth';
 import { Button } from '../components/UI';
+import PageHeader from '../components/PageHeader';
+import CollapsibleCard from '../components/CollapsibleCard';
 
 const RectanglesForm = React.lazy(() =>
   import("../components/products/RECTANGLES/Form.jsx").then((module) => ({
@@ -21,8 +23,6 @@ export default function Rectangles() {
   useEffect(() => {
     if (!projectData || !canvasRef.current) return;
 
-    console.log("[Rectangles] Rendering with projectData:", projectData);
-
     // Dynamically import Display module for RECTANGLES
     import("../components/products/RECTANGLES/Display.js")
       .then((module) => {
@@ -30,7 +30,6 @@ export default function Rectangles() {
           products: projectData.products || [],
           project_attributes: projectData.project_attributes || {},
         };
-        console.log("[Rectangles] Passing to Display.render:", data);
         // Call generic render() function from Display module
         if (typeof module.render === 'function') {
           module.render(canvasRef.current, data);
@@ -45,7 +44,6 @@ export default function Rectangles() {
     // clear status while processing
     setNestStatus({ text: "", ok: null });
     const all = formRef.current?.getValues?.();
-    console.log("Form values:", all);
     
     if (!all || !all.project) {
       setNestStatus({ text: "No form data available", ok: false });
@@ -67,8 +65,6 @@ export default function Rectangles() {
         products: []
       };
 
-      console.log("Sending payload:", payload);
-
       const response = await apiFetch("/projects/calculate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,8 +73,6 @@ export default function Rectangles() {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
-
-      console.log("Nesting result:", result);
 
       // Update project data for canvas rendering
       setProjectData({
@@ -107,55 +101,58 @@ export default function Rectangles() {
     }
   };
 
+  const handleBack = () => {
+    navigate("/copelands/");
+  };
+
   return (
-    <div className="flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Rectangle Nesting Tool</h2>
-          <button
-            className="px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded transition-colors"
-            onClick={() => navigate("/copelands/")}
-          >
-            ← Back
-          </button>
-        </div>
+    <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
+      <PageHeader 
+        title="Rectangle Nesting Tool" 
+        backLabel="Back"
+        onBack={handleBack}
+      />
 
-        {/* Form section */}
-        <div className="mb-6 max-w-2xl">
-          <Suspense fallback={<div className="p-3">Loading form…</div>}>
-            <RectanglesForm formRef={formRef} />
-          </Suspense>
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+             {/* Left Column: Form */}
+             <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+                <CollapsibleCard title="Configuration" defaultOpen={true}>
+                    <div className="p-4 flex flex-col gap-6">
+                        <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading form...</div>}>
+                            <RectanglesForm formRef={formRef} />
+                        </Suspense>
 
-          <div className="flex items-center gap-3 mt-4">
-            <Button onClick={onNest}>
-              Nest Rectangles
-            </Button>
-            <span className="text-sm" aria-live="polite">
-              {nestStatus.ok === null ? (
-                ""
-              ) : (
-                <span className={nestStatus.ok ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
-                  {nestStatus.text}
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
+                         <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-4">
+                                <Button onClick={onNest} className="w-full justify-center py-3">
+                                    Nest Rectangles
+                                </Button>
+                            </div>
+                            {nestStatus.text && (
+                                <div className={`px-4 py-3 rounded-lg text-sm font-medium border ${nestStatus.ok ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300" : "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"}`}>
+                                    {nestStatus.text}
+                                </div>
+                            )}
+                         </div>
+                    </div>
+                </CollapsibleCard>
+             </div>
 
-        {/* Full width canvas section */}
-        <div className="w-full">
-          <canvas
-            ref={canvasRef}
-            data-dynamic-rectangles="true"
-            width={2000}
-            height={2000}
-            className="border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm"
-            style={{
-              width: "100%",
-              display: "block",
-              background: "#fff",
-            }}
-          />
+             {/* Right Column: Visualization */}
+             <div className="lg:col-span-7 xl:col-span-8">
+                 <CollapsibleCard title="Nesting Layout" defaultOpen={true}>
+                    <div className="p-4 md:p-8 bg-white dark:bg-gray-800 flex justify-center">
+                        <canvas
+                            ref={canvasRef}
+                            data-dynamic-rectangles="true"
+                            width={2000}
+                            height={2000}
+                            className="max-w-full h-auto border border-gray-200 dark:border-gray-700 shadow-sm rounded bg-white"
+                        />
+                    </div>
+                 </CollapsibleCard>
+             </div>
         </div>
       </main>
     </div>

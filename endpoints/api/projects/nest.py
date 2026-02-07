@@ -163,7 +163,7 @@ def pack_into_multiple_rolls(
     """
     import rectpack
     
-    print(f"[DEBUG] pack_into_multiple_rolls called with:")
+    #print(f"[DEBUG] pack_into_multiple_rolls called with:")
     print(f"  fabric_height (bin height): {fabric_height}")
     print(f"  fabric_roll_length (bin width): {fabric_roll_length}")
     print(f"  allow_rotation: {allow_rotation}")
@@ -177,7 +177,7 @@ def pack_into_multiple_rolls(
     bin_area = fabric_roll_length * fabric_height
     estimated_bins = max(3, int((total_area / bin_area) * 1.5) + 2)
     
-    print(f"[DEBUG] Creating packer with {estimated_bins} bins")
+    #print(f"[DEBUG] Creating packer with {estimated_bins} bins")
     
     # Create single packer with multiple bins
     packer = rectpack.newPacker(rotation=allow_rotation, pack_algo=rectpack.MaxRectsBssf)
@@ -188,11 +188,11 @@ def pack_into_multiple_rolls(
     
     # Add all rectangles
     for w, h, label in sorted_rects:
-        print(f"[DEBUG] Adding rectangle {label} ({w}x{h})")
+        #print(f"[DEBUG] Adding rectangle {label} ({w}x{h})")
         packer.add_rect(w, h, label)
     
     # Pack!
-    print(f"[DEBUG] Packing rectangles...")
+    #print(f"[DEBUG] Packing rectangles...")
     packer.pack()
     
     # Extract placements per bin
@@ -200,9 +200,9 @@ def pack_into_multiple_rolls(
     rolls = []
     bins_used = {}
     
-    print(f"[DEBUG] Extracting placements...")
+    #print(f"[DEBUG] Extracting placements...")
     for bin_idx, x, y, w, h, rid in packer.rect_list():
-        print(f"[DEBUG] Panel {rid} placed in bin {bin_idx} at ({x}, {y}) size {w}x{h}")
+        #print(f"[DEBUG] Panel {rid} placed in bin {bin_idx} at ({x}, {y}) size {w}x{h}")
         
         # Determine rotation
         orig = next(r for r in rectangles if r[2] == rid)
@@ -248,7 +248,7 @@ def pack_into_multiple_rolls(
     
     total_fabric = sum(r['width'] for r in rolls)
     
-    print(f"[DEBUG] Packing complete: {len(rolls)} rolls used")
+    #print(f"[DEBUG] Packing complete: {len(rolls)} rolls used")
     
     result = {
         "panels": all_placements,

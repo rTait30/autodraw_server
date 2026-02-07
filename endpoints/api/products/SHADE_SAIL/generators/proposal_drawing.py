@@ -741,7 +741,7 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         # Get corner info
         point_info = points_data.get(label, {})
 
-        print (f"Point {label} info: {point_info}")  # Debug print
+        #print (f"[DEBUG] Point {label} info: {point_info}")  # Debug print
 
         height_val = point_info.get("height", 0)
         fitting = point_info.get("cornerFitting", "")
@@ -932,7 +932,10 @@ def _draw_3d_box(c, center, size, orientation_vec, projector, color=STRUCTURE_CO
         ([4, 5, 6, 7], 1.0), # Top
     ]
     
-    # Sort faces by "distance" (high X+Y-Z constitutes far)
+    # Sort faces by "distance" (high X-Y-Z constitutes far in NW view)
+    # NW: Cam at -X, +Y. Look +X, -Y. Far is Large X, Small Y.
+    # Proxy: X - Y
+    
     face_depths = []
     for indices, shade_mult in faces:
         # Calculate centroid
@@ -940,12 +943,15 @@ def _draw_3d_box(c, center, size, orientation_vec, projector, color=STRUCTURE_CO
         cent_y = sum(vertices[i][1] for i in indices)/len(indices)
         cent_z = sum(vertices[i][2] for i in indices)/len(indices)
         
-        # Sort Key: X + Y - Z (High = Far)
-        key = cent_x + cent_y - cent_z
+        # Sort Key: X - Y (High = Far)
+        key = cent_x - cent_y
         face_depths.append((key, indices, shade_mult))
         
     # Sort descending
     face_depths.sort(key=lambda x: x[0], reverse=True)
+    
+    # Use alpha if provided in color
+    alpha = getattr(color, 'alpha', 1)
     
     for _, indices, shade_mult in face_depths:
         path = c.beginPath()
@@ -958,7 +964,7 @@ def _draw_3d_box(c, center, size, orientation_vec, projector, color=STRUCTURE_CO
         
         # Shade color
         r, g, b = color.red, color.green, color.blue
-        shaded = Color(r*shade_mult, g*shade_mult, b*shade_mult)
+        shaded = Color(r*shade_mult, g*shade_mult, b*shade_mult, alpha=alpha)
         c.setFillColor(shaded)
         c.drawPath(path, stroke=1, fill=1)
 
@@ -975,17 +981,14 @@ def _draw_3d_wall(c, p_attach, projector, sail_center):
     # Calculate orientation vector (to sail center)
     ux, uy = cx - px, cy - py
     
-    # If pz is low (ground mount wall?), extend to ground
-    # Otherwise floating wall block
-    if pz < 2500:
-        h_wall = max(pz + 600, 2400)
-        z_center = h_wall / 2
-        _draw_3d_box(c, (px, py, z_center), (width, depth, h_wall), (ux, uy), projector, color=Color(0.85, 0.85, 0.85))
-    else:
-        # Floating block centered on point
-        block_h = 2400
-        z_center = pz
-        _draw_3d_box(c, (px, py, z_center), (width, depth, block_h), (ux, uy), projector, color=Color(0.85, 0.85, 0.85))
+    # ALWAYS extend to ground as requested
+    h_wall = max(pz + 600, 2400)
+    z_center = h_wall / 2
+    
+    # Use transparent color
+    c_wall = Color(0.85, 0.85, 0.85, alpha=0.5)
+    
+    _draw_3d_box(c, (px, py, z_center), (width, depth, h_wall), (ux, uy), projector, color=c_wall)
 
 
 def _draw_3d_roof(c, p_attach, projector, sail_center):
@@ -1114,6 +1117,70 @@ def _draw_3d_pole(c, p_base, p_top, projector, diameter=150):
     c.setFillColor(STRUCTURE_LIGHT)
     c.drawPath(path, stroke=1, fill=1)
 
+
+def _draw_merged_3d_wall(c, points_list, projector, sail_center):
+    """
+    Draw a merged 3D wall group by drawing segments between points.
+    Handles corners by iterating through valid wall segments.
+    """
+    if not points_list:
+        return
+        
+    # Calculate global max Z for uniform height
+    max_z = max(p[2] for p in points_list)
+    h_wall = max(max_z + 600, 2400)
+    z_center = h_wall / 2 
+    
+    # Common wall color (Transparent Grey)
+    c_wall = Color(0.5, 0.5, 0.5, alpha=0.5)
+
+    if len(points_list) < 2:
+        # Fallback for single point
+        cx, cy = points_list[0][0], points_list[0][1]
+        ux = sail_center[0] - cx
+        uy = sail_center[1] - cy
+        # Just assume normal facing sail
+        _draw_3d_box(c, (cx, cy, z_center), (1200, 250, h_wall), (ux, uy), projector, color=c_wall)
+        return
+
+    # Draw segments
+    for i in range(len(points_list) - 1):
+        p_start = points_list[i]
+        p_end = points_list[i+1]
+        
+        dx = p_end[0] - p_start[0]
+        dy = p_end[1] - p_start[1]
+        dist = math.sqrt(dx*dx + dy*dy)
+        
+        if dist < 1: continue
+        
+        # Extensions: 600mm at free ends, 125mm (half depth) at internal joints to fill corners
+        ext_start = 600 if i == 0 else 125
+        ext_end = 600 if i == (len(points_list) - 2) else 125
+        
+        # Total drawn length
+        draw_len = dist + ext_start + ext_end
+        
+        # Calculate center of the new box
+        ux, uy = dx/dist, dy/dist
+        mid_x, mid_y = (p_start[0] + p_end[0])/2, (p_start[1] + p_end[1])/2
+        shift = (ext_end - ext_start) / 2
+        
+        cx = mid_x + ux * shift
+        cy = mid_y + uy * shift
+        
+        # Orientation (Normal pointing to sail)
+        nx, ny = -dy, dx # Normal candidate
+        to_sail_x = sail_center[0] - cx
+        to_sail_y = sail_center[1] - cy
+        
+        # Ensure normal points effectively towards sail
+        if (nx * to_sail_x + ny * to_sail_y) < 0:
+            nx, ny = -nx, -ny
+            
+        _draw_3d_box(c, (cx, cy, z_center), (draw_len, 250, h_wall), (nx, ny), projector, color=c_wall)
+
+
 def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                           x: float, y: float, width: float, height: float):
     """
@@ -1123,7 +1190,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     """
     # Section label
     c.setFont(FONT_BOLD, MEDIUM_FONT)
-    c.drawString(x, y + height + 3 * mm, "3D VIEW (SW 45°)")
+    c.drawString(x, y + height + 3 * mm, "3D VIEW (SE)")
     
     positions = geometry.get("positions", {})
     # Use workpoints_bisect_rotate specifically (as user requested)
@@ -1131,7 +1198,6 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     point_order = geometry.get("point_order", [])
     points_data = geometry.get("points_data", {})
     centroid = geometry.get("centroid", (0, 0, 0))
-    print(f"[DEBUG] Isometric view points_data: {points_data}")  # Debug print
     
     if not positions or not point_order:
         c.setFont(FONT_REGULAR, MEDIUM_FONT)
@@ -1211,17 +1277,25 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     sail_cy = sum(p[2] for p in points_3d_sail) / len(points_3d_sail)
     sail_center_2d = (sail_cx, sail_cy)
 
-    # 45° Southwest isometric projection
-    azimuth = math.radians(225)  # 225° = Southwest
-    elevation = math.radians(35)  # 35° elevation
-    
+    # TOGGLE: Use Complex Rendering (NW, Walls, Occlusion) or Simple (SW, Sticks)
+    COMPLEX_RENDER = False
+
+    if COMPLEX_RENDER:
+        # 45° Northwest isometric projection
+        azimuth = math.radians(315)  # 315° = Northwest
+        elevation = math.radians(35)  # 35° elevation
+    else:
+        # South East isometric projection
+        azimuth = math.radians(135) # 135° = South East
+        elevation = math.radians(35)
+
     cos_az = math.cos(azimuth)
     sin_az = math.sin(azimuth)
     cos_el = math.cos(elevation)
     sin_el = math.sin(elevation)
     
     def to_iso_raw(px, py, pz):
-        """Convert 3D point to 2D isometric from SW at 45°."""
+        """Convert 3D point to 2D isometric."""
         rx = px * cos_az - py * sin_az
         ry = px * sin_az + py * cos_az
         rz = pz
@@ -1276,63 +1350,135 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # Get sail tracks
     sail_tracks = set(attrs.get("sailTracks", []) or [])
     
-    # Sort points by depth for proper rendering order (X + Y is a good proxy for depth in SW view)
-    sorted_posts = sorted(points_3d_posts, key=lambda p: p[1] + p[2], reverse=True)
-    
-    # ========== DRAW STRUCTURES (corners - different types based on attachment) ==========
-    for label, px, py, pz in sorted_posts:
-        # Get attachment type for this corner (default to "Pole")
-        point_info = points_data.get(label, {})
-        attachment_type = point_info.get("Structure", "Pole")
+    # Sort points for painter's algo
+    # For NW (315): Camera at (-X, +Y). Look (+X, -Y). Depth ~ X - Y.
+    # For SW (45):  Camera at (-X, -Y). Look (+X, +Y). Depth ~ X + Y.
+    # For SE (135): Camera at (+X, -Y). Look (-X, +Y). Depth ~ Y - X.
+    if COMPLEX_RENDER:
+        sort_key = lambda p: p[1] - p[2]
+    else:
+        # SE Sort (Y - X)
+        sort_key = lambda p: p[2] - p[1]
         
-        # Draw different attachment types
-        if attachment_type.lower() == "wall":
-            _draw_3d_wall(c, (px, py, pz), to_canvas_iso, sail_center_2d)
-        elif attachment_type.lower() == "roof":
-            _draw_3d_roof(c, (px, py, pz), to_canvas_iso, sail_center_2d)
-        else:
-            # Default to pole for "Pole" or any other/unknown type
-            _draw_3d_pole(c, (px, py, 0), (px, py, pz), to_canvas_iso)
-        
-        # Draw line from structure top (fitting point) to workpoint (sail attachment)
-        if use_workpoints:
-            sail_pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
-            if sail_pt_3d:
-                top_pt = to_canvas_iso(px, py, pz)
-                sail_pt = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
-                
-                if abs(sail_pt[0] - top_pt[0]) > 2 or abs(sail_pt[1] - top_pt[1]) > 2:
-                    c.setStrokeColor(Color(0.4, 0.4, 0.4))
-                    c.setLineWidth(1)
-                    c.setDash([2, 2])
-                    c.line(top_pt[0], top_pt[1], sail_pt[0], sail_pt[1])
-                    c.setDash([])
+    sorted_posts = sorted(points_3d_posts, key=sort_key, reverse=True)
     
-    # ========== DRAW SAIL SHADOW ==========
-    shadow_path = c.beginPath()
-    first = True
-    for label in point_order:
-        post = next((p for p in points_3d_posts if p[0] == label), None)
-        if post:
-            px, py = to_canvas_iso(post[1], post[2], 0)
-            if first:
-                shadow_path.moveTo(px + 6, py - 4)
-                first = False
+    # Prepare render items
+    render_items = []
+
+    if COMPLEX_RENDER:
+        # --- COMPLEX RENDER PATH (WALLS, POLES, OCCLUSION) ---
+        
+        # Identify Wall Groups for merged rendering
+        structure_map = { 
+            label: points_data.get(label, {}).get("Structure", "Pole").lower() 
+            for label, _, _, _ in points_3d_posts 
+        }
+        
+        # Find contiguous chains of walls in point_order
+        valid_labels = [L for L in point_order if L in structure_map]
+        wall_chains = []
+        current_chain = []
+        
+        for lbl in valid_labels:
+            if structure_map[lbl] == 'wall':
+                current_chain.append(lbl)
             else:
-                shadow_path.lineTo(px + 6, py - 4)
-    shadow_path.close()
-    c.setFillColor(Color(0, 0, 0, alpha=0.06))
-    c.drawPath(shadow_path, stroke=0, fill=1)
+                if current_chain:
+                    wall_chains.append(current_chain)
+                    current_chain = []
+        if current_chain:
+            wall_chains.append(current_chain)
+
+        # Check wrap-around merge
+        if len(wall_chains) > 1 and valid_labels and valid_labels[0] in wall_chains[0] and valid_labels[-1] in wall_chains[-1]:
+             if wall_chains[0] is not wall_chains[-1]:
+                 new_chain = wall_chains[-1] + wall_chains[0]
+                 wall_chains.pop() # remove last
+                 wall_chains[0] = new_chain
+
+        # Filter for groups > 1
+        merged_wall_groups = [c for c in wall_chains if len(c) > 1]
+        
+        # Map label to group
+        label_to_group = {}
+        for g in merged_wall_groups:
+            for lbl in g:
+                label_to_group[lbl] = tuple(g)
+
+        processed_groups = set()
+        
+        # -- 1. Process Structures --
+        for label, px, py, pz in points_3d_posts:
+            if label in label_to_group:
+                group_id = label_to_group[label]
+                if group_id in processed_groups:
+                    continue
+                
+                # Create Merged Wall Item
+                g_points = []
+                g_labels = []
+                for m_lbl in group_id:
+                    pt = next((p for p in points_3d_posts if p[0] == m_lbl), None)
+                    if pt: 
+                        g_points.append((pt[1], pt[2], pt[3]))
+                        g_labels.append(m_lbl)
+                
+                if not g_points: continue
+                    
+                # Depth = average X-Y
+                avg_x = sum(p[0] for p in g_points) / len(g_points)
+                avg_y = sum(p[1] for p in g_points) / len(g_points)
+                depth = avg_x - avg_y
+                
+                render_items.append({
+                    "type": "merged_wall",
+                    "depth": depth,
+                    "points": g_points,
+                    "labels": g_labels
+                })
+                processed_groups.add(group_id)
+            else:
+                # Single item
+                depth = px - py
+                item_type = structure_map.get(label, "pole")
+                render_items.append({
+                    "type": "single",
+                    "subtype": item_type,
+                    "depth": depth,
+                    "point": (px, py, pz),
+                    "label": label
+                })
+         
+        # -- 2. Process Sail (as single item) --
+        # Calculate sail centroid 3D for depth sorting
+        if points_3d_sail:
+            sax = sum(p[1] for p in points_3d_sail) / len(points_3d_sail)
+            say = sum(p[2] for p in points_3d_sail) / len(points_3d_sail)
+            
+            sail_depth = sax - say
+            render_items.append({
+                 "type": "sail_assembly",
+                 "depth": sail_depth
+            })
+
+        # Sort descending by depth (draw farthest first)
+        render_items.sort(key=lambda x: x["depth"], reverse=True)
     
-    # ========== DRAW SAIL MEMBRANE (with texture if available) ==========
-    # Calculate sail center in canvas coordinates for inward catenaries
+    else:
+        # --- SIMPLE RENDER PATH (SW, STICKS) ---
+        # Just prepare sail. Posts drawn simply below.
+        pass
+
+    # ========== DRAW SCENE ==========
+    
+    # Pre-calculate sail canvas points
     sail_canvas_points = []
     for i, label in enumerate(point_order):
         pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
         if pt_3d:
             px, py = to_canvas_iso(pt_3d[1], pt_3d[2], pt_3d[3])
             sail_canvas_points.append((label, (px, py)))
-    
+
     # Calculate sail centroid for inward catenary direction
     if sail_canvas_points:
         scx = sum(p[1][0] for p in sail_canvas_points) / len(sail_canvas_points)
@@ -1340,103 +1486,307 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         canvas_sail_center = (scx, scy)
     else:
         canvas_sail_center = (center_x, center_y)
-    
-    # Draw sail with texture if available
-    if texture_path and sail_canvas_points:
-        # Save state, clip to sail shape with catenary edges, draw texture
-        c.saveState()
+
+
+    if COMPLEX_RENDER:
+        # --- EXECUTE COMPLEX RENDER LOOP ---
         
-        # Create clipping path following catenary curves
-        clip_path = c.beginPath()
-        first_pt = sail_canvas_points[0][1]
-        clip_path.moveTo(first_pt[0], first_pt[1])
-        
-        for i in range(len(sail_canvas_points)):
-            label_a = sail_canvas_points[i][0]
-            p1 = sail_canvas_points[i][1]
-            label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
-            p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-            edge_key = f"{label_a}{label_b}"
-            _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
-                                        catenary_ratio, sail_tracks, edge_key)
-        
-        clip_path.close()
-        c.clipPath(clip_path, stroke=0, fill=0)
-        
-        # Calculate bounding box for texture placement
-        sail_xs = [p[1][0] for p in sail_canvas_points]
-        sail_ys = [p[1][1] for p in sail_canvas_points]
-        s_min_x, s_max_x = min(sail_xs), max(sail_xs)
-        s_min_y, s_max_y = min(sail_ys), max(sail_ys)
-        s_w = s_max_x - s_min_x
-        s_h = s_max_y - s_min_y
-        
-        try:
-            # Draw solid background first to ensure opacity
-            c.setFillColor(sail_fill)
-            c.rect(s_min_x - 5, s_min_y - 5, s_w + 10, s_h + 10, stroke=0, fill=1)
-            
-            # Draw texture image on top
-            img = ImageReader(texture_path)
-            c.drawImage(img, s_min_x - 5, s_min_y - 5, 
-                       width=s_w + 10, height=s_h + 10,
-                       preserveAspectRatio=False, mask=None)
-        except Exception:
-            c.setFillColor(sail_fill)
-            c.rect(s_min_x, s_min_y, s_w, s_h, stroke=0, fill=1)
-        
-        c.restoreState()
-    else:
-        # No texture - draw with solid color
-        path = c.beginPath()
+        # 1. Draw Sail Shadow first (always on ground plane)
+        shadow_path = c.beginPath()
         first = True
+        for label in point_order:
+            post = next((p for p in points_3d_posts if p[0] == label), None)
+            if post:
+                px, py = to_canvas_iso(post[1], post[2], 0)
+                if first:
+                    shadow_path.moveTo(px + 6, py - 4)
+                    first = False
+                else:
+                    shadow_path.lineTo(px + 6, py - 4)
+        shadow_path.close()
+        c.setFillColor(Color(0, 0, 0, alpha=0.06))
+        c.drawPath(shadow_path, stroke=0, fill=1)
+
+
+        # 2. Iterate and draw sorted items
+        for item in render_items:
+            if item["type"] == "sail_assembly":
+                 # -- DRAW SAIL MEMBRANE --
+                if texture_path and sail_canvas_points:
+                    c.saveState()
+                    clip_path = c.beginPath()
+                    first_pt = sail_canvas_points[0][1]
+                    clip_path.moveTo(first_pt[0], first_pt[1])
+                    
+                    for i in range(len(sail_canvas_points)):
+                        label_a = sail_canvas_points[i][0]
+                        p1 = sail_canvas_points[i][1]
+                        label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
+                        p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
+                        edge_key = f"{label_a}{label_b}"
+                        _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
+                                                    catenary_ratio, sail_tracks, edge_key)
+                    
+                    clip_path.close()
+                    c.clipPath(clip_path, stroke=0, fill=0)
+                    
+                    # Texture
+                    sail_xs = [p[1][0] for p in sail_canvas_points]
+                    sail_ys = [p[1][1] for p in sail_canvas_points]
+                    s_min_x, s_max_x = min(sail_xs), max(sail_xs)
+                    s_min_y, s_max_y = min(sail_ys), max(sail_ys)
+                    s_w = s_max_x - s_min_x
+                    s_h = s_max_y - s_min_y
+                    
+                    try:
+                        c.setFillColor(sail_fill)
+                        c.rect(s_min_x - 5, s_min_y - 5, s_w + 10, s_h + 10, stroke=0, fill=1)
+                        img = ImageReader(texture_path)
+                        c.drawImage(img, s_min_x - 5, s_min_y - 5, 
+                                   width=s_w + 10, height=s_h + 10,
+                                   preserveAspectRatio=False, mask=None)
+                    except Exception:
+                        c.setFillColor(sail_fill)
+                        c.rect(s_min_x, s_min_y, s_w, s_h, stroke=0, fill=1)
+                    c.restoreState()
+                else:
+                    path = c.beginPath()
+                    if sail_canvas_points:
+                         first_pt = sail_canvas_points[0][1]
+                         path.moveTo(first_pt[0], first_pt[1])
+                         for i in range(len(sail_canvas_points)):
+                             label_a = sail_canvas_points[i][0]
+                             p1 = sail_canvas_points[i][1]
+                             label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
+                             p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
+                             edge_key = f"{label_a}{label_b}"
+                             _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
+                         path.close()
+                    c.setFillColor(sail_fill)
+                    c.setStrokeColor(sail_stroke)
+                    c.setLineWidth(1.5)
+                    c.drawPath(path, stroke=1, fill=1)
+                
+                # -- DRAW EDGES --
+                for i in range(len(point_order)):
+                    a = point_order[i]
+                    b = point_order[(i + 1) % len(point_order)]
+                    pa = next((p for p in sail_canvas_points if p[0] == a), None)
+                    pb = next((p for p in sail_canvas_points if p[0] == b), None)
+                    if not pa or not pb: continue
+                    
+                    p1 = pa[1]
+                    p2 = pb[1]
+                    edge_key = f"{a}{b}"
+                    edge_key_rev = f"{b}{a}"
+                    is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
+                    
+                    if is_sailtrack:
+                        c.setStrokeColor(SAILTRACK_COLOR)
+                        c.setLineWidth(3.5)
+                        c.line(p1[0], p1[1], p2[0], p2[1])
+                    else:
+                        c.setStrokeColor(sail_stroke)
+                        c.setLineWidth(2)
+                        _draw_catenary_curve_inward(c, p1, p2, canvas_sail_center, catenary_ratio)
+
+            elif item["type"] == "merged_wall":
+                # Draw one large wall
+                _draw_merged_3d_wall(c, item["points"], to_canvas_iso, sail_center_2d)
+                # Draw lines and caps
+                if use_workpoints:
+                     for lbl in item['labels']:
+                          post_pt = next((p for p in points_3d_posts if p[0] == lbl), None)
+                          sail_pt_3d = next((p for p in points_3d_sail if p[0] == lbl), None)
+                          if post_pt and sail_pt_3d:
+                               p1 = to_canvas_iso(post_pt[1], post_pt[2], post_pt[3])
+                               p2 = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
+                               c.setStrokeColor(Color(0.4, 0.4, 0.4))
+                               c.setLineWidth(1)
+                               c.setDash([2, 2])
+                               c.line(p1[0], p1[1], p2[0], p2[1])
+                               c.setDash([])
+
+            else:
+                # Standard single item
+                label = item["label"]
+                px, py, pz = item["point"]
+                subtype = item["subtype"]
+
+                if subtype == "wall":
+                    _draw_3d_wall(c, (px, py, pz), to_canvas_iso, sail_center_2d)
+                elif subtype == "roof":
+                    _draw_3d_roof(c, (px, py, pz), to_canvas_iso, sail_center_2d)
+                else:
+                    _draw_3d_pole(c, (px, py, 0), (px, py, pz), to_canvas_iso)
+                
+                # Draw line
+                if use_workpoints:
+                    sail_pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
+                    if sail_pt_3d:
+                        top_pt = to_canvas_iso(px, py, pz)
+                        sail_pt = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
+                        
+                        if abs(sail_pt[0] - top_pt[0]) > 2 or abs(sail_pt[1] - top_pt[1]) > 2:
+                            c.setStrokeColor(Color(0.4, 0.4, 0.4))
+                            c.setLineWidth(1)
+                            c.setDash([2, 2])
+                            c.line(top_pt[0], top_pt[1], sail_pt[0], sail_pt[1])
+                            c.setDash([])
+
+    else:
+        # --- EXECUTE SIMPLE RENDER LOOP (Back to Basics) ---
         
-        if sail_canvas_points:
-             first_pt = sail_canvas_points[0][1]
-             path.moveTo(first_pt[0], first_pt[1])
-             for i in range(len(sail_canvas_points)):
-                 label_a = sail_canvas_points[i][0]
-                 p1 = sail_canvas_points[i][1]
-                 label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
-                 p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-                 edge_key = f"{label_a}{label_b}"
-                 _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
-             path.close()
+        # 1. Draw "Dimension Lines" indicating height (offset from point)
+        # Replacing simple vertical poles with dimension lines as requested.
         
-        c.setFillColor(sail_fill)
-        c.setStrokeColor(sail_stroke)
-        c.setLineWidth(1.5)
-        c.drawPath(path, stroke=1, fill=1)
-    
-    # ========== DRAW EDGES (catenary curving INWARD for non-sailtrack, straight for sailtrack) ==========
-    for i in range(len(point_order)):
-        a = point_order[i]
-        b = point_order[(i + 1) % len(point_order)]
+        offset_dist = 15 # shift dimension line right/left
         
-        # Find connection points
-        pa = next((p for p in sail_canvas_points if p[0] == a), None)
-        pb = next((p for p in sail_canvas_points if p[0] == b), None)
+        for label, px, py, ph in sorted_posts:
+             # Base and Top
+             p_base = to_canvas_iso(px, py, 0)
+             p_top = to_canvas_iso(px, py, ph)
+             
+             # Calculate offset items 
+             # Just shift X by fixed amount for simplicity in isometric view?
+             # Or shift along an axis? Let's simply shift X+.
+             
+             x_off = 15
+             p_base_off = (p_base[0] + x_off, p_base[1])
+             p_top_off = (p_top[0] + x_off, p_top[1])
+             
+             c.setStrokeColor(Color(0.4, 0.4, 0.4))
+             c.setLineWidth(0.5)
+             
+             # Draw extension lines (from point to offset)
+             # Top (solid or dashed?) - Dashed usually implies alignment.
+             c.setDash([2, 1])
+             # c.line(p_top[0], p_top[1], p_top_off[0], p_top_off[1]) # Line from point to dimension?
+             # Maybe just a tiny gap
+             c.line(p_top[0] + 4, p_top[1], p_top_off[0], p_top_off[1])
+             
+             # Bottom extension (approximate ground)
+             c.line(p_base[0] + 4, p_base[1], p_base_off[0], p_base_off[1])
+             c.setDash([])
+             
+             # Draw Vertical Dimension Line
+             c.line(p_base_off[0], p_base_off[1], p_top_off[0], p_top_off[1])
+             
+             # Draw ticks
+             tick_w = 3
+             c.line(p_base_off[0] - tick_w, p_base_off[1], p_base_off[0] + tick_w, p_base_off[1])
+             c.line(p_top_off[0] - tick_w, p_top_off[1], p_top_off[0] + tick_w, p_top_off[1])
+             
+             # Draw Height Text
+             h_mm = int(ph)
+             h_txt = f"{h_mm}"
+             c.setFont("Helvetica", 6)
+             c.setFillColor(black)
+             
+             # Draw text to right of dimension line
+             # Check if text fits vertically? Center it.
+             mid_y = (p_base_off[1] + p_top_off[1]) / 2
+             c.drawString(p_base_off[0] + 4, mid_y - 2, h_txt)
+             
+             # Connector to workpoint (if needed)
+             if use_workpoints:
+                  sail_pt_3d = next((p for p in points_3d_sail if p[0] == label), None)
+                  if sail_pt_3d:
+                       p_sail = to_canvas_iso(sail_pt_3d[1], sail_pt_3d[2], sail_pt_3d[3])
+                       c.setLineWidth(1)
+                       c.setDash([2, 2])
+                       c.line(p_top[0], p_top[1], p_sail[0], p_sail[1])
+                       c.setDash([])
         
-        if not pa or not pb:
-            continue
-        
-        p1 = pa[1]
-        p2 = pb[1]
-        
-        edge_key = f"{a}{b}"
-        edge_key_rev = f"{b}{a}"
-        is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
-        
-        if is_sailtrack:
-            # Sail track edge - straight, thick red line
-            c.setStrokeColor(SAILTRACK_COLOR)
-            c.setLineWidth(3.5)
-            c.line(p1[0], p1[1], p2[0], p2[1])
+        # 2. Draw Sail (after posts, usually floats above)
+        if texture_path and sail_canvas_points:
+            c.saveState()
+            clip_path = c.beginPath()
+            first_pt = sail_canvas_points[0][1]
+            clip_path.moveTo(first_pt[0], first_pt[1])
+            
+            for i in range(len(sail_canvas_points)):
+                label_a = sail_canvas_points[i][0]
+                p1 = sail_canvas_points[i][1]
+                label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
+                p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
+                edge_key = f"{label_a}{label_b}"
+                _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
+                                            catenary_ratio, sail_tracks, edge_key)
+            
+            clip_path.close()
+            c.clipPath(clip_path, stroke=0, fill=0)
+            
+            # Texture
+            sail_xs = [p[1][0] for p in sail_canvas_points]
+            sail_ys = [p[1][1] for p in sail_canvas_points]
+            s_min_x, s_max_x = min(sail_xs), max(sail_xs)
+            s_min_y, s_max_y = min(sail_ys), max(sail_ys)
+            s_w = s_max_x - s_min_x
+            s_h = s_max_y - s_min_y
+            
+            try:
+                c.setFillColor(sail_fill)
+                c.rect(s_min_x - 5, s_min_y - 5, s_w + 10, s_h + 10, stroke=0, fill=1)
+                img = ImageReader(texture_path)
+                c.drawImage(img, s_min_x - 5, s_min_y - 5, 
+                           width=s_w + 10, height=s_h + 10,
+                           preserveAspectRatio=False, mask=None)
+            except Exception:
+                c.setFillColor(sail_fill)
+                c.rect(s_min_x, s_min_y, s_w, s_h, stroke=0, fill=1)
+            c.restoreState()
         else:
-            # Cable edge - draw catenary curve INWARD toward sail center
+            path = c.beginPath()
+            if sail_canvas_points:
+                 first_pt = sail_canvas_points[0][1]
+                 path.moveTo(first_pt[0], first_pt[1])
+                 for i in range(len(sail_canvas_points)):
+                     label_a = sail_canvas_points[i][0]
+                     p1 = sail_canvas_points[i][1]
+                     label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
+                     p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
+                     edge_key = f"{label_a}{label_b}"
+                     _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
+                 path.close()
+            c.setFillColor(sail_fill)
             c.setStrokeColor(sail_stroke)
-            c.setLineWidth(2)
-            _draw_catenary_curve_inward(c, p1, p2, canvas_sail_center, catenary_ratio)
+            c.setLineWidth(1.5)
+            c.drawPath(path, stroke=1, fill=1)
+        
+        # -- DRAW EDGES for simple view --
+        for i in range(len(point_order)):
+            a = point_order[i]
+            b = point_order[(i + 1) % len(point_order)]
+            pa = next((p for p in sail_canvas_points if p[0] == a), None)
+            pb = next((p for p in sail_canvas_points if p[0] == b), None)
+            if not pa or not pb: continue
+            
+            p1 = pa[1]
+            p2 = pb[1]
+            edge_key = f"{a}{b}"
+            edge_key_rev = f"{b}{a}"
+            is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
+            
+            if is_sailtrack:
+                c.setStrokeColor(SAILTRACK_COLOR)
+                c.setLineWidth(3.5)
+                c.line(p1[0], p1[1], p2[0], p2[1])
+            else:
+                c.setStrokeColor(sail_stroke)
+                c.setLineWidth(2)
+                _draw_catenary_curve_inward(c, p1, p2, canvas_sail_center, catenary_ratio)
+
+    
+    # ========== DRAW POLE CAPS, LABELS AND CORNER INFO ==========
+    # Caps should realistically sort with poles, but standard practice often puts labels/hardware on top
+    # For occlusion, if a pole is IN FRONT of sail, its cap is fine on top.
+    # If a pole is BEHIND sail, its cap should technically be occluded by sail if fitting is below sail plane.
+    # But usually cap is AT sail plane.
+    # We will leave labels/caps as overlay for clarity unless requested otherwise.
+    
+    # (Leaving original Loop for Caps/Labels to run after everything)
+
     
     # ========== DRAW POLE CAPS, LABELS AND CORNER INFO ==========
     for label, px, py, pz in sorted_posts:
@@ -1479,7 +1829,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         info_lines = []
         if extra_tags:
             info_lines.append(f"({', '.join(extra_tags)})")
-        if height_val > 0 and has_any_height:
+        if height_val > 0 and has_any_height and COMPLEX_RENDER:
             height_text = f"H: {int(height_val)}mm" if height_val < 10000 else f"H: {height_val/1000:.1f}m"
             info_lines.append(height_text)
         if fitting:
@@ -1626,20 +1976,6 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     
     # Corner details (fittings only - allowances are on drawings)
     points_data = attrs.get("points", {})
-    
-    # Collect corner info: just fitting per corner (allowance removed from specs)
-    corner_info = []
-    for label in sorted(points_data.keys()):
-        pt = points_data[label]
-        fitting = pt.get("cornerFitting", "")
-        if fitting:
-            corner_info.append((label, fitting))
-    
-    if corner_info:
-        specs.append(("", ""))  # Spacer
-        specs.append(("CORNERS", ""))
-        for label, fitting in corner_info:
-            specs.append((f"Corner {label}", fitting))
     
     # Tension hardware (only if specified)
     hardware_types = {}

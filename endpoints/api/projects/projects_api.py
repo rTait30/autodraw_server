@@ -29,7 +29,7 @@ def get_products():
 @projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
 @jwt_required()
 def save_project_config():
-    print(f"[DEBUG] save_project_config hit. Identity: {get_jwt_identity()}")
+    #print(f"[DEBUG] save_project_config hit. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
     if not user:
         print(f"[AUTH ERROR] save_project_config: Valid JWT identity '{get_jwt_identity()}' but User not found in DB.")
@@ -72,7 +72,7 @@ def save_project_config():
 @projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
 @jwt_required()
 def upsert_project_and_attributes(project_id):
-    print(f"[DEBUG] upsert_project_and_attributes hit for ID {project_id}. Identity: {get_jwt_identity()}")
+    #print(f"[DEBUG] upsert_project_and_attributes hit for ID {project_id}. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
     if not user:
         print(f"[AUTH ERROR] upsert_project_and_attributes: Valid JWT identity '{get_jwt_identity()}' but User not found in DB.")

@@ -76,7 +76,8 @@ GROUND_COLOR = Color(0.85, 0.82, 0.78)  # Light tan ground
 def _get_texture_path(fabric_name: str, color_name: str) -> str:
     """
     Build texture path the same way FabricSelector.jsx does:
-    /static/textures/{fabricName.toLowerCase().replace(/\s+/g, '')}/{colorName.toLowerCase().replace(/\s+/g, '')}.jpg
+    /static/textures/{fabricName.toLowerCase().replace(/\s+/g, '')}/{colorName.toLowerCase().replace(/\s+/g, '')}.webp or .jpg
+    Tries .webp first (more efficient), then .jpg
     """
     if not fabric_name or not color_name:
         return None
@@ -85,7 +86,24 @@ def _get_texture_path(fabric_name: str, color_name: str) -> str:
     fabric_slug = fabric_name.lower().replace(' ', '')
     color_slug = color_name.lower().replace(' ', '')
     
-    return f"static/textures/{fabric_slug}/{color_slug}.jpg"
+    base_path = f"static/textures/{fabric_slug}/{color_slug}"
+    
+    # Try .webp first
+    webp_path = f"{base_path}.webp"
+    static_folder = current_app.static_folder if current_app else 'static'
+    abs_webp_path = os.path.join(os.path.dirname(static_folder), webp_path) if webp_path.startswith('static/') else os.path.join(static_folder, webp_path)
+    
+    if os.path.exists(abs_webp_path):
+        return abs_webp_path
+    
+    # Try .jpg
+    jpg_path = f"{base_path}.jpg"
+    abs_jpg_path = os.path.join(os.path.dirname(static_folder), jpg_path) if jpg_path.startswith('static/') else os.path.join(static_folder, jpg_path)
+    
+    if os.path.exists(abs_jpg_path):
+        return abs_jpg_path
+    
+    return None
 
 
 def _get_fabric_texture_and_color(fabric_type: str, colour_name: str) -> tuple:
@@ -93,10 +111,8 @@ def _get_fabric_texture_and_color(fabric_type: str, colour_name: str) -> tuple:
     Look up fabric texture and colour from database fresh.
     Returns (texture_path_or_None, Color object).
     
-    Tries:
-    1. texture_path from database if set
-    2. Constructed path like FabricSelector.jsx
-    3. Falls back to hex_value as Color
+    Always constructs path like FabricSelector.jsx and checks for .webp or .jpg files.
+    Falls back to hex_value as Color.
     """
     if not fabric_type or not colour_name:
         return None, DEFAULT_SAIL_FILL
@@ -120,31 +136,8 @@ def _get_fabric_texture_and_color(fabric_type: str, colour_name: str) -> tuple:
         if not color:
             return None, DEFAULT_SAIL_FILL
         
-        # Try texture path from database first
-        texture_path = None
-        if color.texture_path:
-            # Database has explicit texture path
-            if color.texture_path.startswith('/'):
-                texture_path = color.texture_path[1:]  # Remove leading /
-            else:
-                texture_path = color.texture_path
-        else:
-            # Construct path like FabricSelector.jsx
-            texture_path = _get_texture_path(fabric_type, colour_name)
-        
-        # Check if texture file exists
-        if texture_path:
-            # Get absolute path
-            static_folder = current_app.static_folder if current_app else 'static'
-            if texture_path.startswith('static/'):
-                abs_texture_path = os.path.join(os.path.dirname(static_folder), texture_path)
-            else:
-                abs_texture_path = os.path.join(static_folder, texture_path)
-            
-            if os.path.exists(abs_texture_path):
-                texture_path = abs_texture_path
-            else:
-                texture_path = None  # File doesn't exist
+        # Always construct path like FabricSelector.jsx (tries .webp then .jpg)
+        texture_path = _get_texture_path(fabric_type, colour_name)
         
         # Get hex color as fallback (full opacity for richer color)
         hex_color = DEFAULT_SAIL_FILL

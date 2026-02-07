@@ -234,7 +234,7 @@ def create_project(user, data):
             raise ValueError("product.attributes must be an object")
 
         item_index = p.get("productIndex", idx)
-        label = p.get("name") or attrs.get("label") or f"Item {idx + 1}"
+        label = p.get("name") or f"Item {idx + 1}"
         calc = p.get("calculated") or {}
         autodraw_record = p.get("autodraw_record") or {}
         autodraw_meta = p.get("autodraw_meta") or {}
@@ -510,10 +510,12 @@ def update_project(user, project_id, data):
             autodraw_meta = p.get("autodraw_meta") or {}
             status = p.get("status", "pending")
 
+            label = p.get("name") or f"Item {idx + 1}"
+
             pp = ProjectProduct(
                 project_id=project.id,
                 item_index=idx,
-                label=p.get("label"),
+                label=label,
                 attributes=attrs,
                 autodraw_record=autodraw_record,
                 autodraw_meta=autodraw_meta,
@@ -530,7 +532,8 @@ def update_project(user, project_id, data):
          for idx, p in enumerate(products_payload):
              attrs = p.get("attributes") or {}
              if attrs.get("discrepancyProblem"):
-                 raise ValueError(f"Product #{idx+1} ({p.get('label', 'Item')}) has dimension discrepancies.")
+                 label = p.get("name") or f"Item {idx + 1}"
+                 raise ValueError(f"Product #{idx+1} ({label}) has dimension discrepancies.")
 
     # ---------- Enrich wg_data from WorkGuru API if present ----------
     if project.project_attributes and isinstance(project.project_attributes.get("wg_data"), dict):

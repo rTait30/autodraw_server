@@ -7,34 +7,41 @@ import { getBaseUrl } from '../utils/baseUrl';
 const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2" }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  // Try to load texture image
-  const texturePath = getBaseUrl(`/static/textures/${fabricName?.toLowerCase().replace(/\s+/g, '')}/${color.name?.toLowerCase().replace(/\s+/g, '')}.jpg`);
+  const [loadedSrc, setLoadedSrc] = useState('');
 
   useEffect(() => {
-    let imageSrc = '';
-    if (color.texture_path) {
-      // If texture_path exists in data, use it (ensure it's a full URL)
-      imageSrc = color.texture_path.startsWith('http') ? color.texture_path : getBaseUrl(color.texture_path);
-    } else {
-      // Try constructed path
-      imageSrc = texturePath;
-    }
+    setImageLoaded(false);
+    setImageError(false);
+    setLoadedSrc('');
+
+    // Always construct path: /static/textures/{fabricName lowercase no spaces}/{colorName lowercase no spaces}
+    const basePath = `/static/textures/${fabricName?.toLowerCase().replace(/\s+/g, '')}/${color.name?.toLowerCase().replace(/\s+/g, '')}`;
+    const imageSrc = getBaseUrl(`${basePath}.webp`);
+    const alternativeSrc = getBaseUrl(`${basePath}.jpg`);
     
     const img = new Image();
-    img.onload = () => setImageLoaded(true);
-    img.onerror = () => setImageError(true);
+    let triedAlternative = false;
+
+    img.onload = () => {
+      setImageLoaded(true);
+      setLoadedSrc(img.src);
+    };
+    img.onerror = () => {
+      if (!triedAlternative && alternativeSrc) {
+        triedAlternative = true;
+        img.src = alternativeSrc;
+      } else {
+        setImageError(true);
+      }
+    };
     img.src = imageSrc;
-  }, [color.texture_path, texturePath]);
+  }, [fabricName, color.name]);
 
   if (imageLoaded && !imageError) {
-    const imageSrc = color.texture_path 
-      ? (color.texture_path.startsWith('http') ? color.texture_path : getBaseUrl(color.texture_path))
-      : texturePath;
     return (
       <div
         className={`${className} bg-cover bg-center`}
-        style={{ backgroundImage: `url(${imageSrc})` }}
+        style={{ backgroundImage: `url(${loadedSrc})` }}
       />
     );
   }
@@ -372,7 +379,7 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
                       onChange={e => setNewColor({...newColor, name: e.target.value})}
                    />
                    <p className="text-xs text-gray-500 mt-1">
-                     Image path will be: /static/textures/{selectedType.name.toLowerCase().replace(/\s+/g, '')}/{newColor.name.toLowerCase().replace(/\s+/g, '')}.jpg
+                     Image path: /static/textures/{selectedType.name.toLowerCase().replace(/\s+/g, '')}/{newColor.name.toLowerCase().replace(/\s+/g, '')}.webp (preferred) or .jpg
                    </p>
                  </div>
                  <div>

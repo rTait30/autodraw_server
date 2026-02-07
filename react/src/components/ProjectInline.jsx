@@ -85,10 +85,10 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
   // Ensure visualization updates when project data or visibility changes
   useEffect(() => {
-    if (hasCalculatedOrSaved && editedProject && canvasRef.current) {
+    if (hasCalculatedOrSaved && editedProject && canvasRef.current && !overlayMode) {
         renderPreview(editedProject);
     }
-  }, [hasCalculatedOrSaved, editedProject]);
+  }, [hasCalculatedOrSaved, editedProject, overlayMode]);
 
   // Helper to load form - REMOVED (Handled by ProjectForm)
   /*
@@ -325,8 +325,19 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       
       // Update local state immediately so UI reflects changes (important for edits)
       setEditedProject(updatedProject);
+      
+      // Ensure schemas are updated so estimate table remains visible/current
       if (updatedProject.estimate_schema_evaluated) {
         setSchema(updatedProject.estimate_schema_evaluated);
+      }
+      if (updatedProject.estimate_schema) {
+         setEditedSchema(updatedProject.estimate_schema);
+         // If evaluated is missing (e.g. strict save), ensure 'schema' is not stale 
+         // if it was previously undefined or we want to reset to formula.
+         // This ensures the Estimate component remains visible (it checks 'schema').
+         if (!updatedProject.estimate_schema_evaluated) {
+             setSchema(updatedProject.estimate_schema);
+         }
       }
 
       showToast(isNew ? "Project Created!" : "Project Updated!");

@@ -13,6 +13,31 @@ Returns the full (mutated) data dict.
 from typing import Dict, Any, List, Tuple
 import math
 
+# Workpoint algorithm modules
+from .workpoints_centroid import compute_workpoints_centroid
+from .workpoints_bisect import compute_workpoints_bisect
+from .workpoints_midpoint import compute_workpoints_midpoint
+from .workpoints_area_centroid import compute_workpoints_area_centroid
+from .workpoints_weighted import compute_workpoints_weighted
+from .workpoints_minimal import compute_workpoints_minimal
+from .workpoints_bisect_rotate import compute_workpoints_bisect_rotate
+
+# Configuration: Enable/disable workpoint algorithms
+# Set to True to compute and include in attributes
+WORKPOINT_METHODS = {
+    "centroid": False,
+    "bisect": True,
+    "midpoint": False,
+    "area": True,              # Area centroid
+    "weighted": False,
+    "minimal": False,
+    "bisect_rotate": True,
+}
+
+# Set which method should be aliased to the "workpoints" key
+# Must be one of the enabled methods above
+DEFAULT_WORKPOINT_METHOD = "bisect_rotate"  # Default method for "workpoints" key in attributes
+
 
 def _num(v):
     try:
@@ -533,507 +558,48 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
         cy_area = cy
         
     attributes["centroid_area"] = {"x": cx_area, "y": cy_area, "z": cz}
-    
-    # 2. Calculate Workpoints (Centroid Method)
-    # Projects the workpoint inwards towards the centroid.
-    workpoints_centroid = {}
-    
-    for p in points_3d:
-        label = p["label"]
-        x, y, z, ta = p["x"], p["y"], p["z"], p["ta"]
-        
-        # Vector from point to centroid
-        dx = cx - x
-        dy = cy - y
-        dz = cz - z
-        
-        mag = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
-        
-        # Unit vector (Direction: Post -> Centroid)
-        ux = dx / mag
-        uy = dy / mag
-        uz = dz / mag
-        
-        # Workpoint = Post + (Direction * Allowance) 
-        # Moves point INWARDS from the corner definition
-        wx = x + ux * ta
-        wy = y + uy * ta
-        wz = z + uz * ta
-        
-        workpoints_centroid[label] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_centroid"] = workpoints_centroid
-    # Maintain "workpoints" key as a fallback/alias to centroid method for now
-    attributes["workpoints"] = workpoints_centroid 
 
-    # 3. Calculate Workpoints (Bisect Method)
-    # Projects the workpoint inwards along the angle bisector of adjacent edges.
-    workpoints_bisect = {}
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
-        
-        # Vectors from Current -> Prev, Current -> Next
-        v_prev = (prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"])
-        v_next = (next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"], next_p["z"] - curr_p["z"])
-        
-        # Normalize
-        len_prev = math.sqrt(sum(k*k for k in v_prev)) or 1.0
-        len_next = math.sqrt(sum(k*k for k in v_next)) or 1.0
-        
-        u_prev = [k / len_prev for k in v_prev]
-        u_next = [k / len_next for k in v_next]
-        
-        # Bisector direction = Sum of normalized edge vectors
-        # For a standard convex corner, this points INWARDS.
-        bisect = [u_prev[k] + u_next[k] for k in range(3)]
-        len_bisect = math.sqrt(sum(k*k for k in bisect))
-        
-        if len_bisect < 1e-9:
-             # Edges are collinear (180 deg) or degenerate.
-             # Fallback to Centroid direction to avoid error
-             dx = cx - curr_p["x"]
-             dy = cy - curr_p["y"]
-             dz = cz - curr_p["z"]
-             mag_c = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
-             u_bisect = [dx/mag_c, dy/mag_c, dz/mag_c]
-        else:
-             u_bisect = [c / len_bisect for c in bisect]
-        
-        ta = curr_p["ta"]
-        wx = curr_p["x"] + u_bisect[0] * ta
-        wy = curr_p["y"] + u_bisect[1] * ta
-        wz = curr_p["z"] + u_bisect[2] * ta
-        
-        workpoints_bisect[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_bisect"] = workpoints_bisect
+    # Calculate enabled workpoint methods
+    computed_workpoints = {}
 
-    # 4. Calculate Workpoints (Planar Midpoint Method)
-    # Addresses "vertical corner" distortion and "reflex angle" stability.
-    # Uses 2D Median (Vector to midpoint of neighbors), corrected for reflex, 
-    # with Z projected onto the local corner plane.
-    # IMPROVED: When neighbors are too close, extend to further neighbors or use centroid blend.
-    workpoints_midpoint = {} 
-    
-    # Minimum distance threshold - if neighbors are closer than this, extend search
-    MIN_NEIGHBOR_DIST = 500.0  # 500mm minimum meaningful distance
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
-        
-        # Check if neighbors are too close to the current point
-        dist_to_prev = math.hypot(prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"])
-        dist_to_next = math.hypot(next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"])
-        
-        # If both neighbors are very close, use extended neighbors
-        if dist_to_prev < MIN_NEIGHBOR_DIST and dist_to_next < MIN_NEIGHBOR_DIST:
-            # Look further - use 2nd neighbors
-            prev_p = points_3d[(i - 2 + count) % count]
-            next_p = points_3d[(i + 2) % count]
-        elif dist_to_prev < MIN_NEIGHBOR_DIST:
-            # Just prev is close, extend prev
-            prev_p = points_3d[(i - 2 + count) % count]
-        elif dist_to_next < MIN_NEIGHBOR_DIST:
-            # Just next is close, extend next
-            next_p = points_3d[(i + 2) % count]
-        
-        # 1. Planar Midpoint of Neighbors
-        mx = (prev_p["x"] + next_p["x"]) / 2.0
-        my = (prev_p["y"] + next_p["y"]) / 2.0
-        
-        # Vector from Corner to Midpoint
-        dx = mx - curr_p["x"]
-        dy = my - curr_p["y"]
-        
-        # 2. Reflex Check (Assuming Clockwise Winding)
-        # Use original immediate neighbors for reflex check
-        orig_prev = points_3d[(i - 1 + count) % count]
-        orig_next = points_3d[(i + 1) % count]
-        v_in_x = curr_p["x"] - orig_prev["x"]
-        v_in_y = curr_p["y"] - orig_prev["y"]
-        v_out_x = orig_next["x"] - curr_p["x"]
-        v_out_y = orig_next["y"] - curr_p["y"]
-        
-        # Cross Product (2D)
-        # Positive = Right Turn (Convex in CW)
-        # Negative = Left Turn (Reflex in CW)
-        cross_z = v_in_x * v_out_y - v_in_y * v_out_x
-        
-        is_reflex = cross_z < -1e-9
-        
-        if is_reflex:
-            # For reflex, the median points "Inwards" (into the fabric).
-            # We want to pull "Outwards". Flip the vector.
-            dx = -dx
-            dy = -dy
-            
-        dist_2d = math.hypot(dx, dy)
-        if dist_2d < MIN_NEIGHBOR_DIST / 2.0:
-            # Still too close - blend with area centroid direction
-            centroid_dx = cx_area - curr_p["x"]
-            centroid_dy = cy_area - curr_p["y"]
-            # Blend: 50% midpoint, 50% centroid
-            dx = dx + centroid_dx
-            dy = dy + centroid_dy
-            dist_2d = math.hypot(dx, dy) or 1.0
+    if WORKPOINT_METHODS.get("centroid"):
+        workpoints_centroid = compute_workpoints_centroid(points_3d, cx, cy, cz)
+        attributes["workpoints_centroid"] = workpoints_centroid
+        computed_workpoints["centroid"] = workpoints_centroid
 
-        # Normalize 2D Direction
-        ux = dx / dist_2d
-        uy = dy / dist_2d
-        
-        ta = curr_p["ta"]
-        
-        # 3. Calculate Workpoint X/Y
-        wx = curr_p["x"] + ux * ta
-        wy = curr_p["y"] + uy * ta
-        
-        # 4. Calculate Workpoint Z (Project onto Local Plane P-C-N)
-        # Normal N = (P-C) x (N-C)
-        v1x, v1y, v1z = prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"]
-        v2x, v2y, v2z = next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"], next_p["z"] - curr_p["z"]
-        
-        nx = v1y * v2z - v1z * v2y
-        ny = v1z * v2x - v1x * v2z
-        nz = v1x * v2y - v1y * v2x # This is effectively cross_z
-        
-        # Plane Eq: nx(x-cx) + ny(y-cy) + nz(z-cz) = 0
-        # We know wx, wy. Solve for wz.
-        # nz(wz - cz) = -nx(wx - cx) - ny(wy - cy)
-        # wz = cz - (nx*dx_w + ny*dy_w) / nz
-        
-        # Use a soft threshold for nz to avoid divide by zero (vertical planes or straight lines)
-        if abs(nz) > 1e-6:
-            dx_w = wx - curr_p["x"]
-            dy_w = wy - curr_p["y"]
-            wz = curr_p["z"] - (nx * dx_w + ny * dy_w) / nz
-        else:
-            # Fallback for vertical/degenerate conditions:
-            # Use average Z slope of neighbors
-            # dist_prev = hypot(v1x, v1y)
-            # dist_next = hypot(v2x, v2y)
-            # if dist_prev > 1e-6 and dist_next > 1e-6:
-            #    slope = ((v1z/dist_prev) + (v2z/dist_next)) / 2.0
-            #    wz = curr_p["z"] + slope * ta
-            # else:
-            wz = curr_p["z"]
+    if WORKPOINT_METHODS.get("bisect"):
+        workpoints_bisect = compute_workpoints_bisect(points_3d, cx, cy, cz)
+        attributes["workpoints_bisect"] = workpoints_bisect
+        computed_workpoints["bisect"] = workpoints_bisect
 
-        workpoints_midpoint[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_midpoint"] = workpoints_midpoint
+    if WORKPOINT_METHODS.get("midpoint"):
+        workpoints_midpoint = compute_workpoints_midpoint(points_3d, cx_area, cy_area, cz)
+        attributes["workpoints_midpoint"] = workpoints_midpoint
+        computed_workpoints["midpoint"] = workpoints_midpoint
 
-    # 5. Calculate Workpoints (Area Centroid Method - Restored)
-    workpoints_area_centroid = {}
-    
-    for p in points_3d:
-        label = p["label"]
-        x, y, z, ta = p["x"], p["y"], p["z"], p["ta"]
-        
-        dx = cx_area - x
-        dy = cy_area - y
-        dz = cz - z
-        
-        mag = math.sqrt(dx*dx + dy*dy + dz*dz) or 1.0
-        
-        ux = dx / mag
-        uy = dy / mag
-        uz = dz / mag
-        
-        wx = x + ux * ta
-        wy = y + uy * ta
-        wz = z + uz * ta
-        
-        workpoints_area_centroid[label] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_area"] = workpoints_area_centroid
+    if WORKPOINT_METHODS.get("area"):
+        workpoints_area = compute_workpoints_area_centroid(points_3d, cx_area, cy_area, cz)
+        attributes["workpoints_area"] = workpoints_area
+        computed_workpoints["area"] = workpoints_area
 
-    # 6. Calculate Workpoints (Edge-Tension Weighted Method)
-    # IMPROVED: Instead of point-to-point, compute tension toward EDGES.
-    # Each corner is pulled toward the "opposite" edges of the sail.
-    # Closer edges have less weight (they're already connected), distant edges pull more.
-    # This gives E and D more vertical pull toward the A-B edge.
-    workpoints_weighted = {}
-    
-    # Build list of edges as line segments (each edge connects two adjacent points)
-    edges_list = []
-    for j in range(count):
-        p1 = points_3d[j]
-        p2 = points_3d[(j + 1) % count]
-        edges_list.append((p1, p2, j, (j + 1) % count))
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        
-        weighted_sum_x = 0.0
-        weighted_sum_y = 0.0
-        total_weight = 0.0
-        
-        # For each edge, compute distance and direction from current point to edge midpoint
-        for (ep1, ep2, idx1, idx2) in edges_list:
-            # Skip edges that include this corner (adjacent edges)
-            if idx1 == i or idx2 == i:
-                continue
-            
-            # Edge midpoint
-            emx = (ep1["x"] + ep2["x"]) / 2.0
-            emy = (ep1["y"] + ep2["y"]) / 2.0
-            
-            # Vector from corner to edge midpoint
-            dx = emx - curr_p["x"]
-            dy = emy - curr_p["y"]
-            dist_2d = math.hypot(dx, dy)
-            
-            # Edge length (longer edges have more "pull" - more membrane area)
-            edge_len = math.hypot(ep2["x"] - ep1["x"], ep2["y"] - ep1["y"])
-            
-            # Weight: (edge_length) / distance^1.5
-            # The 1.5 power gives moderate distance falloff
-            # Longer edges contribute more pull (more membrane attached)
-            if dist_2d > 100.0:
-                weight = edge_len / (dist_2d ** 1.5)
-            else:
-                weight = edge_len / (100.0 ** 1.5)
-            
-            weighted_sum_x += dx * weight
-            weighted_sum_y += dy * weight
-            total_weight += weight
-        
-        if total_weight > 1e-9:
-            avg_dx = weighted_sum_x / total_weight
-            avg_dy = weighted_sum_y / total_weight
-        else:
-            # Fallback to area centroid
-            avg_dx = cx_area - curr_p["x"]
-            avg_dy = cy_area - curr_p["y"]
-        
-        mag_2d = math.hypot(avg_dx, avg_dy)
-        if mag_2d < 1e-9:
-            avg_dx = cx_area - curr_p["x"]
-            avg_dy = cy_area - curr_p["y"]
-            mag_2d = math.hypot(avg_dx, avg_dy) or 1.0
-        
-        ux = avg_dx / mag_2d
-        uy = avg_dy / mag_2d
-        
-        ta = curr_p["ta"]
-        wx = curr_p["x"] + ux * ta
-        wy = curr_p["y"] + uy * ta
-        
-        # Z: Project onto local plane
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
-        v1x, v1y, v1z = prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"]
-        v2x, v2y, v2z = next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"], next_p["z"] - curr_p["z"]
-        
-        nx = v1y * v2z - v1z * v2y
-        ny = v1z * v2x - v1x * v2z
-        nz = v1x * v2y - v1y * v2x
-        
-        if abs(nz) > 1e-6:
-            dx_w = wx - curr_p["x"]
-            dy_w = wy - curr_p["y"]
-            wz = curr_p["z"] - (nx * dx_w + ny * dy_w) / nz
-        else:
-            wz = curr_p["z"]
-        
-        workpoints_weighted[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_weighted"] = workpoints_weighted
+    if WORKPOINT_METHODS.get("weighted"):
+        workpoints_weighted = compute_workpoints_weighted(points_3d, cx_area, cy_area)
+        attributes["workpoints_weighted"] = workpoints_weighted
+        computed_workpoints["weighted"] = workpoints_weighted
 
-    # 7. Calculate Workpoints (Minimal Surface Method)
-    # Simulates membrane tension using Laplacian smoothing concept.
-    # Each corner is pulled toward the average position of ALL other corners,
-    # which approximates where a minimal surface would want to pull.
-    # Then blend with the bisector direction for local angle consideration.
-    workpoints_minimal = {}
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        
-        # Compute average position of all OTHER corners (Laplacian target)
-        avg_x = 0.0
-        avg_y = 0.0
-        for j in range(count):
-            if i == j:
-                continue
-            avg_x += points_3d[j]["x"]
-            avg_y += points_3d[j]["y"]
-        avg_x /= (count - 1)
-        avg_y /= (count - 1)
-        
-        # Direction to Laplacian center
-        lap_dx = avg_x - curr_p["x"]
-        lap_dy = avg_y - curr_p["y"]
-        lap_mag = math.hypot(lap_dx, lap_dy) or 1.0
-        
-        # Also compute bisector direction (local angle consideration)
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
-        
-        v_in_x = curr_p["x"] - prev_p["x"]
-        v_in_y = curr_p["y"] - prev_p["y"]
-        v_in_mag = math.hypot(v_in_x, v_in_y) or 1.0
-        
-        v_out_x = next_p["x"] - curr_p["x"]
-        v_out_y = next_p["y"] - curr_p["y"]
-        v_out_mag = math.hypot(v_out_x, v_out_y) or 1.0
-        
-        # Normalize
-        v_in_x /= v_in_mag
-        v_in_y /= v_in_mag
-        v_out_x /= v_out_mag
-        v_out_y /= v_out_mag
-        
-        # Bisector (inward pointing)
-        bis_x = -v_in_x + v_out_x
-        bis_y = -v_in_y + v_out_y
-        bis_mag = math.hypot(bis_x, bis_y)
-        
-        if bis_mag < 1e-9:
-            # Straight line, use perpendicular
-            bis_x = -v_in_y
-            bis_y = v_in_x
-            bis_mag = math.hypot(bis_x, bis_y) or 1.0
-        
-        bis_x /= bis_mag
-        bis_y /= bis_mag
-        
-        # Reflex check
-        cross_z = v_in_x * v_out_y - v_in_y * v_out_x
-        if cross_z < -1e-9:  # Reflex in CW winding
-            bis_x = -bis_x
-            bis_y = -bis_y
-        
-        # Blend: 60% Laplacian (global surface), 40% Bisector (local angle)
-        # This gives smooth global behavior with local angle respect
-        blend_x = 0.6 * (lap_dx / lap_mag) + 0.4 * bis_x
-        blend_y = 0.6 * (lap_dy / lap_mag) + 0.4 * bis_y
-        blend_mag = math.hypot(blend_x, blend_y) or 1.0
-        
-        ux = blend_x / blend_mag
-        uy = blend_y / blend_mag
-        
-        ta = curr_p["ta"]
-        wx = curr_p["x"] + ux * ta
-        wy = curr_p["y"] + uy * ta
-        
-        # Z: Project onto local plane
-        v1x, v1y, v1z = prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"]
-        v2x, v2y, v2z = next_p["x"] - curr_p["x"], next_p["y"] - curr_p["y"], next_p["z"] - curr_p["z"]
-        
-        nx = v1y * v2z - v1z * v2y
-        ny = v1z * v2x - v1x * v2z
-        nz = v1x * v2y - v1y * v2x
-        
-        if abs(nz) > 1e-6:
-            dx_w = wx - curr_p["x"]
-            dy_w = wy - curr_p["y"]
-            wz = curr_p["z"] - (nx * dx_w + ny * dy_w) / nz
-        else:
-            wz = curr_p["z"]
-        
-        workpoints_minimal[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_minimal"] = workpoints_minimal
+    if WORKPOINT_METHODS.get("minimal"):
+        workpoints_minimal = compute_workpoints_minimal(points_3d)
+        attributes["workpoints_minimal"] = workpoints_minimal
+        computed_workpoints["minimal"] = workpoints_minimal
 
-    # 8. Calculate Workpoints (Bisect-Rotate Method)
-    # Manual technique simulation:
-    # 1. Bisect the corner angle (like bisect algorithm) to get horizontal direction
-    # 2. Create a vertical plane containing this bisector direction
-    # 3. Project the area centroid onto this plane
-    # 4. Workpoint direction goes toward the projected centroid
-    # This constrains direction to the bisector's vertical slice while aiming at area centroid.
-    workpoints_bisect_rotate = {}
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
-        
-        # 1. Compute 2D bisector direction (XY plane only)
-        # Vector from prev to curr (incoming edge)
-        v_in_x = curr_p["x"] - prev_p["x"]
-        v_in_y = curr_p["y"] - prev_p["y"]
-        v_in_mag = math.hypot(v_in_x, v_in_y) or 1.0
-        v_in_x /= v_in_mag
-        v_in_y /= v_in_mag
-        
-        # Vector from curr to next (outgoing edge)
-        v_out_x = next_p["x"] - curr_p["x"]
-        v_out_y = next_p["y"] - curr_p["y"]
-        v_out_mag = math.hypot(v_out_x, v_out_y) or 1.0
-        v_out_x /= v_out_mag
-        v_out_y /= v_out_mag
-        
-        # Bisector = sum of negated incoming and outgoing unit vectors
-        bis_x = -v_in_x + v_out_x
-        bis_y = -v_in_y + v_out_y
-        bis_mag = math.hypot(bis_x, bis_y)
-        
-        if bis_mag < 1e-9:
-            # Straight line - use perpendicular to edge
-            bis_x = -v_in_y
-            bis_y = v_in_x
-            bis_mag = math.hypot(bis_x, bis_y) or 1.0
-        
-        bis_x /= bis_mag
-        bis_y /= bis_mag
-        
-        # Reflex check - if reflex angle, flip bisector outward
-        cross_z = v_in_x * v_out_y - v_in_y * v_out_x
-        if cross_z < -1e-9:  # Reflex in CW winding
-            bis_x = -bis_x
-            bis_y = -bis_y
-        
-        # 2. Create vertical plane containing bisector
-        # Plane passes through curr_p, with normal perpendicular to bisector (in XY) and perpendicular to Z
-        # Plane normal: n = bisector × Z = (bis_x, bis_y, 0) × (0, 0, 1) = (bis_y, -bis_x, 0)
-        plane_nx = bis_y
-        plane_ny = -bis_x
-        # plane_nz = 0 (horizontal normal = vertical plane)
-        
-        # 3. Project area centroid onto this plane
-        # Plane equation: plane_nx*(x - curr_x) + plane_ny*(y - curr_y) = 0
-        # Project point P onto plane: P_proj = P - ((P-curr) · n) * n
-        # Vector from corner to area centroid
-        to_centroid_x = cx_area - curr_p["x"]
-        to_centroid_y = cy_area - curr_p["y"]
-        to_centroid_z = cz - curr_p["z"]
-        
-        # Dot product with plane normal (only XY components since nz=0)
-        dot = to_centroid_x * plane_nx + to_centroid_y * plane_ny
-        
-        # Projected point (relative to corner)
-        proj_x = to_centroid_x - dot * plane_nx
-        proj_y = to_centroid_y - dot * plane_ny
-        proj_z = to_centroid_z  # Z unchanged by horizontal normal
-        
-        # 4. Direction from corner to projected centroid
-        proj_mag = math.sqrt(proj_x*proj_x + proj_y*proj_y + proj_z*proj_z)
-        
-        if proj_mag < 1e-9:
-            # Fallback to bisector direction with no Z tilt
-            ux = bis_x
-            uy = bis_y
-            uz = 0.0
-        else:
-            ux = proj_x / proj_mag
-            uy = proj_y / proj_mag
-            uz = proj_z / proj_mag
-        
-        # Apply tension allowance
-        ta = curr_p["ta"]
-        wx = curr_p["x"] + ux * ta
-        wy = curr_p["y"] + uy * ta
-        wz = curr_p["z"] + uz * ta
-        
-        workpoints_bisect_rotate[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
-        
-    attributes["workpoints_bisect_rotate"] = workpoints_bisect_rotate
+    if WORKPOINT_METHODS.get("bisect_rotate"):
+        workpoints_bisect_rotate = compute_workpoints_bisect_rotate(points_3d, cx_area, cy_area, cz)
+        attributes["workpoints_bisect_rotate"] = workpoints_bisect_rotate
+        computed_workpoints["bisect_rotate"] = workpoints_bisect_rotate
+
+    # Set the default workpoints alias
+    if DEFAULT_WORKPOINT_METHOD in computed_workpoints:
+        attributes["workpoints"] = computed_workpoints[DEFAULT_WORKPOINT_METHOD]
 
 
 # ---------------------------------------------------------------------------

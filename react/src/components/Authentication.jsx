@@ -208,7 +208,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
   }
 
   return (
-    <div className="w-full flex flex-col items-center px-4 py-4">
+    <div className="w-full flex flex-col items-center p-4">
           <div className="flex justify-center w-full mb-4">
             <img
               src={getBaseUrl(darkMode ? '/static/img/DRlogoHDark.png' : '/static/img/DRlogoH.png')}
@@ -218,20 +218,27 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
           </div>
 
           {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="w-full max-w-xs flex flex-col gap-4">
+            <form onSubmit={handleLogin} className="w-full max-w-sm flex flex-col gap-4">
               <div className="w-full">
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <TextInput
                     label="Username/Email (Required)"
+                    name="username"
+                    className="text-base"
                     value={loginForm.username}
                     onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
                     required
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                   />
 
                   <TextInput
                     label="Password (Required)"
+                    name="password"
                     type="password"
+                    className="text-base"
                     value={loginForm.password}
                     onChange={(val) => setLoginForm((s) => ({ ...s, password: val }))}
                     required
@@ -262,7 +269,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
 
               <div className="flex flex-col gap-2 mt-2">
                 <Button 
-                  type="submit" 
+                  variant="submit" 
                   className="w-full" 
                   isLoading={submitting}
                 >
@@ -275,16 +282,12 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                       setRegisterForm(s => ({
                         ...s,
                         username: loginForm.username,
-                        password1: loginForm.password,
+                        password1: '',
                         password2: ''
                       }));
                       setMode('register');
                       setSuccessText('');
-                      if (loginForm.password) {
-                        setErrorText('Please re-type your password below to confirm.');
-                      } else {
-                        setErrorText('');
-                      }
+                      setErrorText('');
                     }}
                     className="w-full"
                     variant="primary" 
@@ -310,12 +313,13 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
             </form>
             
           ) : (
-            <form onSubmit={handleRegister} className="w-full max-w-xs flex flex-col gap-4">
+            <form onSubmit={handleRegister} className="w-full max-w-sm flex flex-col gap-4">
               <div className="w-full">
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <TextInput
                     label={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) ? "Email (Required)" : "Username (Required)"}
-                    className="text-red"
+                    name="username"
+                    className="text-red text-base"
                     value={registerForm.username}
                     onChange={(val) => {
                       const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
@@ -324,25 +328,38 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                     }}
                     required
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                   />
                   {/* If username looks like an email, we hide email field */}
                   {!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) && (
                     <TextInput
                       label="Email (Optional)"
+                      name="email"
+                      type="email"
+                      className="text-base"
                       value={registerForm.email}
                       onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
                       autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck="false"
                     />
                   )}
                   <TextInput
                     label="Address (Optional)"
+                    name="address"
+                    className="text-base"
                     value={registerForm.address}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
                     autoComplete="street-address"
                   />
                   <TextInput
                     label="Password (Required)"
+                    name="password"
                     type="password"
+                    className="text-base"
                     value={registerForm.password1}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, password1: val }))}
                     required
@@ -353,7 +370,9 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
 
                   <TextInput
                     label="Confirm Password (Required)"
+                    name="confirm_password"
                     type="password"
+                    className="text-base"
                     value={registerForm.password2}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, password2: val }))}
                     required
@@ -363,7 +382,12 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
               </div>
 
               <div className="mt-2 flex flex-col gap-2">
-                <Button type="submit" className="w-full" disabled={submitting} isLoading={submitting}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={submitting}
+                  isLoading={submitting}
+                >
                   Register
                 </Button>
 
@@ -372,7 +396,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   onClick={() => { setMode('login'); setErrorText(''); setSuccessText(''); }}
                   className="w-full"
                   disabled={submitting}
-                  variant="secondary"
+                  variant="primary"
                 >
                   Back to Login
                 </Button>

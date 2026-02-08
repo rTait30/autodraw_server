@@ -178,6 +178,7 @@ export function TextInput({
         id={inputId}
         ref={ref}
         type="text"
+        name={name}
         className={`input-base ${className}`}
         placeholder={placeholder || ""}
         value={value ?? ""}

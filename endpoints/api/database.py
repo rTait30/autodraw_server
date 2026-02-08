@@ -6,7 +6,7 @@ from datetime import datetime, timezone, date
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
-from WG.workGuru import wg_get
+from endpoints.integrations.workguru.client import wg_get
 
 database_api_bp = Blueprint('database_api', __name__)
 
@@ -65,8 +65,11 @@ def run_sql():
         return jsonify({"error": str(e)}), 400
 
 
+import os
+
 def fetch_sku_from_crm(sku_code: str):
-    
+    if os.getenv("WORKGURU_INTEGRATION", "false").lower() != "true":
+        return None
 
     sku_data = wg_get("DR", "Product/GetProductBySku", {"sku": sku_code})
     

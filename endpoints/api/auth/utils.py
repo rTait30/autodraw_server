@@ -43,6 +43,11 @@ def role_required(*roles, allow_admin=True, attach_to_g=True, inject_user_kwarg=
                 # Safety net; @jwt_required already covered 401
                 return jsonify({"error": "Unauthorized"}), 401
 
+            # Verification check
+            # Clients (non-admins) must be verified to access protected endpoints
+            if user.role != "admin" and not user.verified:
+                return jsonify({"error": "Account not verified"}), 403
+
             # Role gate
             allowed = False
             if not roles:

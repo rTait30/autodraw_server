@@ -27,7 +27,7 @@ def get_products():
 # Create / update project (auth required)
 # -------------------------------
 @projects_api_bp.route("/projects/create", methods=["POST", "OPTIONS"])
-@jwt_required()
+@role_required()
 def save_project_config():
     #print(f"[DEBUG] save_project_config hit. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
@@ -70,7 +70,7 @@ def save_project_config():
 
 
 @projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
-@jwt_required()
+@role_required()
 def upsert_project_and_attributes(project_id):
     #print(f"[DEBUG] upsert_project_and_attributes hit for ID {project_id}. Identity: {get_jwt_identity()}")
     user = current_user(required=True)
@@ -111,7 +111,7 @@ def upsert_project_and_attributes(project_id):
 # List projects (auth required; client sees own only)
 # -------------------------------
 @projects_api_bp.route("/projects/list", methods=["GET"])
-@jwt_required()
+@role_required()
 def list_project_configs():
     user = current_user(required=True)
     client_id = request.args.get("client_id")
@@ -131,7 +131,7 @@ def list_project_configs():
 # List deleted projects (auth required; client sees own only)
 # -------------------------------
 @projects_api_bp.route("/projects/list/deleted", methods=["GET"])
-@jwt_required()
+@role_required()
 def list_deleted_project_configs():
     user = current_user(required=True)
     client_id = request.args.get("client_id")
@@ -151,7 +151,7 @@ def list_deleted_project_configs():
 # Get a single project (auth required; client can only access own)
 # -------------------------------
 @projects_api_bp.route("/project/<int:project_id>", methods=["GET"])
-@jwt_required()
+@role_required()
 def get_project_config(project_id):
     user = current_user(required=True)
     
@@ -229,7 +229,7 @@ def get_project_config(project_id):
 # Price list (auth required — all roles)
 # -------------------------------
 @projects_api_bp.route("/pricelist", methods=["GET"])
-@jwt_required()
+@role_required()
 def get_pricelist():
     return jsonify(project_service.list_pricelist_items()), 200
 
@@ -249,7 +249,7 @@ def get_clients():
 
 
 @projects_api_bp.route("/project/generate_document", methods=["POST"])
-@jwt_required()
+@role_required()
 def generate_document():
     """
     Body: { "project_id": 123, "doc_id": "initial_drawing", ... }
@@ -281,7 +281,7 @@ def generate_document():
 # Delete project (soft delete - mark as deleted)
 # -------------------------------
 @projects_api_bp.route("/project/<int:project_id>", methods=["DELETE"])
-@jwt_required()
+@role_required()
 def delete_project(project_id):
     user = current_user(required=True)
     
@@ -302,7 +302,7 @@ def delete_project(project_id):
 # Delete project product (soft delete - mark as deleted)
 # -------------------------------
 @projects_api_bp.route("/project/product/<int:product_id>", methods=["DELETE"])
-@jwt_required()
+@role_required()
 def delete_project_product(product_id):
     user = current_user(required=True)
     
@@ -323,7 +323,7 @@ def delete_project_product(product_id):
 # Recover project (undelete - mark as not deleted)
 # -------------------------------
 @projects_api_bp.route("/project/<int:project_id>/recover", methods=["POST"])
-@jwt_required()
+@role_required()
 def recover_project(project_id):
     user = current_user(required=True)
     
@@ -338,6 +338,30 @@ def recover_project(project_id):
         return jsonify({"error": "Internal server error"}), 500
 
     return jsonify({"message": "Project recovered successfully"}), 200
+
+# -------------------------------
+# Hard Delete project (permanently remove from DB)
+# -------------------------------
+@projects_api_bp.route("/projects/<int:project_id>/hard_delete", methods=["DELETE"])
+@role_required()
+def hard_delete_project(project_id):
+    """Permanently delete a project. Admin only."""
+    user = current_user(required=True)
+    
+    try:
+        project_service.hard_delete_project(user, project_id)
+    except ValueError as e:
+        error_msg = str(e)
+        if error_msg == "Project not found":
+            return jsonify({"error": error_msg}), 404
+        if "Unauthorized" in error_msg:
+             return jsonify({"error": error_msg}), 403
+        return jsonify({"error": error_msg}), 400
+    except Exception as e:
+        print(f"Error hard deleting project: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+    return jsonify({"message": "Project permanently deleted"}), 200
 
 
 

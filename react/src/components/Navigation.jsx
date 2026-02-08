@@ -4,10 +4,12 @@ import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import { getBaseUrl } from '../utils/baseUrl';
 import { logout } from '../services/auth';
+import { Button } from "./UI";
 
 const Navigation = () => {
   const name = localStorage.getItem('username');
   const role = localStorage.getItem('role');
+  const verified = localStorage.getItem('verified') === 'true';
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -29,7 +31,7 @@ const Navigation = () => {
   const toggleBtnStyle = (active) => ({
     background: active ? 'var(--color-toggle-active)' : 'var(--color-toggle-inactive)',
     color: active ? 'black' : 'white',
-    transition: 'all 0.2s',
+    width: '64px',
   });
 
   const navLinks = (
@@ -50,30 +52,28 @@ const Navigation = () => {
   );
 
   const mobileMenu = (
-    <div className={`fixed top-[var(--header-height)] right-0 w-[320px] max-w-full h-[calc(100dvh-var(--header-height))] bg-primary dark:bg-gray-900 shadow-[-2px_4px_12px_rgba(0,0,0,0.3)] flex flex-col p-8 z-[90] transition-transform duration-200 ease-out border-l border-white/10 ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="flex flex-col gap-8">
-        <div>
-          <button
-            onClick={handleDevModeToggle}
-            style={toggleBtnStyle(devMode)}
-            className="w-full flex items-center justify-center p-3 text-sm font-bold uppercase tracking-wide border border-white/30 rounded hover:bg-white/5 transition-colors"
-          >
-            Dev Mode
-          </button>
-        </div>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 text-lg font-medium">
-             {navLinks}
-          </div>
-          <div className="h-px bg-white/20 my-2"></div>
-          <button
-            onClick={handleLogout}
-            className="text-left border border-white/50 text-white text-base py-3 px-5 rounded hover:bg-white/10 transition-colors bg-white/5"
-          >
-            Logout
-          </button>
-        </div>
+    <div className={`gap-8 fixed top-[var(--header-height)] right-0 w-[320px] max-w-full h-[calc(100dvh-var(--header-height))] bg-primary dark:bg-gray-900 shadow-[-2px_4px_12px_rgba(0,0,0,0.3)] flex flex-col p-8 z-[90] transition-transform duration-200 ease-out border-l border-white/10 ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      
+      <div className="flex flex-col gap-8 text-lg font-medium">
+          {navLinks}
       </div>
+      <div className="h-px bg-white/20 my-2"></div>
+
+      <Button
+        variant="danger"
+        onClick={handleLogout}
+      >
+        Logout
+      </Button>
+
+      <Button
+        variant="dev"
+        onClick={handleDevModeToggle}
+        style={toggleBtnStyle(devMode)}
+      >
+        Dev Mode
+      </Button>
+      
     </div>
   );
 
@@ -124,6 +124,11 @@ const Navigation = () => {
           )}
         </div>
       </header>
+      {!verified && role !== 'admin' && (
+        <div className="w-full bg-yellow-500 text-black text-center py-2 font-bold px-4 shadow-sm relative">
+          ⚠️ Account Not Verified - Access Limited
+        </div>
+      )}
       {mobileMenu}
     </>
   );

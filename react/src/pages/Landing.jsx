@@ -6,14 +6,31 @@ import LegalCard from '../components/LegalCard';
 import { getBaseUrl } from '../utils/baseUrl';
 
 export default function Landing() {
-  const [backgroundStyle, setBackgroundStyle] = useState({});
+  // Start invisible (opacity 0) to ensure content loads first
+  const [backgroundStyle, setBackgroundStyle] = useState({ opacity: 0 });
 
   useEffect(() => {
-    setTimeout(() => {
-      setBackgroundStyle({
-        backgroundImage: `url(${getBaseUrl('/static/img/shadesails.jpg')})`,
-      });
-    }, 100);
+    const loadBackground = () => {
+      const imgUrl = getBaseUrl('/static/img/shadesails2.webp');
+      const img = new Image();
+      img.src = imgUrl; 
+      
+      // Once fully downloaded, display it
+      img.onload = () => {
+        setBackgroundStyle({
+          backgroundImage: `url(${imgUrl})`,
+          opacity: 1,
+        });
+      };
+    };
+
+    // Use requestIdleCallback to ensure we don't compete with initial interactivity/hydration
+    // This pushes the image download to the lowest priority (idle time)
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(loadBackground, { timeout: 4000 });
+    } else {
+      setTimeout(loadBackground, 1500);
+    }
   }, []);
 
   return (
@@ -28,7 +45,6 @@ export default function Landing() {
           zIndex: -1,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          transition: 'background-image 0.3s ease-in-out',
           ...backgroundStyle,
         }}
       />
@@ -40,7 +56,7 @@ export default function Landing() {
               <CollapsibleCard 
                   title="Sign In / Register" 
                   defaultOpen={true}
-                  className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+                  className="w-full max-w-xs !shadow-lg border-opacity-50"
                   contentClassName="bg-white dark:bg-gray-800"
               >
                 <Authentication />
@@ -50,13 +66,13 @@ export default function Landing() {
             <div className="mt-6 w-full flex justify-center px-4">
               <ToolsCard 
                   defaultOpen={false}
-                  className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+                  className="w-full max-w-xs !shadow-lg border-opacity-50"
               />
             </div>
 
             <div className="mt-6 w-full flex justify-center px-4">
               <LegalCard 
-                  className="w-full max-w-xs !rounded-2xl !shadow-lg border-opacity-50"
+                  className="w-full max-w-xs !shadow-lg border-opacity-50"
               />
             </div>
           </div>

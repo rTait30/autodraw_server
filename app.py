@@ -51,6 +51,7 @@ def create_app():
     # --- JWT config (access in header, refresh in cookie) ---
     app.config.update(
         JWT_SECRET_KEY=jwt_secret,
+        JWT_SESSION_COOKIE=False, # Make cookies persistent (survive browser close)
         JWT_TOKEN_LOCATION=["headers", "cookies"],  # access via header; refresh via cookie
         JWT_HEADER_NAME="Authorization",
         JWT_HEADER_TYPE="Bearer",
@@ -110,8 +111,11 @@ def create_app():
         
         # Sync WorkGuru clients on startup
         try:
-            from WG.workGuru import sync_wg_clients
-            sync_wg_clients(db, User)
+            if os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true":
+                from endpoints.integrations.workguru.client import sync_wg_clients
+                sync_wg_clients(db, User)
+            else:
+                print("WorkGuru sync skipped (WORKGURU_INTEGRATION not true)")
         except Exception as e:
             print(f"Warning: Could not sync WorkGuru clients: {e}")
 

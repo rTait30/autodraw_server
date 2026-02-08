@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { getAccessToken, refresh } from '../services/auth';
+import { fetchProducts } from '../store/productsSlice';
 
 export default function RequireAuth() {
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   // Keep track of the last verification time to avoid spamming the refresh endpoint.
   const lastCheck = useRef(Date.now());
 
@@ -16,18 +19,23 @@ export default function RequireAuth() {
       if (getAccessToken()) {
         setIsAuthenticated(true);
         setIsChecking(false);
+        // Load products for authenticated users
+        dispatch(fetchProducts());
         return;
       }
 
       // 2. If not, try to refresh the session (use httpOnly cookie)
       const success = await refresh();
       setIsAuthenticated(success);
+      if (success) {
+         dispatch(fetchProducts());
+      }
       setIsChecking(false);
       lastCheck.current = Date.now();
     };
 
     checkAuth();
-  }, []);
+  }, [dispatch]);
 
   // 3. Re-verify session when the user returns to the tab (focus/visibility).
   useEffect(() => {

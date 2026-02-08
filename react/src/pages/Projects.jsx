@@ -33,6 +33,11 @@ function Projects() {
   // Recover confirmation state
   const [recoverConfirm, setRecoverConfirm] = useState({ show: false, projectId: null, projectName: null });
 
+  // Hard Delete confirmation state
+  const [hardDeleteConfirm, setHardDeleteConfirm] = useState({ show: false, projectId: null, projectName: null });
+
+  const role = localStorage.getItem("role") || "client";
+
   useEffect(() => {
     const checkDraft = () => {
         const draftStr = localStorage.getItem('autodraw_draft');
@@ -216,6 +221,96 @@ function Projects() {
     setRecoverConfirm({ show: false, projectId: null, projectName: null });
   };
 
+  // Handle hard delete confirmation
+  const handleHardDeleteProject = (id, name) => {
+    setHardDeleteConfirm({ show: true, projectId: id, projectName: name });
+  };
+
+  const confirmHardDelete = async () => {
+      try {
+          const res = await apiFetch(`/projects/${hardDeleteConfirm.projectId}/hard_delete`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('Failed to hard delete project');
+          // Refresh both lists
+          fetchProjects();
+          fetchDeletedProjects();
+          setHardDeleteConfirm({ show: false, projectId: null, projectName: null });
+      } catch (err) {
+          console.error('Failed to hard delete project:', err);
+      }
+  };
+
+  const cancelHardDelete = () => {
+      setHardDeleteConfirm({ show: false, projectId: null, projectName: null });
+  };
+
+  const renderProjectActions = (project) => (
+    <div className="flex items-center gap-1 justify-end">
+      <Button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteProject(project.id, project.name);
+        }}
+        variant="ghost"
+        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+        title="Delete project"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </Button>
+      
+      {role === 'admin' && (
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleHardDeleteProject(project.id, project.name);
+          }}
+          variant="ghost"
+          className="p-1.5 text-red-800 hover:text-red-900 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded transition-colors"
+          title="Permanently Delete"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </Button>
+      )}
+    </div>
+  );
+
+  const renderRecoveryActions = (project) => (
+    <div className="flex items-center gap-1 justify-end">
+      <Button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleRecoverProject(project.id, project.name);
+        }}
+        variant="ghost"
+        className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+        title="Recover project"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </Button>
+
+      {role === 'admin' && (
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleHardDeleteProject(project.id, project.name);
+          }}
+          variant="ghost"
+          className="p-1.5 text-red-800 hover:text-red-900 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded transition-colors"
+          title="Permanently Delete"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </Button>
+      )}
+    </div>
+  );
+
   // Format Helper
   const formatName = (name) => name ? name.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase()) : '';
 
@@ -258,52 +353,37 @@ function Projects() {
             title="Active Projects" 
             defaultOpen={true}
         >
-             {/* Pass custom onOpen and onDelete handlers */}
-             <ProjectTable projects={activeProjects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
+             <ProjectTable 
+                projects={activeProjects} 
+                onOpen={handleOpenProject} 
+                renderActions={renderProjectActions}
+             />
         </CollapsibleCard>
 
         <CollapsibleCard 
             title="Completed Projects" 
             defaultOpen={false}
         >
-             {/* Pass custom onOpen and onDelete handlers */}
-             <ProjectTable projects={completedProjects} onOpen={handleOpenProject} onDelete={handleDeleteProject} />
+             <ProjectTable 
+                projects={completedProjects} 
+                onOpen={handleOpenProject} 
+                renderActions={renderProjectActions}
+             />
         </CollapsibleCard>
 
         <CollapsibleCard 
             title="Recovery" 
             defaultOpen={false}
         >
-            {loadingDeleted ? (
-                <div className="text-center py-4 text-gray-500">Loading deleted projects...</div>
-            ) : deletedProjects.length > 0 ? (
-                <div className="space-y-2">
-                    {deletedProjects.map((project) => (
-                        <div
-                            key={project.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
-                        >
-                            <div className="flex-1">
-                                <div className="font-medium text-gray-900 dark:text-white">
-                                    {project.name || "Untitled"}
-                                </div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    {project.type || "No type"} • {project.client || "No client"} • {project.status}
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => handleRecoverProject(project.id, project.name)}
-                                variant="success"
-                                size="sm"
-                            >
-                                Recover
-                            </Button>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-4 text-gray-500">No deleted projects found.</div>
-            )}
+             {loadingDeleted ? (
+                 <div className="text-center py-4 text-gray-500">Loading deleted projects...</div>
+             ) : (
+                <ProjectTable 
+                    projects={deletedProjects} 
+                    onOpen={handleOpenProject}
+                    renderActions={renderRecoveryActions}
+                />
+             )}
         </CollapsibleCard>
 
         <LegalCard />
@@ -417,6 +497,36 @@ function Projects() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Hard Delete Confirmation Overlay */}
+      {hardDeleteConfirm.show && (
+        <div 
+            className="fixed inset-0 z-[300] flex justify-center items-center bg-black/50 backdrop-blur-sm"
+            onClick={cancelHardDelete}
+        >
+            <div 
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 max-w-sm w-full mx-4 animate-fade-in-down"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="text-center">
+                    <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Permanent Delete</h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">
+                        Are you sure you want to <strong>permanently delete</strong> "{hardDeleteConfirm.projectName}"? 
+                        <br/><br/>
+                        <span className="text-sm text-red-500">This action cannot be undone. All data will be lost forever.</span>
+                    </p>
+                    <div className="flex gap-3">
+                        <Button onClick={cancelHardDelete} variant="secondary" className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button onClick={confirmHardDelete} variant="danger" className="flex-1">
+                            PERMANENTLY DELETE
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
       )}
 

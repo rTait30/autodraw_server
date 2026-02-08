@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import GenericTable from './GenericTable';
 
-export default function ProjectTable({ projects = [], onOpen, onDelete }) {
+export default function ProjectTable({ projects = [], onOpen, renderActions }) {
   const navigate = useNavigate();
   const role = localStorage.getItem("role") || "client";
   const isClient = role === 'client';
@@ -20,36 +20,43 @@ export default function ProjectTable({ projects = [], onOpen, onDelete }) {
   }
 
   const columns = [
-    { header: 'ID', accessor: 'id', cellClassName: 'font-medium' },
-    ...(!isClient ? [{ header: 'Client', accessor: 'client' }] : []),
-    { header: 'Name', accessor: 'name' },
-    { header: 'Type', accessor: 'type' },
+    { 
+        header: 'ID', 
+        accessor: 'id', 
+        cellClassName: 'font-medium', 
+        headerClassName: 'w-16' 
+    },
+    ...(!isClient ? [{ 
+        header: 'Client', 
+        accessor: 'client',
+        headerClassName: 'w-1/4 min-w-[150px]' 
+    }] : []),
+    { 
+        header: 'Name', 
+        accessor: 'name',
+        headerClassName: 'w-auto' 
+    },
+    { 
+        header: 'Type', 
+        accessor: 'type',
+        headerClassName: 'w-32'
+    },
     { 
       header: 'Status', 
       accessor: 'status',
+      headerClassName: 'w-32',
       render: (project) => (
         <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(project.status)}`}>
           {project.status}
         </span>
       )
     },
-    ...(onDelete ? [{
+    ...(renderActions ? [{
       header: 'Actions',
       accessor: 'actions',
-      render: (project) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(project.id, project.name);
-          }}
-          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-          title="Delete project"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      )
+      headerClassName: 'w-24 text-right',
+      cellClassName: 'text-right',
+      render: (project) => renderActions(project)
     }] : [])
   ];
 
@@ -74,19 +81,10 @@ export default function ProjectTable({ projects = [], onOpen, onDelete }) {
                   }`}>
                     {project.status}
                   </span>
-                  {onDelete && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(project.id, project.name);
-                      }}
-                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                      title="Delete project"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                  {(renderActions) && (
+                    <div className="flex items-center gap-1">
+                        {renderActions(project)}
+                    </div>
                   )}
                 </div>
               </div>

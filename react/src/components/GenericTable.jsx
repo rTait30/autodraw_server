@@ -16,7 +16,7 @@ export default function GenericTable({
   }
 
   return (
-    <div className={`overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg ${className}`}>
+    <div className={`overflow-x-auto shadow ring-1 ring-black ring-opacity-5 ${className}`}>
       <table className="min-w-full divide-y divide-warm-grey dark:divide-gray-700 border border-warm-grey dark:border-gray-700 bg-white dark:bg-gray-900">
         <thead className="bg-warm-grey dark:bg-gray-800">
           <tr>

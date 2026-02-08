@@ -127,12 +127,16 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
     setSuccessText('');
     setSubmitting(true);
     try {
+      // Check if username is essentially an email
+      const isEmailUser = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username);
+      console.log('[Register] Username:', registerForm.username, 'Is Email:', isEmailUser);
+
       const res = await apiFetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: registerForm.username.trim(),
-          email: registerForm.email.trim(),
+          email: (isEmailUser ? registerForm.username : registerForm.email).trim(),
           address: registerForm.address,
           password: registerForm.password1,
           password2: registerForm.password2,
@@ -218,7 +222,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
               <div className="w-full">
                 <div className="space-y-3">
                   <TextInput
-                    label="Username (Required)"
+                    label="Username/Email (Required)"
                     value={loginForm.username}
                     onChange={(val) => setLoginForm((s) => ({ ...s, username: val }))}
                     required
@@ -310,21 +314,28 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
               <div className="w-full">
                 <div className="space-y-3">
                   <TextInput
-                    label="Username (Required)"
+                    label={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) ? "Email (Required)" : "Username (Required)"}
                     className="text-red"
                     value={registerForm.username}
-                    onChange={(val) => setRegisterForm((s) => ({ ...s, username: val }))}
+                    onChange={(val) => {
+                      const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+                      console.log('Username changed:', val, 'Looks like email:', looksLikeEmail);
+                      setRegisterForm((s) => ({ ...s, username: val }));
+                    }}
                     required
                     autoComplete="username"
                   />
+                  {/* If username looks like an email, we hide email field */}
+                  {!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) && (
+                    <TextInput
+                      label="Email (Optional)"
+                      value={registerForm.email}
+                      onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
+                      autoComplete="email"
+                    />
+                  )}
                   <TextInput
-                    label="Email"
-                    value={registerForm.email}
-                    onChange={(val) => setRegisterForm((s) => ({ ...s, email: val }))}
-                    autoComplete="email"
-                  />
-                  <TextInput
-                    label="Address"
+                    label="Address (Optional)"
                     value={registerForm.address}
                     onChange={(val) => setRegisterForm((s) => ({ ...s, address: val }))}
                     autoComplete="street-address"

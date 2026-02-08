@@ -200,7 +200,7 @@ def get_me():
     }), 200
 
 @auth_bp.route("/favorites/<int:product_id>", methods=["POST", "DELETE"])
-@jwt_required()
+@role_required()
 def manage_favorite(product_id):
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)

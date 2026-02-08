@@ -1,5 +1,0 @@
-Abstraction of everything
-
-Seperation of concerns.
-
-Full self containment

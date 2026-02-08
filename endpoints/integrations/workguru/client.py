@@ -15,7 +15,8 @@ TOP = Path(__file__).resolve().parent.parent
 load_dotenv(TOP / "instance" / ".env")
 
 WG_BASE = "https://api.workguru.io/"
-WORKGURU_OFFLINE = os.getenv("WORKGURU_OFFLINE", "False").lower() in ("true", "1", "yes")
+# Default to FALSE (OFFLINE) unless explicitly enabled
+WORKGURU_ENABLED = os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true"
 
 TENANTS = {
     "CP": {
@@ -36,11 +37,8 @@ def _now() -> int:
 import requests
 import traceback
 
-import requests
-import traceback
-
 def _fetch_access_token(tenant: str):
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print(f"[OFFLINE MODE] Skipping token fetch for {tenant}")
         return "OFFLINE_TOKEN"
 
@@ -144,7 +142,7 @@ def get_leads(tenant): #DR/CP
     Example function to fetch leads from the CRM.
     Adjust URL/headers as per your CRM API.
     """
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print(f"[OFFLINE MODE] Skipping get_leads({tenant})")
         return []
 
@@ -165,7 +163,7 @@ def get_leads(tenant): #DR/CP
 
 
 def add_cover(name: str, description: str):
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print(f"[OFFLINE MODE] Skipping add_cover({name})")
         return {"id": "OFFLINE_ID", "name": name}
 
@@ -336,7 +334,7 @@ def cp_make_lead(name: str, description: str, budget: int, category: str, go_per
 
 
 def wg_get(tenant: str, endpoint: str, params: dict | None = None):
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print(f"[OFFLINE MODE] Skipping wg_get({tenant}, {endpoint})")
         return {"result": []} # Mock result to avoid errors
 
@@ -356,7 +354,7 @@ def wg_get(tenant: str, endpoint: str, params: dict | None = None):
     return res.json()
 
 def wg_post(tenant: str, endpoint: str, body: dict):
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print(f"[OFFLINE MODE] Skipping wg_post({tenant}, {endpoint})")
         return {"result": {}} # Mock result
 
@@ -446,7 +444,7 @@ def sync_wg_clients(db, User):
     Fetch all clients from WorkGuru for each tenant and sync to User table.
     Only adds new clients that don't already exist (by wg_id + tenant).
     """
-    if WORKGURU_OFFLINE:
+    if not WORKGURU_ENABLED:
         print("[OFFLINE MODE] Skipping WorkGuru client sync")
         return
 

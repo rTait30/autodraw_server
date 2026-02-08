@@ -68,7 +68,7 @@ def generate(project, **kwargs):
 
     resp = send_file(
         tmp_path,
-        mimetype="application/pdf",
+        mimetype="application/octet-stream",
         as_attachment=True,
         download_name=filename,
         max_age=0,

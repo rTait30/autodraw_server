@@ -1,5 +1,6 @@
+import os
 import tempfile
-from flask import send_file
+from flask import send_file, after_this_request
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm
 
 def get_metadata():
@@ -29,9 +30,17 @@ def generate(project, **kwargs):
     tmp.close()
     doc.saveas(tmp_path)
 
+    @after_this_request
+    def _cleanup(response):
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return response
+
     return send_file(
         tmp_path,
-        mimetype="application/dxf",
+        mimetype="application/octet-stream",
         as_attachment=True,
         download_name=filename,
         max_age=0,

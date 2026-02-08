@@ -1,6 +1,7 @@
+import os
 import tempfile
 from datetime import datetime, timezone
-from flask import send_file
+from flask import send_file, after_this_request
 import json as JSON_py
 from io import BytesIO
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm
@@ -123,9 +124,17 @@ def generate_dxf(project, download_name: str):
     tmp.close()
     doc.saveas(tmp_path)
 
+    @after_this_request
+    def _cleanup(response):
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return response
+
     return send_file(
         tmp_path,
-        mimetype="application/dxf",
+        mimetype="application/octet-stream",
         as_attachment=True,
         download_name=download_name,
         max_age=0,

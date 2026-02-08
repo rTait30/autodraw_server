@@ -1,6 +1,7 @@
 import json
+import os
 import tempfile
-from flask import send_file
+from flask import send_file, after_this_request
 from .shared import generate_sails_layout
 
 def get_metadata():
@@ -26,10 +27,19 @@ def generate(project, **kwargs):
         # Create a temporary file to send
         tmp = tempfile.NamedTemporaryFile(suffix=".json", mode='w+', delete=False, encoding='utf-8')
         json.dump(data, tmp, indent=2)
+        tmp_path = tmp.name
         tmp.close()
 
+        @after_this_request
+        def _cleanup(response):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            return response
+
         return send_file(
-            tmp.name,
+            tmp_path,
             mimetype="application/json",
             as_attachment=True,
             download_name=filename

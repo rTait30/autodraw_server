@@ -39,6 +39,15 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   // Autosave status state
   const [lastAutoSaved, setLastAutoSaved] = useState(null);
   const [savedIndicatorVisible, setSavedIndicatorVisible] = useState(false);
+  const [saveInterval, setSaveInterval] = useState(10000);
+
+  // Reduce autosave frequency after 1 minute
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setSaveInterval(30000);
+    }, 60000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Handle autosave indicator visibility
   useEffect(() => {
@@ -167,10 +176,10 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       }
     };
 
-    // Save less frequently (10s) to avoid performance hits
-    const intervalId = setInterval(saveDraft, 30000); 
+    // Save periodically based on current interval
+    const intervalId = setInterval(saveDraft, saveInterval); 
     return () => clearInterval(intervalId);
-  }, [editedProject, isNew, overlayMode, isClosing]); // Deps are fine, syncEditedFromForm uses ref
+  }, [editedProject, isNew, overlayMode, isClosing, saveInterval]); // Deps are fine, syncEditedFromForm uses ref
 
   const handleCheck = async () => {
     // Ensure form is accessible before checking
@@ -454,7 +463,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       />
       {lastAutoSaved && (
             <div 
-                className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-30 transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
+                className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
             >
                 <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
@@ -491,7 +500,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             </CollapsibleCard>
 
             {/* Right: Viz (Sticky Sidebar and Overlay Wrapper) */}
-            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar">
+            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar z-40">
               
               {/* Estimate Section (Visible in sidebar mode) */}
               {!overlayMode && isStaff && schema && (
@@ -524,7 +533,19 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
 
               {/* Documents Section - Show for staff always, show for clients if they have visible documents */}
               {!overlayMode && (isStaff || editedProject?.product?.capabilities?.documents?.length > 0) && (
-                 <ProjectDocuments project={editedProject} showToast={showToast} />
+                <CollapsibleCard 
+                    title="Downloads" 
+                    defaultOpen={true}
+                    icon={
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    }
+                >
+                     <div className="p-5">
+                        <ProjectDocuments project={editedProject} showToast={showToast} isStaff={isStaff} />
+                     </div>
+                </CollapsibleCard>
               )}
 
               {hasCalculatedOrSaved && (
@@ -565,13 +586,15 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             <>
                 <Button 
                     onClick={closeOverlay}
-                    variant="primary"
+                    variant="danger"
+                    className="flex-1"
                 >
                 Back
                 </Button>
                 <Button 
                     onClick={handleSave} 
                     variant="submit"
+                    className="flex-1"
                 >
                 Confirm & {isNew ? 'Create' : 'Save'}
                 </Button>
@@ -580,12 +603,16 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
             <>
                 <Button 
                     onClick={overlayMode === 'preview' ? closeOverlay : handleCheck} 
-                    className="flex-1 justify-center py-3 text-md"
                     variant={overlayMode === 'preview' ? 'danger' : 'primary'}
+                    className="flex-1"
                 >
                 {overlayMode === 'preview' ? 'Close Preview' : 'Check / Calculate'}
                 </Button>
-                <Button onClick={handleSave} variant="submit">
+                <Button 
+                    onClick={handleSave} 
+                    variant="submit"
+                    className="flex-1"
+                >
                 {isNew ? 'Submit Project' : 'Submit Changes'}
                 </Button>
             </>

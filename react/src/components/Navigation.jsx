@@ -81,15 +81,15 @@ const Navigation = () => {
     <>
       <style>{`:root { --header-height: 60px; }`}</style>
       <header className="topbar flex-none flex items-center justify-between px-5 h-[var(--header-height)] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
-        <div className="flex items-center gap-6 flex-1">
+        <div className="flex items-center gap-4 flex-1">
           <img
             src={getBaseUrl(darkMode ? '/static/img/DRlogoHDark.png' : '/static/img/DRlogoH.png')}
             alt="Logo"
-            className="h-9 mr-5"
+            className="h-9 mr-5 object-contain"
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="txt-role">{name}</span>
           <span className="txt-role">{role}</span>
           {role === 'client' ? (
@@ -104,7 +104,7 @@ const Navigation = () => {
           ) : (
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[128px] h-[44px] hover:bg-white/10 transition-colors"
+              className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[100px] h-[44px] hover:bg-white/10 transition-colors"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
               <span className="text-lg font-bold tracking-wide">{menuOpen ? 'Close' : 'Menu'}</span>

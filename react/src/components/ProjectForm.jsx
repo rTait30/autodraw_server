@@ -462,7 +462,7 @@ export default function ProjectForm({
                     className={`
                       relative px-4 lg:px-6 py-3 rounded-t-lg border-t-2 border-l-2 border-r-2 cursor-pointer select-none transition-all min-w-[140px] text-center flex-shrink-0 mt-2
                       ${isActive 
-                        ? "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 border-b-white dark:border-b-gray-800 -mb-0.5 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700 dark:text-blue-400" 
+                        ? "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 border-b-white dark:border-b-gray-800 -mb-0.5 z-[2] shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700 dark:text-blue-400" 
                         : "bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200"
                       }
                     `}

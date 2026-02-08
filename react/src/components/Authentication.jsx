@@ -222,6 +222,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
               <div className="w-full">
                 <div className="space-y-4">
                   <TextInput
+                    id="login-username"
                     label="Username/Email (Required)"
                     name="username"
                     className="text-base"
@@ -235,6 +236,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   />
 
                   <TextInput
+                    id="login-password"
                     label="Password (Required)"
                     name="password"
                     type="password"
@@ -317,6 +319,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
               <div className="w-full">
                 <div className="space-y-4">
                   <TextInput
+                    id="signup-username"
                     label={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) ? "Email (Required)" : "Username (Required)"}
                     name="username"
                     className="text-red text-base"
@@ -335,6 +338,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   {/* If username looks like an email, we hide email field */}
                   {!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.username) && (
                     <TextInput
+                      id="signup-email"
                       label="Email (Optional)"
                       name="email"
                       type="email"
@@ -348,6 +352,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                     />
                   )}
                   <TextInput
+                    id="signup-address"
                     label="Address (Optional)"
                     name="address"
                     className="text-base"
@@ -356,8 +361,9 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                     autoComplete="street-address"
                   />
                   <TextInput
+                    id="signup-password"
                     label="Password (Required)"
-                    name="password"
+                    name="new-password"
                     type="password"
                     className="text-base"
                     value={registerForm.password1}
@@ -369,8 +375,9 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   {errorText && <div className="auth-error mb-1">{errorText}</div>}
 
                   <TextInput
+                    id="signup-confirm-password"
                     label="Confirm Password (Required)"
-                    name="confirm_password"
+                    name="password-confirmation"
                     type="password"
                     className="text-base"
                     value={registerForm.password2}

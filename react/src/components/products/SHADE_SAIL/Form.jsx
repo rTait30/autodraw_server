@@ -16,10 +16,63 @@ import {
 import { Button } from "../../UI";
 
 import FabricSelector from "../../FabricSelector";
+import { getBaseUrl } from "../../../utils/baseUrl.js";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
 const MAX_POINTS = 21;
+
+// Color swatch component that tries texture first, falls back to hex
+const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2" }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState('');
+
+  useEffect(() => {
+    setImageLoaded(false);
+    setImageError(false);
+    setLoadedSrc('');
+
+    // Always construct path: /static/textures/{fabricName lowercase no spaces}/{colorName lowercase no spaces}
+    const basePath = `/static/textures/${fabricName?.toLowerCase().replace(/\s+/g, '')}/${color.name?.toLowerCase().replace(/\s+/g, '')}`;
+    const imageSrc = getBaseUrl(`${basePath}.webp`);
+    const alternativeSrc = getBaseUrl(`${basePath}.jpg`);
+    
+    const img = new Image();
+    let triedAlternative = false;
+
+    img.onload = () => {
+      setImageLoaded(true);
+      setLoadedSrc(img.src);
+    };
+    img.onerror = () => {
+      if (!triedAlternative && alternativeSrc) {
+        triedAlternative = true;
+        img.src = alternativeSrc;
+      } else {
+        setImageError(true);
+      }
+    };
+    img.src = imageSrc;
+  }, [fabricName, color.name]);
+
+  if (imageLoaded && !imageError) {
+    return (
+      <div
+        className={`${className} bg-cover bg-center`}
+        style={{ backgroundImage: `url(${loadedSrc})` }}
+      />
+    );
+  }
+
+  // Fallback to hex color
+  return (
+    <div
+      className={className}
+      style={{ backgroundColor: color.hex_value }}
+    />
+  );
+};
 
 const TENSION_HARDWARE_OPTIONS = [
   "M8 Bowshackle",
@@ -110,9 +163,12 @@ export function ProductForm({
       dimensions: {},
       points: {},
       fabric_id: null,
-      fabric_name: "",
+      fabric_name: "Rainbow Z16",
       color_id: null,
-      color_name: "",
+      color_name: "Charcoal",
+      fabricCategory: "ShadeCloth",
+      fabricType: "Rainbow Z16",
+      colour: "Charcoal",
     }
   });
 
@@ -533,28 +589,34 @@ const setPointField = (p, key, value) =>
         <FormSection title="Fabric & Cable Specifications">
            <div className="mb-4">
              <div className="text-left mb-2">
-                 Choose your fabric type and color (In development)
+                 Choose your fabric type and color
              </div>
-             <Button 
+             <div 
                onClick={() => setShowFabricSelector(true)}
-               variant="primary"
+               className="cursor-pointer border rounded-lg p-4 hover:shadow-sm transition-shadow bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
              >
-               <div className="flex items-center justify-center gap-3">
-                 <span className="text-2xl">🎨</span>
+               <div className="flex items-center justify-center gap-4">
+                 <div className="w-20 h-20">
+                   <ColorSwatch 
+                     color={{ 
+                       name: attributes.color_name || "Charcoal", 
+                       hex_value: "#36454F" // Charcoal color
+                     }} 
+                     fabricName={attributes.fabric_name || "Rainbow Z16"} 
+                     className="w-full h-full rounded"
+                   />
+                 </div>
                  <div className="text-center">
-                   <div className="font-bold">
+                   <div className="font-bold text-lg">
                      {attributes.fabric_name && attributes.color_name 
                        ? `${attributes.fabric_name} - ${attributes.color_name}`
                        : 'Select Fabric & Color'
                      }
                    </div>
-                   {!attributes.fabric_name && (
-                     <div className="text-sm opacity-90">Click here to browse fabrics</div>
-                   )}
+                   <div className="text-sm opacity-75">Click to change</div>
                  </div>
-                 <span className="text-xl">▶</span>
                </div>
-             </Button>
+             </div>
            </div>
            
            <FormGrid columns={3}>

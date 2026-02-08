@@ -176,6 +176,9 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
     // Only set selection complete in standalone mode
     if (mode === "standalone") {
       setSelectionComplete(true);
+    } else if (mode === "selector" && onClose) {
+      // Close the selector overlay when a color is selected in selector mode
+      onClose();
     }
   };
 

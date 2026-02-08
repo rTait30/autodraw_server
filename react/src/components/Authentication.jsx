@@ -363,7 +363,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   <TextInput
                     id="signup-password"
                     label="Password (Required)"
-                    name="new-password"
+                    name="password"
                     type="password"
                     className="text-base"
                     value={registerForm.password1}
@@ -377,7 +377,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
                   <TextInput
                     id="signup-confirm-password"
                     label="Confirm Password (Required)"
-                    name="password-confirmation"
+                    name="confirm_password"
                     type="password"
                     className="text-base"
                     value={registerForm.password2}
@@ -390,7 +390,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
 
               <div className="mt-2 flex flex-col gap-2">
                 <Button
-                  type="submit"
+                  variant="submit"
                   className="w-full"
                   disabled={submitting}
                   isLoading={submitting}

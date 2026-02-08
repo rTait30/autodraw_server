@@ -142,17 +142,14 @@ def create_app():
 
     return app
 
+# Create the application instance for Gunicorn
+app = create_app()
 
 if __name__ == '__main__':
-    app = create_app()
     # For local dev only
-
     print ("Starting Flask dev server...")
-
-
-
     app.run(host='127.0.0.1', port=5001, debug=True)
-    
+
 
         # Optional warm-up (safe=True so deploys don't fail if CRM is briefly down)
 

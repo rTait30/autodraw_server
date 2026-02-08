@@ -32,9 +32,13 @@ from .shared import extract_sail_geometry, get_detail_list, get_transform_params
 from endpoints.api.products.shared.detail_manager import get_detail_image, get_detail_specs
 
 # Register Arial fonts (Windows paths)
+FONT_REGULAR = 'Helvetica'
+FONT_BOLD = 'Helvetica-Bold'
 try:
     pdfmetrics.registerFont(TTFont('Arial', 'C:/Windows/Fonts/arial.ttf'))
     pdfmetrics.registerFont(TTFont('Arial-Bold', 'C:/Windows/Fonts/arialbd.ttf'))
+    FONT_REGULAR = 'Arial'
+    FONT_BOLD = 'Arial-Bold'
 except:
     # Fallback - Arial not available, will use Helvetica
     pass
@@ -179,7 +183,7 @@ def _draw_cover_page(c: canvas.Canvas, project: dict, general: dict, products: l
     Portrait A4 layout - single column.
     """
     # Page title
-    c.setFont("Arial-Bold", LARGE_FONT)
+    c.setFont(FONT_BOLD, LARGE_FONT)
     c.drawCentredString(PORTRAIT_WIDTH / 2, PORTRAIT_HEIGHT - MARGIN - 12 * mm, "FABRICATION WORKBOOK")
     
     # Calculate layout - single column for portrait A4
@@ -263,11 +267,11 @@ def _draw_project_info_section(c: canvas.Canvas, x: float, top_y: float, width: 
         # Add more fields as needed
     ]
     
-    c.setFont("Arial", MEDIUM_FONT)
+    c.setFont(FONT_REGULAR, MEDIUM_FONT)
     for label, value in details:
-        c.setFont("Arial-Bold", MEDIUM_FONT)
+        c.setFont(FONT_BOLD, MEDIUM_FONT)
         c.drawString(content_x, content_y, label)
-        c.setFont("Arial", MEDIUM_FONT)
+        c.setFont(FONT_REGULAR, MEDIUM_FONT)
         c.drawString(content_x + 50 * mm, content_y, str(value[:30]))
         content_y -= line_height
 
@@ -289,7 +293,7 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     line_height = 6 * mm
     
     # Per-sail plotting details
-    c.setFont("Arial-Bold", 11)
+    c.setFont(FONT_BOLD, 11)
     c.drawString(content_x, content_y, "PLOTTING DETAILS:")
     content_y -= 9 * mm
     
@@ -302,7 +306,7 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     col_file = content_x + 132 * mm
     
     # Column headers
-    c.setFont("Arial-Bold", 10)
+    c.setFont(FONT_BOLD, 10)
     c.drawString(col_sail, content_y, "Sail")
     c.drawString(col_fabric, content_y, "Fabric")
     c.drawString(col_colour, content_y, "Colour")
@@ -324,7 +328,7 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
         colour_groups[key].append(sail_name)
     
     # Draw grouped entries
-    c.setFont("Arial", 10)
+    c.setFont(FONT_REGULAR, 10)
     for (colour, fabric), sail_names in colour_groups.items():
         group_start_y = content_y
         
@@ -355,10 +359,10 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     c.line(content_x, bottom_y + 12 * mm, x + width - BOX_PADDING, bottom_y + 12 * mm)
     
     # Plot side (default Underside) and Machine (default Gerber) on same line
-    c.setFont("Arial-Bold", 10)
+    c.setFont(FONT_BOLD, 10)
     c.drawString(content_x, bottom_y, "Plot:")
     
-    c.setFont("Arial", 10)
+    c.setFont(FONT_REGULAR, 10)
     # Underside is default (pre-checked with X)
     opt_x = content_x + 20 * mm
     c.rect(opt_x, bottom_y - checkbox_size + 2 * mm, checkbox_size, checkbox_size, stroke=1, fill=0)
@@ -372,10 +376,10 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     
     # Machine options (below Plot) — align X with Plot checkboxes and increase vertical spacing
     machine_y = bottom_y - 14 * mm
-    c.setFont("Arial-Bold", 10)
+    c.setFont(FONT_BOLD, 10)
     c.drawString(content_x, machine_y, "Machine:")
     
-    c.setFont("Arial", 10)
+    c.setFont(FONT_REGULAR, 10)
     # Gerber is default (pre-checked with X)
     opt_x = content_x + 20 * mm
     c.rect(opt_x, machine_y - checkbox_size + 2 * mm, checkbox_size, checkbox_size, stroke=1, fill=0)
@@ -401,7 +405,7 @@ def _draw_qc_checklist_page(c: canvas.Canvas, project: dict, general: dict, prod
     Draw the QC Inspection Checklist page (Portrait A4).
     """
     # Page title
-    c.setFont("Arial-Bold", LARGE_FONT)
+    c.setFont(FONT_BOLD, LARGE_FONT)
     project_name = general.get("name", "N/A")
     c.drawCentredString(PORTRAIT_WIDTH / 2, PORTRAIT_HEIGHT - MARGIN - 12 * mm, f"QC INSPECTION - {project_name}")
     
@@ -449,7 +453,7 @@ def _draw_qc_checklist_page(c: canvas.Canvas, project: dict, general: dict, prod
     
     # Signature area under the box
     sig_y = MARGIN + 4 * mm
-    c.setFont("Arial", 10)
+    c.setFont(FONT_REGULAR, 10)
     c.drawString(MARGIN, sig_y, "Name: ___________________________")
     c.drawString(MARGIN + 250, sig_y, "Signature: ____________")
     c.drawString(MARGIN + 450, sig_y, "Date: ____________")
@@ -465,7 +469,7 @@ def _draw_sail_diagram_page(c: canvas.Canvas, project: dict, sail: dict, sail_nu
     Landscape A4 layout - diagram on left, info panel on right.
     """
     # Page header (move lower to free top space for diagram)
-    c.setFont("Arial-Bold", 14)
+    c.setFont(FONT_BOLD, 14)
     sail_name = sail.get("name", f"Sail {sail_num}")
     header_y = LANDSCAPE_HEIGHT - 6 * mm  # closer to top edge, minimal margin
     c.drawCentredString(LANDSCAPE_WIDTH / 2, header_y, f"SAIL {sail_num}/{total_sails}: {sail_name}")
@@ -491,7 +495,7 @@ def _draw_sail_diagram_page(c: canvas.Canvas, project: dict, sail: dict, sail_nu
     _draw_sail_info_panel(c, sail, geometry, info_box_x, info_box_y, info_box_width, info_box_height)
 
     # Cable length field at bottom center of the page (space for manual entry)
-    c.setFont("Arial-Bold", 14)
+    c.setFont(FONT_BOLD, 14)
     c.setFillColor(black)
     bottom_text_y = MARGIN + 8 * mm
     c.drawCentredString(200, bottom_text_y, "CABLE LENGTH: __________ mm")
@@ -577,7 +581,7 @@ def _draw_sail_shape(c: canvas.Canvas, geometry: dict,
     point_order = geometry["point_order"]
     
     if not positions:
-        c.setFont("Arial", MEDIUM_FONT)
+        c.setFont(FONT_REGULAR, MEDIUM_FONT)
         c.drawCentredString(x + width / 2, y + height / 2, "No sail geometry available")
         return
     
@@ -644,7 +648,7 @@ def _draw_sail_shape(c: canvas.Canvas, geometry: dict,
                         edge_length = length
                         break
                 if edge_length:
-                    c.setFont("Arial-Bold", 11)
+                    c.setFont(FONT_BOLD, 11)
                     c.setFillColor(black)
                     c.drawCentredString(mid_x, mid_y + 5 * mm, f"{a}{b}")
                     c.drawCentredString(mid_x, mid_y - 5 * mm, f"{int(edge_length)}mm")
@@ -696,7 +700,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     c.setFillColor(lightgrey)
     c.rect(x, y + height - header_height, width, header_height, stroke=1, fill=1)
     c.setFillColor(black)
-    c.setFont("Arial-Bold", 10)
+    c.setFont(FONT_BOLD, 10)
     c.drawCentredString(x + width / 2, y + height - header_height + 2 * mm, "SAIL SPECS")
     
     # Content - single column for sidebar
@@ -738,9 +742,9 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     
     # Draw info items in single column
     for label, value in info_items:
-        c.setFont("Arial-Bold", 8)
+        c.setFont(FONT_BOLD, 8)
         c.drawString(content_x, content_y, f"{label}:")
-        c.setFont("Arial", 8)
+        c.setFont(FONT_REGULAR, 8)
         c.drawRightString(x + width - 3 * mm, content_y, str(value))
         content_y -= line_height
     
@@ -750,7 +754,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     content_y -= 5 * mm
     
     # Cable Lengths Section
-    c.setFont("Arial-Bold", 9)
+    c.setFont(FONT_BOLD, 9)
     c.drawString(content_x, content_y, "CABLES:")
     content_y -= 5 * mm
     
@@ -762,7 +766,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     col2 = content_x + 20 * mm
     col3 = content_x + 40 * mm
     
-    c.setFont("Arial-Bold", 7)
+    c.setFont(FONT_BOLD, 7)
     c.drawString(col1, content_y, "From")
     c.drawString(col2, content_y, "To")
     c.drawString(col3, content_y, "Length")
@@ -773,7 +777,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     for i in range(4):
         # From field
         if i == 0:
-            c.setFont("Arial", 7)
+            c.setFont(FONT_REGULAR, 7)
             c.drawString(col1, content_y, exit_point)
         c.line(col1, content_y - 2, col1 + 16 * mm, content_y - 2)
         
@@ -791,7 +795,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     content_y -= 2 * mm
     c.line(x + 2 * mm, content_y, x + width - 2 * mm, content_y)
     content_y -= 4 * mm
-    c.setFont("Arial-Bold", 8)
+    c.setFont(FONT_BOLD, 8)
     c.drawString(content_x, content_y, "NOTES:")
     content_y -= 4 * mm
     # Blank lines for notes
@@ -810,7 +814,7 @@ def _draw_sail_hardware_page(c: canvas.Canvas, project: dict, sail: dict, sail_n
     Shows diagrams/details for corner fittings and pocket sizes (up to 6 items).
     """
     # Page header
-    c.setFont("Arial-Bold", 14)
+    c.setFont(FONT_BOLD, 14)
     sail_name = sail.get("name", f"Sail {sail_num}")
     c.drawCentredString(LANDSCAPE_WIDTH / 2, LANDSCAPE_HEIGHT - MARGIN - 8 * mm, 
                         f"DETAILS - {sail_name} ({sail_num}/{total_sails})")
@@ -819,7 +823,7 @@ def _draw_sail_hardware_page(c: canvas.Canvas, project: dict, sail: dict, sail_n
     detail_list = get_detail_list(sail)
     
     if not detail_list:
-        c.setFont("Arial", MEDIUM_FONT)
+        c.setFont(FONT_REGULAR, MEDIUM_FONT)
         c.drawCentredString(LANDSCAPE_WIDTH / 2, LANDSCAPE_HEIGHT / 2, "No fabrication details specified for this sail")
         return
     
@@ -921,7 +925,7 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
                             c.setDash(5, 5)
                             c.rect(diagram_x, diagram_y, diagram_w, diagram_h, stroke=1, fill=0)
                             c.setDash()
-                            c.setFont("Arial", 12)
+                            c.setFont(FONT_REGULAR, 12)
                             c.setFillColor(gray)
                             c.drawCentredString(diagram_x + diagram_w / 2, diagram_y + diagram_h / 2, f"[{detail_id}]")
                             c.setFillColor(black)
@@ -933,7 +937,7 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
                     c.setDash(5, 5)
                     c.rect(diagram_x, diagram_y, diagram_w, diagram_h, stroke=1, fill=0)
                     c.setDash()
-                    c.setFont("Arial", 12)
+                    c.setFont(FONT_REGULAR, 12)
                     c.setFillColor(gray)
                     c.drawCentredString(diagram_x + diagram_w / 2, diagram_y + diagram_h / 2, f"[{detail_id}]")
                     c.setFillColor(black)
@@ -943,7 +947,7 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
                 c.setDash(5, 5)
                 c.rect(diagram_x, diagram_y, diagram_w, diagram_h, stroke=1, fill=0)
                 c.setDash()
-                c.setFont("Arial", 12)
+                c.setFont(FONT_REGULAR, 12)
                 c.setFillColor(gray)
                 c.drawCentredString(diagram_x + diagram_w / 2, diagram_y + diagram_h / 2, f"[{detail_id}]")
                 c.setFillColor(black)
@@ -957,7 +961,7 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
                 c.setDash(5, 5)
                 c.rect(diagram_x, diagram_y, diagram_w, diagram_h, stroke=1, fill=0)
                 c.setDash()
-                c.setFont("Arial", 12)
+                c.setFont(FONT_REGULAR, 12)
                 c.setFillColor(gray)
                 c.drawCentredString(diagram_x + diagram_w / 2, diagram_y + diagram_h / 2, f"[{detail_id}]")
                 c.setFillColor(black)
@@ -967,7 +971,7 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
         c.setDash(5, 5)
         c.rect(diagram_x, diagram_y, diagram_w, diagram_h, stroke=1, fill=0)
         c.setDash()
-        c.setFont("Arial", 12)
+        c.setFont(FONT_REGULAR, 12)
         c.setFillColor(gray)
         c.drawCentredString(diagram_x + diagram_w / 2, diagram_y + diagram_h / 2, f"[{detail_id}]")
         c.setFillColor(black)
@@ -986,14 +990,14 @@ def _draw_detail_box(c: canvas.Canvas, detail: dict,
     else:
         specs = [("Type", detail_type)]
     
-    c.setFont("Arial", 11)
+    c.setFont(FONT_REGULAR, 11)
     spec_y = specs_y + specs_height - 5 * mm
     line_height = 14
     
     for spec_label, spec_value in specs:
-        c.setFont("Arial-Bold", 11)
+        c.setFont(FONT_BOLD, 11)
         c.drawString(specs_x, spec_y, f"{spec_label}:")
-        c.setFont("Arial", 11)
+        c.setFont(FONT_REGULAR, 11)
         # Truncate long values
         value_str = str(spec_value)[:25]
         c.drawString(specs_x + 50 * mm, spec_y, value_str)
@@ -1143,7 +1147,7 @@ def _draw_section_box(c: canvas.Canvas, x: float, y: float, width: float, height
     
     # Draw header text (left-aligned, using box padding)
     c.setFillColor(black)
-    c.setFont("Arial-Bold", 12)
+    c.setFont(FONT_BOLD, 12)
     header_x = x + BOX_PADDING
     header_y = y + height - header_height + 2 * mm
     c.drawString(header_x, header_y, title)
@@ -1192,12 +1196,12 @@ def _draw_inspection_box(c: canvas.Canvas, x: float, y: float, width: float, hei
     item_font = 8 if line_h > 8 * mm else 7
 
     # Draw column headers
-    c.setFont("Arial-Bold", 8)
+    c.setFont(FONT_BOLD, 8)
     c.drawString(content_x, content_top + 5 * mm, "Item")
     c.drawString(comments_x, content_top + 5 * mm, "Comments")
 
     # Draw items
-    c.setFont("Arial", item_font)
+    c.setFont(FONT_REGULAR, item_font)
     checkbox_size = 5 * mm
     row_y = content_top
     for item in items:
@@ -1215,7 +1219,7 @@ def _draw_inspection_box(c: canvas.Canvas, x: float, y: float, width: float, hei
     footer_top = max(row_y - 4 * mm, content_bottom + 4 * mm)
 
     # Draw inline footer (QC Officer left, QC Checked (date) right)
-    c.setFont("Arial-Bold", 8)
+    c.setFont(FONT_BOLD, 8)
     c.drawString(content_x, footer_top, "QC Officer:")
     # line for QC Officer
     line_start = content_x + 30 * mm

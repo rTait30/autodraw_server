@@ -128,6 +128,16 @@ def generate_dxf(project, download_name: str):
         # Color 30 = Orange = Bisect-Rotate
         msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30})
         msp.add_mtext("Bisect-Rotate", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 50 = Yellow-Green = Bisect-Rotate Normalized
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50})
+        msp.add_mtext("Bisect-Rotate Normalized", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
+        legend_y -= legend_spacing
+        
+        # Color 210 = Pink = Bisect-Rotate Planar
+        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210})
+        msp.add_mtext("Bisect-Rotate Planar", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
 
     tmp = tempfile.NamedTemporaryFile(suffix=".dxf", delete=False)
     tmp_path = tmp.name

@@ -21,6 +21,8 @@ from .workpoints_area_centroid import compute_workpoints_area_centroid
 from .workpoints_weighted import compute_workpoints_weighted
 from .workpoints_minimal import compute_workpoints_minimal
 from .workpoints_bisect_rotate import compute_workpoints_bisect_rotate
+from .workpoints_bisect_rotate_normalized import compute_workpoints_bisect_rotate_normalized
+from .workpoints_bisect_rotate_planar import compute_workpoints_bisect_rotate_planar
 
 # Configuration: Enable/disable workpoint algorithms
 # Set to True to compute and include in attributes
@@ -28,10 +30,12 @@ WORKPOINT_METHODS = {
     "centroid": False,
     "bisect": True,
     "midpoint": False,
-    "area": True,              # Area centroid
+    "area": False,              # Area centroid
     "weighted": False,
     "minimal": False,
     "bisect_rotate": True,
+    "bisect_rotate_normalized": True, 
+    "bisect_rotate_planar": True,
 }
 
 # Set which method should be aliased to the "workpoints" key
@@ -596,6 +600,16 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
         workpoints_bisect_rotate = compute_workpoints_bisect_rotate(points_3d, cx_area, cy_area, cz)
         attributes["workpoints_bisect_rotate"] = workpoints_bisect_rotate
         computed_workpoints["bisect_rotate"] = workpoints_bisect_rotate
+
+    if WORKPOINT_METHODS.get("bisect_rotate_normalized"):
+        workpoints_bisect_rotate_normalized = compute_workpoints_bisect_rotate_normalized(points_3d)
+        attributes["workpoints_bisect_rotate_normalized"] = workpoints_bisect_rotate_normalized
+        computed_workpoints["bisect_rotate_normalized"] = workpoints_bisect_rotate_normalized
+
+    if WORKPOINT_METHODS.get("bisect_rotate_planar"):
+        workpoints_bisect_rotate_planar = compute_workpoints_bisect_rotate_planar(points_3d, cx_area, cy_area)
+        attributes["workpoints_bisect_rotate_planar"] = workpoints_bisect_rotate_planar
+        computed_workpoints["bisect_rotate_planar"] = workpoints_bisect_rotate_planar
 
     # Set the default workpoints alias
     if DEFAULT_WORKPOINT_METHOD in computed_workpoints:

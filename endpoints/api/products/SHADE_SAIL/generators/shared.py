@@ -157,6 +157,24 @@ def extract_sail_geometry(sail: dict) -> dict:
         wy = _safe_num(wp.get("y")) or 0.0
         wz = _safe_num(wp.get("z")) or 0.0
         workpoints_bisect_rotate[label] = (wx, wy, wz)
+
+    # Workpoints (Bisect-Rotate Normalized)
+    workpoints_bisect_rotate_normalized_raw = attrs.get("workpoints_bisect_rotate_normalized", {})
+    workpoints_bisect_rotate_normalized = {}
+    for label, wp in workpoints_bisect_rotate_normalized_raw.items():
+        wx = _safe_num(wp.get("x")) or 0.0
+        wy = _safe_num(wp.get("y")) or 0.0
+        wz = _safe_num(wp.get("z")) or 0.0
+        workpoints_bisect_rotate_normalized[label] = (wx, wy, wz)
+
+    # Workpoints (Bisect-Rotate Planar)
+    workpoints_bisect_rotate_planar_raw = attrs.get("workpoints_bisect_rotate_planar", {})
+    workpoints_bisect_rotate_planar = {}
+    for label, wp in workpoints_bisect_rotate_planar_raw.items():
+        wx = _safe_num(wp.get("x")) or 0.0
+        wy = _safe_num(wp.get("y")) or 0.0
+        wz = _safe_num(wp.get("z")) or 0.0
+        workpoints_bisect_rotate_planar[label] = (wx, wy, wz)
     
     # Points data (fitting, hardware, etc.)
     points_data = {}
@@ -180,6 +198,8 @@ def extract_sail_geometry(sail: dict) -> dict:
         "workpoints_weighted": workpoints_weighted,
         "workpoints_minimal": workpoints_minimal,
         "workpoints_bisect_rotate": workpoints_bisect_rotate,
+        "workpoints_bisect_rotate_normalized": workpoints_bisect_rotate_normalized,
+        "workpoints_bisect_rotate_planar": workpoints_bisect_rotate_planar,
         "edges": edges,
         "diagonals": diagonals,
         "centroid": centroid,
@@ -754,6 +774,58 @@ def generate_sails_layout(project: dict) -> list:
             b = point_order[(i+1)%point_count]
             if a in workpoints_bisect_rotate_transformed and b in workpoints_bisect_rotate_transformed:
                 current_entities.append({"type": "line", "start": workpoints_bisect_rotate_transformed[a], "end": workpoints_bisect_rotate_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
+
+        # Workpoints (Bisect-Rotate Normalized)
+        workpoints_bisect_rotate_normalized = geo.get('workpoints_bisect_rotate_normalized', {})
+        workpoints_bisect_rotate_normalized_transformed = {}
+        # Using Color 50 (Yellow-Green) for Bisect-Rotate Normalized lines
+        
+        for label, (wx_local, wy_local, wz_local) in workpoints_bisect_rotate_normalized.items():
+            wx = x_offset + (wx_local - min_x)
+            wy = wy_local
+            wz = wz_local
+            workpoints_bisect_rotate_normalized_transformed[label] = (wx, wy, wz)
+            
+            # Draw workpoint (bisect-rotate-normalized)
+            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
+            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
+            
+            # Connect corner to bisect-rotate-normalized workpoint
+            if label in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
+
+        # Workpoints polygon (Bisect-Rotate Normalized)
+        for i in range(point_count):
+            a = point_order[i]
+            b = point_order[(i+1)%point_count]
+            if a in workpoints_bisect_rotate_normalized_transformed and b in workpoints_bisect_rotate_normalized_transformed:
+                current_entities.append({"type": "line", "start": workpoints_bisect_rotate_normalized_transformed[a], "end": workpoints_bisect_rotate_normalized_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
+
+        # Workpoints (Bisect-Rotate Planar)
+        workpoints_bisect_rotate_planar = geo.get('workpoints_bisect_rotate_planar', {})
+        workpoints_bisect_rotate_planar_transformed = {}
+        # Using Color 210 (Pink) for Bisect-Rotate Planar lines
+        
+        for label, (wx_local, wy_local, wz_local) in workpoints_bisect_rotate_planar.items():
+            wx = x_offset + (wx_local - min_x)
+            wy = wy_local
+            wz = wz_local
+            workpoints_bisect_rotate_planar_transformed[label] = (wx, wy, wz)
+            
+            # Draw workpoint (bisect-rotate-planar)
+            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
+            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
+            
+            # Connect corner to bisect-rotate-planar workpoint
+            if label in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
+
+        # Workpoints polygon (Bisect-Rotate Planar)
+        for i in range(point_count):
+            a = point_order[i]
+            b = point_order[(i+1)%point_count]
+            if a in workpoints_bisect_rotate_planar_transformed and b in workpoints_bisect_rotate_planar_transformed:
+                current_entities.append({"type": "line", "start": workpoints_bisect_rotate_planar_transformed[a], "end": workpoints_bisect_rotate_planar_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
 
         layout_result.append({
             "entities": current_entities,

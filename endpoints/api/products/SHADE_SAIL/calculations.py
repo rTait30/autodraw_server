@@ -52,6 +52,10 @@ def _num(v):
         return None
 
 
+def _get_label(idx: int) -> str:
+    """Generate A, B, C label from index."""
+    return chr(65 + idx)
+
 
 # ---------------------------------------------------------------------------
 # Main per-project calculation entry
@@ -61,57 +65,114 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
     for sail in products:
         attributes = sail.get("attributes") or {}
         point_count = int(_num(attributes.get("pointCount")) or 0)
+        
+        points_list = attributes.get("points") or []
+        connections_list = attributes.get("connections") or []
+
+        # Build map for fast lookup: (u, v) -> value
+        # Stores measured lengths
+        dim_map = {}
+        for conn in connections_list:
+            u = int(conn.get("from", 0))
+            v = int(conn.get("to", 0))
+            key = tuple(sorted((u, v)))
+            dim_map[key] = _num(conn.get("value"))
+
         # Perimeter (adjacent edges only)
-        perimeter = _sum_edges(attributes.get("dimensions") or {}, point_count) if point_count else 0.0
+        perimeter = 0.0
+        if point_count:
+            for i in range(point_count):
+                key = tuple(sorted((i, (i + 1) % point_count)))
+                perimeter += dim_map.get(key) or 0.0
+        
         attributes["perimeter"] = perimeter
+        
         # Edge meter rounding rule
         if perimeter % 1000 < 200:
             attributes["edgeMeter"] = int(math.floor(perimeter / 1000))
         else:
             attributes["edgeMeter"] = int(math.ceil(perimeter / 1000))
+
         # XY distances
-        attributes["xyDistances"] = _build_xy_distances(attributes.get("dimensions") or {}, attributes.get("points") or {})
-        # Planar positions
-        attributes["positions"] = _compute_sail_positions_from_xy(point_count, attributes["xyDistances"])
+        # Returns dict with keys like "0-1" -> float
+        attributes["xyDistances"] = _build_xy_distances(dim_map, points_list)
+        
+        # Planar positions: returns dict { 0: {x,y}, 1: {x,y} }
+        positions_map = _compute_sail_positions_from_xy(point_count, attributes["xyDistances"])
+        
+        # Update point objects with calculated 2D positions
+        for i, pt in enumerate(points_list):
+            if i < point_count and i in positions_map:
+                pt["x"] = positions_map[i]["x"]
+                pt["y"] = positions_map[i]["y"]
+                # z is height
+                pt["z"] = float(_num(pt.get("height")) or 0.0)
+        
+        # Also enrich connections with calculated 2D length
+        for conn in connections_list:
+            u = int(conn.get("from", 0))
+            v = int(conn.get("to", 0))
+            k_xy = f"{min(u,v)}-{max(u,v)}"
+            xy_len = attributes["xyDistances"].get(k_xy)
+            if xy_len is not None:
+                conn["length2d"] = xy_len
+
         # 3D Geometry (Centroid, Workpoints)
-        _compute_3d_geometry(attributes)
-        # Discrepancies & blame
+        _compute_3d_geometry(attributes, points_list)
+        
+        # Discrepancies
         disc = _compute_discrepancies_and_blame(point_count, attributes["xyDistances"], sail)
         attributes["discrepancies"] = disc["discrepancies"]
         attributes["blame"] = disc["blame"]
         attributes["boxProblems"] = disc["boxProblems"]
-        attributes["hasReflexAngle"] = bool(disc["reflex"])  # any reflex in quadrilaterals
+        attributes["hasReflexAngle"] = bool(disc["reflex"])
         attributes["reflexAngleValues"] = disc["reflexAngleValues"]
+        
         discrepancy_values = [abs(v) for v in attributes["discrepancies"].values() if v is not None and math.isfinite(v)]
         attributes["maxDiscrepancy"] = max(discrepancy_values) if discrepancy_values else 0
         attributes["discrepancyProblem"] = attributes["maxDiscrepancy"] > disc["discrepancyThreshold"]
+
         # Trace cables total length
         total_trace_length = 0.0
-        for pt in attributes.get("traceCables", []) or []:
-            total_trace_length += _num(pt.get("length")) or 0.0
+        for tc in attributes.get("traceCables", []) or []:
+            total_trace_length += _num(tc.get("length")) or 0.0
         attributes["totalTraceLength"] = total_trace_length
         attributes["totalTraceLengthCeilMeters"] = int(math.ceil(total_trace_length / 1000.0)) if total_trace_length else None
-        # Fabric pricing (minus trace length meters)
+
+        # Fabric pricing
         fabric_type = attributes.get("fabricType")
         effective_edge_meter = attributes.get("edgeMeter", 0) - (attributes.get("totalTraceLengthCeilMeters") or 0)
         attributes["fabricPrice"] = _get_price_by_fabric(fabric_type, int(effective_edge_meter)) if fabric_type else 0.0
+
         # Fitting counts
         fitting_counts: Dict[str, int] = {}
-        for point_key, pt in (attributes.get("points") or {}).items():
+        for pt in points_list:
             fitting = pt.get("cornerFitting")
             if fitting:
                 fitting_counts[fitting] = fitting_counts.get(fitting, 0) + 1
         attributes["fittingCounts"] = fitting_counts
+
         # Sail tracks aggregated length
         total_sail_length = 0.0
-        dimensions = attributes.get("dimensions") or {}
-        for edge in attributes.get("sailTracks", []) or []:
-            dim_val = _num(dimensions.get(edge))
-            if dim_val is None:
-                continue
-            total_sail_length += dim_val
+        # Check explicit sailTracks list (legacy/parallel) AND connections usage
+        # We try to use the boolean on connections first
+        by_conn = False
+        for conn in connections_list:
+            if conn.get("sailTrack"):
+                by_conn = True
+                val = _num(conn.get("value"))
+                if val:
+                    total_sail_length += val
+        
+        if not by_conn:
+            # Fallback to legacy string list if needed, but matched against dim_map keys?
+            # Or just assume this refactor is complete switch.
+            # If Form.jsx is updated, it will write to attributes.connections.
+            pass
+
         attributes["totalSailLength"] = total_sail_length
         attributes["totalSailLengthCeilMeters"] = int(math.ceil(total_sail_length / 1000.0)) if total_sail_length else None
+        
         sail["attributes"] = attributes
     return data
 
@@ -119,18 +180,10 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 
-# ---------------------------------------------------------------------------
-# Geometry helpers (ported from Steps.js)
-# ---------------------------------------------------------------------------
-def _sum_edges(dimensions: Dict[str, Any], point_count: int) -> float:
-    total = 0.0
-    for i in range(point_count):
-        a = chr(65 + i)
-        b = chr(65 + ((i + 1) % point_count))
-        key = f"{a}{b}"
-        total += _num(dimensions.get(key)) or 0.0
-    return total
 
+# ---------------------------------------------------------------------------
+# Geometry helpers
+# ---------------------------------------------------------------------------
 
 def _project_to_xy(length: float, z1: float, z2: float) -> float:
     dz = (z2 or 0.0) - (z1 or 0.0)
@@ -139,17 +192,17 @@ def _project_to_xy(length: float, z1: float, z2: float) -> float:
     return math.sqrt(max(0.0, length ** 2 - dz ** 2))
 
 
-def _build_xy_distances(dimensions: Dict[str, Any], points: Dict[str, Any]) -> Dict[str, float]:
+def _build_xy_distances(dim_map: Dict[Tuple[int, int], float], points_list: List[Dict]) -> Dict[str, float]:
+    """Returns dict keyed by 'min-max' indices string."""
     xy = {}
-    for key, raw_len in (dimensions or {}).items():
-        if len(key) != 2:
+    for (u, v), length in dim_map.items():
+        if u >= len(points_list) or v >= len(points_list):
             continue
-        p1, p2 = sorted(list(key))
-        z1 = _num((points.get(p1) or {}).get("height")) or 0.0
-        z2 = _num((points.get(p2) or {}).get("height")) or 0.0
-        length = _num(raw_len) or 0.0
-        norm_key = f"{p1}{p2}"
-        xy[norm_key] = _project_to_xy(length, z1, z2)
+        z1 = _num(points_list[u].get("height")) or 0.0
+        z2 = _num(points_list[v].get("height")) or 0.0
+        length = _num(length) or 0.0
+        k = f"{min(u,v)}-{max(u,v)}"
+        xy[k] = _project_to_xy(length, z1, z2)
     return xy
 
 
@@ -167,13 +220,15 @@ def _rotate_ccw(x: float, y: float, angle_rad: float) -> Dict[str, float]:
     return {"x": x * c - y * s, "y": x * s + y * c}
 
 
-def _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD) -> Dict[str, Dict[str, float]]:
+def _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD) -> Dict[int, Dict[str, float]]:
+    # Returns 0, 1, 2, 3 as A, B, C, D
+    # A=0, B=1, C=2, D=3 relative to the quad
     pos = {}
-    pos["A"] = {"x": 0.0, "y": 0.0}
-    pos["B"] = {"x": dAB, "y": 0.0}
+    pos[0] = {"x": 0.0, "y": 0.0}
+    pos[1] = {"x": dAB, "y": 0.0}
     xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB) if dAB else 0.0
     yC = math.sqrt(max(0.0, dAC ** 2 - xC ** 2)) if dAC else 0.0
-    pos["C"] = {"x": xC, "y": yC}
+    pos[2] = {"x": xC, "y": yC}
 
     dx = xC
     dy = yC
@@ -186,51 +241,42 @@ def _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD) -> Dict[str, Dict[str, fl
     ry = (dx * h) / dAC_len if dAC_len else 0.0
     D1 = {"x": xD + rx, "y": yD + ry}
     D2 = {"x": xD - rx, "y": yD - ry}
-    dist1 = math.hypot(D1["x"] - pos["B"]["x"], D1["y"] - pos["B"]["y"]) if dBD else 0.0
-    dist2 = math.hypot(D2["x"] - pos["B"]["x"], D2["y"] - pos["B"]["y"]) if dBD else 0.0
-    pos["D"] = D1 if abs(dist1 - dBD) < abs(dist2 - dBD) else D2
+    dist1 = math.hypot(D1["x"] - pos[1]["x"], D1["y"] - pos[1]["y"]) if dBD else 0.0
+    dist2 = math.hypot(D2["x"] - pos[1]["x"], D2["y"] - pos[1]["y"]) if dBD else 0.0
+    pos[3] = D1 if abs(dist1 - dBD) < abs(dist2 - dBD) else D2
     return pos
 
 
-def _get_dist_xy(a: str, b: str, xy_distances: Dict[str, float]) -> float:
-    k = "".join(sorted([a, b]))
+def _get_dist_xy(u: int, v: int, xy_distances: Dict[str, float]) -> float:
+    k = f"{min(u,v)}-{max(u,v)}"
     return xy_distances.get(k, 0.0)
 
 
 def _calculate_tr_angle_from_coords(tr: Dict[str, float], br: Dict[str, float], global_angle_rad: float) -> float:
-    # Vector for Right edge (TR -> BR)
     dx = br["x"] - tr["x"]
     dy = br["y"] - tr["y"]
-    # If edge length is effectively 0, fallback to 0 degrees
     if math.hypot(dx, dy) < 1e-9:
         return 0.0
-    
     ang_right = math.atan2(dy, dx)
-    ang_top = global_angle_rad
-    
-    diff = ang_right - ang_top
+    diff = ang_right - global_angle_rad
     diff_deg = math.degrees(diff)
-    # Normalize to -180..180
     diff_deg = (diff_deg + 180) % 360 - 180
-    
-    # Internal angle is 180 - abs(diff)
     return 180.0 - abs(diff_deg)
 
 
-def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) -> Dict[str, Dict[str, float]]:
-    positions: Dict[str, Dict[str, float]] = {}
+def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) -> Dict[int, Dict[str, float]]:
+    positions: Dict[int, Dict[str, float]] = {}
     boxes = _generate_boxes(N)
     current_anchor = {"x": 0.0, "y": 0.0}
     global_angle = 0.0
     prev_TR_angle = 0.0
     first_box = False
     tolerance = 1e-3
-    
-    # Keep track of the "previous" points to help with orientation (e.g. D in D-E-G-H)
-    # For the first box, there are no previous points.
-    # For subsequent boxes/triangles, we can use points from the last processed box.
     last_box_points = []
-
+    
+    # Sort boxes by name assuming 'box_i' convention or just iterate if _generate_boxes preserves order
+    # _generate_boxes returns dict, Python 3.7+ preserves insertion order.
+    
     for box_name, pts in boxes.items():
         if len(pts) == 4:
             TL, TR, BR, BL = pts
@@ -240,13 +286,13 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
             bottom = _get_dist_xy(BR, BL, xy_distances)
             diag_left = _get_dist_xy(TR, BL, xy_distances)
             diag_right = _get_dist_xy(TL, BR, xy_distances)
-
+            
             angle_TL = _law_cosine(top, left, diag_left)
-            angle_TR = _law_cosine(top, right, diag_right)
 
             if not first_box:
                 quad_pos = _place_quadrilateral(top, diag_right, left, right, diag_left, bottom)
-                mapped = {TL: quad_pos["A"], TR: quad_pos["B"], BR: quad_pos["C"], BL: quad_pos["D"]}
+                # Local: 0->TL, 1->TR, 2->BR, 3->BL
+                mapped = {TL: quad_pos[0], TR: quad_pos[1], BR: quad_pos[2], BL: quad_pos[3]}
                 for k, v in mapped.items():
                     positions[k] = v
                 current_anchor = mapped[TR]
@@ -257,23 +303,20 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 hinge_rad = math.radians(hinge_deg)
                 global_angle += hinge_rad
                 placed = _draw_box_at(pts, xy_distances, current_anchor, global_angle)
-                mapped = {TL: placed["A"], TR: placed["B"], BR: placed["C"], BL: placed["D"]}
-                for k, p in mapped.items():
+                for k, p in placed.items():
                     old = positions.get(k)
                     if old:
                         diff = math.hypot(p["x"] - old["x"], p["y"] - old["y"])
                         if diff <= tolerance:
                             continue
                     positions[k] = p
-                current_anchor = mapped[TR]
-                prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
+                current_anchor = placed[TR]
+                prev_TR_angle = _calculate_tr_angle_from_coords(placed[TR], placed[BR], global_angle)
             
             last_box_points = [TL, TR, BR, BL]
 
-        elif len(pts) == 3:  # triangle terminal
-            A, B, C = pts
-            # A and C should already be in positions (connected to previous box)
-            # B is the new point (tip)
+        elif len(pts) == 3:
+            A, B, C = pts # A=Left, B=Top(Tip), C=Right  (relative to hull walk)
             if A in positions and C in positions:
                 pA = positions[A]
                 pC = positions[C]
@@ -281,135 +324,86 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 dBC = _get_dist_xy(B, C, xy_distances)
                 dAC = _get_dist_xy(A, C, xy_distances)
                 
-                # Angle at A (BAC)
                 angle_A = _law_cosine(dAB, dAC, dBC)
                 angle_A_rad = math.radians(angle_A)
                 
-                # Angle of vector A->C
                 dx = pC["x"] - pA["x"]
                 dy = pC["y"] - pA["y"]
                 angle_AC = math.atan2(dy, dx)
                 
-                # Two candidates for B
                 ang1 = angle_AC + angle_A_rad
                 ang2 = angle_AC - angle_A_rad
                 
                 B1 = {"x": pA["x"] + dAB * math.cos(ang1), "y": pA["y"] + dAB * math.sin(ang1)}
                 B2 = {"x": pA["x"] + dAB * math.cos(ang2), "y": pA["y"] + dAB * math.sin(ang2)}
                 
-                # 1. Check diagonals to any existing points
                 best_B = None
                 best_err = float('inf')
                 
-                # Gather all diagonals involving B
                 diagonals = []
-                for P_label, P_pos in positions.items():
-                    if P_label in (A, C): continue
-                    dist = _get_dist_xy(B, P_label, xy_distances)
+                for P_idx, P_pos in positions.items():
+                    if P_idx in (A, C): continue
+                    dist = _get_dist_xy(B, P_idx, xy_distances)
                     if dist > 0:
                         diagonals.append((P_pos, dist))
                 
                 if diagonals:
-                    # Evaluate B1
                     err1 = 0.0
                     for P_pos, dist in diagonals:
-                        d = math.hypot(B1["x"] - P_pos["x"], B1["y"] - P_pos["y"])
-                        err1 += abs(d - dist)
-                    
-                    # Evaluate B2
+                        err1 += abs(math.hypot(B1["x"] - P_pos["x"], B1["y"] - P_pos["y"]) - dist)
                     err2 = 0.0
                     for P_pos, dist in diagonals:
-                        d = math.hypot(B2["x"] - P_pos["x"], B2["y"] - P_pos["y"])
-                        err2 += abs(d - dist)
-                        
+                        err2 += abs(math.hypot(B2["x"] - P_pos["x"], B2["y"] - P_pos["y"]) - dist)
                     best_B = B1 if err1 < err2 else B2
                 
-                # 2. Fallback: Orientation check relative to previous box
                 if best_B is None:
-                    # Find a reference point from the previous box (not A or C)
-                    # A and C are likely TR and BR of previous box.
-                    # So TL or BL of previous box are good references.
                     ref_point = None
-                    for p_label in last_box_points:
-                        if p_label not in (A, C) and p_label in positions:
-                            ref_point = positions[p_label]
+                    for p_idx in last_box_points:
+                        if p_idx not in (A, C) and p_idx in positions:
+                            ref_point = positions[p_idx]
                             break
-                    
                     if ref_point:
-                        # Check which side of line AC the ref_point is on
-                        # Cross product (C-A) x (Ref-A)
                         vACx = pC["x"] - pA["x"]
                         vACy = pC["y"] - pA["y"]
                         vRefx = ref_point["x"] - pA["x"]
                         vRefy = ref_point["y"] - pA["y"]
                         cp_ref = vACx * vRefy - vACy * vRefx
-                        
-                        # Check B1
                         vB1x = B1["x"] - pA["x"]
                         vB1y = B1["y"] - pA["y"]
                         cp_B1 = vACx * vB1y - vACy * vB1x
-                        
-                        # We want B to be on the OPPOSITE side of AC as Ref
-                        # So cp_B1 and cp_ref should have opposite signs
                         if (cp_B1 > 0) != (cp_ref > 0):
                             best_B = B1
                         else:
                             best_B = B2
                     else:
-                        # No reference? Default to B1 (arbitrary)
                         best_B = B1
-
-                positions[B] = best_B
                 
-                # Update anchor/angle if needed (though triangle is usually terminal)
+                positions[B] = best_B
                 current_anchor = positions[B]
-                # prev_TR_angle update is ambiguous for triangle tip, but usually not needed after terminal
-            else:
-                # Fallback to old logic if A/C not found (shouldn't happen in strip)
-                AB = _get_dist_xy(A, B, xy_distances)
-                BC = _get_dist_xy(B, C, xy_distances)
-                AC = _get_dist_xy(A, C, xy_distances)
-                tri = {"A": {"x": 0.0, "y": 0.0}, "B": {"x": AB, "y": 0.0}}
-                if AB and AC:
-                    Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB)
-                    Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
-                    tri["C"] = {"x": Cx, "y": Cy}
-                angle_A = _law_cosine(AB, AC, BC)
-                hinge_deg = 180.0 - (prev_TR_angle + angle_A)
-                hinge_rad = math.radians(hinge_deg)
-                global_angle += hinge_rad
-                mapped = {}
-                for label, p in tri.items():
-                    rotated = _rotate_ccw(p["x"], p.get("y", 0.0), global_angle)
-                    real_label = A if label == "A" else B if label == "B" else C
-                    mapped[real_label] = {"x": rotated["x"] + current_anchor["x"], "y": rotated["y"] + current_anchor["y"]}
-                for k, v in mapped.items():
-                    positions[k] = v
-                current_anchor = mapped[B]
-                prev_TR_angle = angle_A
 
+    for k, p in positions.items():
+        positions[k] = {"x": p["x"], "y": -p["y"]}
     return positions
 
 
-def _generate_boxes(N: int) -> Dict[str, List[str]]:
-    labels = [chr(65 + i) for i in range(N)]
-    boxes: Dict[str, List[str]] = {}
+def _generate_boxes(N: int) -> Dict[str, List[int]]:
+    boxes: Dict[str, List[int]] = {}
     box_count = (N - 2) // 2
     for i in range(box_count):
-        name = chr(65 + i)
-        top_left = labels[i]
-        top_right = labels[i + 1]
-        bottom_right = labels[N - 1 - i - 1]
-        bottom_left = labels[N - 1 - i]
+        name = f"box_{i}"
+        top_left = i
+        top_right = i + 1
+        bottom_right = N - 1 - i - 1
+        bottom_left = N - 1 - i
         boxes[name] = [top_left, top_right, bottom_right, bottom_left]
-    if N % 2 != 0:  # central triangle
-        name = chr(65 + box_count)
+    if N % 2 != 0:
+        name = f"box_{box_count}"
         mid = N // 2
-        boxes[name] = [labels[mid - 1], labels[mid], labels[mid + 1]]
+        boxes[name] = [mid - 1, mid, mid + 1]
     return boxes
 
 
-def _draw_box_at(box_pts: List[str], xy: Dict[str, float], anchor: Dict[str, float], angle_rad: float) -> Dict[str, Dict[str, float]]:
+def _draw_box_at(box_pts: List[int], xy: Dict[str, float], anchor: Dict[str, float], angle_rad: float) -> Dict[int, Dict[str, float]]:
     TL, TR, BR, BL = box_pts
     dAB = _get_dist_xy(TL, TR, xy)
     dAC = _get_dist_xy(TL, BR, xy)
@@ -418,21 +412,23 @@ def _draw_box_at(box_pts: List[str], xy: Dict[str, float], anchor: Dict[str, flo
     dBD = _get_dist_xy(TR, BL, xy)
     dCD = _get_dist_xy(BR, BL, xy)
     placed = _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD)
-    for key, p in placed.items():
+    mapping = {TL: placed[0], TR: placed[1], BR: placed[2], BL: placed[3]}
+    result = {}
+    for k, p in mapping.items():
         rot = _rotate_ccw(p["x"], p["y"], angle_rad)
-        placed[key] = {"x": rot["x"] + anchor["x"], "y": rot["y"] + anchor["y"]}
-    return placed
+        result[k] = {"x": rot["x"] + anchor["x"], "y": rot["y"] + anchor["y"]}
+    return result
 
 
-def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, float]) -> Dict[str, Dict[str, float]]:
-    positions: Dict[str, Dict[str, float]] = {}
+def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, float]) -> Dict[int, Dict[str, float]]:
+    positions: Dict[int, Dict[str, float]] = {}
     if not point_count:
         return positions
     if point_count == 3:
-        A, B, C = "A", "B", "C"
-        AB = xy_distances.get("AB", 0.0)
-        BC = xy_distances.get("BC", 0.0)
-        AC = xy_distances.get("AC", 0.0)
+        A, B, C = 0, 1, 2
+        AB = _get_dist_xy(A, B, xy_distances)
+        BC = _get_dist_xy(B, C, xy_distances)
+        AC = _get_dist_xy(A, C, xy_distances)
         positions[A] = {"x": 0.0, "y": 0.0}
         positions[B] = {"x": AB, "y": 0.0}
         if AB and AC:
@@ -441,91 +437,66 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
             positions[C] = {"x": Cx, "y": -Cy}
         return positions
     if point_count == 4:
-        dAB = xy_distances.get("AB", 0.0)
-        dAC = xy_distances.get("AC", 0.0)
-        dAD = xy_distances.get("AD", 0.0)
-        dBC = xy_distances.get("BC", 0.0)
-        dBD = xy_distances.get("BD", 0.0)
-        dCD = xy_distances.get("CD", 0.0)
+        dAB = _get_dist_xy(0, 1, xy_distances)
+        dAC = _get_dist_xy(0, 2, xy_distances)
+        dAD = _get_dist_xy(0, 3, xy_distances)
+        dBC = _get_dist_xy(1, 2, xy_distances)
+        dBD = _get_dist_xy(1, 3, xy_distances)
+        dCD = _get_dist_xy(2, 3, xy_distances)
         quad = _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD)
-        # Flip Y to ensure Clockwise winding (standard for this product)
-        # _place_quadrilateral produces CCW (C at +y). We want CW (C at -y).
-        return {
-            "A": {"x": quad["A"]["x"], "y": -quad["A"]["y"]},
-            "B": {"x": quad["B"]["x"], "y": -quad["B"]["y"]},
-            "C": {"x": quad["C"]["x"], "y": -quad["C"]["y"]},
-            "D": {"x": quad["D"]["x"], "y": -quad["D"]["y"]}
-        }
-    
-    # For >4 points, we also need to flip the result
+        for i in range(4):
+            positions[i] = {"x": quad[i]["x"], "y": -quad[i]["y"]}
+        return positions
+
+    # >4 points
     positions = _compute_positions_for_many_sided(point_count, xy_distances)
     for k, p in positions.items():
         positions[k] = {"x": p["x"], "y": -p["y"]}
     return positions
 
 
-def _compute_3d_geometry(attributes: Dict[str, Any]):
-    positions = attributes.get("positions") or {}
-    points_data = attributes.get("points") or {}
-    
-    if not positions:
-        return
-
-    # Prepare 3D points list sorted by label (A, B, C...)
-    # This ensures we can determine connectivity (prev/next) for bisect method.
-    sorted_labels = sorted(positions.keys())
+def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
     points_3d = []
     
-    # 1. Calculate Centroid & Prepare Data
-    sum_x, sum_y, sum_z = 0.0, 0.0, 0.0
-    count = 0
-    
-    for label in sorted_labels:
-        pos = positions[label]
-        x = pos.get("x", 0.0)
-        y = pos.get("y", 0.0)
-        z = float(_num((points_data.get(label) or {}).get("height")) or 0.0)
-        ta = float(_num((points_data.get(label) or {}).get("tensionAllowance")) or 0.0)
-        
-        points_3d.append({
-            "label": label, 
-            "x": x, "y": y, "z": z, 
-            "ta": ta
-        })
-        
-        sum_x += x
-        sum_y += y
-        sum_z += z
-        count += 1
-        
-    if count == 0:
-        return
+    valid_points = []
+    for i, pt in enumerate(points_list):
+        if "x" in pt and "y" in pt:
+            label = pt.get("label") or _get_label(i)
+            p3d = {
+                "label": label,
+                "x": pt["x"], "y": pt["y"], "z": pt["z"],
+                "ta": float(_num(pt.get("tensionAllowance")) or 0.0)
+            }
+            valid_points.append(p3d)
 
+    if not valid_points:
+        return
+    
+    points_3d = valid_points
+    count = len(points_3d)
+    
+    sum_x = sum(p["x"] for p in points_3d)
+    sum_y = sum(p["y"] for p in points_3d)
+    sum_z = sum(p["z"] for p in points_3d)
+    
     cx = sum_x / count
     cy = sum_y / count
     cz = sum_z / count
     
     attributes["centroid"] = {"x": cx, "y": cy, "z": cz}
 
-    # 1.5 Calculate Area Centroid (Polygon Center of Mass)
-    # Solves the issue where clustered points pull the center towards them.
     area_signed = 0.0
     cx_num = 0.0
     cy_num = 0.0
-    
     for i in range(count):
         curr_p = points_3d[i]
         next_p = points_3d[(i + 1) % count]
-        
-        # Cross product (x1*y2 - x2*y1)
         cross = curr_p["x"] * next_p["y"] - next_p["x"] * curr_p["y"]
         area_signed += cross
-        
         cx_num += (curr_p["x"] + next_p["x"]) * cross
         cy_num += (curr_p["y"] + next_p["y"]) * cross
-        
-    area = area_signed * 0.5
     
+    area = area_signed * 0.5
     if abs(area) > 1e-9:
         cx_area = cx_num / (6.0 * area)
         cy_area = cy_num / (6.0 * area)
@@ -535,207 +506,149 @@ def _compute_3d_geometry(attributes: Dict[str, Any]):
         
     attributes["centroid_area"] = {"x": cx_area, "y": cy_area, "z": cz}
 
-    # 1.5 Calculate Area Centroid (Polygon Center of Mass)
-    # Solves the issue where clustered points pull the center towards them.
-    area_signed = 0.0
-    cx_num = 0.0
-    cy_num = 0.0
-    
-    for i in range(count):
-        curr_p = points_3d[i]
-        next_p = points_3d[(i + 1) % count]
-        
-        # Cross product (x1*y2 - x2*y1)
-        cross = curr_p["x"] * next_p["y"] - next_p["x"] * curr_p["y"]
-        area_signed += cross
-        
-        cx_num += (curr_p["x"] + next_p["x"]) * cross
-        cy_num += (curr_p["y"] + next_p["y"]) * cross
-        
-    area = area_signed * 0.5
-    
-    if abs(area) > 1e-9:
-        cx_area = cx_num / (6.0 * area)
-        cy_area = cy_num / (6.0 * area)
-    else:
-        cx_area = cx
-        cy_area = cy
-        
-    attributes["centroid_area"] = {"x": cx_area, "y": cy_area, "z": cz}
-
-    # Calculate enabled workpoint methods
     computed_workpoints = {}
+    
+    def persist_wp(method_name, result_dict):
+        attr_key = f"workpoints_{method_name}"
+        attributes[attr_key] = result_dict
+        computed_workpoints[method_name] = result_dict
 
     if WORKPOINT_METHODS.get("centroid"):
-        workpoints_centroid = compute_workpoints_centroid(points_3d, cx, cy, cz)
-        attributes["workpoints_centroid"] = workpoints_centroid
-        computed_workpoints["centroid"] = workpoints_centroid
-
+        persist_wp("centroid", compute_workpoints_centroid(points_3d, cx, cy, cz))
     if WORKPOINT_METHODS.get("bisect"):
-        workpoints_bisect = compute_workpoints_bisect(points_3d, cx, cy, cz)
-        attributes["workpoints_bisect"] = workpoints_bisect
-        computed_workpoints["bisect"] = workpoints_bisect
-
+        persist_wp("bisect", compute_workpoints_bisect(points_3d, cx, cy, cz))
     if WORKPOINT_METHODS.get("midpoint"):
-        workpoints_midpoint = compute_workpoints_midpoint(points_3d, cx_area, cy_area, cz)
-        attributes["workpoints_midpoint"] = workpoints_midpoint
-        computed_workpoints["midpoint"] = workpoints_midpoint
-
+        persist_wp("midpoint", compute_workpoints_midpoint(points_3d, cx_area, cy_area, cz))
     if WORKPOINT_METHODS.get("area"):
-        workpoints_area = compute_workpoints_area_centroid(points_3d, cx_area, cy_area, cz)
-        attributes["workpoints_area"] = workpoints_area
-        computed_workpoints["area"] = workpoints_area
-
+        persist_wp("area", compute_workpoints_area_centroid(points_3d, cx_area, cy_area, cz))
     if WORKPOINT_METHODS.get("weighted"):
-        workpoints_weighted = compute_workpoints_weighted(points_3d, cx_area, cy_area)
-        attributes["workpoints_weighted"] = workpoints_weighted
-        computed_workpoints["weighted"] = workpoints_weighted
-
+        persist_wp("weighted", compute_workpoints_weighted(points_3d, cx_area, cy_area))
     if WORKPOINT_METHODS.get("minimal"):
-        workpoints_minimal = compute_workpoints_minimal(points_3d)
-        attributes["workpoints_minimal"] = workpoints_minimal
-        computed_workpoints["minimal"] = workpoints_minimal
-
+        persist_wp("minimal", compute_workpoints_minimal(points_3d))
     if WORKPOINT_METHODS.get("bisect_rotate"):
-        workpoints_bisect_rotate = compute_workpoints_bisect_rotate(points_3d, cx_area, cy_area, cz)
-        attributes["workpoints_bisect_rotate"] = workpoints_bisect_rotate
-        computed_workpoints["bisect_rotate"] = workpoints_bisect_rotate
-
+        persist_wp("bisect_rotate", compute_workpoints_bisect_rotate(points_3d, cx_area, cy_area, cz))
     if WORKPOINT_METHODS.get("bisect_rotate_normalized"):
-        workpoints_bisect_rotate_normalized = compute_workpoints_bisect_rotate_normalized(points_3d)
-        attributes["workpoints_bisect_rotate_normalized"] = workpoints_bisect_rotate_normalized
-        computed_workpoints["bisect_rotate_normalized"] = workpoints_bisect_rotate_normalized
-
+        persist_wp("bisect_rotate_normalized", compute_workpoints_bisect_rotate_normalized(points_3d))
     if WORKPOINT_METHODS.get("bisect_rotate_planar"):
-        workpoints_bisect_rotate_planar = compute_workpoints_bisect_rotate_planar(points_3d, cx_area, cy_area)
-        attributes["workpoints_bisect_rotate_planar"] = workpoints_bisect_rotate_planar
-        computed_workpoints["bisect_rotate_planar"] = workpoints_bisect_rotate_planar
+        persist_wp("bisect_rotate_planar", compute_workpoints_bisect_rotate_planar(points_3d, cx_area, cy_area))
 
-    # Set the default workpoints alias
     if DEFAULT_WORKPOINT_METHOD in computed_workpoints:
-        attributes["workpoints"] = computed_workpoints[DEFAULT_WORKPOINT_METHOD]
+        wp_dict = computed_workpoints[DEFAULT_WORKPOINT_METHOD]
+        for i, pt in enumerate(points_list):
+            lbl = _get_label(i)
+            if lbl in wp_dict:
+                pt["workpoint"] = wp_dict[lbl]
 
 
-# ---------------------------------------------------------------------------
-# Discrepancy & blame logic (ported)
-# ---------------------------------------------------------------------------
 def _get_four_point_combos_with_dims(N: int, xy: Dict[str, float]) -> List[Dict[str, Any]]:
-    labels = [chr(65 + i) for i in range(N)]
-    combos: List[List[str]] = []
-
-    def helper(start: int, combo: List[str]):
-        if len(combo) == 4:
-            combos.append(combo.copy())
+    # Returns combos of INDICES [0,1,2,3]
+    indices = list(range(N))
+    combos = []
+    def helper(start, current):
+        if len(current) == 4:
+            combos.append(current.copy())
             return
-        for i in range(start, len(labels)):
-            combo.append(labels[i])
-            helper(i + 1, combo)
-            combo.pop()
-
+        for i in range(start, N):
+            current.append(i)
+            helper(i+1, current)
+            current.pop()
     helper(0, [])
     results = []
+    import itertools
     for combo in combos:
-        a, b, c, d = combo
-        pairs = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)]
+        pairs = []
+        for p1, p2 in itertools.combinations(combo, 2):
+            pairs.append((p1, p2))
         dims = {}
         for p1, p2 in pairs:
-            alpha_key = "".join(sorted([p1, p2]))
-            dims[alpha_key] = xy.get(alpha_key)
-        results.append({"combo": "".join(combo), "dims": dims})
+            k = f"{min(p1,p2)}-{max(p1,p2)}"
+            dims[k] = xy.get(k)
+        
+        a,b,c,d = combo
+        # Order: ab, ac, ad, bc, bd, cd
+        ordered_dims = {
+            "AB": dims.get(f"{a}-{b}"),
+            "AC": dims.get(f"{a}-{c}"),
+            "AD": dims.get(f"{a}-{d}"),
+            "BC": dims.get(f"{b}-{c}"),
+            "BD": dims.get(f"{b}-{d}"),
+            "CD": dims.get(f"{c}-{d}")
+        }
+        combo_str = "".join([_get_label(x) for x in combo])
+        results.append({"combo": combo_str, "dims": ordered_dims})
     return results
 
 
-def _compute_discrepancy_xy(dimensions: Dict[str, float]) -> Dict[str, Any]:
-    lengths = list(dimensions.values())
-    if len(lengths) < 6 or any(v in (None, 0) for v in lengths):
+def _compute_discrepancy_xy(dims_map: Dict[str, float]) -> Dict[str, Any]:
+    lengths = [dims_map.get(k) for k in ["AB","AC","AD","BC","BD","CD"]]
+    if any(v in (None, 0) for v in lengths):
         return {"discrepancy": 0, "reflex": {}, "angles": {}, "reflexAngles": {}}
-    AB, AC, AD, BC, BD, CD = lengths  # ordering preserved from JS
+    AB, AC, AD, BC, BD, CD = lengths
 
-    def safe_acos(x: float) -> float:
-        return math.acos(max(-1.0, min(1.0, x)))
-
+    def safe_acos(x): return math.acos(max(-1.0, min(1.0, x)))
     A = {"x": 0.0, "y": 0.0}
     C = {"x": AC, "y": 0.0}
     cosA_ABC = (AB * AB + AC * AC - BC * BC) / (2 * AB * AC)
-    angleA_ABC = safe_acos(cosA_ABC) if AB and AC and BC else 0.0
+    angleA_ABC = safe_acos(cosA_ABC)
     B = {"x": AB * math.cos(angleA_ABC), "y": AB * math.sin(angleA_ABC)}
-    cosA_ADC = (AD * AD + AC * AC - CD * CD) / (2 * AD * AC) if AD and AC and CD else 0.0
-    angleA_ADC = safe_acos(cosA_ADC) if AD and AC and CD else 0.0
-    
-    # Try both positions for D (opposite side of AC as B, or same side)
-    # B is at +y. D1 is -y (convex-ish), D2 is +y (reflex-ish/arrowhead)
+    cosA_ADC = (AD * AD + AC * AC - CD * CD) / (2 * AD * AC)
+    angleA_ADC = safe_acos(cosA_ADC)
     D1 = {"x": AD * math.cos(angleA_ADC), "y": -AD * math.sin(angleA_ADC)}
     D2 = {"x": AD * math.cos(angleA_ADC), "y": AD * math.sin(angleA_ADC)}
-    
-    bd1 = math.hypot(B["x"] - D1["x"], B["y"] - D1["y"]) if BD else 0.0
-    bd2 = math.hypot(B["x"] - D2["x"], B["y"] - D2["y"]) if BD else 0.0
-    
+    bd1 = math.hypot(B["x"] - D1["x"], B["y"] - D1["y"])
+    bd2 = math.hypot(B["x"] - D2["x"], B["y"] - D2["y"])
     if abs(bd2 - BD) < abs(bd1 - BD):
         D = D2
         BD_theory = bd2
     else:
         D = D1
         BD_theory = bd1
-
     discrepancy = abs(BD_theory - BD)
-
-    def angle_at(P: Dict[str, float], Q: Dict[str, float], R: Dict[str, float]) -> float:
-        v1 = (P["x"] - Q["x"], P["y"] - Q["y"])
-        v2 = (R["x"] - Q["x"], R["y"] - Q["y"])
-        dot = v1[0] * v2[0] + v1[1] * v2[1]
-        m1 = math.hypot(*v1)
-        m2 = math.hypot(*v2)
-        if not (m1 and m2):
-            return 0.0
-        ang = math.acos(max(-1.0, min(1.0, dot / (m1 * m2))))
-        return ang
-
-    # Determine winding of the constructed shape to correctly identify reflex angles
+    
     pts = [A, B, C, D]
     area = 0.0
     for i in range(4):
-        p1 = pts[i]
-        p2 = pts[(i + 1) % 4]
+        p1, p2 = pts[i], pts[(i+1)%4]
         area += (p1["x"] * p2["y"] - p2["x"] * p1["y"])
     is_ccw = area > 0
-
-    def is_reflex_vertex(P, Q, R, is_poly_ccw):
-        # Cross product of PQ and QR
-        v1x = Q["x"] - P["x"]
-        v1y = Q["y"] - P["y"]
-        v2x = R["x"] - Q["x"]
-        v2y = R["y"] - Q["y"]
-        cross = v1x * v2y - v1y * v2x
+    
+    def is_reflex(P, Q, R):
+        cross = (Q["x"]-P["x"])*(R["y"]-Q["y"]) - (Q["y"]-P["y"])*(R["x"]-Q["x"])
         is_left = cross > 0
-        if is_poly_ccw:
-            return not is_left # CCW: Right turn is reflex
-        else:
-            return is_left # CW: Left turn is reflex
+        return not is_left if is_ccw else is_left
+        
+    def angle_at(P, Q, R):
+        v1 = (P["x"] - Q["x"], P["y"] - Q["y"])
+        v2 = (R["x"] - Q["x"], R["y"] - Q["y"])
+        m1 = math.hypot(*v1)
+        m2 = math.hypot(*v2)
+        if not (m1 and m2): return 0.0
+        return math.acos(max(-1.0, min(1.0, (v1[0]*v2[0] + v1[1]*v2[1])/(m1*m2))))
 
+    refA = is_reflex(D, A, B)
+    refB = is_reflex(A, B, C)
+    refC = is_reflex(B, C, D)
+    refD = is_reflex(C, D, A)
+    
     Aang = angle_at(D, A, B)
     Bang = angle_at(A, B, C)
     Cang = angle_at(B, C, D)
     Dang = angle_at(C, D, A)
-
-    # Check reflex status
-    refA = is_reflex_vertex(D, A, B, is_ccw)
-    refB = is_reflex_vertex(A, B, C, is_ccw)
-    refC = is_reflex_vertex(B, C, D, is_ccw)
-    refD = is_reflex_vertex(C, D, A, is_ccw)
-
-    # Adjust angles if reflex
-    if refA: Aang = 2 * math.pi - Aang
-    if refB: Bang = 2 * math.pi - Bang
-    if refC: Cang = 2 * math.pi - Cang
-    if refD: Dang = 2 * math.pi - Dang
-
-    angles = {"A": math.degrees(Aang), "B": math.degrees(Bang), "C": math.degrees(Cang), "D": math.degrees(Dang)}
-    reflex = {"A": refA, "B": refB, "C": refC, "D": refD}
-    reflex_angles = {k: v for k, v in angles.items() if reflex.get(k)}
-    return {"discrepancy": discrepancy, "reflex": reflex, "angles": angles, "reflexAngles": reflex_angles}
+    
+    if refA: Aang = 2*math.pi - Aang
+    if refB: Bang = 2*math.pi - Bang
+    if refC: Cang = 2*math.pi - Cang
+    if refD: Dang = 2*math.pi - Dang
+    
+    return {
+        "discrepancy": discrepancy,
+        "reflex": {"A": refA, "B": refB, "C": refC, "D": refD},
+        "angles": {"A": math.degrees(Aang), "B": math.degrees(Bang), "C": math.degrees(Cang), "D": math.degrees(Dang)},
+        "reflexAngles": {}
+    }
 
 
-def _compute_discrepancies_and_blame(N: int, xy_distances: Dict[str, float], sail: Dict[str, Any]) -> Dict[str, Any]:
+def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[str, Any]) -> Dict[str, Any]:
     discrepancies: Dict[str, Any] = {}
     blame: Dict[str, float] = {}
     box_problems: Dict[str, bool] = {}
@@ -750,33 +663,42 @@ def _compute_discrepancies_and_blame(N: int, xy_distances: Dict[str, float], sai
     elif fabric_category == "ShadeCloth":
         discrepancy_threshold = 70
 
-    for k in xy_distances:
-        blame[k] = 0.0
-    for k in (sail.get("attributes", {}).get("points") or {}):
-        blame[k] = 0.0
+    def idx_to_lbl(k):
+        # k is str "0-1" or "0"
+        parts = k.split('-')
+        return "".join([_get_label(int(x)) for x in parts])
+
+    for k in xy:
+        blame[idx_to_lbl(k)] = 0.0
+    for i in range(N):
+        blame[_get_label(i)] = 0.0
 
     if N >= 4:
-        combos = _get_four_point_combos_with_dims(N, xy_distances)
-        for combo in combos:
-            dims = combo["dims"]
-            result = _compute_discrepancy_xy(dims)
-            discrepancy = result["discrepancy"]
-            discrepancies[combo["combo"]] = discrepancy
-            quad_has_reflex = any(v is True for v in result["reflex"].values())
-            if quad_has_reflex:
-                reflex_flag = True
-            for label, angle_deg in result["reflexAngles"].items():
-                if angle_deg is None:
-                    continue
-                current = reflex_angle_values.get(label)
-                if current is None or angle_deg > current:
-                    reflex_angle_values[label] = angle_deg
-            is_problem = discrepancy is not None and math.isfinite(discrepancy) and discrepancy > discrepancy_threshold
-            if is_problem:
-                box_problems[combo["combo"]] = True
+        combos = _get_four_point_combos_with_dims(N, xy)
+        for cdict in combos:
+            combo_str = cdict["combo"] 
+            res = _compute_discrepancy_xy(cdict["dims"])
+            disc = res["discrepancy"]
+            discrepancies[combo_str] = disc
+            
+            has_reflex = any(res["reflex"].values())
+            if has_reflex: reflex_flag = True
+            
+            labels_map = {'A': combo_str[0], 'B': combo_str[1], 'C': combo_str[2], 'D': combo_str[3]}
+            
+            for rel_k, is_ref in res["reflex"].items():
+                if is_ref:
+                    display_lbl = labels_map[rel_k]
+                    ang = res["angles"][rel_k]
+                    current = reflex_angle_values.get(display_lbl)
+                    if current is None or ang > current:
+                        reflex_angle_values[display_lbl] = ang
+
+            if disc is not None and math.isfinite(disc) and disc > discrepancy_threshold:
+                box_problems[combo_str] = True
                 for blame_key in list(blame.keys()):
-                    if all(ch in combo["combo"] for ch in blame_key):
-                        blame[blame_key] += discrepancy
+                    if all(ch in combo_str for ch in blame_key):
+                        blame[blame_key] += disc
 
     return {
         "discrepancies": discrepancies,

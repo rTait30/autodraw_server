@@ -8,26 +8,25 @@ export const GENERAL_DEFAULTS = Object.freeze({
 export const DEFAULT_ATTRIBUTES = Object.freeze({
   fabricCategory: "ShadeCloth",
   fabricType: "Rainbow Z16",
-  foldSide: "Underside",
-  exitPoint: "A",
-  logoPoint: "",
+  foldSides: "Standard",
+  exitPoint: 0,
+  logoPoint: null,
   cableSize: 4,
   pointCount: 4,
-  dimensions: {
-    AB: "",
-    BC: "",
-    CD: "",
-    DA: "",
-    AC: "",
-    BD: "",
-  },
-  points: {
-    A: { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    B: { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    C: { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    D: { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-  },
+  points: [
+    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
+    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 }
+  ],
+  connections: [],
   sailTracks: [],
   traceCables: [],
   ufcs: [],
+  fabric_id: null,
+  fabric_name: "Rainbow Z16",
+  color_id: null,
+  color_name: "Charcoal",
+  colour: "Charcoal",
 });
+

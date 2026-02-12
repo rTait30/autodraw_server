@@ -59,7 +59,7 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
   const [fabricTypes, setFabricTypes] = useState([]);
   const [selectedType, setSelectedType] = useState(null);
   const [colors, setColors] = useState([]);
-  const [expandedCategories, setExpandedCategories] = useState({ Shade: true, PVC: false });
+  const [expandedCategories, setExpandedCategories] = useState({});
   const [selectionComplete, setSelectionComplete] = useState(false);
   const [selectedColorData, setSelectedColorData] = useState(null);
   const [userNavigatedBack, setUserNavigatedBack] = useState(false);
@@ -77,6 +77,12 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
       if (res.ok) {
         const data = await res.json();
         setFabricTypes(data);
+        // Set all categories to expanded by default
+        const categories = data.reduce((acc, type) => {
+          acc[type.category] = true;
+          return acc;
+        }, {});
+        setExpandedCategories(categories);
       }
     } catch (err) {
       console.error('Failed to fetch fabric types', err);

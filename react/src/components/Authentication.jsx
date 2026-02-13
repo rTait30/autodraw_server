@@ -211,7 +211,7 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
     <div className="w-full flex flex-col items-center p-4">
           <div className="flex justify-center w-full mb-4">
             <img
-              src={getBaseUrl(darkMode ? '/static/img/DRlogoHDark.png' : '/static/img/DRlogoH.png')}
+              src={getBaseUrl('/static/img/WhiteLogos.png')}
               alt="Logo"
               className="mx-auto max-h-16"
             />

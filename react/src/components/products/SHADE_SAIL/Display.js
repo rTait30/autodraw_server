@@ -43,21 +43,32 @@ export function render(canvas, data) {
     if (!ids.length) return;
 
     // Build a set of problematic line keys (unordered pairs) from boxProblems
-    // For any box like ABCD, mark AB, BC, CD, DA and diagonals AC, BD as problematic
+    // For any box like ABCD or 0-1-2-3, mark AB, BC, CD, DA and diagonals AC, BD as problematic
     const problematicLines = new Set();
     if (attributes.boxProblems) {
       Object.entries(attributes.boxProblems).forEach(([boxKey, isProblem]) => {
-        if (!isProblem || !boxKey || boxKey.length < 4) return;
-        const corners = boxKey.replace(/[^A-Za-z]/g, '').split('');
+        if (!isProblem || !boxKey) return;
+        
+        let corners = [];
+        if (boxKey.includes('-')) {
+            corners = boxKey.split('-');
+        } else {
+            corners = boxKey.replace(/[^A-Za-z0-9]/g, '').split('');
+        }
+        
         if (corners.length < 4) return;
+        
+        // Ensure 4 corners for a quad check
         const [A, B, C, D] = corners;
         const pairs = [
           [A, B], [B, C], [C, D], [D, A], // edges
           [A, C], [B, D],                  // diagonals
         ];
+        
         pairs.forEach(([p1, p2]) => {
-          const key = [p1, p2].sort().join('');
-          problematicLines.add(key);
+            // Sort to make key canonical for undirected edge
+            const key = [p1, p2].sort().join('-');
+            problematicLines.add(key);
         });
       });
     }
@@ -175,7 +186,7 @@ export function render(canvas, data) {
       const pos2 = perimeterPoints[p2];
       if (!pos1 || !pos2) continue;
 
-      const lineKey = [p1, p2].sort().join('');
+      const lineKey = [p1, p2].sort().join('-');
       const isProblematicPerimeter = problematicLines.has(lineKey);
 
       // Draw catenary curve (visual only, 5% dip)
@@ -241,7 +252,9 @@ export function render(canvas, data) {
 
       ctx.fillStyle = '#000';
       ctx.font = `bold 32px Arial`;
-      ctx.fillText(`${id}`, labelX, labelY);
+      // Convert id 0->A, 1->B, 2->C...
+      const labelChar = String.fromCharCode(65 + Number(id)); 
+      ctx.fillText(`${labelChar}`, labelX, labelY);
       
       ctx.font = `bold 12px Arial`;
 
@@ -269,6 +282,63 @@ export function render(canvas, data) {
       */
     });
 
+    // Convert index to Label (0 -> A)
+    const getLabel = (idx) => {
+        const n = Number(idx);
+        if (isNaN(n)) return idx; // fallback if already a letter
+        return String.fromCharCode(65 + n);
+    };
+
+    // Unified dimensions map for drawing
+    // Prioritize connections (list or dict), fallback to dimensions
+    const dimensionsMap = {};
+    const conns = attributes.connections;
+    if (Array.isArray(conns)) {
+        conns.forEach(c => {
+             // For drawing, we want consistent keying.
+             // But we want to display letters.
+             // Let's store by index-key for drawing logic, map to label for text.
+             const k = [c.from, c.to].sort((a,b)=>a-b).join('-'); // Numeric sort for indices
+             if (c.value) dimensionsMap[k] = c.value;
+        });
+    } else if (conns && typeof conns === 'object') {
+        Object.entries(conns).forEach(([k, valObj]) => {
+             // k is "u-v" or "uv"
+             // normalize to sorted "u-v"
+             let p1, p2;
+             if (k.includes('-')) {
+                 [p1, p2] = k.split('-');
+             } else if (k.length === 2) {
+                 [p1, p2] = k.split('');
+             }
+             if (p1 !== undefined) {
+                 // Numeric sort to match above
+                 const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
+                 if (valObj && valObj.value) dimensionsMap[normK] = valObj.value;
+             }
+        });
+    }
+    
+    // Fallback/Legacy dimensions merge
+    if (attributes.dimensions) {
+        Object.entries(attributes.dimensions).forEach(([k, v]) => {
+             let p1, p2;
+             if (k.length === 2) {
+                 p1 = k[0]; p2 = k[1];
+                 // Convert letters to indices if needed
+                 if (/[A-Z]/.test(p1)) p1 = (p1.charCodeAt(0) - 65).toString();
+                 if (/[A-Z]/.test(p2)) p2 = (p2.charCodeAt(0) - 65).toString();
+             } else if (k.includes('-')) {
+                 [p1, p2] = k.split('-');
+             }
+             
+             if (p1 !== undefined) {
+                 const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
+                 if (v && !dimensionsMap[normK]) dimensionsMap[normK] = v;
+             }
+        });
+    }
+
     // Dimensions (edges + diagonals) with rotated labels
     ctx.lineWidth = 1; ctx.fillStyle = '#333'; ctx.font = `bold 14px Arial`;
     const drawnLines = new Set();
@@ -277,15 +347,18 @@ export function render(canvas, data) {
       if (i1 === -1 || i2 === -1) return false;
       return Math.abs(i1 - i2) === 1 || Math.abs(i1 - i2) === ordered.length - 1;
     };
-    for (const edgeKey in attributes.dimensions || {}) {
-      if (edgeKey.length !== 2) continue;
-      const dimValue = attributes.dimensions[edgeKey];
+    
+    for (const [edgeKey, dimValue] of Object.entries(dimensionsMap)) {
       if (dimValue === '' || dimValue === undefined || dimValue === null || isNaN(Number(dimValue))) continue;
-      const [p1, p2] = edgeKey.split('');
-      const lineKey = [p1, p2].sort().join('');
+      
+      const [p1, p2] = edgeKey.split('-');
+      const lineKey = [p1, p2].sort().join('-'); // string sort for unique set key
+      
       if (drawnLines.has(lineKey)) continue;
       drawnLines.add(lineKey);
+      
       const pos1 = mapped[p1]; const pos2 = mapped[p2];
+      // If p1/p2 (indices) are not in mapped positions, skip
       if (!pos1 || !pos2) continue;
       if (!isPerimeterEdge(p1, p2)) {
         const isProblematicLine = problematicLines.has(lineKey);
@@ -298,7 +371,12 @@ export function render(canvas, data) {
       if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
         angle += Math.PI;
       }
-      const label = `${edgeKey}: ${dimValue}mm`;
+      
+      // Convert indices to labels for display
+      const L1 = getLabel(p1);
+      const L2 = getLabel(p2);
+      const label = `${L1}-${L2}: ${dimValue}mm`;
+
 
       //console.log("[DEBUG] Drawing dimension label:", label, "at", midX, midY, "angle", angle);
 
@@ -334,6 +412,13 @@ export function render(canvas, data) {
     const hasData = (attributes.pointCount || 0) >= 4; // Show details for Quads (4) and up
     const isProblem = attributes.discrepancyProblem;
 
+    // Helper to translate "0-1" -> "A-B" or "0-1-2" -> "A-B-C"
+    const translateKey = (k) => {
+        if (!k) return k;
+        const parts = k.includes('-') ? k.split('-') : k.split('');
+        return parts.map(p => getLabel(p)).join('-');
+    };
+
     let suggestionText = "";
     if (isProblem && groupedBlame.length > 0) {
        const topSuspectKeys = groupedBlame[0][1];
@@ -341,7 +426,7 @@ export function render(canvas, data) {
        if (topSuspectKeys.length > 3) {
           suggestionText = "Cannot determine specific problem dimension.";
        } else {
-          const topSuspects = topSuspectKeys.join(' or ');
+          const topSuspects = topSuspectKeys.map(k => translateKey(k)).join(' or ');
           suggestionText = `Check dimension ${topSuspects} or similar.`;
        }
     }
@@ -352,7 +437,7 @@ export function render(canvas, data) {
     if (!isProblem) boxHeight += 25; // Good status message
 
     if (hasData && (sortedDiscrepancies.length > 0 || groupedBlame.length > 0)) {
-        boxHeight += 35; // Spacing + Headers
+        boxHeight += 38; // Spacing + Headers (increased slightly)
         const rowCount = Math.max(sortedDiscrepancies.length, groupedBlame.length);
         boxHeight += rowCount * 18;
     }
@@ -376,7 +461,7 @@ export function render(canvas, data) {
     ctx.fillStyle = "#111";
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, col1X, currentY);
 
-    ctx.fillStyle = isProblem ? '#dc2626' : '#16a34a';
+    ctx.fillStyle = isProblem ? '#dc2626' : '#16a34a'; // Red or Green
     ctx.fillText(isProblem ? "These dimensions have discrepancies." : "Specifications Valid", col2X, currentY);
 
     currentY += 25; 
@@ -413,28 +498,43 @@ export function render(canvas, data) {
            // Col 1
            if (i < sortedDiscrepancies.length) {
               const [box, value] = sortedDiscrepancies[i];
-              // Recalc percentage context
-              const corners = box.split('');
+              const displayBox = translateKey(box);
+
+              // Recalc percentage context using dimensionsMap
+              let corners = [];
+              if (box.includes('-')) {
+                 corners = box.split('-'); 
+              } else {
+                 corners = box.split('');
+              }
+
               let longestBoxEdge = 0;
               for (let ci = 0; ci < corners.length; ci++) {
                 for (let cj = ci + 1; cj < corners.length; cj++) {
-                   const pair = corners[ci] + corners[cj];
-                   const revPair = corners[cj] + corners[ci];
-                   const l = attributes.dimensions[pair] || attributes.dimensions[revPair];
+                   const p1 = corners[ci];
+                   const p2 = corners[cj];
+                   
+                   // Ensure canonical key usage for dimensionsMap lookup
+                   // dimensionsMap uses "sorted p1-p2"
+                   // p1 and p2 should be indices (if box strings are indices)
+                   const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
+                   
+                   const l = dimensionsMap[normK];
                    if (typeof l === 'number' && l > longestBoxEdge) longestBoxEdge = l;
                 }
               }
               const pct = ((value / (longestBoxEdge || 1)) * 100).toFixed(0);
               
               ctx.fillStyle = "#374151";
-              ctx.fillText(`- ${box}: ${value.toFixed(0)} mm (${pct}%)`, col1X + 5, rowY);
+              ctx.fillText(`- ${displayBox}: ${value.toFixed(0)} mm (${pct}%)`, col1X + 5, rowY);
            }
 
            // Col 2
            if (i < groupedBlame.length) {
               const [rounded, keys] = groupedBlame[i];
+              const displayKeys = keys.map(k => translateKey(k)).join(', ');
               ctx.fillStyle = "#ef4444"; // Red standout
-              ctx.fillText(`- ${keys.join(', ')}: ~${parseFloat(rounded).toFixed(0)} mm`, col2X + 5, rowY);
+              ctx.fillText(`- ${displayKeys}: ~${parseFloat(rounded).toFixed(0)} mm`, col2X + 5, rowY);
            }
         }
     }

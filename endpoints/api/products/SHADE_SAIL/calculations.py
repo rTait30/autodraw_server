@@ -67,16 +67,32 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         point_count = int(_num(attributes.get("pointCount")) or 0)
         
         points_list = attributes.get("points") or []
-        connections_list = attributes.get("connections") or []
+        connections_data = attributes.get("connections")
 
         # Build map for fast lookup: (u, v) -> value
         # Stores measured lengths
         dim_map = {}
-        for conn in connections_list:
-            u = int(conn.get("from", 0))
-            v = int(conn.get("to", 0))
-            key = tuple(sorted((u, v)))
-            dim_map[key] = _num(conn.get("value"))
+        
+        # Support both new Dict format (recommended) and old List format
+        connections_is_dict = isinstance(connections_data, dict)
+        
+        if connections_is_dict:
+            for key, valObj in connections_data.items():
+                if not valObj: continue
+                try:
+                    parts = key.split("-")
+                    if len(parts) == 2:
+                        u, v = int(parts[0]), int(parts[1])
+                        key_tup = tuple(sorted((u, v)))
+                        dim_map[key_tup] = _num(valObj.get("value"))
+                except ValueError:
+                    pass
+        elif isinstance(connections_data, list):
+            for conn in connections_data:
+                u = int(conn.get("from", 0))
+                v = int(conn.get("to", 0))
+                key_tup = tuple(sorted((u, v)))
+                dim_map[key_tup] = _num(conn.get("value"))
 
         # Perimeter (adjacent edges only)
         perimeter = 0.0
@@ -99,7 +115,8 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Planar positions: returns dict { 0: {x,y}, 1: {x,y} }
         positions_map = _compute_sail_positions_from_xy(point_count, attributes["xyDistances"])
-        
+        attributes["positions"] = positions_map
+
         # Update point objects with calculated 2D positions
         for i, pt in enumerate(points_list):
             if i < point_count and i in positions_map:
@@ -108,15 +125,9 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
                 # z is height
                 pt["z"] = float(_num(pt.get("height")) or 0.0)
         
-        # Also enrich connections with calculated 2D length
-        for conn in connections_list:
-            u = int(conn.get("from", 0))
-            v = int(conn.get("to", 0))
-            k_xy = f"{min(u,v)}-{max(u,v)}"
-            xy_len = attributes["xyDistances"].get(k_xy)
-            if xy_len is not None:
-                conn["length2d"] = xy_len
-
+        # Enrich connections with calculated 2D length and Blame
+        # We need to compute blame first to inject it.
+        
         # 3D Geometry (Centroid, Workpoints)
         _compute_3d_geometry(attributes, points_list)
         
@@ -131,6 +142,30 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         discrepancy_values = [abs(v) for v in attributes["discrepancies"].values() if v is not None and math.isfinite(v)]
         attributes["maxDiscrepancy"] = max(discrepancy_values) if discrepancy_values else 0
         attributes["discrepancyProblem"] = attributes["maxDiscrepancy"] > disc["discrepancyThreshold"]
+
+        # Inject derived data (length2d, blame) back into connections structure
+        if connections_is_dict:
+             for key, valObj in connections_data.items():
+                 # key is "0-1" or similar
+                 # Calculated xy len
+                 xy_len = attributes["xyDistances"].get(key)
+                 if xy_len is not None and valObj:
+                     valObj["length2d"] = xy_len
+                 
+                 # Blame
+                 if key in attributes["blame"] and valObj:
+                     valObj["blame"] = attributes["blame"][key]
+                     
+        elif isinstance(connections_data, list):
+             for conn in connections_data:
+                u = int(conn.get("from", 0))
+                v = int(conn.get("to", 0))
+                k_xy = f"{min(u,v)}-{max(u,v)}"
+                xy_len = attributes["xyDistances"].get(k_xy)
+                if xy_len is not None:
+                    conn["length2d"] = xy_len
+                if k_xy in attributes["blame"]:
+                    conn["blame"] = attributes["blame"][k_xy]
 
         # Trace cables total length
         total_trace_length = 0.0
@@ -157,7 +192,16 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         # Check explicit sailTracks list (legacy/parallel) AND connections usage
         # We try to use the boolean on connections first
         by_conn = False
-        for conn in connections_list:
+        
+        # Helper to iterate connections regardless of format
+        connections_iterator = []
+        if isinstance(connections_data, dict):
+            connections_iterator = connections_data.values()
+        elif isinstance(connections_data, list):
+            connections_iterator = connections_data
+            
+        for conn in connections_iterator:
+            if not conn: continue
             if conn.get("sailTrack"):
                 by_conn = True
                 val = _num(conn.get("value"))
@@ -220,30 +264,67 @@ def _rotate_ccw(x: float, y: float, angle_rad: float) -> Dict[str, float]:
     return {"x": x * c - y * s, "y": x * s + y * c}
 
 
-def _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD) -> Dict[int, Dict[str, float]]:
+def _place_quadrilateral(dAB: float, dAC: float, dAD: float, dBC: float, dBD: float, dCD: float) -> Dict[str, Dict[str, float]]:
     # Returns 0, 1, 2, 3 as A, B, C, D
     # A=0, B=1, C=2, D=3 relative to the quad
+    # Coordinates built from A=(0,0)
     pos = {}
     pos[0] = {"x": 0.0, "y": 0.0}
     pos[1] = {"x": dAB, "y": 0.0}
-    xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB) if dAB else 0.0
-    yC = math.sqrt(max(0.0, dAC ** 2 - xC ** 2)) if dAC else 0.0
-    pos[2] = {"x": xC, "y": yC}
+    
+    # Place C using AB, BC, AC
+    # Using law of cosines on Triangle ABC
+    if dAB > 0.0 and dAC > 0.0:
+        xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB)
+        yC_sq = dAC ** 2 - xC ** 2
+        yC = math.sqrt(max(0.0, yC_sq))
+        pos[2] = {"x": xC, "y": yC}
+    else:
+        # Degenerate case fallback
+        pos[2] = {"x": dAB, "y": dBC} # Rough guess
 
-    dx = xC
-    dy = yC
-    dAC_len = math.sqrt(dx * dx + dy * dy) or 1.0
-    a = (dAD ** 2 - dCD ** 2 + dAC_len * dAC_len) / (2 * dAC_len) if dAC_len else 0.0
-    h = math.sqrt(max(0.0, dAD ** 2 - a * a)) if dAD else 0.0
-    xD = (a * dx) / dAC_len
-    yD = (a * dy) / dAC_len
-    rx = (-dy * h) / dAC_len if dAC_len else 0.0
-    ry = (dx * h) / dAC_len if dAC_len else 0.0
-    D1 = {"x": xD + rx, "y": yD + ry}
-    D2 = {"x": xD - rx, "y": yD - ry}
-    dist1 = math.hypot(D1["x"] - pos[1]["x"], D1["y"] - pos[1]["y"]) if dBD else 0.0
-    dist2 = math.hypot(D2["x"] - pos[1]["x"], D2["y"] - pos[1]["y"]) if dBD else 0.0
-    pos[3] = D1 if abs(dist1 - dBD) < abs(dist2 - dBD) else D2
+    # Place D relative to A(0,0) and computed C
+    # Triangle ADC, base AC.
+    dx = pos[2]["x"] - pos[0]["x"]
+    dy = pos[2]["y"] - pos[0]["y"]
+    dAC_calc = math.sqrt(dx*dx + dy*dy)
+    
+    # We must use the calculated AC distance for the base of the triangle to ensure closure 
+    # even if there's a slight discrepancy between dAC input and calculated position of C?
+    # No, C is placed exactly at distance dAC from A (since xC^2 + yC^2 = dAC^2).
+    # Verification: xC = b cosA, yC = b sinA. xC^2+yC^2 = b^2(cos^2+sin^2) = b^2 = dAC^2.
+    # So dAC_calc should match dAC. Use dAC_calc to be safe with float precision.
+
+    if dAC_calc > 0.001 and dAD > 0.0 and dCD > 0.0:
+        angle_AC = math.atan2(dy, dx)
+        
+        # Law of cosines for Angle CAD in triangle ADC (sides AD, CD, AC)
+        # cos(CAD) = (AD^2 + AC^2 - CD^2) / (2 * AD * AC)
+        num = dAD**2 + dAC_calc**2 - dCD**2
+        den = 2 * dAD * dAC_calc
+        cos_CAD = max(-1.0, min(1.0, num / den))
+        angle_CAD = math.acos(cos_CAD)
+        
+        a1 = angle_AC + angle_CAD
+        a2 = angle_AC - angle_CAD
+        
+        # Candidate positions for D
+        D1 = {"x": dAD * math.cos(a1), "y": dAD * math.sin(a1)}
+        D2 = {"x": dAD * math.cos(a2), "y": dAD * math.sin(a2)}
+        
+        dist1 = math.hypot(D1["x"] - pos[1]["x"], D1["y"] - pos[1]["y"])
+        dist2 = math.hypot(D2["x"] - pos[1]["x"], D2["y"] - pos[1]["y"])
+        
+        # Choose the one closer to measured BD
+        # If both are equally bad, just pick one (the one that matches winding?)
+        if abs(dist1 - dBD) < abs(dist2 - dBD):
+            pos[3] = D1
+        else:
+            pos[3] = D2
+    else:
+        # Fallback for degenerate triangles
+        pos[3] = {"x": 0.0, "y": dAD}
+
     return pos
 
 
@@ -436,23 +517,59 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
             Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
             positions[C] = {"x": Cx, "y": -Cy}
         return positions
-    if point_count == 4:
-        dAB = _get_dist_xy(0, 1, xy_distances)
-        dAC = _get_dist_xy(0, 2, xy_distances)
-        dAD = _get_dist_xy(0, 3, xy_distances)
-        dBC = _get_dist_xy(1, 2, xy_distances)
-        dBD = _get_dist_xy(1, 3, xy_distances)
-        dCD = _get_dist_xy(2, 3, xy_distances)
-        quad = _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD)
-        for i in range(4):
-            positions[i] = {"x": quad[i]["x"], "y": -quad[i]["y"]}
-        return positions
 
-    # >4 points
+    if point_count == 4:
+        # A=0, B=1, C=2, D=3
+        # Edges: AB, BC, CD, DA (0-1, 1-2, 2-3, 3-0)
+        # Diagonals: AC, BD (0-2, 1-3)
+        dAB = _get_dist_xy(0, 1, xy_distances)
+        dBC = _get_dist_xy(1, 2, xy_distances)
+        dCD = _get_dist_xy(2, 3, xy_distances)
+        dAD = _get_dist_xy(0, 3, xy_distances)
+        dAC = _get_dist_xy(0, 2, xy_distances)
+        dBD = _get_dist_xy(1, 3, xy_distances)
+        
+        # _place_quadrilateral arguments order: dAB, dAC, dAD, dBC, dBD, dCD
+        # It builds ABC triangle, then ADC triangle.
+        # It needs edges AB, BC, AC for ABC.
+        # It needs edges AD, CD, AC for ADC.
+        # It uses BD to flip D.
+        quad = _place_quadrilateral(dAB, dAC, dAD, dBC, dBD, dCD)
+        
+        # It returns keys 0,1,2,3
+        # But wait, python dict keys are integers here.
+        # The result must be compatible with what Form/Display expects.
+        # Display expects string keys "0", "1"... 
+        # But _compute_sail_positions_from_xy returns Dict[int, ...]
+        # Later we convert to JSON, which stringifies keys.
+        
+        # Apply Y-flip for screen coords (usually positive Y is down in SVG but up in math)
+        # Display.js handles Y-flip itself using scaling/offset. 
+        # But usually we return standard Cartesian (Y up).
+        # Let's keep Y-flip consistent with other paths?
+        # The previous code had `-quad[i]["y"]`. 
+        
+        pos_out = {}
+        for i in range(4):
+            # Ensure we don't crash if quad missing key
+            if i in quad:
+                pos_out[i] = {"x": quad[i]["x"], "y": -quad[i]["y"]}
+        return pos_out
+
     positions = _compute_positions_for_many_sided(point_count, xy_distances)
-    for k, p in positions.items():
-        positions[k] = {"x": p["x"], "y": -p["y"]}
-    return positions
+    # Ensure all positions are present. If we have point_count=5, we need 0..4
+    # The _compute_positions_for_many_sided may return sparse map if logic fails.
+    
+    pos_out = {}
+    for i in range(point_count):
+        if i in positions:
+            p = positions[i]
+            pos_out[i] = {"x": p["x"], "y": -p["y"]}
+        else:
+            # Fallback if position calculation failed for some point
+            pos_out[i] = {"x": 0.0, "y": 0.0}
+            
+    return pos_out
 
 
 def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
@@ -461,7 +578,8 @@ def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
     valid_points = []
     for i, pt in enumerate(points_list):
         if "x" in pt and "y" in pt:
-            label = pt.get("label") or _get_label(i)
+            # FORCE VALIDATION: Use string index as label so sub-algos return keyed by index string
+            label = str(i) 
             p3d = {
                 "label": label,
                 "x": pt["x"], "y": pt["y"], "z": pt["z"],
@@ -535,7 +653,7 @@ def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
     if DEFAULT_WORKPOINT_METHOD in computed_workpoints:
         wp_dict = computed_workpoints[DEFAULT_WORKPOINT_METHOD]
         for i, pt in enumerate(points_list):
-            lbl = _get_label(i)
+            lbl = str(i)
             if lbl in wp_dict:
                 pt["workpoint"] = wp_dict[lbl]
 
@@ -566,16 +684,18 @@ def _get_four_point_combos_with_dims(N: int, xy: Dict[str, float]) -> List[Dict[
         
         a,b,c,d = combo
         # Order: ab, ac, ad, bc, bd, cd
+        # Map global indices to local A,B,C,D for the standard discrepancy calc
         ordered_dims = {
-            "AB": dims.get(f"{a}-{b}"),
-            "AC": dims.get(f"{a}-{c}"),
-            "AD": dims.get(f"{a}-{d}"),
-            "BC": dims.get(f"{b}-{c}"),
-            "BD": dims.get(f"{b}-{d}"),
-            "CD": dims.get(f"{c}-{d}")
+            "AB": dims.get(f"{min(a,b)}-{max(a,b)}"),
+            "AC": dims.get(f"{min(a,c)}-{max(a,c)}"),
+            "AD": dims.get(f"{min(a,d)}-{max(a,d)}"),
+            "BC": dims.get(f"{min(b,c)}-{max(b,c)}"),
+            "BD": dims.get(f"{min(b,d)}-{max(b,d)}"),
+            "CD": dims.get(f"{min(c,d)}-{max(c,d)}")
         }
-        combo_str = "".join([_get_label(x) for x in combo])
-        results.append({"combo": combo_str, "dims": ordered_dims})
+        # e.g. "0-1-2-3"
+        combo_str = "-".join([str(x) for x in combo])
+        results.append({"combo": combo_str, "dims": ordered_dims, "indices": combo})
     return results
 
 
@@ -663,20 +783,17 @@ def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[st
     elif fabric_category == "ShadeCloth":
         discrepancy_threshold = 70
 
-    def idx_to_lbl(k):
-        # k is str "0-1" or "0"
-        parts = k.split('-')
-        return "".join([_get_label(int(x)) for x in parts])
-
     for k in xy:
-        blame[idx_to_lbl(k)] = 0.0
-    for i in range(N):
-        blame[_get_label(i)] = 0.0
-
+        blame[k] = 0.0
+    # Also init per-vertex blame?
+    # Actually blame is usually per edge for discrepancies.
+    
     if N >= 4:
         combos = _get_four_point_combos_with_dims(N, xy)
         for cdict in combos:
             combo_str = cdict["combo"] 
+            indices = cdict["indices"] # [0, 1, 2, 3] integers
+
             res = _compute_discrepancy_xy(cdict["dims"])
             disc = res["discrepancy"]
             discrepancies[combo_str] = disc
@@ -684,7 +801,8 @@ def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[st
             has_reflex = any(res["reflex"].values())
             if has_reflex: reflex_flag = True
             
-            labels_map = {'A': combo_str[0], 'B': combo_str[1], 'C': combo_str[2], 'D': combo_str[3]}
+            # Map local A,B,C,D to global indices (str)
+            labels_map = {'A': str(indices[0]), 'B': str(indices[1]), 'C': str(indices[2]), 'D': str(indices[3])}
             
             for rel_k, is_ref in res["reflex"].items():
                 if is_ref:
@@ -696,9 +814,20 @@ def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[st
 
             if disc is not None and math.isfinite(disc) and disc > discrepancy_threshold:
                 box_problems[combo_str] = True
+                
+                # Assign blame to all edges contained in this box
+                idx_set = set(indices)
+                
                 for blame_key in list(blame.keys()):
-                    if all(ch in combo_str for ch in blame_key):
-                        blame[blame_key] += disc
+                    # blame_key is "u-v"
+                    try:
+                        parts = blame_key.split('-')
+                        if len(parts) == 2:
+                            u, v = int(parts[0]), int(parts[1])
+                            if u in idx_set and v in idx_set:
+                                blame[blame_key] += disc
+                    except ValueError:
+                        pass
 
     return {
         "discrepancies": discrepancies,

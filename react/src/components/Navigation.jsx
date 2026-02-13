@@ -83,7 +83,7 @@ const Navigation = () => {
       <header className="topbar flex-none flex items-center justify-between px-5 h-[var(--header-height)] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
         <div className="flex items-center gap-4 flex-1">
           <img
-            src={getBaseUrl(darkMode ? '/static/img/DRlogoHDark.png' : '/static/img/DRlogoH.png')}
+            src={getBaseUrl('/static/img/WhiteLogos.png')}
             alt="Logo"
             className="h-9 mr-5 object-contain"
           />

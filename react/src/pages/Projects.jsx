@@ -4,7 +4,6 @@ import { useSelector } from 'react-redux';
 
 import { apiFetch } from '../services/auth';
 import CollapsibleCard from '../components/CollapsibleCard';
-import ToolsCard from '../components/ToolsCard';
 import LegalCard from '../components/LegalCard';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
@@ -143,7 +142,10 @@ function Projects() {
         .then(data => setExpandedProject(data))
         .catch(err => console.error("Failed to load project details", err));
     } else if (isNew) {
-      // New mode, wait for user selection or invalidation
+      // New mode. ensure we have a project stub so ProjectInline can render (and handle draft check)
+      if (!expandedProject) {
+          setExpandedProject({ status: 'New', general: { name: 'New Project' } });
+      }
     } else {
       // Only clear if NOT a draft we just loaded (prevents race condition where state updates before params)
       if (!expandedProject?._isDraft) {
@@ -318,7 +320,9 @@ function Projects() {
 
   const isNewMode = searchParams.get('new') === 'true';
   // Don't show selector if we have a draft loaded, even if product object might be momentarily checking
-  const showSelector = isNewMode && (!expandedProject || (!expandedProject.product && !expandedProject._isDraft));
+  // Also if we have a draft in storage, let ProjectInline handle the draft recovery UI
+  const hasDraft = !!localStorage.getItem('autodraw_draft');
+  const showSelector = isNewMode && !hasDraft && (!expandedProject || (!expandedProject.product && !expandedProject._isDraft));
 
   // Split projects
   const activeProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
@@ -328,17 +332,17 @@ function Projects() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
         <h1 className="heading-page">Projects</h1>
-        <div className="flex flex-col-reverse md:flex-row items-end md:items-center gap-2 md:gap-3">
+        <div className="flex flex-col-reverse md:flex-row items-end md:items-center gap-2 md:gap-4 items-baseline">
             {draftInfo && (
                  <Button
                     variant="warning"
                     onClick={handleContinueDraft}
-                    className="flex items-center gap-2 text-sm font-bold"
+                    className="flex items-center gap-4 text-sm font-bold"
                  >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    {draftInfo.isNew 
+                    {draftInfo.isNew || !draftInfo.id
                         ? "Continue New Project" 
                         : `Continue Editing #${draftInfo.id}`}
                  </Button>
@@ -347,7 +351,6 @@ function Projects() {
       </div>
       
       <div className="mt-2 flex flex-col gap-4">
-        <ToolsCard defaultOpen={false} />
 
         <CollapsibleCard 
             title="Active Projects" 
@@ -392,7 +395,8 @@ function Projects() {
       <StickyActionBar>
           <Button
             onClick={() => {
-                localStorage.removeItem('autodraw_draft');
+                // Simply open new project mode. 
+                // ProjectInline component will check for any existing draft and prompt the user via overlay.
                 setSearchParams({ new: 'true' });
             }}
             className="w-full"

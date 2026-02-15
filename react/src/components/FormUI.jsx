@@ -78,8 +78,8 @@ export function useFormNavigation(fieldOrder = []) {
         
         if (nextEl) {
           nextEl.focus();
-          // Ensure the field is visible (center on screen)
-          nextEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Ensure the field is visible (nearest minimizes layout jumpiness)
+          nextEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
           try {
             nextEl.select();
           } catch (err) {

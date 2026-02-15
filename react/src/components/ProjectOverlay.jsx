@@ -32,7 +32,7 @@ export default function ProjectOverlay({
             <p className="text-base text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
                 Your project has been successfully saved. What would you like to do next?
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
                     <button
                     onClick={onReturn}
                     className="flex-1 py-3 px-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-base hover:bg-gray-50 dark:hover:bg-gray-700 transition-all hover:scale-[1.02]"

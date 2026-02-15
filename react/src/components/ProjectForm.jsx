@@ -61,9 +61,12 @@ export default function ProjectForm({
     let alive = true;
     // Normalize component path to match directory convention (UPPER_CASE_WITH_UNDERSCORES)
     const productDir = (product || "").toUpperCase().replace(/\s+/g, "_");
+    console.log(`[ProjectForm] Attempting to load form for product: "${product}", dir: "${productDir}"`);
+    
     import(`./products/${productDir}/Form.jsx`)
       .then((mod) => {
         if (alive) {
+          console.log(`[ProjectForm] Loaded module for ${productDir}:`, mod);
           // Only set ProductForm if it exists in the module
           if (mod.ProductForm) {
             setProductForm(() => mod.ProductForm);
@@ -91,7 +94,12 @@ export default function ProjectForm({
   const projectFormRef = useRef();
   const [projectData, setProjectData] = useState({});
   // Rehydrate logic
-  const [rehydrate, setRehydrate] = useState(initialRehydrate);
+  // We use prop directly or just useState initializer. 
+  // If the parent passes a new object, this component might need to be remounted (by key change)
+  // or we need to listen to it. But user asked to avoid new features.
+  // For the "Resume Draft" flow, this component mounts for the first time, so useState initializer is sufficient.
+  const [rehydrate] = useState(initialRehydrate);
+  
   // Used to force remount on rehydrate
   const [instanceKey, setInstanceKey] = useState(0);
 
@@ -182,12 +190,18 @@ export default function ProjectForm({
 
   const initialRef = useRef(null);
   if (initialRef.current === null) {
+    console.log("[ProjectForm] Initializing items from rehydrate:", rehydrate);
     const base = normalizedProducts.length > 0 ? normalizedProducts : [undefined];
     initialRef.current = base.map((prod, idx) => {
+      console.log(`[ProjectForm] Processing item ${idx}:`, prod);
       if (prod && typeof prod === "object" && prod.attributes) {
-        return { ...makeEntry(prod.attributes, idx), name: prod.name ?? `Item ${idx + 1}` };
+          const entry = { ...makeEntry(prod.attributes, idx), name: prod.name ?? `Item ${idx + 1}` };
+          console.log(`[ProjectForm] Created entry (with attributes):`, entry);
+          return entry;
       } else {
-        return { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
+          const entry = { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
+           console.log(`[ProjectForm] Created entry (direct/default):`, entry);
+           return entry;
       }
     });
   }
@@ -228,12 +242,26 @@ export default function ProjectForm({
           const val = projectFormRef.current.getValues();
           projectAttrs = val?.project ?? {};
         }
+        
+        console.log("[ProjectForm] Collecting values. Items count:", items?.length);
+        
+        // Safety check: specific refs must be ready if items exist
+        // If we have items but no refs yet, we are likely still loading/rendering child forms.
+        // Returning partial data here would be destructive (it would wipe the child data on autosave).
+        // We must return NULL to signal "not ready".
+        let allRefsReady = true;
+
         const products = Array.isArray(items) && items.length > 0
           ? items
               .map((it) => {
                 const ref = itemRefs.current.get(it.productIndex);
-                if (!ref?.current?.getValues) return null;
+                if (!ref?.current?.getValues) {
+                    console.warn(`[ProjectForm] Missing ref for item ${it.productIndex} - Form not ready`);
+                    allRefsReady = false;
+                    return null;
+                }
                 const values = ref.current.getValues();
+                // console.log(`[ProjectForm] Item ${it.productIndex} values:`, values);
                 return {
                   name: it.name ?? `Item ${it.productIndex + 1}`,
                   productIndex: it.productIndex,
@@ -242,16 +270,24 @@ export default function ProjectForm({
                   // calculated: values.calculated ?? {}
                 };
               })
-              .filter(Boolean)
           : [];
 
+        if (!allRefsReady) {
+            console.warn("[ProjectForm] Aborting getValues - not all child forms are ready.");
+            return null; 
+        }
+
+        const validProducts = products.filter(Boolean);
+
         // Always return a general object with all default fields
-        return {
+        const result = {
           general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
           project_attributes: { ...projectAttrs, wg_data: wgData },
-          products,
+          products: validProducts,
           submitToWG,
         };
+        // console.log("[ProjectForm] Final result:", result);
+        return result;
       },
     };
 
@@ -259,44 +295,6 @@ export default function ProjectForm({
       if (formRef) formRef.current = undefined;
     };
   }, [formRef, items, generalData, wgData, submitToWG]);
-
-  // When rehydrate changes, update generalData and items
-  useEffect(() => {
-    if (!rehydrate) return;
-    // General data
-    if (rehydrate.general && typeof rehydrate.general === 'object' && Object.keys(rehydrate.general).length > 0) {
-      setGeneralData({ ...rehydrate.general });
-    } else {
-      setGeneralData({});
-    }
-    // WorkGuru data (nested in project_attributes)
-    const wg = rehydrate.project_attributes?.wg_data;
-    if (wg && typeof wg === 'object' && Object.keys(wg).length > 0) {
-      setWgData({ ...wg });
-    } else {
-      setWgData({ tenant: 'Copelands', project_number: '' });
-    }
-    // Project-level attributes
-    if (rehydrate.project_attributes && typeof rehydrate.project_attributes === 'object' && Object.keys(rehydrate.project_attributes).length > 0) {
-      setProjectData({ ...rehydrate.project_attributes });
-    } else {
-      setProjectData({});
-    }
-    // Items
-    const base = normalizeAttributes(rehydrate.products);
-    const newItems = base.length > 0
-      ? base.map((prod, idx) => {
-          if (prod && typeof prod === "object" && prod.attributes) {
-            return { ...makeEntry(prod.attributes, idx), name: prod.name ?? `Item ${idx + 1}` };
-          } else {
-            return { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
-          }
-        })
-      : [{ ...makeEntry(undefined, 0), name: 'Item 1' }];
-    setItems(newItems);
-    setActiveIndex(newItems?.[0]?.productIndex ?? 0);
-    if (rehydrate.submitToWG !== undefined) setSubmitToWG(rehydrate.submitToWG);
-  }, [rehydrate]);
 
   const handleTabNameChange = (productIndex, value) => {
     setItems((prev) => prev.map((it) => it.productIndex === productIndex ? { ...it, name: value } : it));
@@ -541,11 +539,13 @@ export default function ProjectForm({
 
                     
                     <div className={PRODUCT_FORM_WRAPPER_CLASSES}>
-                      <ProductForm
-                        formRef={ref}
-                        hydrate={it.attributesHydrate}
-                        {...productProps}
-                      />
+                      {ProductForm && (
+                          <ProductForm
+                            formRef={ref}
+                            hydrate={it.attributesHydrate}
+                            {...productProps}
+                          />
+                      )}
                     </div>
                   </div>
                 );

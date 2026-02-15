@@ -4,9 +4,9 @@ import Navigation from './Navigation';
 
 function TopBar() {
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="fixed inset-0 flex flex-col overflow-hidden pb-[var(--bottom-nav-height,0px)] bg-gray-50 dark:bg-gray-900 z-0">
       <Navigation />
-      <main className="flex-1 overflow-y-auto relative bg-gray-50 dark:bg-gray-900">
+      <main className="flex-1 overflow-y-auto relative w-full h-full">
         <Outlet />
       </main>
     </div>

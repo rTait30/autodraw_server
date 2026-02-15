@@ -65,6 +65,8 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
         bottom: 0;
         left: 0;
         right: 0;
+        /* Updated: Respect the bottom nav bar height if it exists */
+        bottom: var(--bottom-nav-height, 0px);
         /* Mobile keyboard fix: ensure it sticks to bottom of viewport, not document */
         /* Use modern viewport unit if available, fallback to fixed bottom */
       }

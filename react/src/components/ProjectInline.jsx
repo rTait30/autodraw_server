@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, Suspense, useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchProducts } from '../store/productsSlice'; // Added redux action
 import ProjectForm from './ProjectForm'; // Use ProjectForm wrapper
 import StickyActionBar from './StickyActionBar';
 import ProjectOverlay from './ProjectOverlay';
@@ -18,8 +19,11 @@ import PageHeader from './PageHeader';
 
 const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const formRef = useRef(null);
   const canvasRef = useRef(null);
+  const productsList = useSelector(state => state.products.list);
+  const productsStatus = useSelector(state => state.products.status);
   
   // Local state for the "working copy"
   const [editedProject, setEditedProject] = useState(project);
@@ -443,15 +447,60 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       navigate('/copelands/projects');
   };
 
+  // Fetch products if missing when needing to select one
+  useEffect(() => {
+    if (isNew && !project?.product?.name && productsStatus === 'idle') {
+        dispatch(fetchProducts()); 
+    }
+  }, [isNew, project, productsStatus, dispatch]);
+  
   const productName = editedProject?.product?.name || editedProject?.type?.name;
+
+  // New logic: Simple overlay for product selection
+  if (!productName && isNew) {
+      return (
+        <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex items-center justify-center bg-black/60 p-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
+           {/* Center modal in available space */}
+           <div className="bg-white dark:bg-gray-800 rounded-none border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-md flex flex-col gap-0">
+               <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                   <h2 className="text-lg font-bold">Select Product</h2>
+                   <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+               </div>
+               
+               {productsStatus === 'loading' ? (
+                    <div className="text-center p-8">Loading...</div>
+               ) : (
+                   <div className="flex flex-col p-4 gap-2 max-h-[60vh] overflow-y-auto">
+                       {productsList.map(p => (
+                           <Button
+                               key={p.id}
+                               variant="secondary" 
+                               onClick={() => setEditedProject({
+                                    product: p,
+                                    general: { name: 'New Project' },
+                                    status: 'New'
+                               })}
+                               className="w-full justify-start text-left rounded-none border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                           >
+                               {p.name}
+                           </Button>
+                       ))}
+                   </div>
+               )}
+           </div>
+        </div>
+      );
+  }
 
   if (!productName) return null;
 
   return (
-    <div className="fixed inset-0 top-[var(--header-height)] z-[60] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden">
+    <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
       
       {/* Toast Overlay - Positioned above StickyActionBar (approx 80px + margin) */}
-      <ToastDisplay className="bottom-[100px] mb-safe" /> 
+      <ToastDisplay className="bottom-[20px] mb-safe pointer-events-none" /> 
 
       {/* Header Bar - includeNav={false} because parent layout already has Nav */}
       <PageHeader
@@ -581,7 +630,7 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       {productName && overlayMode !== 'success' && (
         <StickyActionBar 
           mode="static"
-          className="!mt-0 px-4 py-4 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50">
+          className="!mt-0 px-4 py-3 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             {overlayMode === 'confirm' ? (
             <>
                 <Button 

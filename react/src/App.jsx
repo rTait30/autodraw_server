@@ -12,15 +12,16 @@ const Rectangles = React.lazy(() => import('./pages/Rectangles'));
 const FabricCatalog = React.lazy(() => import('./pages/FabricCatalog'));
 const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
 const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
-const NewProject = React.lazy(() => import('./pages/NewProject'));
 const Projects = React.lazy(() => import('./pages/Projects'));
 const Project = React.lazy(() => import('./pages/Project'));
 const Users = React.lazy(() => import('./pages/Users'));
 const Database = React.lazy(() => import('./pages/Database'));
 const Analytics = React.lazy(() => import('./pages/Analytics'));
+const Tools = React.lazy(() => import('./pages/Tools'));
 
 import TopBar from './components/TopBar';
 import RequireAuth from './components/RequireAuth';
+import LayoutWithBottomBar from './components/LayoutWithBottomBar';
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-gray-900">
@@ -89,14 +90,15 @@ function App() {
           <Route element={<RequireAuth />}>
             <Route element={<TopBar />}>
               <Route path="/copelands/projects" element={<Projects />} />
-              <Route path="/copelands/newproject" element={<NewProject />} />
               <Route path="/copelands/users" element={<Users />} />
               <Route path="/copelands/projects/:id" element={<Project />} />
               <Route path="/copelands/database" element={<Database />} />
               <Route path="/copelands/analytics" element={<Analytics />} />
+              <Route path="/copelands/tools" element={<Tools />} />
             </Route>
           </Route>
         </Routes>
+        <LayoutWithBottomBar />
       </Suspense>
     </Router>
   );

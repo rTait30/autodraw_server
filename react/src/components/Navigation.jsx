@@ -55,7 +55,12 @@ const Navigation = () => {
     <div className={`gap-8 fixed top-[var(--header-height)] right-0 w-[320px] max-w-full h-[calc(100dvh-var(--header-height))] bg-primary dark:bg-gray-900 shadow-[-2px_4px_12px_rgba(0,0,0,0.3)] flex flex-col p-8 z-[90] transition-transform duration-200 ease-out border-l border-white/10 ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
       
       <div className="flex flex-col gap-8 text-lg font-medium">
-          {navLinks}
+        <div className="user-info flex flex-row flex-wrap gap-4 items-baseline md:hidden">
+          <span className="text-white font-semibold">{name}</span>
+          <span className="text-white/80 text-sm">{role}</span>
+        </div>
+        <div className="h-px bg-white/20 my-2"></div>
+        {navLinks}
       </div>
       <div className="h-px bg-white/20 my-2"></div>
 
@@ -89,39 +94,28 @@ const Navigation = () => {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="txt-role">{name}</span>
-          <span className="txt-role">{role}</span>
-          {role === 'client' ? (
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded border border-white text-lg transition-colors duration-200"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
-              aria-label="Logout"
-            >
-              LOGOUT
-            </button>
-          ) : (
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[100px] h-[44px] hover:bg-white/10 transition-colors"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-            >
-              <span className="text-lg font-bold tracking-wide">{menuOpen ? 'Close' : 'Menu'}</span>
-              {menuOpen ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect y="7" width="32" height="3" rx="1.5" fill="currentColor" />
-                  <rect y="14" width="32" height="3" rx="1.5" fill="currentColor" />
-                  <rect y="21" width="32" height="3" rx="1.5" fill="currentColor" />
-                </svg>
-              )}
-            </button>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <span className="hidden md:inline txt-role">{name}</span>
+          <span className="hidden md:inline txt-role">{role}</span>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[100px] h-[44px] hover:bg-white/10 transition-colors"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+          >
+            <span className="text-lg font-bold tracking-wide">{menuOpen ? 'Close' : 'Menu'}</span>
+            {menuOpen ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect y="7" width="32" height="3" rx="1.5" fill="currentColor" />
+                <rect y="14" width="32" height="3" rx="1.5" fill="currentColor" />
+                <rect y="21" width="32" height="3" rx="1.5" fill="currentColor" />
+              </svg>
+            )}
+          </button>
         </div>
       </header>
       {!verified && role !== 'admin' && (

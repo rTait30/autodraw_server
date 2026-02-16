@@ -35,11 +35,11 @@ export async function refresh() {
     const data = await res.json();
     console.log("[Auth] Refresh successful");
     setAccessToken(data.access_token ?? null);
-    return !!data.access_token;
+    return data;
   } catch (error) {
     console.error("[Auth] Refresh network error:", error);
     setAccessToken(null);
-    return false;
+    return null;
   }
 }
 

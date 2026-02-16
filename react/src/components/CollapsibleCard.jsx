@@ -9,7 +9,8 @@ const CollapsibleCard = ({
   forceOpen = false, 
   icon = null,
   isOverlay = false,
-  onClose = null
+  onClose = null,
+  padding = false
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
@@ -24,6 +25,9 @@ const CollapsibleCard = ({
   }
 
   const show = isOpen || forceOpen || isOverlay;
+
+  const paddingClass = padding ? "p-4 md:p-6" : "";
+  const combinedContentClass = `${paddingClass} ${contentClassName}`.trim();
 
   if (isOverlay) {
     return (
@@ -60,7 +64,7 @@ const CollapsibleCard = ({
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-sm shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
+    <div className={`w-full max-w-7xl mx-auto bg-white dark:bg-gray-800 rounded-sm shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
       {!forceOpen && (
         <div 
             className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -85,7 +89,7 @@ const CollapsibleCard = ({
       
       <div className={`grid transition-all duration-300 ease-in-out ${show ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <div className={contentClassName}>
+          <div className={combinedContentClass}>
             {children}
           </div>
         </div>

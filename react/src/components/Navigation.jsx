@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
 import { Link, useNavigate } from 'react-router-dom';
@@ -19,9 +20,16 @@ const Navigation = () => {
   const dispatch = useDispatch();
 
   const handleLogout = async () => {
-    await logout();
-    localStorage.clear();
-    navigate('/copelands/');
+    try {
+      await logout();
+    } catch (e) {
+      console.warn("Logout API call failed", e);
+    } finally {
+      localStorage.clear();
+      // Explicitly remove in case clear fails or is polyfilled weirdly
+      localStorage.removeItem('autodraw_draft'); 
+      navigate('/copelands/');
+    }
   };
 
   const handleDevModeToggle = () => {
@@ -123,7 +131,7 @@ const Navigation = () => {
           ⚠️ Account Not Verified - Access Limited
         </div>
       )}
-      {mobileMenu}
+      {createPortal(mobileMenu, document.body)}
     </>
   );
 };

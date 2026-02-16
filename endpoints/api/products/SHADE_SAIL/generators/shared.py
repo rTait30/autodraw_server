@@ -37,20 +37,32 @@ def extract_sail_geometry(sail: dict) -> dict:
     """
     attrs = sail.get("attributes", {})
     positions_raw = attrs.get("positions", {})
+    if positions_raw is None:
+        positions_raw = {}
     points_raw = attrs.get("points", {})
+    if isinstance(points_raw, list):
+        points_dict = {str(i): pt for i, pt in enumerate(points_raw)}
+    else:
+        points_dict = points_raw
     dimensions = attrs.get("dimensions", {})
     workpoints_raw = attrs.get("workpoints", {})
     point_count = attrs.get("pointCount") or len(positions_raw)
+    
+    # Point order (0, 1, 2, ...)
+    point_order = [str(i) for i in range(point_count)]
     
     # Build positions with Z from points
     positions = {}
     xs = []
     ys = []
     
-    for label, pos in positions_raw.items():
+    for i in range(point_count):
+        label = point_order[i]
+        pos = positions_raw.get(str(i), {})
         x = _safe_num(pos.get("x")) or 0.0
         y = _safe_num(pos.get("y")) or 0.0
-        z = _safe_num((points_raw.get(label) or {}).get("height")) or 0.0
+        pt = points_dict.get(str(i), {})
+        z = _safe_num(pt.get("height")) or 0.0
         positions[label] = (x, y, z)
         xs.append(x)
         ys.append(y)
@@ -68,9 +80,6 @@ def extract_sail_geometry(sail: dict) -> dict:
         _safe_num(centroid_raw.get("y")) or 0.0,
         _safe_num(centroid_raw.get("z")) or 0.0,
     )
-    
-    # Point order (A, B, C, ...)
-    point_order = [chr(65 + i) for i in range(point_count)]
     
     # Perimeter edges
     edges = []
@@ -178,15 +187,18 @@ def extract_sail_geometry(sail: dict) -> dict:
     
     # Points data (fitting, hardware, etc.)
     points_data = {}
-    for label, point in points_raw.items():
+    for i in range(point_count):
+        label = point_order[i]
+        pt = points_dict.get(str(i), {})
+        pos = positions_raw.get(str(i), {})
         points_data[label] = {
-            "height": _safe_num(point.get("height")) or 0.0,
-            "cornerFitting": point.get("cornerFitting", ""),
-            "tensionHardware": point.get("tensionHardware", ""),
-            "tensionAllowance": _safe_num(point.get("tensionAllowance")) or 0.0,
-            "Structure": point.get("Structure", "Pole"),
-            "x": _safe_num(positions_raw.get(label, {}).get("x")) or 0.0,
-            "y": _safe_num(positions_raw.get(label, {}).get("y")) or 0.0,
+            "height": _safe_num(pt.get("height")) or 0.0,
+            "cornerFitting": pt.get("cornerFitting", ""),
+            "tensionHardware": pt.get("tensionHardware", ""),
+            "tensionAllowance": _safe_num(pt.get("tensionAllowance")) or 0.0,
+            "Structure": pt.get("Structure", "Pole"),
+            "x": _safe_num(pos.get("x")) or 0.0,
+            "y": _safe_num(pos.get("y")) or 0.0,
         }
     
     return {
@@ -569,7 +581,7 @@ def generate_sails_layout(project: dict) -> list:
             text_x = x + ux * offset_distance
             text_y = y + uy * offset_distance
             
-            current_entities.append({"type": "mtext", "text": f"{label}", "dxfattribs": {"layer": "AD_INFO", "char_height": 200}, "location": (text_x, text_y + 1000, z)})
+            current_entities.append({"type": "mtext", "text": f"{chr(65 + int(label))}", "dxfattribs": {"layer": "AD_INFO", "char_height": 200}, "location": (text_x, text_y + 1000, z)})
             current_entities.append({"type": "mtext", "text": info, "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x, text_y, z), "attachment_point": 8})
             current_entities.append({"type": "mtext", "text": f"X:{round(rx,2)} Y:{round(ry,2)} Z:{round(z,2)}", "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x - 1000, text_y - 60, z)})
 

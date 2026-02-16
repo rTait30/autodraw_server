@@ -21,7 +21,7 @@ const Tools = React.lazy(() => import('./pages/Tools'));
 
 import TopBar from './components/TopBar';
 import RequireAuth from './components/RequireAuth';
-import LayoutWithBottomBar from './components/LayoutWithBottomBar';
+import GeneralBottomBar from './components/GeneralBottomBar';
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-gray-900">
@@ -98,7 +98,7 @@ function App() {
             </Route>
           </Route>
         </Routes>
-        <LayoutWithBottomBar />
+        <GeneralBottomBar />
       </Suspense>
     </Router>
   );

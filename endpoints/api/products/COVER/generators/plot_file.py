@@ -196,7 +196,8 @@ def generate_dxf(project, download_name: str):
             "length": _safe_num(attrs.get("length")) or 0,
             "width": _safe_num(attrs.get("width")) or 0,
             "height": _safe_num(attrs.get("height")) or 0,
-            "stayputs": attrs.get("stayputs", False),
+            "stayputs": str(attrs.get("stayputs", "")).lower() == "true" or attrs.get("stayputs") is True,
+            "zips": str(attrs.get("zips", "")).lower() == "true" or attrs.get("zips") is True,
         }
     
     # print("[DXF] COVER project structure:", type(project))
@@ -271,39 +272,50 @@ def generate_dxf(project, download_name: str):
                 y_pos = y + h - seam_offset
                 
                 # Unrotated Top: Marks point DOWN (-Y)
-                # Left Fold: Diagonal Left-Down
-                msp.add_line((x + height,                     y_pos - half_tick),
-                            (x + height - half_tick,         y_pos - 2 * half_tick),
-                            dxfattribs={"layer": layer})
+                
+                # Left Fold Mark ("T" shape)
+                # 1. Vertical stub (on fold line)
+                msp.add_line((x + height, y_pos), (x + height, y_pos - half_tick), dxfattribs={"layer": layer})
+                # 2. Horizontal crossbar (creating the T)
+                msp.add_line((x + height - half_tick, y_pos - half_tick), 
+                             (x + height + half_tick, y_pos - half_tick), dxfattribs={"layer": layer})
 
-                # Right Fold: Diagonal Right-Down
-                msp.add_line((x + height + length,             y_pos - half_tick),
-                            (x + height + length + half_tick, y_pos - 2 * half_tick),
-                            dxfattribs={"layer": layer})
+                # Right Fold Mark ("T" shape)
+                # 1. Vertical stub
+                msp.add_line((x + height + length, y_pos), (x + height + length, y_pos - half_tick), dxfattribs={"layer": layer})
+                # 2. Horizontal crossbar
+                msp.add_line((x + height + length - half_tick, y_pos - half_tick), 
+                             (x + height + length + half_tick, y_pos - half_tick), dxfattribs={"layer": layer})
 
                 if has_zips:
-                    msp.add_line((x,                                y + h -50),
-                                (x + height,               y + h -50),
-                                dxfattribs={"layer": layer})
+                    # Draw long zip lines across the flaps
+                    # Left flap zip line ONLY
+                    msp.add_line((x, y + h - 50.0), (x + height, y + h - 50.0), dxfattribs={"layer": layer})
+
             else:
                 seam_offset = 20.0
                 x_pos = x + w - seam_offset
                 
                 # Rotated Top (Right Edge): Marks point LEFT (-X)
-                # Bottom Fold (Left Flap): Diagonal Bottom-Left
-                msp.add_line((x_pos, y + height),
-                            (x_pos - half_tick, y + height - half_tick),
-                            dxfattribs={"layer": layer})
                 
-                # Top Fold (Right Flap): Diagonal Top-Left
-                msp.add_line((x_pos, y + height + length),
-                            (x_pos - half_tick, y + height + length + half_tick),
-                            dxfattribs={"layer": layer})
+                # Bottom Fold Mark (from rotated perspective) - "T" shape rotated 90 deg
+                # 1. Horizontal stub
+                msp.add_line((x_pos, y + height), (x_pos - half_tick, y + height), dxfattribs={"layer": layer})
+                # 2. Vertical crossbar
+                msp.add_line((x_pos - half_tick, y + height - half_tick), 
+                             (x_pos - half_tick, y + height + half_tick), dxfattribs={"layer": layer})
+                
+                # Top Fold Mark - "T" shape rotated 90 deg
+                # 1. Horizontal stub
+                msp.add_line((x_pos, y + height + length), (x_pos - half_tick, y + height + length), dxfattribs={"layer": layer})
+                # 2. Vertical crossbar
+                msp.add_line((x_pos - half_tick, y + height + length - half_tick),
+                             (x_pos - half_tick, y + height + length + half_tick), dxfattribs={"layer": layer})
 
                 if has_zips:
-                    msp.add_line((x + w - seam_offset -30, y + height),
-                                (x + w - seam_offset -30, y + height + length),
-                                dxfattribs={"layer": layer})
+                    # Draw long zip lines across flaps
+                    # Bottom flap zip line (rotated) ONLY (corresponds to Left flap)
+                    msp.add_line((x + w - seam_offset - 30.0, y), (x + w - seam_offset - 30.0, y + height), dxfattribs={"layer": layer})
 
         def _draw_bottom_marks(msp, x, y, height, width, length, rotated=False, has_zips=False,
                             half_tick=20, layer="PEN"):
@@ -312,39 +324,50 @@ def generate_dxf(project, download_name: str):
                 y_pos = y + seam_offset
                 
                 # Unrotated Bottom: Marks point UP (+Y)
-                # Left Fold: Diagonal Left-Up
-                msp.add_line((x + height,                     y_pos + half_tick),
-                            (x + height - half_tick,         y_pos + 2 * half_tick),
-                            dxfattribs={"layer": layer})
+                
+                # Left Fold Mark ("T" shape inverted)
+                # 1. Vertical stub
+                msp.add_line((x + height, y_pos), (x + height, y_pos + half_tick), dxfattribs={"layer": layer})
+                # 2. Horizontal crossbar
+                msp.add_line((x + height - half_tick, y_pos + half_tick), 
+                             (x + height + half_tick, y_pos + half_tick), dxfattribs={"layer": layer})
 
-                # Right Fold: Diagonal Right-Up
-                msp.add_line((x + height + length,             y_pos + half_tick),
-                            (x + height + length + half_tick, y_pos + 2 * half_tick),
-                            dxfattribs={"layer": layer})
+                # Right Fold Mark ("T" shape inverted)
+                # 1. Vertical stub
+                msp.add_line((x + height + length, y_pos), (x + height + length, y_pos + half_tick), dxfattribs={"layer": layer})
+                # 2. Horizontal crossbar
+                msp.add_line((x + height + length - half_tick, y_pos + half_tick), 
+                             (x + height + length + half_tick, y_pos + half_tick), dxfattribs={"layer": layer})
 
                 if has_zips:
-                    msp.add_line((x,                                y + 50),
-                                (x + height,               y + 50),
-                                dxfattribs={"layer": layer})
+                    # Draw long zip lines across flaps
+                    # Left flap zip line ONLY
+                    msp.add_line((x, y + 50.0), (x + height, y + 50.0), dxfattribs={"layer": layer})
+
             else:
                 seam_offset = 20.0
                 x_pos = x + seam_offset
                 
                 # Rotated Bottom (Left Edge): Marks point RIGHT (+X)
-                # Bottom Fold (Left Flap): Diagonal Bottom-Right
-                msp.add_line((x_pos, y + height),
-                            (x_pos + half_tick, y + height - half_tick),
-                            dxfattribs={"layer": layer})
+                
+                # Bottom Fold Mark (from rotated perspective) - "T" shape
+                # 1. Horizontal stub
+                msp.add_line((x_pos, y + height), (x_pos + half_tick, y + height), dxfattribs={"layer": layer})
+                # 2. Vertical crossbar
+                msp.add_line((x_pos + half_tick, y + height - half_tick), 
+                             (x_pos + half_tick, y + height + half_tick), dxfattribs={"layer": layer})
 
-                # Top Fold (Right Flap): Diagonal Top-Right
-                msp.add_line((x_pos, y + height + length),
-                            (x_pos + half_tick, y + height + length + half_tick),
-                            dxfattribs={"layer": layer})
+                # Top Fold Mark - "T" shape
+                # 1. Horizontal stub
+                msp.add_line((x_pos, y + height + length), (x_pos + half_tick, y + height + length), dxfattribs={"layer": layer})
+                # 2. Vertical crossbar
+                msp.add_line((x_pos + half_tick, y + height + length - half_tick), 
+                             (x_pos + half_tick, y + height + length + half_tick), dxfattribs={"layer": layer})
 
                 if has_zips:
-                    msp.add_line((x + seam_offset +30, y + height),
-                                (x + seam_offset +30, y + height + length),
-                                dxfattribs={"layer": layer})
+                    # Draw long zip lines across flaps
+                    # Bottom flap zip line (rotated) ONLY (corresponds to Left flap)
+                    msp.add_line((x + seam_offset + 30.0, y), (x + seam_offset + 30.0, y + height), dxfattribs={"layer": layer})
 
         # fold/seam lines
         if "MAIN" in base or "main" in base.lower():

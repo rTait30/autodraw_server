@@ -157,6 +157,9 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       // Don't save if in overlay mode (confirming/previewing) or closing
       if (overlayMode === 'confirm' || isClosing) return;
 
+      // Check if user is still logged in (since logout clears localStorage)
+      if (!localStorage.getItem('username')) return;
+
       // CRITICAL: Only save if we can actually read the form.
       // If formRef isn't attached, we might overwrite a good draft with an empty shell.
       if (!formRef.current || !formRef.current.getValues) return;
@@ -171,7 +174,8 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
         const draft = {
            project: currentData,
            isNew: isNew,
-           timestamp: Date.now()
+           timestamp: Date.now(),
+           username: localStorage.getItem('username')
         };
         localStorage.setItem('autodraw_draft', JSON.stringify(draft));
         setLastAutoSaved(Date.now());

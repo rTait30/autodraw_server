@@ -329,10 +329,10 @@ function Projects() {
   const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
         <h1 className="heading-page">Projects</h1>
-        <div className="flex flex-col-reverse md:flex-row items-end md:items-center gap-2 md:gap-4 items-baseline">
+        <div className="flex flex-col-reverse md:flex-row md:items-center gap-2 md:gap-4 items-baseline">
             {draftInfo && (
                  <Button
                     variant="warning"
@@ -391,19 +391,6 @@ function Projects() {
 
         <LegalCard />
       </div>
-      
-      <StickyActionBar>
-          <Button
-            onClick={() => {
-                // Simply open new project mode. 
-                // ProjectInline component will check for any existing draft and prompt the user via overlay.
-                setSearchParams({ new: 'true' });
-            }}
-            className="w-full"
-          >
-            New Project
-          </Button>
-      </StickyActionBar>
 
       {/* Product Selector Overlay */}
       {showSelector && (

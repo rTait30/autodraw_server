@@ -77,7 +77,12 @@ def refresh_access_token():
     )
     new_refresh = create_refresh_token(identity=str(user.id))
 
-    resp = make_response(jsonify({"access_token": new_access}))
+    resp = make_response(jsonify({
+        "access_token": new_access,
+        "role": user.role,
+        "username": user.username,
+        "verified": user.verified,
+    }))
     set_refresh_cookies(resp, new_refresh)  # rotate refresh
     return resp, 200
 

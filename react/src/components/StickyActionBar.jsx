@@ -53,10 +53,9 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
         align-items: center;
         box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
         
-        /* Desktop: Fixed height, spacing between buttons */
-        min-height: 80px; 
-        padding: 16px 32px;
-        padding-bottom: max(16px, env(safe-area-inset-bottom));
+        /* Desktop: Minimal height, reduced padding */
+        min-height: auto; 
+        padding: 8px 32px;
         gap: 24px;
       }
 
@@ -66,7 +65,6 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
         left: 0;
         right: 0;
         /* Updated: Respect the bottom nav bar height if it exists */
-        bottom: var(--bottom-nav-height, 0px);
         /* Mobile keyboard fix: ensure it sticks to bottom of viewport, not document */
         /* Use modern viewport unit if available, fallback to fixed bottom */
       }
@@ -81,9 +79,7 @@ export default function StickyActionBar({ children, className = '', mode = 'fixe
       @media (max-width: 799px) {
         .action-bar {
           height: auto;
-          padding: 12px 16px;
-          padding-bottom: max(12px, env(safe-area-inset-bottom));
-          gap: 12px;
+          padding: 12px;
           flex-wrap: wrap; 
         }
         

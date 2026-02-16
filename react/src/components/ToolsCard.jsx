@@ -38,7 +38,8 @@ const ToolsCard = ({ defaultOpen = false, className = "" }) => {
         title="Tools" 
         defaultOpen={defaultOpen}
         className={className}
-        contentClassName="p-4 flex flex-col gap-4 bg-white dark:bg-gray-800"
+        padding={true}
+        contentClassName="flex flex-col gap-4"
     >
         {visibleTools.map(tool => (
             <Link key={tool.id} to={tool.path} className="w-full">

@@ -38,8 +38,13 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
   useEffect(() => {
     async function checkExistingSession() {
       console.log("[Authentication] Checking for existing session...");
-      const success = await refresh();
-      if (success) {
+      const data = await refresh();
+      if (data) {
+        // Update local storage with user info from refresh response
+        localStorage.setItem('role', data.role || 'client');
+        localStorage.setItem('username', data.username || 'Guest');
+        localStorage.setItem('verified', data.verified ? 'true' : 'false');
+        
         if (onAuthSuccess) {
             console.log("[Authentication] Existing session found. Calling onSuccess.");
             onAuthSuccess();
@@ -51,7 +56,11 @@ export default function Authentication({ onAuthSuccess, onCancel }) {
         if (draftStr) {
           try {
             const draft = JSON.parse(draftStr);
-            if (draft.from === 'discrepancy') {
+            // If the draft belongs to a different user, clear it and ignore
+            if (draft.username && draft.username !== (data.username || 'Guest')) {
+                 console.log("[Authentication] Draft belongs to another user. Clearing.");
+                 localStorage.removeItem('autodraw_draft');
+            } else if (draft.from === 'discrepancy') {
                 destination = '/copelands/discrepancy';
             }
           } catch(e) {}

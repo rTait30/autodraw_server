@@ -13,6 +13,8 @@ Returns the full (mutated) data dict.
 from typing import Dict, Any, List, Tuple
 import math
 
+from .shared import _get_dist_xy
+
 # Workpoint algorithm modules
 from .workpoints_centroid import compute_workpoints_centroid
 from .workpoints_bisect import compute_workpoints_bisect
@@ -278,7 +280,7 @@ def _place_quadrilateral(dAB: float, dAC: float, dAD: float, dBC: float, dBD: fl
         xC = (dAC ** 2 - dBC ** 2 + dAB ** 2) / (2 * dAB)
         yC_sq = dAC ** 2 - xC ** 2
         yC = math.sqrt(max(0.0, yC_sq))
-        pos[2] = {"x": xC, "y": yC}
+        pos[2] = {"x": xC, "y": -yC}
     else:
         # Degenerate case fallback
         pos[2] = {"x": dAB, "y": dBC} # Rough guess
@@ -328,9 +330,14 @@ def _place_quadrilateral(dAB: float, dAC: float, dAD: float, dBC: float, dBD: fl
     return pos
 
 
-def _get_dist_xy(u: int, v: int, xy_distances: Dict[str, float]) -> float:
-    k = f"{min(u,v)}-{max(u,v)}"
-    return xy_distances.get(k, 0.0)
+def _signed_area(positions: Dict[int, Dict[str, float]], order: List[int]) -> float:
+    n = len(order)
+    area = 0.0
+    for i in range(n):
+        p1 = positions[order[i]]
+        p2 = positions[order[(i + 1) % n]]
+        area += p1['x'] * p2['y'] - p2['x'] * p1['y']
+    return area / 2
 
 
 def _calculate_tr_angle_from_coords(tr: Dict[str, float], br: Dict[str, float], global_angle_rad: float) -> float:
@@ -462,8 +469,6 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 positions[B] = best_B
                 current_anchor = positions[B]
 
-    for k, p in positions.items():
-        positions[k] = {"x": p["x"], "y": -p["y"]}
     return positions
 
 
@@ -516,6 +521,11 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
             Cx = (AC ** 2 - BC ** 2 + AB ** 2) / (2 * AB)
             Cy = math.sqrt(max(0.0, AC ** 2 - Cx ** 2))
             positions[C] = {"x": Cx, "y": -Cy}
+        # Ensure clockwise
+        order = [0, 1, 2]
+        if _signed_area(positions, order) > 0:
+            for p in positions.values():
+                p['y'] = -p['y']
         return positions
 
     if point_count == 4:
@@ -553,10 +563,17 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
         for i in range(4):
             # Ensure we don't crash if quad missing key
             if i in quad:
-                pos_out[i] = {"x": quad[i]["x"], "y": -quad[i]["y"]}
+                pos_out[i] = {"x": quad[i]["x"], "y": quad[i]["y"]}
+        # Ensure clockwise
+        order = [0, 1, 2, 3]
+        if _signed_area(pos_out, order) > 0:
+            for p in pos_out.values():
+                p['y'] = -p['y']
         return pos_out
 
     positions = _compute_positions_for_many_sided(point_count, xy_distances)
+    if not isinstance(positions, dict):
+        positions = {}
     # Ensure all positions are present. If we have point_count=5, we need 0..4
     # The _compute_positions_for_many_sided may return sparse map if logic fails.
     
@@ -564,10 +581,16 @@ def _compute_sail_positions_from_xy(point_count: int, xy_distances: Dict[str, fl
     for i in range(point_count):
         if i in positions:
             p = positions[i]
-            pos_out[i] = {"x": p["x"], "y": -p["y"]}
+            pos_out[i] = {"x": p["x"], "y": p["y"]}
         else:
             # Fallback if position calculation failed for some point
             pos_out[i] = {"x": 0.0, "y": 0.0}
+            
+    # Ensure clockwise winding with positive Y up
+    order = list(range(point_count))
+    if _signed_area(pos_out, order) > 0:
+        for p in pos_out.values():
+            p['y'] = -p['y']
             
     return pos_out
 
@@ -586,6 +609,9 @@ def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
                 "ta": float(_num(pt.get("tensionAllowance")) or 0.0)
             }
             valid_points.append(p3d)
+
+    for pt in valid_points:
+        pass  # Y is already flipped in positions_map
 
     if not valid_points:
         return

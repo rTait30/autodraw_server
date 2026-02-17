@@ -98,7 +98,7 @@ export default function ProjectForm({
   // If the parent passes a new object, this component might need to be remounted (by key change)
   // or we need to listen to it. But user asked to avoid new features.
   // For the "Resume Draft" flow, this component mounts for the first time, so useState initializer is sufficient.
-  const [rehydrate] = useState(initialRehydrate);
+  const [rehydrate, setRehydrate] = useState(initialRehydrate);
   
   // Used to force remount on rehydrate
   const [instanceKey, setInstanceKey] = useState(0);

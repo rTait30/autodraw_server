@@ -25,6 +25,7 @@ from .workpoints_minimal import compute_workpoints_minimal
 from .workpoints_bisect_rotate import compute_workpoints_bisect_rotate
 from .workpoints_bisect_rotate_normalized import compute_workpoints_bisect_rotate_normalized
 from .workpoints_bisect_rotate_planar import compute_workpoints_bisect_rotate_planar
+from .workpoints_plane_resultant import compute_workpoints_plane_resultant
 
 # Configuration: Enable/disable workpoint algorithms
 # Set to True to compute and include in attributes
@@ -38,6 +39,7 @@ WORKPOINT_METHODS = {
     "bisect_rotate": True,
     "bisect_rotate_normalized": True, 
     "bisect_rotate_planar": True,
+    "plane_resultant": True,
 }
 
 # Set which method should be aliased to the "workpoints" key
@@ -675,6 +677,8 @@ def _compute_3d_geometry(attributes: Dict[str, Any], points_list: List[Dict]):
         persist_wp("bisect_rotate_normalized", compute_workpoints_bisect_rotate_normalized(points_3d))
     if WORKPOINT_METHODS.get("bisect_rotate_planar"):
         persist_wp("bisect_rotate_planar", compute_workpoints_bisect_rotate_planar(points_3d, cx_area, cy_area))
+    if WORKPOINT_METHODS.get("plane_resultant"):
+        persist_wp("plane_resultant", compute_workpoints_plane_resultant(points_3d, cx, cy, cz))
 
     if DEFAULT_WORKPOINT_METHOD in computed_workpoints:
         wp_dict = computed_workpoints[DEFAULT_WORKPOINT_METHOD]

@@ -184,6 +184,15 @@ def extract_sail_geometry(sail: dict) -> dict:
         wy = _safe_num(wp.get("y")) or 0.0
         wz = _safe_num(wp.get("z")) or 0.0
         workpoints_bisect_rotate_planar[label] = (wx, wy, wz)
+
+    # Workpoints (Plane-Resultant)
+    workpoints_plane_resultant_raw = attrs.get("workpoints_plane_resultant", {})
+    workpoints_plane_resultant = {}
+    for label, wp in workpoints_plane_resultant_raw.items():
+        wx = _safe_num(wp.get("x")) or 0.0
+        wy = _safe_num(wp.get("y")) or 0.0
+        wz = _safe_num(wp.get("z")) or 0.0
+        workpoints_plane_resultant[label] = (wx, wy, wz)
     
     # Points data (fitting, hardware, etc.)
     points_data = {}
@@ -212,6 +221,7 @@ def extract_sail_geometry(sail: dict) -> dict:
         "workpoints_bisect_rotate": workpoints_bisect_rotate,
         "workpoints_bisect_rotate_normalized": workpoints_bisect_rotate_normalized,
         "workpoints_bisect_rotate_planar": workpoints_bisect_rotate_planar,
+        "workpoints_plane_resultant": workpoints_plane_resultant,
         "edges": edges,
         "diagonals": diagonals,
         "centroid": centroid,
@@ -838,6 +848,30 @@ def generate_sails_layout(project: dict) -> list:
             b = point_order[(i+1)%point_count]
             if a in workpoints_bisect_rotate_planar_transformed and b in workpoints_bisect_rotate_planar_transformed:
                 current_entities.append({"type": "line", "start": workpoints_bisect_rotate_planar_transformed[a], "end": workpoints_bisect_rotate_planar_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
+
+        # Workpoints (Plane-Resultant)
+        workpoints_plane_resultant = geo.get('workpoints_plane_resultant', {})
+        workpoints_plane_resultant_transformed = {}
+        # Using Color 140 for Plane-Resultant
+
+        for label, (wx_local, wy_local, wz_local) in workpoints_plane_resultant.items():
+            wx = x_offset + (wx_local - min_x)
+            wy = wy_local
+            wz = wz_local
+            workpoints_plane_resultant_transformed[label] = (wx, wy, wz)
+
+            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
+            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
+
+            if label in post_xy:
+                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
+
+        # Workpoints polygon (Plane-Resultant)
+        for i in range(point_count):
+            a = point_order[i]
+            b = point_order[(i+1)%point_count]
+            if a in workpoints_plane_resultant_transformed and b in workpoints_plane_resultant_transformed:
+                current_entities.append({"type": "line", "start": workpoints_plane_resultant_transformed[a], "end": workpoints_plane_resultant_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
 
         layout_result.append({
             "entities": current_entities,

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, Suspense, useMemo } from 'react';
+import React, { useRef, useEffect, useState, Suspense, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProducts } from '../store/productsSlice'; // Added redux action
 import ProjectForm from './ProjectForm'; // Use ProjectForm wrapper
@@ -17,7 +17,14 @@ import PageHeader from './PageHeader';
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
 
-const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSaved = () => {} }) => {
+const ProjectInline = ({
+  project = null,
+  isNew = false,
+  onClose = () => {},
+  onSaved = () => {},
+  requestSaveToken = 0,
+  onDraftMeta = null,
+}) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const formRef = useRef(null);
@@ -43,12 +50,13 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   // Autosave status state
   const [lastAutoSaved, setLastAutoSaved] = useState(null);
   const [savedIndicatorVisible, setSavedIndicatorVisible] = useState(false);
-  const [saveInterval, setSaveInterval] = useState(10000);
+  // With the editor kept mounted in-memory, we can write to localStorage less frequently.
+  const [saveInterval, setSaveInterval] = useState(30000);
 
   // Reduce autosave frequency after 1 minute
   useEffect(() => {
     const timer = setTimeout(() => {
-        setSaveInterval(30000);
+        setSaveInterval(60000);
     }, 60000);
     return () => clearTimeout(timer);
   }, []);
@@ -138,10 +146,10 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
   }, [editedProject?.product?.id]); // clear when product changes
 
   // Sync Form -> State
-  const syncEditedFromForm = () => {
+  const syncEditedFromForm = useCallback(() => {
     const values = formRef.current?.getValues?.();
     if (!values) return editedProject;
-    
+
     return {
       ...editedProject,
       general: values.general || editedProject?.general || {},
@@ -149,45 +157,60 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       products: values.products || editedProject?.products || [],
       submitToWG: values.submitToWG,
     };
+  }, [editedProject]);
+
+  const resolveDraftName = (data) => {
+    const name = data?.general?.name;
+    return (typeof name === 'string' && name.trim()) ? name.trim() : 'Untitled';
   };
+
+  const saveDraftNow = useCallback(() => {
+    // Don't save if in overlay mode (confirming/previewing) or closing
+    if (overlayMode === 'confirm' || isClosing) return;
+
+    // Check if user is still logged in (since logout clears localStorage)
+    if (!localStorage.getItem('username')) return;
+
+    // CRITICAL: Only save if we can actually read the form.
+    // If formRef isn't attached, we might overwrite a good draft with an empty shell.
+    if (!formRef.current || !formRef.current.getValues) return;
+
+    const currentData = syncEditedFromForm();
+    if (!currentData) return;
+
+    // Basic validity check - don't save empty shells if not useful
+    if (!currentData.product && !currentData.type) return;
+
+    try {
+      const draft = {
+        project: currentData,
+        isNew: isNew,
+        timestamp: Date.now(),
+        username: localStorage.getItem('username')
+      };
+      localStorage.setItem('autodraw_draft', JSON.stringify(draft));
+      setLastAutoSaved(Date.now());
+
+      if (onDraftMeta) {
+        onDraftMeta({ name: resolveDraftName(currentData) });
+      }
+    } catch (e) {
+      console.warn("Autosave failed", e);
+    }
+  }, [overlayMode, isClosing, isNew, syncEditedFromForm, onDraftMeta]);
 
   // Autosave Draft
   useEffect(() => {
-    const saveDraft = () => {
-      // Don't save if in overlay mode (confirming/previewing) or closing
-      if (overlayMode === 'confirm' || isClosing) return;
-
-      // Check if user is still logged in (since logout clears localStorage)
-      if (!localStorage.getItem('username')) return;
-
-      // CRITICAL: Only save if we can actually read the form.
-      // If formRef isn't attached, we might overwrite a good draft with an empty shell.
-      if (!formRef.current || !formRef.current.getValues) return;
-
-      const currentData = syncEditedFromForm();
-      if (!currentData) return;
-
-      // Basic validity check - don't save empty shells if not useful
-      if (!currentData.product && !currentData.type) return;
-
-      try {
-        const draft = {
-           project: currentData,
-           isNew: isNew,
-           timestamp: Date.now(),
-           username: localStorage.getItem('username')
-        };
-        localStorage.setItem('autodraw_draft', JSON.stringify(draft));
-        setLastAutoSaved(Date.now());
-      } catch (e) {
-        console.warn("Autosave failed", e);
-      }
-    };
-
     // Save periodically based on current interval
-    const intervalId = setInterval(saveDraft, saveInterval); 
+    const intervalId = setInterval(saveDraftNow, saveInterval); 
     return () => clearInterval(intervalId);
-  }, [editedProject, isNew, overlayMode, isClosing, saveInterval]); // Deps are fine, syncEditedFromForm uses ref
+  }, [saveDraftNow, saveInterval]);
+
+  // Allow parent (bottom bar) to request an immediate save on hide/close/navigation.
+  useEffect(() => {
+    if (!requestSaveToken) return;
+    saveDraftNow();
+  }, [requestSaveToken, saveDraftNow]);
 
   const handleCheck = async () => {
     // Ensure form is accessible before checking
@@ -451,6 +474,22 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       navigate('/copelands/projects');
   };
 
+  const handleStartNewProject = () => {
+    const ok = window.confirm(
+      'Start a new project? This will discard any unsaved changes and replace your saved draft.'
+    );
+    if (!ok) return;
+
+    // Avoid suppressing the product selector on the Projects page.
+    localStorage.removeItem('autodraw_draft');
+
+    // Close this editor (GeneralBottomBar portal or Projects page inline).
+    onClose();
+
+    // Use the existing Projects new flow.
+    navigate('/copelands/projects?new=true');
+  };
+
   // Fetch products if missing when needing to select one
   useEffect(() => {
     if (isNew && !project?.product?.name && productsStatus === 'idle') {
@@ -510,9 +549,18 @@ const ProjectInline = ({ project = null, isNew = false, onClose = () => {}, onSa
       <PageHeader
         title={editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
         subtitle={`${editedProject?.status || 'New'} ${productName ? `• ${productName}` : ''}`}
-        backLabel="Back to Projects"
-        onBack={onClose}
         includeNav={false}
+        hideBackButton={true}
+        rightActions={(
+          <Button
+            variant="warning"
+            onClick={handleStartNewProject}
+            className="text-sm"
+            title="Start a new project (this replaces the saved draft)"
+          >
+            Start New Project
+          </Button>
+        )}
       />
       {lastAutoSaved && (
             <div 

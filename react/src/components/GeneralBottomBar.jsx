@@ -12,10 +12,13 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   const location = useLocation();
 
   // Internal state for project Controller
-  const [isProjectOpen, setIsProjectOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isProjectMounted, setIsProjectMounted] = useState(false);
+  const [isProjectVisible, setIsProjectVisible] = useState(false);
   const [draftProject, setDraftProject] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [activeProjectName, setActiveProjectName] = useState('');
+  const [saveRequestToken, setSaveRequestToken] = useState(0);
 
   // Landing is on /copelands. Check exact match or if it's the root.
   const isLanding = location.pathname === '/copelands' || location.pathname === '/copelands/';
@@ -27,11 +30,13 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       const draftStr = localStorage.getItem('autodraw_draft');
       if (!draftStr) {
         setHasDraft(false);
+        setDraftName('');
         return;
       }
       const draft = JSON.parse(draftStr);
       if (!draft) {
           setHasDraft(false);
+          setDraftName('');
           return;
       }
       const username = localStorage.getItem('username');
@@ -40,14 +45,18 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       // Safer to hide if we want to enforce ownership.
       if (draft.username && draft.username !== username) {
         setHasDraft(false);
+        setDraftName('');
         return;
       }
       // Also if user is logged in but draft has no username?
       // Let's stick to: if mismatches, hide.
       
+      const name = draft?.project?.general?.name;
+      setDraftName(typeof name === 'string' && name.trim() ? name.trim() : 'Untitled');
       setHasDraft(!!draft);
-    } catch (e) {
+    } catch {
       setHasDraft(false);
+      setDraftName('');
     }
   };
 
@@ -83,11 +92,16 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   }, [mounted]);
 
   const handleNewProjectClick = () => {
-    // If it's already "mounted" (in memory), just toggle visibility
-    if (isProjectOpen || isMinimized) {
-        setIsProjectOpen(!isProjectOpen);
-        setIsMinimized(!isMinimized);
-        return;
+    // If we already have an in-memory editor, just toggle visibility.
+    if (isProjectMounted) {
+      if (isProjectVisible) {
+        // Force-save before hiding so a quick hide doesn't lose persistence.
+        setSaveRequestToken(t => t + 1);
+        setIsProjectVisible(false);
+      } else {
+        setIsProjectVisible(true);
+      }
+      return;
     }
 
     // Otherwise, initialize fresh or from draft
@@ -113,14 +127,24 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         console.error("Failed to restore draft", e);
         setDraftProject({});
       }
-      setIsProjectOpen(true);
-      setIsMinimized(false);
+      const name = draftProject?.general?.name;
+      if (typeof name === 'string' && name.trim()) {
+        setActiveProjectName(name.trim());
+      } else if (hasDraft && draftName) {
+        setActiveProjectName(draftName);
+      }
+
+      setIsProjectMounted(true);
+      setIsProjectVisible(true);
   };
 
   const handleCloseProject = () => {
-    setIsProjectOpen(false);
-    setIsMinimized(false);
+    // Force-save before closing/unmounting.
+    setSaveRequestToken(t => t + 1);
+    setIsProjectVisible(false);
+    setIsProjectMounted(false);
     setDraftProject({}); // Clear current
+    setActiveProjectName('');
   };
 
   // If landing page, we typically don't show the bar
@@ -134,7 +158,9 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       <button 
         className="nav-btn border-r border-gray-200 dark:border-gray-700" 
         onClick={onProjectsClick || (() => { 
-            // If project is open, maybe confirm close? For now just navigate.
+            // Force-save then hide so it can't overlay the page.
+            if (isProjectMounted) setSaveRequestToken(t => t + 1);
+            setIsProjectVisible(false);
             navigate('/copelands/projects'); 
         })}
         title="View Projects"
@@ -149,26 +175,20 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       <button 
         className={`nav-btn border-r border-gray-200 dark:border-gray-700 ${
             // If active and open: green
-            // If active but minimized: different shade/state?
             // If just draft exists: orange
             // Default: blue
-          isProjectOpen 
+          isProjectVisible 
             ? 'bg-green-50 dark:bg-green-900/10' 
-            : isMinimized ? 'bg-indigo-50 dark:bg-indigo-900/10' // Minimized state
-            : hasDraft ? 'bg-orange-50 dark:bg-orange-900/10' 
+            : (isProjectMounted || hasDraft) ? 'bg-orange-50 dark:bg-orange-900/10' 
             : 'bg-blue-50 dark:bg-blue-900/10'
         }`} 
         onClick={handleNewProjectClick}
-        title={isProjectOpen ? "Hide Project" : (isMinimized ? "Resume Editing" : (hasDraft ? "Continue Saved Draft" : "Create New Project"))}
+        title={isProjectVisible ? "Hide Project" : ((isProjectMounted || hasDraft) ? `Continue ${activeProjectName || draftName || 'Draft'}` : "Create New Project")}
       >
         <div className="new-project-icon-wrapper">
-          {isProjectOpen ? (
+          {isProjectVisible ? (
                  <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                 </svg>
-          ) : isMinimized ? (
-                 <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                  </svg>
           ) : hasDraft ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,20 +204,28 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
           )}
         </div>
         <span className={`nav-text font-bold ${
-            isProjectOpen 
+            isProjectVisible 
              ? 'text-green-700 dark:text-green-300' 
-             : isMinimized ? 'text-indigo-700 dark:text-indigo-300'
-             : hasDraft ? 'text-orange-700 dark:text-orange-300' 
+             : (isProjectMounted || hasDraft) ? 'text-orange-700 dark:text-orange-300' 
              : 'text-blue-700 dark:text-blue-300'
         }`}>
-          {isProjectOpen ? "Hide" : (isMinimized ? "Resume" : (hasDraft ? "Continue" : "New Project"))}
+          {isProjectVisible
+            ? "Hide"
+            : ((isProjectMounted || hasDraft)
+              ? `Continue ${activeProjectName || draftName || 'Draft'}`
+              : "New Project")}
         </span>
       </button>
 
       {/* Tools Button (Right) - Wrench Icon */}
       <button 
         className="nav-btn" 
-        onClick={onToolsClick || (() => navigate('/copelands/tools'))}
+        onClick={onToolsClick || (() => {
+          // Force-save then hide so it can't overlay the page.
+          if (isProjectMounted) setSaveRequestToken(t => t + 1);
+          setIsProjectVisible(false);
+          navigate('/copelands/tools');
+        })}
         title="Tools"
       >
         
@@ -290,20 +318,21 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
 
   return (
     <>
-      {/* 
-          PERSISTENCE LOGIC: 
-          We keep ProjectInline mounted if it is open OR if it is just minimized.
-          This preserves local state (inputs, scroll) in memory.
-          Only closing it fully (handleCloseProject) removes it from DOM.
-      */}
-      {(isProjectOpen || isMinimized) && createPortal(
-        <div style={{ display: isMinimized ? 'none' : 'block' }}>
-            <ProjectInline 
-                isNew={true} 
-                project={draftProject} 
-                onClose={handleCloseProject} 
-                onSaved={handleCloseProject}
-            />
+      {isProjectMounted && createPortal(
+        <div style={{ display: isProjectVisible ? 'block' : 'none' }}>
+          <ProjectInline 
+            isNew={true} 
+            project={draftProject} 
+            onClose={handleCloseProject} 
+            onSaved={handleCloseProject}
+            requestSaveToken={saveRequestToken}
+            onDraftMeta={(meta) => {
+              const nextName = meta?.name;
+              if (typeof nextName === 'string' && nextName.trim()) {
+                setActiveProjectName(nextName.trim());
+              }
+            }}
+          />
         </div>,
         document.body
       )}

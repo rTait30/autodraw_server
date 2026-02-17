@@ -89,6 +89,28 @@ function Projects() {
       }
   };
 
+  const handleStartNewProject = () => {
+    const draftStr = localStorage.getItem('autodraw_draft');
+    const hasDraftLocal = !!draftStr;
+    const hasOpenEditor = !!expandedProject;
+
+    if (hasDraftLocal || hasOpenEditor) {
+      const ok = window.confirm(
+        'Start a new project? This will replace your current saved draft and any unsaved changes.'
+      );
+      if (!ok) return;
+    }
+
+    // Remove draft so the product selector can show (it is suppressed when a draft exists)
+    if (hasDraftLocal) {
+      localStorage.removeItem('autodraw_draft');
+      setDraftInfo(null);
+    }
+
+    setExpandedProject(null);
+    setSearchParams({ new: 'true' });
+  };
+
   // 1. Load the list
   const fetchProjects = async () => {
     try {
@@ -333,9 +355,19 @@ function Projects() {
       <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
         <h1 className="heading-page">Projects</h1>
         <div className="flex flex-col-reverse md:flex-row md:items-center gap-2 md:gap-4 items-baseline">
+            <Button
+              variant="primary"
+              onClick={handleStartNewProject}
+              className="flex items-center gap-3 text-sm font-bold"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Project
+            </Button>
             {draftInfo && (
                  <Button
-                    variant="warning"
+                  variant="soft-blue"
                     onClick={handleContinueDraft}
                     className="flex items-center gap-4 text-sm font-bold"
                  >

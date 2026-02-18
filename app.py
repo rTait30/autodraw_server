@@ -55,8 +55,8 @@ def create_app():
         JWT_TOKEN_LOCATION=["headers", "cookies"],  # access via header; refresh via cookie
         JWT_HEADER_NAME="Authorization",
         JWT_HEADER_TYPE="Bearer",
-        JWT_ACCESS_TOKEN_EXPIRES=timedelta(days=1), # Reduced for testing (was 10 min) #CHANGEINPROD
-        JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=14), # Reduced for testing (was 14 days) #CHANGEINPROD
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(days=1),
+        JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=14),
 
         # Cookie settings: for same-site dev use Lax; for cross-site set None+Secure on HTTPS.
         JWT_COOKIE_SECURE=False if os.getenv("ENV", "dev") == "dev" else True,

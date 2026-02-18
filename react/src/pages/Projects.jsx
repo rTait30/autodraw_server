@@ -4,11 +4,12 @@ import { useSelector } from 'react-redux';
 
 import { apiFetch } from '../services/auth';
 import CollapsibleCard from '../components/CollapsibleCard';
-import LegalCard from '../components/LegalCard';
 import ProjectTable from '../components/ProjectTable';
 import ProjectInline from '../components/ProjectInline';
 import StickyActionBar from '../components/StickyActionBar';
 import { Button } from '../components/UI';
+import ConfirmOverlay from '../components/ConfirmOverlay';
+import { discardDraftAndCloseInline } from '../utils/draft';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -34,6 +35,10 @@ function Projects() {
 
   // Hard Delete confirmation state
   const [hardDeleteConfirm, setHardDeleteConfirm] = useState({ show: false, projectId: null, projectName: null });
+
+  // Centralized confirm state for "replace/discard" actions
+  // { type: 'new' | 'open', targetId?, targetName? }
+  const [replaceConfirm, setReplaceConfirm] = useState({ show: false, type: null, targetId: null, targetName: null });
 
   const role = localStorage.getItem("role") || "client";
 
@@ -89,26 +94,23 @@ function Projects() {
       }
   };
 
+  const startNewProjectNow = () => {
+    discardDraftAndCloseInline();
+    setDraftInfo(null);
+    setExpandedProject(null);
+    setSearchParams({ new: 'true' });
+  };
+
   const handleStartNewProject = () => {
-    const draftStr = localStorage.getItem('autodraw_draft');
-    const hasDraftLocal = !!draftStr;
+    const hasDraftLocal = !!localStorage.getItem('autodraw_draft');
     const hasOpenEditor = !!expandedProject;
 
     if (hasDraftLocal || hasOpenEditor) {
-      const ok = window.confirm(
-        'Start a new project? This will replace your current saved draft and any unsaved changes.'
-      );
-      if (!ok) return;
+      setReplaceConfirm({ show: true, type: 'new', targetId: null, targetName: null });
+      return;
     }
 
-    // Remove draft so the product selector can show (it is suppressed when a draft exists)
-    if (hasDraftLocal) {
-      localStorage.removeItem('autodraw_draft');
-      setDraftInfo(null);
-    }
-
-    setExpandedProject(null);
-    setSearchParams({ new: 'true' });
+    startNewProjectNow();
   };
 
   // 1. Load the list
@@ -176,8 +178,50 @@ function Projects() {
     }
   }, [searchParams, expandedProject]);
 
-  const handleOpenProject = (id) => {
+  const proceedOpenProject = (id) => {
+    discardDraftAndCloseInline();
+    setDraftInfo(null);
+    setExpandedProject(null);
     setSearchParams({ open: id });
+  };
+
+  const handleOpenProject = (id) => {
+    const hasDraftLocal = !!localStorage.getItem('autodraw_draft');
+    const hasOpenEditor = !!expandedProject;
+    const isDifferentFromExpanded = expandedProject && String(expandedProject.id) !== String(id);
+    const isDifferentFromDraft = hasDraftLocal && draftInfo?.id && String(draftInfo.id) !== String(id);
+
+    // Warn if we are replacing anything in progress:
+    // - switching away from an expanded project
+    // - OR a saved draft exists for a different project (bottom-bar editor or prior session)
+    if ((hasOpenEditor && isDifferentFromExpanded) || isDifferentFromDraft || (hasDraftLocal && !draftInfo?.id)) {
+      const target = projects.find(p => String(p.id) === String(id))
+        || deletedProjects.find(p => String(p.id) === String(id));
+      setReplaceConfirm({
+        show: true,
+        type: 'open',
+        targetId: id,
+        targetName: target?.name || `Project ${id}`
+      });
+      return;
+    }
+
+    proceedOpenProject(id);
+  };
+
+  const cancelReplaceConfirm = () => setReplaceConfirm({ show: false, type: null, targetId: null, targetName: null });
+  const confirmReplaceConfirm = () => {
+    const next = replaceConfirm;
+    cancelReplaceConfirm();
+
+    if (next.type === 'new') {
+      startNewProjectNow();
+      return;
+    }
+
+    if (next.type === 'open' && next.targetId) {
+      proceedOpenProject(next.targetId);
+    }
   };
 
   const handleCloseProject = () => {
@@ -421,7 +465,6 @@ function Projects() {
              )}
         </CollapsibleCard>
 
-        <LegalCard />
       </div>
 
       {/* Product Selector Overlay */}
@@ -553,9 +596,24 @@ function Projects() {
         </div>
       )}
 
+      <ConfirmOverlay
+        show={replaceConfirm.show}
+        title={replaceConfirm.type === 'new' ? 'Start New Project?' : 'Open Project?'}
+        message={
+          replaceConfirm.type === 'new'
+            ? 'Start a new project? This will discard any unsaved changes and replace your saved draft.'
+            : `Open "${replaceConfirm.targetName}"? This will discard any unsaved changes and replace your saved draft.`
+        }
+        confirmLabel={replaceConfirm.type === 'new' ? 'Start New' : 'Open'}
+        confirmVariant="danger"
+        onCancel={cancelReplaceConfirm}
+        onConfirm={confirmReplaceConfirm}
+      />
+
       {/* Render Inline Editor if a project is expanded OR new mode */}
       {(expandedProject && !showSelector) && (
         <ProjectInline 
+          key={isNewMode ? 'new' : (expandedProject?.id || 'open')}
           project={expandedProject} 
           isNew={isNewMode}
           onClose={handleCloseProject}

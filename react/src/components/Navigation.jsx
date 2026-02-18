@@ -45,6 +45,7 @@ const Navigation = () => {
   const navLinks = (
     <>
       <Link to="/copelands/projects" className="link-nav" onClick={() => setMenuOpen(false)}>Projects</Link>
+      <Link to="/copelands/legal" className="link-nav" onClick={() => setMenuOpen(false)}>Legal</Link>
       {role === 'admin' && (
         <>
           <Link to="/copelands/users" className="link-nav" onClick={() => setMenuOpen(false)}>Users</Link>
@@ -63,14 +64,17 @@ const Navigation = () => {
     <div className={`gap-8 fixed top-[var(--header-height)] right-0 w-[320px] max-w-full h-[calc(100dvh-var(--header-height))] bg-primary dark:bg-gray-900 shadow-[-2px_4px_12px_rgba(0,0,0,0.3)] flex flex-col p-8 z-[90] transition-transform duration-200 ease-out border-l border-white/10 ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
       
       <div className="flex flex-col gap-8 text-lg font-medium">
-        <div className="user-info flex flex-row flex-wrap gap-4 items-baseline md:hidden">
-          <span className="text-white font-semibold">{name}</span>
-          <span className="text-white/80 text-sm">{role}</span>
+        <div className="user-info flex flex-col gap-4 md:hidden">
+          <div className="flex flex-row gap-4 items-baseline">
+            <span className="text-white font-semibold">{name}</span>
+            <span className="text-white/80 text-sm">{role}</span>
+          </div>
+          <Link to="/copelands/account" onClick={() => setMenuOpen(false)} className="text-white font-semibold">Account Settings</Link>
         </div>
-        <div className="h-px bg-white/20 my-2"></div>
+        <div className="h-px bg-white/20 my-4"></div>
         {navLinks}
       </div>
-      <div className="h-px bg-white/20 my-2"></div>
+      <div className="h-px bg-white/20 my-4"></div>
 
       <Button
         variant="danger"

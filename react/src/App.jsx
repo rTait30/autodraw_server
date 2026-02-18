@@ -12,6 +12,8 @@ const Rectangles = React.lazy(() => import('./pages/Rectangles'));
 const FabricCatalog = React.lazy(() => import('./pages/FabricCatalog'));
 const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
 const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
+const Legal = React.lazy(() => import('./pages/Legal'));
+const Account = React.lazy(() => import('./pages/Account'));
 const Projects = React.lazy(() => import('./pages/Projects'));
 const Project = React.lazy(() => import('./pages/Project'));
 const Users = React.lazy(() => import('./pages/Users'));
@@ -90,6 +92,8 @@ function App() {
           <Route element={<RequireAuth />}>
             <Route element={<TopBar />}>
               <Route path="/copelands/projects" element={<Projects />} />
+              <Route path="/copelands/legal" element={<Legal />} />
+              <Route path="/copelands/account" element={<Account />} />
               <Route path="/copelands/users" element={<Users />} />
               <Route path="/copelands/projects/:id" element={<Project />} />
               <Route path="/copelands/database" element={<Database />} />

@@ -13,6 +13,8 @@ import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
 import CollapsibleCard from './CollapsibleCard';
 import PageHeader from './PageHeader';
+import ConfirmOverlay from './ConfirmOverlay';
+import { discardDraftAndCloseInline } from '../utils/draft';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
@@ -52,6 +54,8 @@ const ProjectInline = ({
   const [savedIndicatorVisible, setSavedIndicatorVisible] = useState(false);
   // With the editor kept mounted in-memory, we can write to localStorage less frequently.
   const [saveInterval, setSaveInterval] = useState(30000);
+
+  const [replaceConfirm, setReplaceConfirm] = useState({ show: false });
 
   // Reduce autosave frequency after 1 minute
   useEffect(() => {
@@ -475,16 +479,18 @@ const ProjectInline = ({
   };
 
   const handleStartNewProject = () => {
-    const ok = window.confirm(
-      'Start a new project? This will discard any unsaved changes and replace your saved draft.'
-    );
-    if (!ok) return;
+    setReplaceConfirm({ show: true });
+  };
 
-    // Avoid suppressing the product selector on the Projects page.
-    localStorage.removeItem('autodraw_draft');
+  const cancelReplaceConfirm = () => setReplaceConfirm({ show: false });
+  const confirmReplaceConfirm = () => {
+    setReplaceConfirm({ show: false });
+
+    // Ensure draft is discarded and any bottom-bar inline editor is shut down.
+    discardDraftAndCloseInline();
 
     // Close this editor (GeneralBottomBar portal or Projects page inline).
-    onClose();
+    onClose({ discardDraft: true });
 
     // Use the existing Projects new flow.
     navigate('/copelands/projects?new=true');
@@ -541,6 +547,16 @@ const ProjectInline = ({
 
   return (
     <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
+
+      <ConfirmOverlay
+        show={replaceConfirm.show}
+        title="Start New Project?"
+        message="Start a new project? This will discard any unsaved changes and replace your saved draft."
+        confirmLabel="Start New"
+        confirmVariant="danger"
+        onCancel={cancelReplaceConfirm}
+        onConfirm={confirmReplaceConfirm}
+      />
       
       {/* Toast Overlay - Positioned above StickyActionBar (approx 80px + margin) */}
       <ToastDisplay className="bottom-[20px] mb-safe pointer-events-none" /> 
@@ -551,16 +567,6 @@ const ProjectInline = ({
         subtitle={`${editedProject?.status || 'New'} ${productName ? `• ${productName}` : ''}`}
         includeNav={false}
         hideBackButton={true}
-        rightActions={(
-          <Button
-            variant="warning"
-            onClick={handleStartNewProject}
-            className="text-sm"
-            title="Start a new project (this replaces the saved draft)"
-          >
-            Start New Project
-          </Button>
-        )}
       />
       {lastAutoSaved && (
             <div 

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProjectInline from './ProjectInline';
+import ConfirmOverlay from './ConfirmOverlay';
 
 export default function GeneralBottomBar({ className = '', onProjectsClick, onToolsClick }) {
   // Wait for mount to avoid hydration mismatch
@@ -19,6 +20,8 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   const [draftName, setDraftName] = useState('');
   const [activeProjectName, setActiveProjectName] = useState('');
   const [saveRequestToken, setSaveRequestToken] = useState(0);
+
+  const [replaceConfirm, setReplaceConfirm] = useState({ show: false });
 
   // Landing is on /copelands. Check exact match or if it's the root.
   const isLanding = location.pathname === '/copelands' || location.pathname === '/copelands/';
@@ -92,6 +95,13 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   }, [mounted]);
 
   const handleNewProjectClick = () => {
+    // When the editor is visible, the center button becomes "New Project".
+    // This requires the same discard warning as other New Project entry points.
+    if (isProjectMounted && isProjectVisible) {
+      setReplaceConfirm({ show: true });
+      return;
+    }
+
     // If we already have an in-memory editor, just toggle visibility.
     if (isProjectMounted) {
       if (isProjectVisible) {
@@ -138,19 +148,56 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       setIsProjectVisible(true);
   };
 
+  const cancelReplaceConfirm = () => setReplaceConfirm({ show: false });
+  const confirmReplaceConfirm = () => {
+    setReplaceConfirm({ show: false });
+
+    // Discard current work/draft and reset the inline editor.
+    handleCloseProjectWithOptions({ discardDraft: true });
+
+    // Start a fresh "New Project" flow (product selector will show).
+    setDraftProject({ status: 'New', general: { name: 'New Project' } });
+    setIsProjectMounted(true);
+    setIsProjectVisible(true);
+  };
+
   const handleCloseProject = () => {
-    // Force-save before closing/unmounting.
-    setSaveRequestToken(t => t + 1);
+    // Backwards-compatible signature: default close saves draft.
+    handleCloseProjectWithOptions();
+  };
+
+  const handleCloseProjectWithOptions = ({ discardDraft = false } = {}) => {
+    if (discardDraft) {
+      // Explicit discard: do NOT force-save; remove persisted draft.
+      try { localStorage.removeItem('autodraw_draft'); } catch {}
+    } else {
+      // Normal close: force-save before closing/unmounting.
+      setSaveRequestToken(t => t + 1);
+    }
+
     setIsProjectVisible(false);
     setIsProjectMounted(false);
     setDraftProject({}); // Clear current
     setActiveProjectName('');
   };
 
+  // Allow other parts of the app (e.g. Projects page) to discard/close the bottom-bar editor.
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e?.detail || {};
+      handleCloseProjectWithOptions({ discardDraft: !!detail.discardDraft });
+    };
+    window.addEventListener('autodraw:close-project-inline', handler);
+    return () => window.removeEventListener('autodraw:close-project-inline', handler);
+  }, []);
+
   // If landing page, we typically don't show the bar
   if (!mounted || isLanding) return null;
 
   // Contents of the bar
+  const size = 32;
+  const color = '#475569'; // slate-600 - high contrast
+
   const content = (
     <div ref={ref} className={`general-bottom-bar fixed border-t border-border bg-surface ${className}`}>
       
@@ -165,8 +212,26 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         })}
         title="View Projects"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        <svg 
+          width={size} 
+          height={size} 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Vertical Poles */}
+          <rect x="3.5" y="11" width="1" height="9" rx="0.5" fill={color} />
+          <rect x="19.5" y="11" width="1" height="9" rx="0.5" fill={color} />
+          <rect x="11.5" y="4" width="1" height="16" rx="0.5" fill={color} />
+
+          {/* The Hypar Sail Shape */}
+          <path 
+            d="M12 5C15 8 20 9 21 11.5C18 13.5 15 14 12 17C9 14 6 13.5 3 11.5C4 9 9 8 12 5Z" 
+            fill={color}
+            stroke={color}
+            strokeWidth="0.5"
+            strokeLinejoin="round"
+          />
         </svg>
         <span className="nav-text">Projects</span>
       </button>
@@ -178,19 +243,15 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             // If just draft exists: orange
             // Default: blue
           isProjectVisible 
-            ? 'bg-green-50 dark:bg-green-900/10' 
+            ? 'bg-blue-50 dark:bg-blue-900/10' 
             : (isProjectMounted || hasDraft) ? 'bg-orange-50 dark:bg-orange-900/10' 
             : 'bg-blue-50 dark:bg-blue-900/10'
         }`} 
         onClick={handleNewProjectClick}
-        title={isProjectVisible ? "Hide Project" : ((isProjectMounted || hasDraft) ? `Continue ${activeProjectName || draftName || 'Draft'}` : "Create New Project")}
+        title={isProjectVisible ? "Start New Project" : ((isProjectMounted || hasDraft) ? `Continue ${activeProjectName || draftName || 'Draft'}` : "Create New Project")}
       >
         <div className="new-project-icon-wrapper">
-          {isProjectVisible ? (
-                 <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                 </svg>
-          ) : hasDraft ? (
+          {(!isProjectVisible && hasDraft) ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -205,12 +266,12 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         </div>
         <span className={`nav-text font-bold ${
             isProjectVisible 
-             ? 'text-green-700 dark:text-green-300' 
+             ? 'text-blue-700 dark:text-blue-300' 
              : (isProjectMounted || hasDraft) ? 'text-orange-700 dark:text-orange-300' 
              : 'text-blue-700 dark:text-blue-300'
         }`}>
           {isProjectVisible
-            ? "Hide"
+            ? "New Project"
             : ((isProjectMounted || hasDraft)
               ? `Continue ${activeProjectName || draftName || 'Draft'}`
               : "New Project")}
@@ -228,6 +289,18 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         })}
         title="Tools"
       >
+        <svg
+  width={32}
+  height={32}
+  viewBox="0 0 24 24"
+  aria-hidden="true"
+  focusable="false"
+>
+  <path
+    fill="currentColor"
+    d="M20.7 7.1a6 6 0 0 1-8.2 7.6L6.4 20.8a1.6 1.6 0 0 1-2.2 0l-1-1a1.6 1.6 0 0 1 0-2.2l6.1-6.1A6 6 0 0 1 16.9 3c.4.1.6.7.3 1l-2 2 2.8 2.8 2-2c.3-.3.9-.1 1 .3Z"
+  />
+</svg>
         
         <span className="nav-text">Tools</span>
 
@@ -323,7 +396,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
           <ProjectInline 
             isNew={true} 
             project={draftProject} 
-            onClose={handleCloseProject} 
+            onClose={handleCloseProjectWithOptions} 
             onSaved={handleCloseProject}
             requestSaveToken={saveRequestToken}
             onDraftMeta={(meta) => {
@@ -334,6 +407,19 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             }}
           />
         </div>,
+        document.body
+      )}
+
+      {createPortal(
+        <ConfirmOverlay
+          show={replaceConfirm.show}
+          title="Start New Project?"
+          message="Start a new project? This will discard any unsaved changes and replace your saved draft."
+          confirmLabel="Start New"
+          confirmVariant="danger"
+          onCancel={cancelReplaceConfirm}
+          onConfirm={confirmReplaceConfirm}
+        />,
         document.body
       )}
 

@@ -4,7 +4,17 @@ from datetime import datetime, timezone
 from flask import send_file, after_this_request
 import json as JSON_py
 from io import BytesIO
+import math
+from ezdxf.enums import TextEntityAlignment
 from endpoints.api.projects.shared.dxf_utils import new_doc_mm
+
+def calculate_num_pieces(target_size, seam_width, piece_size):
+    if seam_width >= piece_size:
+        return float('inf')  # impossible
+    if seam_width == 0:
+        return math.ceil(target_size / piece_size)
+    n = math.ceil((target_size - seam_width) / (piece_size - seam_width))
+    return n
 
 def get_metadata():
     return {
@@ -46,16 +56,29 @@ def generate_dxf(project, download_name: str):
 
     # 2. Iterate products to draw tarpaulins
     x_offset = 0
-    # Move drawing down significant amount to clear the fixed headers at Y=3000-6000
-    y_base = -5000 
+    # Step 1: Original View at Y = 0 (Base)
+    # Step 2: Seam Layout at Y = -30000
+    # Step 3: Cut Pieces at Y = -60000
+    
+    # We define the Y bases for each step relative to a product's start
+    # But actually, the products are drawn sequentially in X (x_offset increases).
+    # The steps are stacked vertically for each product.
+    
+    step_gap = -30000
 
     for i, product in enumerate(products_list):
+        # Step 1: Original View
+        # Top = 0. Base = 0 - final_width
+        # We need final_width to calculate y_base.
+        
         attrs = product.get("attributes") or {}
-        length = attrs.get("length", 1000)  # original length in mm
-        width = attrs.get("width", 1000)   # original width in mm
-        final_length = attrs.get("final_length", length + 100)  # with 50mm pocket each side
-        final_width = attrs.get("final_width", width + 100)
+        length = attrs.get("length", 1000)
+        width = attrs.get("width", 1000)
+        final_length = length + 50
+        final_width = width + 50
         name = product.get("name", f"Tarpaulin {i+1}")
+        
+        y_base = 0 - final_width 
         
         # Tarpaulin Title - positioned nicely above the tarp
         product_title = f"Tarpaulin: {product.get('productIndex', i+1)} | {name} | Original: {length}mm x {width}mm | Final: {final_length}mm x {final_width}mm"
@@ -67,8 +90,8 @@ def generate_dxf(project, download_name: str):
         msp.add_line((x_offset + final_length, final_width + y_base), (x_offset, final_width + y_base), dxfattribs={"layer": "wheel"})
         msp.add_line((x_offset, final_width + y_base), (x_offset, y_base), dxfattribs={"layer": "wheel"})
         
-        # Draw original rectangle inside centered (50mm gap) on "pen" layer
-        gap = 50
+        # Draw original rectangle inside centered (25mm gap) on "pen" layer
+        gap = 25
         orig_x = x_offset + gap
         orig_y = gap + y_base
         
@@ -83,39 +106,625 @@ def generate_dxf(project, download_name: str):
             # eyelet has x, y relative to tarp origin (0,0)
             lx = eyelet.get("x", 0)
             ly = eyelet.get("y", 0)
-            ex = x_offset + lx
-            ey = y_base + ly
+            ex = x_offset + gap + lx
+            ey = y_base + gap + ly
             side = eyelet.get("side")
 
             # Check for corners to draw diagonals (45 degrees)
             # Use small tolerance for float comparison
             is_left = lx < 1.0
-            is_right = lx > final_length - 1.0
+            is_right = lx > length - 1.0
             is_bottom = ly < 1.0
-            is_top = ly > final_width - 1.0
+            is_top = ly > width - 1.0
 
             if is_left and is_bottom:
-                # Bottom-Left: Diagonal to (100, 100)
-                msp.add_line((ex, ey), (ex + 100, ey + 100), dxfattribs={"layer": "pen"})
+                # Bottom-Left: Diagonal from wheel corner through pen corner, 50mm
+                wx, wy = x_offset, y_base
+                msp.add_line((wx, wy), (wx + 50, wy + 50), dxfattribs={"layer": "pen"})
             elif is_right and is_bottom:
-                # Bottom-Right: Diagonal to (-100, 100)
-                msp.add_line((ex, ey), (ex - 100, ey + 100), dxfattribs={"layer": "pen"})
+                # Bottom-Right: Diagonal from wheel corner through pen corner, 50mm
+                wx, wy = x_offset + final_length, y_base
+                msp.add_line((wx, wy), (wx - 50, wy + 50), dxfattribs={"layer": "pen"})
             elif is_right and is_top:
-                # Top-Right: Diagonal to (-100, -100)
-                msp.add_line((ex, ey), (ex - 100, ey - 100), dxfattribs={"layer": "pen"})
+                # Top-Right: Diagonal from wheel corner through pen corner, 50mm
+                wx, wy = x_offset + final_length, y_base + final_width
+                msp.add_line((wx, wy), (wx - 50, wy - 50), dxfattribs={"layer": "pen"})
             elif is_left and is_top:
-                # Top-Left: Diagonal to (100, -100)
-                msp.add_line((ex, ey), (ex + 100, ey - 100), dxfattribs={"layer": "pen"})
+                # Top-Left: Diagonal from wheel corner through pen corner, 50mm
+                wx, wy = x_offset, y_base + final_width
+                msp.add_line((wx, wy), (wx + 50, wy - 50), dxfattribs={"layer": "pen"})
             else:
-                # Not a corner: Draw 100mm line inwards perpendicular to side
+                # Not a corner: Draw 100mm line from wheel edge inward perpendicular to side
                 if side == "top":
-                    msp.add_line((ex, ey), (ex, ey - 100), dxfattribs={"layer": "pen"})
+                    wy = y_base + final_width
+                    msp.add_line((ex, wy), (ex, wy - 100), dxfattribs={"layer": "pen"})
                 elif side == "bottom":
-                    msp.add_line((ex, ey), (ex, ey + 100), dxfattribs={"layer": "pen"})
+                    wy = y_base
+                    msp.add_line((ex, wy), (ex, wy + 100), dxfattribs={"layer": "pen"})
                 elif side == "left":
-                    msp.add_line((ex, ey), (ex + 100, ey), dxfattribs={"layer": "pen"})
+                    wx = x_offset
+                    msp.add_line((wx, ey), (wx + 100, ey), dxfattribs={"layer": "pen"})
                 elif side == "right":
-                    msp.add_line((ex, ey), (ex - 100, ey), dxfattribs={"layer": "pen"})
+                    wx = x_offset + final_length
+                    msp.add_line((wx, ey), (wx - 100, ey), dxfattribs={"layer": "pen"})
+        
+        # Add seams for nesting in fabric
+        fabricWidth = attrs.get("fabricWidth", 2000)
+        fabricType = attrs.get("fabricType", "")
+        
+        # Determine seam/overlap width based on fabric type
+        if fabricType == "Mesh":
+            seam_width = 70  # "Always 70 (add 35 each side)"
+        elif fabricType == "PVC":
+            seam_width = attrs.get("weldSize", 20)  # "overlap is weldSize (half each side)"
+        else:
+            seam_width = 0
+        
+        num_pieces_h = calculate_num_pieces(final_width, seam_width, fabricWidth)
+        total_h = num_pieces_h * fabricWidth * final_length
+        
+        num_pieces_v = calculate_num_pieces(final_length, seam_width, fabricWidth)
+        total_v = num_pieces_v * fabricWidth * final_width
+        
+        use_vertical = total_v < total_h
+        
+        # Determine label prefix based on number of products
+        is_multi_product = len(products_list) > 1
+        prod_idx = product.get('productIndex', i)+1
+        
+        # --- Intermediate Step: Seam Layout ---
+        # Step 2 Top = step_gap - gap? No, it's just step_gap.
+        # But wait, step_gap is -30000.
+        # So we want Top = -30000.
+        # However, for ROTATED vertical seams, the "Height" is actually final_length.
+        # "Total_v < Total_h" implies vertical seams are preferred.
+        # Vertical Seams (Rotated View): Width -> X, Length -> Y.
+        # So Height = final_length.
+        # Horizontal Seams (Standard View): Height = final_width.
+        
+        if not use_vertical:
+            step2_top_y = step_gap 
+            step2_height = final_width
+            y_layout = step2_top_y - step2_height
+            
+            msp.add_mtext("Seam Layout", dxfattribs={"layer": "AD_INFO", "char_height": 300}).set_location((x_offset, y_layout + step2_height + 500))
+
+            # Add Eyelets to Seam Layout (Horizontal)
+            for eyelet in calculated_eyelets:
+                lx = eyelet.get("x", 0)
+                ly = eyelet.get("y", 0)
+                ex = x_offset + gap + lx
+                ey = y_layout + gap + ly
+                side = eyelet.get("side")
+
+                is_left = lx < 1.0
+                is_right = lx > length - 1.0
+                is_bottom = ly < 1.0
+                is_top = ly > width - 1.0
+
+                if is_left and is_bottom:
+                    wx, wy = x_offset, y_layout
+                    msp.add_line((wx, wy), (wx + 50, wy + 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_bottom:
+                    wx, wy = x_offset + final_length, y_layout
+                    msp.add_line((wx, wy), (wx - 50, wy + 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_top:
+                    wx, wy = x_offset + final_length, y_layout + final_width
+                    msp.add_line((wx, wy), (wx - 50, wy - 50), dxfattribs={"layer": "pen"})
+                elif is_left and is_top:
+                    wx, wy = x_offset, y_layout + final_width
+                    msp.add_line((wx, wy), (wx + 50, wy - 50), dxfattribs={"layer": "pen"})
+                else:
+                    if side == "top":
+                        wy = y_layout + final_width
+                        msp.add_line((ex, wy), (ex, wy - 100), dxfattribs={"layer": "pen"})
+                    elif side == "bottom":
+                        wy = y_layout
+                        msp.add_line((ex, wy), (ex, wy + 100), dxfattribs={"layer": "pen"})
+                    elif side == "left":
+                        wx = x_offset
+                        msp.add_line((wx, ey), (wx + 100, ey), dxfattribs={"layer": "pen"})
+                    elif side == "right":
+                        wx = x_offset + final_length
+                        msp.add_line((wx, ey), (wx - 100, ey), dxfattribs={"layer": "pen"})
+
+            # Horizontal Seams: Draw normal orientation with headers
+            # Wheel
+            msp.add_line((x_offset, y_layout), (x_offset + final_length, y_layout), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset + final_length, y_layout), (x_offset + final_length, y_layout + final_width), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset + final_length, y_layout + final_width), (x_offset, y_layout + final_width), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset, y_layout + final_width), (x_offset, y_layout), dxfattribs={"layer": "wheel"})
+            
+            # Pen
+            lx, ly = x_offset + gap, y_layout + gap
+            msp.add_line((lx, ly), (lx + length, ly), dxfattribs={"layer": "pen"})
+            msp.add_line((lx + length, ly), (lx + length, ly + width), dxfattribs={"layer": "pen"})
+            msp.add_line((lx + length, ly + width), (lx, ly + width), dxfattribs={"layer": "pen"})
+            msp.add_line((lx, ly + width), (lx, ly), dxfattribs={"layer": "pen"})
+
+            # Cut Lines (Seams)
+            # The first piece starts at Top (final_width). 
+            # We draw lines at intervals of (fabricWidth - seam_width) downwards.
+            effective_width = fabricWidth - seam_width
+            current_y = final_width
+            for i in range(1, num_pieces_h):
+                current_y -= effective_width
+                if current_y > 0:
+                    # current_y is the Top of the overlap for the LOWER piece.
+                    # The seam has width. The upper piece extends down to current_y - seam_width?
+                    # No Wait. 
+                    # Panel 1 (Top) Bottom Edge = final_width - fabricWidth.
+                    # Panel 2 (Below) Top Edge = (final_width - fabricWidth) + seam_width.
+                    # Overlap Zone is between [Panel 1 Bottom] and [Panel 2 Top].
+                    
+                    # Actually, standard logic:
+                    # Strip i top = final_width - i*effective_width
+                    # Overlap is at the junction.
+                    # Let's say top of overlap is `current_y`.
+                    # Bottom of overlap is `current_y - seam_width`.
+                    
+                    # Top of overlap (Start of next piece going down? No, end of previous piece)
+                    y_top_line = y_layout + current_y
+                    y_bottom_line = y_layout + current_y - seam_width
+                    y_mid = y_layout + current_y - (seam_width / 2)
+                    
+                    msp.add_line((x_offset, y_top_line), (x_offset + final_length, y_top_line), dxfattribs={"layer": "AD_INFO", "linetype": "ByLayer"}) 
+                    msp.add_line((x_offset, y_bottom_line), (x_offset + final_length, y_bottom_line), dxfattribs={"layer": "AD_INFO", "linetype": "ByLayer"})
+                    msp.add_line((x_offset, y_mid), (x_offset + final_length, y_mid), dxfattribs={"layer": "AD_INFO", "linetype": "DASHED"})
+
+            # Add Panel Labels (Seam Layout)
+            for i in range(num_pieces_h):
+                # Calculate approximate center of the panel strip
+                # Top down
+                strip_top = final_width - (i * effective_width)
+                
+                # Calculate Y center relative to layout
+                y_center = y_layout + strip_top - (effective_width / 2)
+                
+                # Label positioning
+                label_x = x_offset + (final_length / 2)
+                label_y = y_center
+
+                p_num = i + 1
+                lbl = f"P{p_num}" 
+                if is_multi_product:
+                    lbl = f"{prod_idx}P{p_num}"
+
+                msp.add_text(lbl, dxfattribs={"layer": "AD_INFO", "height": 200}).set_placement((label_x, label_y), align=TextEntityAlignment.MIDDLE_CENTER)
+                    
+        else:
+            # Vertical seams - Rotated (Width is Height)
+            step2_top_y = step_gap # -30000
+            step2_height = final_length # Rotated Height is Length
+            y_layout = step2_top_y - step2_height
+
+            msp.add_mtext("Seam Layout (Rotated)", dxfattribs={"layer": "AD_INFO", "char_height": 300}).set_location((x_offset, y_layout + step2_height + 500))
+
+            # Vertical Seams: Rotate 90 degrees
+            # Width becomes X-axis length. Length becomes Y-axis height?
+            # No, usually Rotate 90 means:
+            # Old X -> New Y. Old Y -> New X.
+            # Tarp Length (X) -> Drawn Height (Y).
+            # Tarp Width (Y) -> Drawn Width (X).
+
+            # Add Eyelets to Seam Layout (Rotated)
+            for eyelet in calculated_eyelets:
+                lx = eyelet.get("x", 0)
+                ly = eyelet.get("y", 0)
+                # Tarp X -> Drawn Y. Tarp Y -> Drawn X.
+                ex = x_offset + gap + ly
+                ey = y_layout + gap + lx
+                side = eyelet.get("side")
+
+                is_left = lx < 1.0 # Bottom (Min Y)
+                is_right = lx > length - 1.0 # Top (Max Y)
+                is_bottom = ly < 1.0 # Left (Min X)
+                is_top = ly > width - 1.0 # Right (Max X)
+
+                if is_left and is_bottom: # Bottom-Left -> Wheel(0,0) -> Drawn(0,0) -> Bottom-Left Diag
+                    wx, wy = x_offset, y_layout
+                    msp.add_line((wx, wy), (wx + 50, wy + 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_bottom: # Bottom-Right -> Wheel(L,0) -> Drawn(0,L) -> Top-Left Diag
+                    wx, wy = x_offset, y_layout + final_length
+                    msp.add_line((wx, wy), (wx + 50, wy - 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_top: # Top-Right -> Wheel(L,W) -> Drawn(W,L) -> Top-Right Diag
+                    wx, wy = x_offset + final_width, y_layout + final_length
+                    msp.add_line((wx, wy), (wx - 50, wy - 50), dxfattribs={"layer": "pen"})
+                elif is_left and is_top: # Top-Left -> Wheel(0,W) -> Drawn(W,0) -> Bottom-Right Diag
+                    wx, wy = x_offset + final_width, y_layout
+                    msp.add_line((wx, wy), (wx - 50, wy + 50), dxfattribs={"layer": "pen"})
+                else:
+                    if side == "top": # Tarp Top -> Drawn Right
+                        wx = x_offset + final_width
+                        msp.add_line((wx, ey), (wx - 100, ey), dxfattribs={"layer": "pen"})
+                    elif side == "bottom": # Tarp Bottom -> Drawn Left
+                        wx = x_offset
+                        msp.add_line((wx, ey), (wx + 100, ey), dxfattribs={"layer": "pen"})
+                    elif side == "left": # Tarp Left -> Drawn Bottom
+                        wy = y_layout
+                        msp.add_line((ex, wy), (ex, wy + 100), dxfattribs={"layer": "pen"})
+                    elif side == "right": # Tarp Right -> Drawn Top
+                        wy = y_layout + final_length
+                        msp.add_line((ex, wy), (ex, wy - 100), dxfattribs={"layer": "pen"})
+
+            # Wheel (Rotated)
+            msp.add_line((x_offset, y_layout), (x_offset + final_width, y_layout), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset + final_width, y_layout), (x_offset + final_width, y_layout + final_length), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset + final_width, y_layout + final_length), (x_offset, y_layout + final_length), dxfattribs={"layer": "wheel"})
+            msp.add_line((x_offset, y_layout + final_length), (x_offset, y_layout), dxfattribs={"layer": "wheel"})
+
+            # Pen (Rotated)
+            lx, ly = x_offset + gap, y_layout + gap
+            msp.add_line((lx, ly), (lx + width, ly), dxfattribs={"layer": "pen"})
+            msp.add_line((lx + width, ly), (lx + width, ly + length), dxfattribs={"layer": "pen"})
+            msp.add_line((lx + width, ly + length), (lx, ly + length), dxfattribs={"layer": "pen"})
+            msp.add_line((lx, ly + length), (lx, ly), dxfattribs={"layer": "pen"})
+             
+            # Cut Lines (Seams)
+            # Vertical seams in Tarp -> Horizontal lines in Rotated Drawing
+            effective_width = fabricWidth - seam_width
+            current_x_src = 0
+            for i in range(1, num_pieces_v):
+                current_x_src += effective_width
+                if current_x_src < final_length:
+                    # In rotated view, Tarp X maps to Drawn Y
+                    # Start of overlap (Bottom/Start of next piece)
+                    y_start = y_layout + current_x_src
+                    # End of overlap (Top/End of previous piece)
+                    y_end = y_layout + current_x_src + seam_width
+                    # Center
+                    y_mid = y_layout + current_x_src + (seam_width / 2)
+                    
+                    msp.add_line((x_offset, y_start), (x_offset + final_width, y_start), dxfattribs={"layer": "AD_INFO", "linetype": "ByLayer"})
+                    msp.add_line((x_offset, y_end), (x_offset + final_width, y_end), dxfattribs={"layer": "AD_INFO", "linetype": "ByLayer"})
+                    msp.add_line((x_offset, y_mid), (x_offset + final_width, y_mid), dxfattribs={"layer": "AD_INFO", "linetype": "DASHED"})
+
+            # Add Panel Labels (Seam Layout - Rotated)
+            for i in range(num_pieces_v):
+                # Calculate approximate center of the panel strip (Tarp X -> Drawn Y)
+                y_center = y_layout + (i * effective_width) + (effective_width / 2)
+                # Clamp center if it exceeds final length (mapped to Y)
+                if y_center > y_layout + final_length:
+                        y_center = y_layout + final_length - 200 
+                
+                label_x = x_offset + 500
+                label_y = y_center
+                
+                p_num = i + 1
+                lbl = f"{prod_idx}P{p_num}" if is_multi_product else f"{p_num}"
+                msp.add_text(lbl, dxfattribs={"layer": "AD_INFO", "height": 200}).set_placement((label_x, label_y))
+
+            # Add Eyelets to Seam Layout (Rotated)
+            for eyelet in calculated_eyelets:
+                lx = eyelet.get("x", 0)
+                ly = eyelet.get("y", 0)
+                # Tarp X -> Drawn Y. Tarp Y -> Drawn X.
+                ex = x_offset + gap + ly
+                ey = y_layout + gap + lx
+                side = eyelet.get("side")
+
+                is_left = lx < 1.0 # Bottom (Min Y)
+                is_right = lx > length - 1.0 # Top (Max Y)
+                is_bottom = ly < 1.0 # Left (Min X)
+                is_top = ly > width - 1.0 # Right (Max X)
+
+                if is_left and is_bottom: # Bottom-Left -> Wheel(0,0) -> Drawn(0,0) -> Bottom-Left Diag
+                    wx, wy = x_offset, y_layout
+                    msp.add_line((wx, wy), (wx + 50, wy + 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_bottom: # Bottom-Right -> Wheel(L,0) -> Drawn(0,L) -> Top-Left Diag
+                    wx, wy = x_offset, y_layout + final_length
+                    msp.add_line((wx, wy), (wx + 50, wy - 50), dxfattribs={"layer": "pen"})
+                elif is_right and is_top: # Top-Right -> Wheel(L,W) -> Drawn(W,L) -> Top-Right Diag
+                    wx, wy = x_offset + final_width, y_layout + final_length
+                    msp.add_line((wx, wy), (wx - 50, wy - 50), dxfattribs={"layer": "pen"})
+                elif is_left and is_top: # Top-Left -> Wheel(0,W) -> Drawn(W,0) -> Bottom-Right Diag
+                    wx, wy = x_offset + final_width, y_layout
+                    msp.add_line((wx, wy), (wx - 50, wy + 50), dxfattribs={"layer": "pen"})
+                else:
+                    if side == "top": # Tarp Top -> Drawn Right
+                        wx = x_offset + final_width
+                        msp.add_line((wx, ey), (wx - 100, ey), dxfattribs={"layer": "pen"})
+                    elif side == "bottom": # Tarp Bottom -> Drawn Left
+                        wx = x_offset
+                        msp.add_line((wx, ey), (wx + 100, ey), dxfattribs={"layer": "pen"})
+                    elif side == "left": # Tarp Left -> Drawn Bottom
+                        wy = y_layout
+                        msp.add_line((ex, wy), (ex, wy + 100), dxfattribs={"layer": "pen"})
+                    elif side == "right": # Tarp Right -> Drawn Top
+                        wy = y_layout + final_length
+                        msp.add_line((ex, wy), (ex, wy - 100), dxfattribs={"layer": "pen"})
+# Step 3 starts at step_gap * 2 = -60000
+        step3_top_y = step_gap * 2
+        
+        msp.add_mtext("Cut Pieces", dxfattribs={"layer": "AD_INFO", "char_height": 300}).set_location((x_offset, step3_top_y + 500))
+        
+        y_offset = step3_top_y # This is used as the TOP for stacking logic
+        
+        panel_gap = 500  # Gap between panels
+
+        # Determine label prefix based on number of products
+        is_multi_product = len(products_list) > 1
+        prod_idx = product.get('productIndex', i) + 1
+        
+        if not use_vertical:
+            # Horizontal seams (Separated)
+            # User wants "horizontal seams... drawn under each other".
+            # To match seams (Seam A to Seam A), we must stack Top-to-Bottom starting from the Topmost Panel.
+            # Panel Order is now Top-Down, so Panel 1 (i=0) is Top.
+            # We want to draw Panel 0 at the Top, ..., Panel N at the Bottom.
+            
+            # Iterate in normal order (0 to N)
+            
+            current_draw_y_top = y_offset
+
+            for width_idx, i in enumerate(range(num_pieces_h)):
+                # Calculate Tarp Y range for this strip (Top-Down)
+                strip_y_top = final_width - (i * (fabricWidth - seam_width))
+                strip_y_bottom = strip_y_top - fabricWidth
+                
+                # Clamp bottom to 0 for the last piece
+                # But actually, the cut piece is always `fabricWidth` tall unless we trim it.
+                # However, the user usually just cuts a full strip and trims, 
+                # OR cuts exactly what is needed.
+                # In Step 3 (Cut Pieces), we generally show the raw cut piece logic.
+                # But the pen lines will be clipped to the actual Tarp Y range [0, final_width].
+                # So the DRAWING box height depends on the strip.
+                
+                # Let's say the cut piece height is always `fabricWidth` except maybe the last one?
+                # The user says "Last Panel is Bottom (and might be shorter)".
+                # So height = min(fabricWidth, strip_y_top - 0).
+                
+                current_piece_height = min(fabricWidth, strip_y_top)
+                
+                # Adjust strip_y_bottom if clamped
+                actual_strip_bottom = max(0, strip_y_bottom) 
+                
+                # Stack Top-to-Bottom:
+                # Top edge of this drawing piece
+                if width_idx > 0:
+                     current_draw_y_top -= panel_gap
+
+                draw_y_top = current_draw_y_top
+                draw_y_bottom = draw_y_top - current_piece_height
+                
+                # Update for next piece
+                current_draw_y_top = draw_y_bottom
+
+                # Fixed X
+                draw_x = x_offset
+                draw_y_end = draw_y_top # For clarity with old names
+                draw_y_start = draw_y_bottom
+                
+                # Draw wheel rectangle (Cut Line)
+                msp.add_line((draw_x, draw_y_start), (draw_x + final_length, draw_y_start), dxfattribs={"layer": "wheel"})
+                msp.add_line((draw_x + final_length, draw_y_start), (draw_x + final_length, draw_y_end), dxfattribs={"layer": "wheel"})
+                msp.add_line((draw_x + final_length, draw_y_end), (draw_x, draw_y_end), dxfattribs={"layer": "wheel"})
+                msp.add_line((draw_x, draw_y_end), (draw_x, draw_y_start), dxfattribs={"layer": "wheel"})
+                
+                # Label (Top Left)
+                panel_num = i + 1
+                if is_multi_product:
+                    label_text = f"{prod_idx}P{panel_num}"
+                else:
+                    label_text = f"{panel_num}"
+                
+                label_x_pos = draw_x + 100
+                label_y_pos = draw_y_end - 150
+                msp.add_text(label_text, dxfattribs={"layer": "pen", "height": 100}).set_placement((label_x_pos, label_y_pos))
+                
+                # Pen Map
+                # Tarp Y increases Up. Strip Y increases Up.
+                # We need to map Tarp Y range [actual_strip_bottom, strip_y_top] 
+                # to Draw Y range [draw_y_start, draw_y_end].
+                
+                # strip_y_top corresponds to draw_y_end (Top of drawing).
+                # actual_strip_bottom corresponds to draw_y_start (Bottom of drawing).
+                
+                # Formula: draw_y = draw_y_start + (tarp_y - actual_strip_bottom)
+                
+                # Pen boundaries relative to Tarp Y
+                pen_y_min = gap
+                pen_y_max = gap + width
+                
+                # Intersection of Strip Range and Pen Range
+                y_overlap_start = max(pen_y_min, actual_strip_bottom)
+                y_overlap_end = min(pen_y_max, strip_y_top)
+                
+                if y_overlap_start < y_overlap_end:
+                    d_y1 = draw_y_start + (y_overlap_start - actual_strip_bottom)
+                    d_y2 = draw_y_start + (y_overlap_end - actual_strip_bottom)
+                    
+                    d_x1 = draw_x + gap
+                    d_x2 = draw_x + gap + length
+                    
+                    # Vertical lines of the rectangle (Left and Right sides)
+                    msp.add_line((d_x1, d_y1), (d_x1, d_y2), dxfattribs={"layer": "pen"})
+                    msp.add_line((d_x2, d_y1), (d_x2, d_y2), dxfattribs={"layer": "pen"})
+                    
+                    # Horizontal lines (Bottom and Top sides)
+                    # Drawn only if the strip boundary coincides with the Pen boundary
+                    # Check Bottom Pen Line (pen_y_min)
+                    if actual_strip_bottom <= pen_y_min < strip_y_top:
+                         # Overlap region includes the bottom line Y
+                         msp.add_line((d_x1, d_y1), (d_x2, d_y1), dxfattribs={"layer": "pen"})
+                         
+                    # Check Top Pen Line (pen_y_max)
+                    if actual_strip_bottom <= pen_y_max < strip_y_top:
+                        # Overlap region includes the top line Y
+                        msp.add_line((d_x1, d_y2), (d_x2, d_y2), dxfattribs={"layer": "pen"})
+                
+                # Eyelets
+                for eyelet in calculated_eyelets:
+                    lx = eyelet.get("x", 0) + gap 
+                    ly = eyelet.get("y", 0) + gap 
+                    
+                    # Check if eyelet Y is within this strip's Tarp Y range
+                    # Use a small tolerance
+                    if actual_strip_bottom <= ly <= strip_y_top + 1.0:
+                        # Map to current piece coordinates
+                        ex = draw_x + lx # X matches Tarp X (plus draw_x offset)
+                        ey = draw_y_start + (ly - actual_strip_bottom)
+                        
+                        side = eyelet.get("side")
+                        raw_lx = eyelet.get("x", 0)
+                        raw_ly = eyelet.get("y", 0)
+                        is_left, is_right = raw_lx < 1.0, raw_lx > length - 1.0
+                        is_bottom, is_top = raw_ly < 1.0, raw_ly > width - 1.0
+                        
+                        if is_left and is_bottom:
+                            msp.add_line((draw_x, ey-(gap-raw_ly)), (draw_x + 50, ey - (gap-raw_ly) + 50), dxfattribs={"layer": "pen"})
+                        elif is_right and is_bottom:
+                            msp.add_line((draw_x+final_length, ey-(gap-raw_ly)), (draw_x+final_length - 50, ey - (gap-raw_ly) + 50), dxfattribs={"layer": "pen"})
+                        elif is_right and is_top:
+                            msp.add_line((draw_x+final_length, ey+(final_width-gap-raw_ly)), (draw_x+final_length - 50, ey + (final_width-gap-raw_ly) - 50), dxfattribs={"layer": "pen"})
+                        elif is_left and is_top:
+                            msp.add_line((draw_x, ey+(final_width-gap-raw_ly)), (draw_x + 50, ey + (final_width-gap-raw_ly) - 50), dxfattribs={"layer": "pen"})
+                        else:
+                            if side == "top": 
+                                msp.add_line((ex, ey), (ex, ey - 100), dxfattribs={"layer": "pen"})
+                            elif side == "bottom": 
+                                msp.add_line((ex, ey), (ex, ey + 100), dxfattribs={"layer": "pen"})
+                            elif side == "left": 
+                                msp.add_line((draw_x, ey), (draw_x + 100, ey), dxfattribs={"layer": "pen"})
+                            elif side == "right": 
+                                msp.add_line((draw_x + final_length, ey), (draw_x + final_length - 100, ey), dxfattribs={"layer": "pen"})
+
+
+        else:
+            # Vertical seams - Rotated 90 degrees (Separated)
+            # User wants "work down if you rotate it"
+            # Means stacking order: Top to Bottom.
+            # i=0 is the first strip (Left of Tarp). 
+            # If we stack down, we start at y_offset and go down? Or start high and go down?
+            # Convention: Drawing starts at y_offset (Base Y).
+            # If "working down", piece 1 is at Top, piece 2 is below it.
+            # Y decreases as i increases.
+            
+            # Start Y needs to be high enough to fit all pieces if we go down.
+            # Or we simply use y_offset as the top?
+            # Let's assume y_offset is the *START* Y reference.
+            # "work down": draw_y = y_offset - i * (height + gap)
+            
+            for i in range(num_pieces_v):
+                strip_x_start = i * (fabricWidth - seam_width)
+                strip_x_end = strip_x_start + fabricWidth
+                
+                # Stack Downwards
+                # Each piece height is approx fabricWidth
+                # We draw from Top Y (draw_y_top) to Bottom Y (draw_y_bottom)
+                
+                current_piece_height = fabricWidth
+                # Check Size
+                remaining_needed = final_length - strip_x_start
+                current_piece_height = min(fabricWidth, remaining_needed)
+                
+                # Top edge of this piece
+                draw_y_top = y_offset - i * (fabricWidth + panel_gap)
+                # Bottom edge
+                draw_y_bottom = draw_y_top - current_piece_height
+                
+                # Draw Wheel
+                # Box from (x_offset, draw_y_bottom) to (x_offset + final_width, draw_y_top)
+                msp.add_line((x_offset, draw_y_bottom), (x_offset + final_width, draw_y_bottom), dxfattribs={"layer": "wheel"})
+                msp.add_line((x_offset + final_width, draw_y_bottom), (x_offset + final_width, draw_y_top), dxfattribs={"layer": "wheel"})
+                msp.add_line((x_offset + final_width, draw_y_top), (x_offset, draw_y_top), dxfattribs={"layer": "wheel"})
+                msp.add_line((x_offset, draw_y_top), (x_offset, draw_y_bottom), dxfattribs={"layer": "wheel"})
+                
+                # Label (Top Left)
+                panel_num = i + 1
+                if is_multi_product:
+                    label_text = f"{prod_idx}P{panel_num}"
+                else:
+                    label_text = f"{panel_num}"
+                
+                label_x = x_offset + 100
+                label_y = draw_y_top - 150
+                
+                msp.add_text(label_text, dxfattribs={"layer": "pen", "height": 100}).set_placement((label_x, label_y))
+                
+                # Pen Map
+                # Tarp X increases (along strips).
+                # Since we are "rotated", Tarp X maps to Drawn Y.
+                # However, WITHIN a piece, Tarp X is low at bottom, high at top?
+                # The cut piece itself is a representation of that strip.
+                # Usually we want the image to look like the strip.
+                # Strip 1 covers X=[0..W].
+                # If we draw it, Bottom edge corresponds to X=0? Yes.
+                # So within the piece, Y should increase with X.
+                # Piece Y range: [draw_y_bottom, draw_y_top]
+                # Tarp X range: [strip_x_start, strip_x_end] (mapped)
+                # Tarp X = strip_x_start -> Draw Y = draw_y_bottom ?
+                # Yes, "Up" inside the piece corresponds to increasing X.
+                
+                
+                pen_x_min = gap
+                pen_x_max = gap + length
+                pen_y_min = gap
+                pen_y_max = gap + width
+                
+                x_overlap_start = max(pen_x_min, strip_x_start)
+                x_overlap_end = min(pen_x_max, strip_x_end)
+                
+                if x_overlap_start < x_overlap_end:
+                    # Mapping: Tarp X (strip_x_start) -> Draw Y (draw_y_bottom)
+                    d_y1 = draw_y_bottom + (x_overlap_start - strip_x_start)
+                    d_y2 = draw_y_bottom + (x_overlap_end - strip_x_start)
+                    
+                    # Drawn X matches Tarp Y.
+                    d_x1 = x_offset + pen_y_min
+                    d_x2 = x_offset + pen_y_max
+                    
+                    if strip_x_start <= pen_x_min < strip_x_end:
+                         msp.add_line((d_x1, d_y1), (d_x2, d_y1), dxfattribs={"layer": "pen"})
+                    if strip_x_start <= pen_x_max < strip_x_end: 
+                         msp.add_line((d_x1, d_y2), (d_x2, d_y2), dxfattribs={"layer": "pen"})
+
+                    msp.add_line((d_x1, d_y1), (d_x1, d_y2), dxfattribs={"layer": "pen"})
+                    msp.add_line((d_x2, d_y1), (d_x2, d_y2), dxfattribs={"layer": "pen"})
+                
+                # Draw Eyelets
+                for eyelet in calculated_eyelets:
+                    lx = eyelet.get("x", 0) + gap 
+                    ly = eyelet.get("y", 0) + gap 
+                    
+                    if strip_x_start <= lx <= strip_x_end + 1.0:
+                        ex = x_offset + ly
+                        ey = draw_y_bottom + (lx - strip_x_start)
+                        
+                        side = eyelet.get("side")
+                        raw_lx, raw_ly = eyelet.get("x", 0), eyelet.get("y", 0)
+                        
+                        is_left, is_right = raw_lx < 1.0, raw_lx > length - 1.0
+                        is_bottom, is_top = raw_ly < 1.0, raw_ly > width - 1.0
+                        
+                        def map_pt(tx, ty): 
+                            return (x_offset + ty, draw_y_bottom + (tx - strip_x_start))
+                        
+                        if is_left and is_bottom:
+                           msp.add_line(map_pt(0,0), map_pt(50,50), dxfattribs={"layer": "pen"})
+                        elif is_right and is_bottom:
+                           msp.add_line(map_pt(final_length,0), map_pt(final_length-50,50), dxfattribs={"layer": "pen"})
+                        elif is_right and is_top:
+                           msp.add_line(map_pt(final_length,final_width), map_pt(final_length-50,final_width-50), dxfattribs={"layer": "pen"})
+                        elif is_left and is_top:
+                           msp.add_line(map_pt(0,final_width), map_pt(50,final_width-50), dxfattribs={"layer": "pen"})
+                        else:
+                            if side == "top": 
+                                edge_x = x_offset + final_width
+                                msp.add_line((edge_x, ey), (edge_x - 100, ey), dxfattribs={"layer": "pen"})
+                            elif side == "bottom": 
+                                edge_x = x_offset
+                                msp.add_line((edge_x, ey), (edge_x + 100, ey), dxfattribs={"layer": "pen"})
+                            elif side == "left": 
+                                # Bottom of piece (Min Y within piece)
+                                edge_y = draw_y_bottom 
+                                msp.add_line((ex, edge_y), (ex, edge_y + 100), dxfattribs={"layer": "pen"})
+                            elif side == "right": 
+                                # Top of piece (Max Y within piece) => strip_x_end
+                                # But we want Tarp "Right" which is at final_length.
+                                edge_y = draw_y_bottom + (final_length - strip_x_start)
+                                msp.add_line((ex, edge_y), (ex, edge_y - 100), dxfattribs={"layer": "pen"})
+
         
         x_offset += final_length + 1000  # Space between tarpaulins
     

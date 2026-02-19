@@ -42,7 +42,11 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
     [`eyelet_${side}_enabled`]: false,
     [`eyelet_${side}_mode`]: "spacing", // 'count' or 'spacing'
     [`eyelet_${side}_val`]: 500
-  }), {})
+  }), {}),
+
+  fabricWidth: 3200,
+  fabricType: "PVC",
+  weldSize: 25
 });
 
 function EyeletSideInput({ side, attributes, setAttr }) {
@@ -78,6 +82,7 @@ function EyeletSideInput({ side, attributes, setAttr }) {
           />
         </div>
       )}
+
     </div>
   );
 }
@@ -112,6 +117,32 @@ export function ProductForm({ formRef, hydrate = {} }) {
           onChange={setAttr("quantity")}
           min={1}
           step={1}
+        />
+        
+
+        <NumberInput
+          label="Fabric Width (mm)"
+          value={attributes.fabricWidth}
+          onChange={setAttr("fabricWidth")}
+          min={1}
+          step={1}
+          className="mt-2"
+        />
+
+        <SelectInput label="Fabric Type" value={attributes.fabricType} onChange={setAttr("fabricType")} options={[
+          { label: "PVC", value: "PVC" },
+          { label: "Polyester", value: "Polyester" },
+          { label: "Canvas", value: "Canvas" }
+        ]}/>
+
+        <SelectInput
+          label="Weld Size (mm)"
+          value={attributes.weldSize}
+          onChange={setAttr("weldSize")}
+          options={[
+            { label: "25 mm", value: 25 },
+            { label: "40 mm", value: 40 }
+          ]}
         />
 
         <FormSection title="Eyelets">

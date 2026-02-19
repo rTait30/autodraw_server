@@ -117,19 +117,19 @@ def generate_dxf(project, download_name: str):
             is_bottom = ly < 1.0
             is_top = ly > width - 1.0
 
-            if is_left and is_bottom:
+            if is_left or is_bottom:
                 # Bottom-Left: Diagonal from wheel corner through pen corner, 50mm
                 wx, wy = x_offset, y_base
                 msp.add_line((wx, wy), (wx + 50, wy + 50), dxfattribs={"layer": "pen"})
-            elif is_right and is_bottom:
+            elif is_right or is_bottom:
                 # Bottom-Right: Diagonal from wheel corner through pen corner, 50mm
                 wx, wy = x_offset + final_length, y_base
                 msp.add_line((wx, wy), (wx - 50, wy + 50), dxfattribs={"layer": "pen"})
-            elif is_right and is_top:
+            elif is_right or is_top:
                 # Top-Right: Diagonal from wheel corner through pen corner, 50mm
                 wx, wy = x_offset + final_length, y_base + final_width
                 msp.add_line((wx, wy), (wx - 50, wy - 50), dxfattribs={"layer": "pen"})
-            elif is_left and is_top:
+            elif is_left or is_top:
                 # Top-Left: Diagonal from wheel corner through pen corner, 50mm
                 wx, wy = x_offset, y_base + final_width
                 msp.add_line((wx, wy), (wx + 50, wy - 50), dxfattribs={"layer": "pen"})
@@ -156,7 +156,7 @@ def generate_dxf(project, download_name: str):
         if fabricType == "Mesh":
             seam_width = 70  # "Always 70 (add 35 each side)"
         elif fabricType == "PVC":
-            seam_width = attrs.get("weldSize", 20)  # "overlap is weldSize (half each side)"
+            seam_width = attrs.get("weldSize", 25)  # "overlap is weldSize (half each side)"
         else:
             seam_width = 0
         

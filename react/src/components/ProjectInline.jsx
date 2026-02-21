@@ -547,41 +547,63 @@ const ProjectInline = ({
   
   const productName = editedProject?.product?.name || editedProject?.type?.name;
 
+  const onCloseSelect = () => {
+    // If we have no product selected yet, treat close as "cancel project creation" and return to projects list.
+    if (!productName) {
+        handleReturnToProjects();
+    } else {
+        // Otherwise, just close the overlay and return to editing (e.g. if they want to change product)
+        setOverlayMode(null);
+    }
+  };
+
+
   // New logic: Simple overlay for product selection
   if (!productName && isNew) {
       return (
-        <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex items-center justify-center bg-black/60 p-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
-           {/* Center modal in available space */}
-           <div className="bg-white dark:bg-gray-800 rounded-none border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-md flex flex-col gap-0">
-               <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                   <h2 className="text-lg font-bold">Select Product</h2>
-                   <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                   </button>
-               </div>
-               
-               {productsStatus === 'loading' ? (
-                    <div className="text-center p-8">Loading...</div>
-               ) : (
-                   <div className="flex flex-col p-4 gap-2 max-h-[60vh] overflow-y-auto">
-                       {productsList.map(p => (
-                           <Button
-                               key={p.id}
-                               variant="secondary" 
-                               onClick={() => setEditedProject({
+          <div 
+            className="fixed inset-0 z-[200] flex justify-center items-start pt-32 transition-colors bg-white/5 backdrop-blur-[1px]"
+          >
+            <div 
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-sm flex flex-col gap-4 animate-fade-in-down"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Project</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Choose a product to start</p>
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                    {productsList?.length > 0 ? productsList.map(p => (
+                      <Button
+                        key={p.id || p.name}
+                        onClick={() => setEditedProject({
                                     product: p,
                                     general: { name: 'New Project' },
                                     status: 'New'
                                })}
-                               className="w-full justify-start text-left rounded-none border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                           >
-                               {p.name}
-                           </Button>
-                       ))}
-                   </div>
-               )}
-           </div>
-        </div>
+                        className="w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
+                      >
+                          {p.name}
+                      </Button>
+                    )) : (
+                        <div className="text-center text-gray-500 py-4">Loading products...</div>
+                    )}
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close project overlay"
+                  className = "underline hover:text-gray-700 dark:hover:text-gray-300 mt-4"
+                >
+                  Cancel
+                </button>
+            </div>
+            <style>{`
+              @keyframes fade-in-down { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+              .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
+            `}</style>
+          </div>
       );
   }
 

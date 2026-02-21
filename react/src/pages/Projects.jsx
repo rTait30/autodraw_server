@@ -394,12 +394,8 @@ function Projects() {
   const activeProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
   const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
 
-  return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
-      <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
-        <h1 className="heading-page">Projects</h1>
-        <div className="flex flex-col-reverse md:flex-row md:items-center gap-2 md:gap-4 items-baseline">
-            <Button
+  /*
+<Button
               variant="primary"
               onClick={handleStartNewProject}
               className="flex items-center gap-3 text-sm font-bold"
@@ -409,6 +405,14 @@ function Projects() {
               </svg>
               New Project
             </Button>
+  */
+
+  return (
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
+      <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
+        <h1 className="heading-page">Projects</h1>
+        <div className="flex flex-col-reverse md:flex-row md:items-center gap-2 md:gap-4 items-baseline">
+            
             {draftInfo && (
                  <Button
                   variant="soft-blue"
@@ -467,48 +471,7 @@ function Projects() {
 
       </div>
 
-      {/* Product Selector Overlay */}
-      {showSelector && (
-        <div 
-          className="fixed inset-0 z-[200] flex justify-center items-start pt-32 transition-colors bg-white/5 backdrop-blur-[1px]"
-          onClick={handleCloseProject}
-        >
-          <div 
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-sm flex flex-col gap-4 animate-fade-in-down"
-              onClick={(e) => e.stopPropagation()}
-          >
-              <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Project</h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Choose a product to start</p>
-              </div>
-              
-              <div className="flex flex-col gap-3">
-                  {productsList?.length > 0 ? productsList.map(p => (
-                    <Button
-                      key={p.id || p.name}
-                      onClick={() => handleProductSelect(p)}
-                      className="w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
-                    >
-                       {formatName(p.name)}
-                    </Button>
-                  )) : (
-                      <div className="text-center text-gray-500 py-4">Loading products...</div>
-                  )}
-                  
-                  <button 
-                    onClick={handleCloseProject}
-                    className="mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-medium underline decoration-transparent hover:decoration-current transition-all"
-                  >
-                    Cancel
-                  </button>
-              </div>
-          </div>
-          <style>{`
-            @keyframes fade-in-down { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-            .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
-          `}</style>
-        </div>
-      )}
+      
 
       {/* Delete Confirmation Overlay */}
       {deleteConfirm.show && (

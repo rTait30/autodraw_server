@@ -24,9 +24,9 @@ export const DEFAULT_ATTRIBUTES = Object.freeze({
   traceCables: [],
   ufcs: [],
   fabric_id: null,
-  fabric_name: "Rainbow Z16",
+  fabric_name: "",
   color_id: null,
-  color_name: "Charcoal",
-  colour: "Charcoal",
+  color_name: "",
+  colour: "",
 });
 

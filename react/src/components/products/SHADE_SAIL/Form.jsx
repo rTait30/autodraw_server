@@ -545,8 +545,8 @@ export function ProductForm({
              >
                <div className="w-20 h-20">
                  <ColorSwatch 
-                   color={{ name: attributes.color_name || "Charcoal", hex_value: "#36454F" }} 
-                   fabricName={attributes.fabric_name || "Rainbow Z16"} 
+                   color={{ name: attributes.color_name || "Please select material", hex_value: "#ffffff" }} 
+                   fabricName={attributes.fabric_name || "Please select material"} 
                    className="w-full h-full rounded"
                  />
                </div>

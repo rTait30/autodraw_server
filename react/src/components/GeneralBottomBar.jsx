@@ -430,8 +430,6 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         </>,
         document.body
       )}
-      {/* Spacer */}
-      <div style={{ height: height, width: '100%', flexShrink: 0 }} aria-hidden="true" />
     </>
   );
 }

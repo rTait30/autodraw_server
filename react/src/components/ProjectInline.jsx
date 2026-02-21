@@ -6,7 +6,7 @@ import StickyActionBar from './StickyActionBar';
 import ProjectOverlay from './ProjectOverlay';
 import SimpleEstimateTable from './SimpleEstimateTable';
 import ProjectDocuments from './ProjectDocuments';
-import { useToast } from './Toast';
+import Toast from './Toast';
 import { apiFetch } from '../services/auth';
 import { TOAST_TAGS } from "../config/toastRegistry";
 import { Button } from './UI';
@@ -77,7 +77,7 @@ const ProjectInline = ({
   }, [lastAutoSaved]);
 
   // Toast State
-  const { showToast, ToastDisplay } = useToast();
+  const [toast, setToast] = useState(null);
   
   // Dev mode toggle
   const devMode = useSelector(state => state.toggles.devMode);
@@ -218,6 +218,9 @@ const ProjectInline = ({
 
   const handleCheck = async () => {
     // Ensure form is accessible before checking
+
+    setOverlayMode('preview');
+
     if (!formRef.current) {
         // If the form isn't ready, don't submit empty data (which wipes the project)
         console.warn("Form reference missing - cannot calculate.");
@@ -267,7 +270,6 @@ const ProjectInline = ({
       
       // Attempt to render preview (simple version for now)
       renderPreview(updated);
-      showToast(TOAST_TAGS.CALCULATION_COMPLETE);
       
       // Trigger overlay only on mobile/tablet (below lg breakpoint) to show results without scrolling
       if (window.innerWidth < 1024) {
@@ -277,7 +279,14 @@ const ProjectInline = ({
 
     } catch (e) {
       console.error(e);
-      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [e.message] });
+      
+      //showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`checking project: ${e.message}`] })
+      
+      setToast({
+        message: `checking project: ${e.message}`,
+        type: "error",
+        duration: 4000,
+      });
     }
   };
 
@@ -297,8 +306,12 @@ const ProjectInline = ({
         }, []);
 
         if (problems.length > 0) {
-            showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`Please resolve discrepancies in: ${problems.join(', ')}`] });
-            return;
+          setToast({
+            message: `Please resolve discrepancies in: ${problems.join(", ")}`,
+            type: "error",
+            duration: 4000,
+          });
+          return;
         }
 
         // Ensure we have the latest form data in state before showing summary
@@ -311,7 +324,14 @@ const ProjectInline = ({
     try {
       const base = syncEditedFromForm() || editedProject;
       if (!base) {
-        showToast('No edited values to submit.');
+        //showToast('No edited values to submit.');
+
+        setToast({
+          message: 'No edited values to submit.',
+          type: "error",
+          duration: 4000,
+        });
+
         return;
       }
 
@@ -324,7 +344,11 @@ const ProjectInline = ({
       }, []);
 
       if (problems.length > 0) {
-        showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`Please resolve discrepancies in: ${problems.join(', ')}`] });
+        setToast({
+          message: `Please resolve discrepancies in: ${problems.join(", ")}`,
+          type: "error",
+          duration: 4000,
+        });
         return;
       }
       
@@ -357,7 +381,11 @@ const ProjectInline = ({
 
       const json = await res.json();
       if (!res.ok || json?.error) {
-        showToast(`Update failed: ${json?.error || res.statusText}`);
+        setToast({
+          message: `Update failed: ${json?.error || res.statusText}`,
+          type: "error",
+          duration: 4000,
+        });
         return;
       }
 
@@ -393,7 +421,12 @@ const ProjectInline = ({
          }
       }
 
-      showToast(isNew ? "Project Created!" : "Project Updated!");
+      //showToast(isNew ? "Project Created!" : "Project Updated!");
+
+      setToast({
+        message: (isNew ? "Project Created!" : "Project Updated!"),
+        duration: 4000,
+      });
       
       // Clear draft on success
       localStorage.removeItem('autodraw_draft');
@@ -417,7 +450,11 @@ const ProjectInline = ({
       
     } catch (e) {
       console.error('Submit error:', e);
-      showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`submitting project: ${e.message}`] });
+      setToast({
+        message: `Error submitting project: ${e.message}`,
+        type: "error",
+        duration: 4000,
+      });
     }
   };
 
@@ -458,7 +495,12 @@ const ProjectInline = ({
   const handleSchemaReturn = () => setEditedSchema(schema);
   const handleSchemaSubmit = (next) => {
     console.log('[Schema submit] (stub):', next);
-    showToast(TOAST_TAGS.SCHEMA_SUBMIT_NOT_IMPLEMENTED);
+    //showToast(TOAST_TAGS.SCHEMA_SUBMIT_NOT_IMPLEMENTED);
+    setToast({
+        message: 'Schema submit not implemented yet; preview uses the edited schema.',
+        type: "error",
+        duration: 4000,
+      });
   };
   
   // Bump version on schema change
@@ -546,6 +588,8 @@ const ProjectInline = ({
   if (!productName) return null;
 
   return (
+
+
     <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
 
       <ConfirmOverlay
@@ -557,9 +601,6 @@ const ProjectInline = ({
         onCancel={cancelReplaceConfirm}
         onConfirm={confirmReplaceConfirm}
       />
-      
-      {/* Toast Overlay - Positioned above StickyActionBar (approx 80px + margin) */}
-      <ToastDisplay className="bottom-[20px] mb-safe pointer-events-none" /> 
 
       {/* Header Bar - includeNav={false} because parent layout already has Nav */}
       <PageHeader
@@ -568,6 +609,17 @@ const ProjectInline = ({
         includeNav={false}
         hideBackButton={true}
       />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+
       {lastAutoSaved && (
             <div 
                 className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
@@ -650,7 +702,7 @@ const ProjectInline = ({
                     }
                 >
                      <div className="p-5">
-                        <ProjectDocuments project={editedProject} showToast={showToast} isStaff={isStaff} />
+                        <ProjectDocuments project={editedProject} isStaff={isStaff} />
                      </div>
                 </CollapsibleCard>
               )}
@@ -684,48 +736,24 @@ const ProjectInline = ({
         </div>
       </div>
 
-      {/* Footer Action Bar */}
       {productName && overlayMode !== 'success' && (
-        <StickyActionBar 
-          mode="static"
-          className="!mt-0 px-4 py-3 md:px-8 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            {overlayMode === 'confirm' ? (
-            <>
-                <Button 
-                    onClick={closeOverlay}
-                    variant="danger"
-                    className="flex-1"
-                >
-                Back
-                </Button>
-                <Button 
-                    onClick={handleSave} 
-                    variant="submit"
-                    className="flex-1"
-                >
-                Confirm & {isNew ? 'Create' : 'Save'}
-                </Button>
-            </>
-            ) : (
-            <>
-                <Button 
-                    onClick={overlayMode === 'preview' ? closeOverlay : handleCheck} 
-                    variant={overlayMode === 'preview' ? 'danger' : 'primary'}
-                    className="flex-1"
-                >
-                {overlayMode === 'preview' ? 'Close Preview' : 'Check / Calculate'}
-                </Button>
-                <Button 
-                    onClick={handleSave} 
-                    variant="submit"
-                    className="flex-1"
-                >
-                {isNew ? 'Submit Project' : 'Submit Changes'}
-                </Button>
-            </>
-            )}
-        </StickyActionBar>
-      )}
+      <StickyActionBar mode="static">
+        {(overlayMode === 'preview' || overlayMode === 'confirm') ? (
+          <>
+            <Button onClick={closeOverlay} variant="danger" className="flex-1">
+              Continue Editing
+            </Button>
+            <Button onClick={handleSave} variant="submit" className="flex-1">
+              Submit {isNew ? 'Project' : 'Changes'}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleCheck} variant="submit" className="flex-1">
+            View / Submit
+          </Button>
+        )}
+      </StickyActionBar>
+    )}
       
       <style>{`
         @keyframes fade-in-up {

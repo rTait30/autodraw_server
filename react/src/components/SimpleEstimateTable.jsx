@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiFetch } from '../services/auth';
 import SchemaSelector from './SchemaSelector';
+import { ItemSelector } from './ItemSelector';
 
 // Enhanced Estimate Editor
 // 'schema' prop contains the formulas (source of truth for editing)
@@ -331,29 +332,37 @@ export default function SimpleEstimateTable({
             </div>
         </div>
 
-        {/* Item Tabs (if multiple items) */}
-        {evaluatedItems.length > 0 && (
-            <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
-                {evaluatedItems.map((item, idx) => (
-                    <button
-                        key={item.id || idx}
-                        onClick={() => setActiveItemIdx(idx)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                            activeItemIdx === idx 
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' 
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        {item.name || `Item ${idx + 1}`}
-                        <span className="ml-2 text-xs opacity-70 font-normal">
-                             ${(Object.values(item.sections || {}).reduce((acc, rows) => {
-                                 return acc + (Array.isArray(rows) ? rows.reduce((s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)), 0) : 0);
-                             }, 0)).toFixed(2)}
-                        </span>
-                    </button>
-                ))}
-            </div>
-        )}
+        <ItemSelector
+            label="Select Estimate Item:"
+            options={evaluatedItems}
+            value={activeItemIdx}
+            onChange={setActiveItemIdx}
+            getValue={(_, idx) => idx}
+            getLabel={(item, idx) => {
+                const total = Object.values(item.sections || {}).reduce((acc, rows) => {
+                return acc + (
+                    Array.isArray(rows)
+                    ? rows.reduce(
+                        (s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)),
+                        0
+                        )
+                    : 0
+                );
+                }, 0);
+
+                return (
+                <div className="flex flex-col items-center leading-tight">
+                    <span className="font-medium">
+                    {item.name || `Item ${idx + 1}`}
+                    </span>
+                    <span className="text-xs opacity-70">
+                    ${total.toFixed(2)}
+                    </span>
+                </div>
+                );
+            }}
+            columnsMobile={4}
+        />
 
         {/* Sections */}
         <div className="space-y-6">

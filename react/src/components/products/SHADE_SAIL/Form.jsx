@@ -133,14 +133,12 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
   );
 
   return (
-    <div className="space-y-2">
       <TextInput
         label="Location" 
         value={projectData.location} 
         onChange={(val) => setProjectData(prev => ({ ...prev, location: val }))} 
         placeholder="Enter location..."
       />
-    </div>
   );
 }
 
@@ -576,7 +574,7 @@ export function ProductForm({
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1.5 ml-1">Points</label>
             <div className="flex items-center">
                <button type="button" className="w-12 h-12 bg-gray-200 rounded-l" onClick={() => setAttributes(p => ({...p, pointCount: Math.max(3, p.pointCount-1)}))}>-</button>
-               <div className="flex-1 text-center border-t border-b h-12 flex items-center justify-center font-bold bg-white dark:bg-gray-800">{attributes.pointCount}</div>
+               <div className="flex-1 text-center border-grey border-t border-b h-12 flex items-center justify-center font-bold bg-white dark:bg-gray-800">{attributes.pointCount}</div>
                <button type="button" className="w-12 h-12 bg-gray-200 rounded-r" onClick={() => setAttributes(p => ({...p, pointCount: Math.min(MAX_POINTS, p.pointCount+1)}))}>+</button>
             </div>
           </div>

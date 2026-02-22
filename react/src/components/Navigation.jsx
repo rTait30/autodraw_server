@@ -86,9 +86,8 @@ const Navigation = () => {
       <Button
         variant="dev"
         onClick={handleDevModeToggle}
-        style={toggleBtnStyle(devMode)}
-      >
-        Dev Mode
+        className = "self-start">
+        Dev
       </Button>
       
     </div>

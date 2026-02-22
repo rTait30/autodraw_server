@@ -5,6 +5,7 @@ import { GeneralSection } from "./GeneralSection";
 import { CheckboxInput, SelectInput, TextInput } from "./FormUI";
 import { Button } from "./UI";
 import { TOAST_TAGS, resolveToastMessage } from "../config/toastRegistry";
+import { ItemSelector } from "./ItemSelector";
 
 // Default general values
 const DEFAULT_GENERAL = {
@@ -404,12 +405,10 @@ export default function ProjectForm({
       <section className="space-y-3">
         {/* Global project form above item selector */}
         {ProjectFormComponent && (
-          <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-6 transition-colors dark:text-gray-100">
             <ProjectFormComponent
               formRef={projectFormRef}
               projectDataHydrate={projectData}
             />
-          </div>
         )}
         
 
@@ -417,77 +416,18 @@ export default function ProjectForm({
         {ProductForm && (
           <div className="mt-6 w-full">
             
-            {/* Mobile: Item Selector Dropdown (visible < md) */}
-            <div className="md:hidden mb-4">
-               <label className="block text-sm font-bold text-gray-700 mb-1 dark:text-gray-300">Select Item to Edit:</label>
-               <div className="relative">
-                  <select
-                    value={activeIndex}
-                    onChange={(e) => setActiveIndex(Number(e.target.value))}
-                    className="w-full p-3 pl-4 pr-10 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg text-lg font-medium text-blue-800 dark:text-blue-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 appearance-none transition-all"
-                  >
-                    {items.map((it, index) => (
-                      <option key={it.productIndex} value={it.productIndex}>
-                         {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                  </div>
-               </div>
-               
-               <button 
-                  type="button" 
-                  onClick={addItem}
-                  className="mt-2 w-full py-3 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-               >
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                 </svg>
-                 Add New Item
-               </button>
-            </div>
-
-            {/* Desktop: Tabs Navigation Bar (hidden < md) */}
-            <div className="hidden md:flex flex-wrap items-end gap-1 border-b-2 border-gray-300 mb-0 px-1 w-full">
-              {items.map((it, index) => {
-                const isActive = it.productIndex === activeIndex;
-                return (
-                  <div 
-                    key={it.productIndex} 
-                    onClick={() => setActiveIndex(it.productIndex)}
-                    className={`
-                      relative px-4 lg:px-6 py-3 rounded-t-lg border-t-2 border-l-2 border-r-2 cursor-pointer select-none transition-all min-w-[140px] text-center flex-shrink-0 mt-2
-                      ${isActive 
-                        ? "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 border-b-white dark:border-b-gray-800 -mb-0.5 z-[2] shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-blue-700 dark:text-blue-400" 
-                        : "bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200"
-                      }
-                    `}
-                  >
-                    <span className={`block w-full truncate ${isActive ? "font-bold" : "font-medium"}`}>
-                      {(it.name && it.name.trim() !== "") ? it.name : `Item ${index + 1}`}
-                    </span>
-                  </div>
-                );
-              })}
-              
-              {/* Desktop Add Button */}
-              <button 
-                type="button" 
-                onClick={addItem}
-                className="ml-2 mb-1 p-2 rounded-full hover:bg-blue-100 text-blue-600 font-bold transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
-                title="Add New Item"
-                aria-label="Add New Item"
-              >
-                <div className="flex items-center space-x-1">
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                 </svg>
-                 <span className="font-semibold text-sm">Add Item</span>
-                </div>
-              </button>
-            </div>
+            {/* Item Selector (mobile + desktop, consistent visual) */}
+<ItemSelector
+  label="Select Item to Edit:"
+  options={items}
+  value={activeIndex}
+  onChange={(next) => setActiveIndex(Number(next))}
+  getValue={(it) => it.productIndex}
+  getLabel={(_, i) => i + 1}
+  onAdd={addItem}
+  addLabel="Add New Item"
+  columnsMobile={4}
+/>
 
             {/* Tab Content Panel */}
             <div className="bg-white dark:bg-gray-800 border-2 md:border-t-0 border-gray-300 dark:border-gray-700 rounded-lg md:rounded-t-none md:rounded-b-lg p-3 md:p-6 min-h-[300px] shadow-sm w-full transition-colors">

@@ -578,10 +578,10 @@ const ProjectInline = ({
                       <Button
                         key={p.id || p.name}
                         onClick={() => setEditedProject({
-                                    product: p,
-                                    general: { name: 'New Project' },
-                                    status: 'New'
-                               })}
+                          product: p,
+                          general: { name: 'New Project' },
+                          status: 'New'
+                        })}
                         className="w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
                       >
                           {p.name}

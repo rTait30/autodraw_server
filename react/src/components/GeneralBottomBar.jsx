@@ -290,17 +290,17 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         title="Tools"
       >
         <svg
-  width={32}
-  height={32}
-  viewBox="0 0 24 24"
-  aria-hidden="true"
-  focusable="false"
->
-  <path
-    fill="currentColor"
-    d="M20.7 7.1a6 6 0 0 1-8.2 7.6L6.4 20.8a1.6 1.6 0 0 1-2.2 0l-1-1a1.6 1.6 0 0 1 0-2.2l6.1-6.1A6 6 0 0 1 16.9 3c.4.1.6.7.3 1l-2 2 2.8 2.8 2-2c.3-.3.9-.1 1 .3Z"
-  />
-</svg>
+        width={32}
+        height={32}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          fill={color}
+          d="M20.7 7.1a6 6 0 0 1-8.2 7.6L6.4 20.8a1.6 1.6 0 0 1-2.2 0l-1-1a1.6 1.6 0 0 1 0-2.2l6.1-6.1A6 6 0 0 1 16.9 3c.4.1.6.7.3 1l-2 2 2.8 2.8 2-2c.3-.3.9-.1 1 .3Z"
+        />
+      </svg>
         
         <span className="nav-text">Tools</span>
 
@@ -327,12 +327,12 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         
         height: 85px; /* Fixed height, slightly taller for ease of use */
         padding-bottom: env(safe-area-inset-bottom);
-        background-color: white; /* default fallback */
+        background-color: var(--tertiary); /* default fallback */
       }
       
       @media (prefers-color-scheme: dark) {
         .general-bottom-bar {
-           background-color: #1a1a1a; 
+           background-color: var(--tertiary); 
         }
       }
 
@@ -341,9 +341,9 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        color: #475569; /* slate-600 - high contrast */
+        color: var(--tertiary);
         transition: background-color 0.2s, color 0.2s;
-        background: none;
+        background: var(--tertiary);
         border-top: none;
         border-bottom: none;
         border-left: none; 
@@ -355,7 +355,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       }
 
       .nav-btn:active {
-        background-color: #f1f5f9;
+        background-color: var(--tertiary);
       }
 
       @media (prefers-color-scheme: dark) {

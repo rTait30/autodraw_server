@@ -10,6 +10,7 @@ import StickyActionBar from '../components/StickyActionBar';
 import { Button } from '../components/UI';
 import ConfirmOverlay from '../components/ConfirmOverlay';
 import { discardDraftAndCloseInline } from '../utils/draft';
+import PageHeader from '../components/PageHeader';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -408,32 +409,20 @@ function Projects() {
   */
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
-      <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-4 pb-4 pt-1 mb-2">
-        <h1 className="heading-page">Projects</h1>
-        <div className="flex flex-col-reverse md:flex-row md:items-center gap-2 md:gap-4 items-baseline">
-            
-            {draftInfo && (
-                 <Button
-                  variant="soft-blue"
-                    onClick={handleContinueDraft}
-                    className="flex items-center gap-4 text-sm font-bold"
-                 >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {draftInfo.isNew || !draftInfo.id
-                        ? "Continue New Project" 
-                        : `Continue Editing #${draftInfo.id}`}
-                 </Button>
-             )}
-        </div>
-      </div>
+    
       
-      <div className="mt-2 flex flex-col gap-4">
+    <div>
+
+      <PageHeader
+        title="Projects"
+        includeNav={false}
+        hideBackButton={true}
+      />
+      
+      <div className="p-4 mt-2 flex flex-col gap-4">
 
         <CollapsibleCard 
-            title="Active Projects" 
+            title="Active" 
             defaultOpen={true}
         >
              <ProjectTable 
@@ -444,7 +433,7 @@ function Projects() {
         </CollapsibleCard>
 
         <CollapsibleCard 
-            title="Completed Projects" 
+            title="Completed" 
             defaultOpen={false}
         >
              <ProjectTable 
@@ -455,7 +444,7 @@ function Projects() {
         </CollapsibleCard>
 
         <CollapsibleCard 
-            title="Recovery" 
+            title="Recover" 
             defaultOpen={false}
         >
              {loadingDeleted ? (

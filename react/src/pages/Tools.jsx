@@ -1,10 +1,25 @@
 import React from 'react';
 import ToolsCard from '../components/ToolsCard';
+import PageHeader from '../components/PageHeader';
 
 const Tools = () => {
+
+
+
     return (
-        <div className="p-4 pt-[calc(var(--header-height)+1rem)] pb-[calc(var(--bottom-nav-height)+1rem)]">
-             <ToolsCard defaultOpen={true} />
+
+        <div>
+            <PageHeader
+                title="Tools"
+                includeNav={false}
+                hideBackButton={true}
+            />
+
+        <div className="p-4 mt-2 flex flex-col gap-4">
+             
+            <ToolsCard defaultOpen={true} />
+        </div>
+        
         </div>
     );
 };

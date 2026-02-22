@@ -35,7 +35,7 @@ const ToolsCard = ({ defaultOpen = false, className = "" }) => {
 
   return (
     <CollapsibleCard 
-        title="Tools" 
+        title="" 
         defaultOpen={defaultOpen}
         className={className}
         padding={true}

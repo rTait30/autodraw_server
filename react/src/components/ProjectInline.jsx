@@ -735,7 +735,7 @@ const ProjectInline = ({
                   isOverlay={!!overlayMode}
                   onClose={overlayMode ? closeOverlay : null}
                   defaultOpen={true}
-                  className="!top-2 !bottom-24 md:!top-8 md:!bottom-24"
+                  className="!top-4 !bottom-32 md:!top-32 md:!bottom-32"
                   contentClassName={(!overlayMode || overlayMode === 'preview') ? "!p-0 bg-gray-50 dark:bg-gray-900 relative" : ""}
               >
                 <ProjectOverlay
@@ -759,7 +759,8 @@ const ProjectInline = ({
       </div>
 
       {productName && overlayMode !== 'success' && (
-      <StickyActionBar mode="static">
+      <StickyActionBar mode="fixed"
+        className = "!bottom-0">
         {(overlayMode === 'preview' || overlayMode === 'confirm') ? (
           <>
             <Button onClick={closeOverlay} variant="danger" className="flex-1">

@@ -423,22 +423,16 @@ export function ProductForm({
         const botL = N - k - 1;
         
         // Diagonals of the box/strip
-        // topL-botR
+        // topL-botR (cross diagonal)
         mandatoryKeys.add(`${Math.min(topL, botR)}-${Math.max(topL, botR)}`);
-        // topR-botL
+        // topR-botL (cross diagonal)
         mandatoryKeys.add(`${Math.min(topR, botL)}-${Math.max(topR, botL)}`);
-        // Connecting bar topR-botR (It's an edge usually? No, internal vertical strut in strip triangulation)
-        // Wait, strip triangulation logic:
-        // Triangulating diagonals... 
-        // 0-2, 1-3 ? 
-        // The implementation in `calculations.py` `_generate_boxes`:
-        // TL=i, TR=i+1, BR=..., BL=...
-        // For N=4 (0,1,2,3): TL=0, TR=1, BR=2, BL=3.
-        // Diags: 0-2 (TL-BR), 1-3 (TR-BL).
-        // Vertical: 1-2 (TR-BR). This is an edge. All good.
-        
-        // Let's trust the logic: Cross diagonals are required.
-        // Also the vertical strut for subsequent boxes?
+        // Also include the four sides of the box as mandatory where they are not polygon edges
+        // topL-botL (left vertical of the box)
+        mandatoryKeys.add(`${Math.min(topL, botL)}-${Math.max(topL, botL)}`);
+        // topR-botR (right vertical of the box)
+        mandatoryKeys.add(`${Math.min(topR, botR)}-${Math.max(topR, botR)}`);
+        // Note: some of these may correspond to polygon edges for small N; deduping is handled by using a Set.
       }
     }
 
@@ -531,7 +525,7 @@ export function ProductForm({
   // Render
   // ------------------------------------------------
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       {/* SECTION 1: MAIN SPECS */}
       {!discrepancyChecker && (
         <FormSection title="Fabric & Cable Specifications">
@@ -574,7 +568,7 @@ export function ProductForm({
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1.5 ml-1">Points</label>
             <div className="flex items-center">
                <button type="button" className="w-12 h-12 bg-gray-200 rounded-l" onClick={() => setAttributes(p => ({...p, pointCount: Math.max(3, p.pointCount-1)}))}>-</button>
-               <div className="flex-1 text-center border-grey border-t border-b h-12 flex items-center justify-center font-bold bg-white dark:bg-gray-800">{attributes.pointCount}</div>
+               <div className="flex-1 text-center border-t border-b border-gray-200 dark:border-gray-700 h-12 flex items-center justify-center font-bold bg-white dark:bg-gray-800">{attributes.pointCount}</div>
                <button type="button" className="w-12 h-12 bg-gray-200 rounded-r" onClick={() => setAttributes(p => ({...p, pointCount: Math.min(MAX_POINTS, p.pointCount+1)}))}>+</button>
             </div>
           </div>

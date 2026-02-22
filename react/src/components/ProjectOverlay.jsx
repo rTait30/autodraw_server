@@ -66,7 +66,7 @@ export default function ProjectOverlay({
                 ref={canvasRef} 
                 width={800} 
                 height={600} 
-                className={`${mode ? 'max-w-full h-auto' : 'w-full h-auto'} `}
+                className={mode ? 'w-full md:max-w-[800px] md:mx-auto h-auto' : 'w-full h-auto'}
             />
 
         {/* Dev Debug */}

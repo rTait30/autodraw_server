@@ -442,9 +442,11 @@ export function render(canvas, data) {
         boxHeight += rowCount * 18;
     }
 
+    yPos -= 200; // Move up to reduce gap between sail and text block
+
     // Draw Box
     ctx.save();
-    ctx.fillStyle = '#ffffff'; 
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.shadowColor = 'rgba(0,0,0,0.05)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 2;

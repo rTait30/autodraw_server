@@ -273,7 +273,10 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
           {isProjectVisible
             ? "New Project"
             : ((isProjectMounted || hasDraft)
-              ? `Continue ${activeProjectName || draftName || 'Draft'}`
+              ? <>
+                  Continue<br/>
+                  <span className="nav-text-ellipsis">{activeProjectName || draftName || 'Draft'}</span>
+                </>
               : "New Project")}
         </span>
       </button>
@@ -325,14 +328,14 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         left: 0;
         right: 0;
         
-        height: 85px; /* Fixed height, slightly taller for ease of use */
+        height: 96px; /* Fixed height, slightly taller for ease of use */
         padding-bottom: env(safe-area-inset-bottom);
-        background-color: var(--tertiary); /* default fallback */
+        background-color: white; /* default fallback */
       }
       
       @media (prefers-color-scheme: dark) {
         .general-bottom-bar {
-           background-color: var(--tertiary); 
+           background-color: white; 
         }
       }
 
@@ -341,9 +344,9 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        color: var(--tertiary);
+        color: white;
         transition: background-color 0.2s, color 0.2s;
-        background: var(--tertiary);
+        background: white;
         border-top: none;
         border-bottom: none;
         border-left: none; 
@@ -352,15 +355,16 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         padding: 8px;
         height: 100%;
         width: 100%;
+        overflow: hidden;
       }
 
       .nav-btn:active {
-        background-color: var(--tertiary);
+        background-color: white;
       }
 
       @media (prefers-color-scheme: dark) {
         .nav-btn {
-           color: #cbd5e1; /* slate-300 */
+           color: #000000; /* slate-300 */
         }
         .nav-btn:active {
            background-color: #334155;
@@ -376,7 +380,20 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       .nav-text {
         font-size: 1rem; /* 16px - Large text for readability */
         font-weight: 600;
+        color: #475569; /* slate-600 - high contrast */
         line-height: 1.2;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+      }
+      
+      .nav-text-ellipsis {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
       }
       
       /* New Project specific overrides */

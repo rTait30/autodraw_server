@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 export default function StickyActionBar({
   children,
@@ -17,14 +16,19 @@ export default function StickyActionBar({
 
   const layout = 'flex items-stretch gap-3 px-4 py-3 md:px-8';
 
-  // Key part: bottom is offset by the bottom nav height (which GeneralBottomBar sets)
-const fixedStyle = {
-  position: 'fixed',
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 60,
-};
+  // When used inside `ProjectInline`, render the bar positioned absolutely
+  // at the bottom of that container so it sits above the bottom nav correctly.
+  const fixedStyle = mode === 'fixed' ? {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: '0px',
+    zIndex: 60,
+    height: '96px',
+  } : {
+    position: 'relative',
+    zIndex: 60,
+  };
 
   const bar = (
     <div style={fixedStyle} className={[base, layout, className].join(' ').trim()}>
@@ -32,5 +36,6 @@ const fixedStyle = {
     </div>
   );
 
-  return mode === 'fixed' ? createPortal(bar, document.body) : bar;
+  // Render the bar in-place so it stays visible inside ProjectInline
+  return bar;
 }

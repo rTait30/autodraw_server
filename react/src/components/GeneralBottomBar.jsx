@@ -387,6 +387,19 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         overflow: hidden;
         text-overflow: clip;
       }
+
+      /* Ensure utility color classes applied to the nav-text take effect
+         (override the default .nav-text color when specific color classes
+         like text-orange-700 or text-blue-700 are present). Also handle the
+         common dark-scheme utility class names which include a colon. */
+      .nav-text.text-orange-700 { color: #c2410c; }
+      @media (prefers-color-scheme: dark) {
+        .nav-text.dark\:text-orange-300 { color: #f6ad55; }
+      }
+      .nav-text.text-blue-700 { color: #1d4ed8; }
+      @media (prefers-color-scheme: dark) {
+        .nav-text.dark\:text-blue-300 { color: #93c5fd; }
+      }
       
       .nav-text-ellipsis {
         display: block;

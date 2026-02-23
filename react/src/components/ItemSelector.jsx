@@ -43,7 +43,7 @@ export function ItemSelector({
   }, [value, options, getValue]);
 
   return (
-    <div className={["mb-4", className].join(" ")}>
+    <div className={["mb-4 z-0", className].join(" ")}>
       {label && (
         <label className="block text-sm font-bold text-gray-700 mb-2 dark:text-gray-300">
           {label}
@@ -51,12 +51,12 @@ export function ItemSelector({
       )}
 
       <div
-        className={["relative flex flex-wrap gap-2", gridClassName].join(" ")}
+        className={["relative flex flex-wrap gap-2 overflow-hidden", gridClassName].join(" ")}
       >
         {/* Sliding Indicator */}
         {indicatorStyle && (
           <div
-            className="absolute rounded-2xl bg-tertiary transition-all duration-200 ease-out"
+            className="absolute rounded-2xl bg-tertiary transition-all duration-200 ease-out z-[-1]"
             style={indicatorStyle}
           />
         )}
@@ -79,9 +79,9 @@ export function ItemSelector({
                 "rounded-2xl font-semibold select-none",
                 "transition-all duration-150",
                 "border-4 border-tertiary",
-                "relative z-10", // keep above indicator
+                "relative z-0", // keep above indicator
                 isActive
-                  ? "text-white"
+                  ? "text-white bg-tertiary"
                   : "bg-transparent text-tertiary hover:bg-tertiary/5",
                 buttonClassName,
               ].join(" ")}
@@ -106,7 +106,7 @@ export function ItemSelector({
               "text-gray-600 dark:text-gray-300",
               "md:hover:shadow-sm md:hover:-translate-y-[1px]",
               "hover:bg-gray-100 dark:hover:bg-gray-800",
-              "relative z-10",
+              "relative z-0",
               addButtonClassName,
             ].join(" ")}
           >

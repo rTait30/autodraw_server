@@ -413,11 +413,14 @@ function Projects() {
       
     <div>
 
+      <div>
+
       <PageHeader
         title="Projects"
         includeNav={false}
         hideBackButton={true}
       />
+      </div>
       
       <div className="p-4 mt-2 flex flex-col gap-4">
 

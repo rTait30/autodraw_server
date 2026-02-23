@@ -59,7 +59,7 @@ def calculate(data: Dict) -> Dict:
 
         length = _num(attrs.get("length"))
         width = _num(attrs.get("width"))
-        pocket = 50  # 50mm pocket on each side
+        pocket = 25  # 25mm pocket on each side
 
         if length is not None and width is not None:
             # Original dimensions

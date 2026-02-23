@@ -47,8 +47,8 @@ def calculate(data: Dict) -> Dict:
             attrs["flatMainHeight"] = width + 2 * seam
         if hem is not None and height is not None and length is not None:
             attrs["flatMainWidth"] = 2 * hem + (height * 2) + length
-        if height is not None and seam is not None:
-            attrs["flatSideWidth"] = height + seam
+        if height is not None and seam is not None and hem is not None:
+            attrs["flatSideWidth"] = height + seam + hem
         if length is not None and seam is not None:
             attrs["flatSideHeight"] = length + (seam * 2)
 

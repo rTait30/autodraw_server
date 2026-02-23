@@ -11,6 +11,12 @@ const PageHeader = ({
     includeNav = true,
     hideBackButton = false,
     rightActions = null,
+    // When `fixed` is true the header is positioned using
+    // `top: var(--header-height)` (used on full pages). When
+    // false the header is rendered in-flow (useful for
+    // overlays/inline panels that already account for the
+    // navigation height).
+    fixed = true,
 }) => {
     const navigate = useNavigate();
     const isLoggedIn = !!localStorage.getItem('username');
@@ -26,8 +32,18 @@ const PageHeader = ({
         }
     };
 
-    const HeaderContent = () => (
-        <div className="flex items-center justify-between px-4 py-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-sm relative z-20">
+    const HeaderContent = () => {
+        // If there's a global navigation bar rendered elsewhere on the page
+        // (has class `topbar`), we should offset the fixed header below it
+        // even when `includeNav` is false. Detect that at render time.
+        const hasGlobalTopbar = (typeof document !== 'undefined') && !!document.querySelector('.topbar');
+        const needsOffset = fixed && (showNav || hasGlobalTopbar);
+        const topClass = fixed ? (needsOffset ? 'fixed top-[var(--header-height)] w-full' : 'fixed top-0 w-full') : 'relative w-full';
+
+        return (
+        <div
+            className={`bg-white ${topClass} flex items-center justify-between px-4 py-3 md:px-8 border-b border-gray-200 dark:border-gray-700 dark:bg-gray-800 shadow-sm z-[200]`}
+        >
             <div className="flex items-center gap-4">
                 {!hideBackButton && (
                     <>
@@ -62,11 +78,16 @@ const PageHeader = ({
             )}
         </div>
     );
+    };
 
     return (
         <div className="flex-none z-10 flex flex-col">
             {showNav && <Navigation />}
              <HeaderContent />
+                 {fixed && ( (showNav || (typeof document !== 'undefined' && !!document.querySelector('.topbar'))) ? (
+                     // spacer to keep page content below the fixed header when there's a nav
+                     <div aria-hidden style={{ height: 'var(--header-height)' }} />
+                 ) : null)}
         </div>
     );
 };

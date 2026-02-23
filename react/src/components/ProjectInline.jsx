@@ -612,7 +612,7 @@ const ProjectInline = ({
   return (
 
 
-    <div className="fixed top-[var(--header-height)] left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
+    <div className="fixed top-0 left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
 
       <ConfirmOverlay
         show={replaceConfirm.show}
@@ -628,7 +628,7 @@ const ProjectInline = ({
       <PageHeader
         title={editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
         subtitle={`${editedProject?.status || 'New'} ${productName ? `• ${productName}` : ''}`}
-        includeNav={false}
+        fixed={false}
         hideBackButton={true}
       />
 
@@ -643,15 +643,15 @@ const ProjectInline = ({
 
 
       {lastAutoSaved && (
-            <div 
-                className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
-            >
-                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-            </div>
-        )}
+        <div 
+            className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
+        >
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+        </div>
+      )}
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">

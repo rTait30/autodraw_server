@@ -562,10 +562,10 @@ const ProjectInline = ({
   if (!productName && isNew) {
       return (
           <div 
-            className="fixed inset-0 z-[200] flex justify-center items-start pt-32 transition-colors bg-white/5 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[200] flex justify-center items-start pt-32 bg-white/5"
           >
             <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-sm flex flex-col gap-4 animate-fade-in-down"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-sm flex flex-col gap-4"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
@@ -582,7 +582,7 @@ const ProjectInline = ({
                           general: { name: 'New Project' },
                           status: 'New'
                         })}
-                        className="w-full text-center text-lg py-3 shadow-sm hover:scale-[1.02] transition-transform"
+                        className="w-full text-center text-lg py-3 shadow-sm"
                       >
                           {p.name}
                       </Button>
@@ -599,10 +599,7 @@ const ProjectInline = ({
                   Cancel
                 </button>
             </div>
-            <style>{`
-              @keyframes fade-in-down { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-              .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
-            `}</style>
+            {/* Animations removed: fade-in-down keyframes and related class removed */}
           </div>
       );
   }
@@ -612,7 +609,7 @@ const ProjectInline = ({
   return (
 
 
-    <div className="fixed top-0 left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity animate-fade-in-up overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
+    <div className="fixed top-0 left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
 
       <ConfirmOverlay
         show={replaceConfirm.show}
@@ -642,16 +639,16 @@ const ProjectInline = ({
       )}
 
 
-      {lastAutoSaved && (
+        {lastAutoSaved && savedIndicatorVisible && (
         <div 
-            className={`absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] transition-all ${savedIndicatorVisible ? 'opacity-100 translate-y-0 duration-200' : 'opacity-0 translate-y-2 duration-1000'}`}
+          className="absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] opacity-100 translate-y-0"
         >
-            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+          <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
-      )}
+        )}
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
@@ -698,16 +695,16 @@ const ProjectInline = ({
                 >
                    <div className="p-5">
                       <SimpleEstimateTable 
-                          schema={editedSchema} 
-                          evaluatedSchema={editedProject?.estimate_schema_evaluated}
-                          onTotalChange={setCurrentEstimateTotal} 
-                          onChange={handleSchemaCheck}
-                          onRecost={handleCheck}
-                          projectId={editedProject?.id}
-                          productId={editedProject?.product?.id || editedProject?.product_id || editedProject?.type?.id}
-                          canSaveTemplate={isAdminOrEstimator}
-                          devMode={devMode}
-                        />
+                        schema={editedSchema} 
+                        evaluatedSchema={editedProject?.estimate_schema_evaluated}
+                        onTotalChange={setCurrentEstimateTotal} 
+                        onChange={handleSchemaCheck}
+                        onRecost={handleCheck}
+                        projectId={editedProject?.id}
+                        productId={editedProject?.product?.id || editedProject?.product_id || editedProject?.type?.id}
+                        canSaveTemplate={isAdminOrEstimator}
+                        devMode={devMode}
+                      />
                    </div>
                 </CollapsibleCard>
               )}
@@ -777,30 +774,6 @@ const ProjectInline = ({
         )}
       </StickyActionBar>
     )}
-      
-      <style>{`
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.25s ease-out forwards;
-        }
-        @keyframes slide-up-card {
-          from { transform: translateY(100%); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-up-card {
-          animation: slide-up-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes slide-down-card {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(100%); opacity: 0; }
-        }
-        .animate-slide-down-card {
-          animation: slide-down-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </div>
   );
 }

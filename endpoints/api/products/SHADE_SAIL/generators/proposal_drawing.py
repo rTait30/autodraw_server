@@ -119,26 +119,32 @@ def _get_fabric_texture_and_color(fabric_type: str, colour_name: str) -> tuple:
     
     try:
         from models import FabricType, FabricColor, db
-        
+
+        # Always check disk first (allow textures to be present without DB entries)
+        texture_path = _get_texture_path(fabric_type, colour_name)
+
         # Expire all to ensure fresh data
         db.session.expire_all()
-        
+
         # Fresh query
         fabric = db.session.query(FabricType).filter_by(name=fabric_type).first()
         if not fabric:
+            # If we have a texture on disk for the provided names, return it with default fill
+            if texture_path:
+                return texture_path, DEFAULT_SAIL_FILL
             return None, DEFAULT_SAIL_FILL
-        
+
         color = db.session.query(FabricColor).filter_by(
             fabric_type_id=fabric.id, 
             name=colour_name
         ).first()
-        
+
+        # If there's no DB color record but a texture exists on disk, return that texture
         if not color:
+            if texture_path:
+                return texture_path, DEFAULT_SAIL_FILL
             return None, DEFAULT_SAIL_FILL
-        
-        # Always construct path like FabricSelector.jsx (tries .webp then .jpg)
-        texture_path = _get_texture_path(fabric_type, colour_name)
-        
+
         # Get hex color as fallback (full opacity for richer color)
         hex_color = DEFAULT_SAIL_FILL
         if color.hex_value:
@@ -147,7 +153,7 @@ def _get_fabric_texture_and_color(fabric_type: str, colour_name: str) -> tuple:
                 hex_color = Color(base_color.red, base_color.green, base_color.blue, alpha=1.0)
             except:
                 pass
-        
+
         return texture_path, hex_color
         
     except Exception as e:
@@ -1975,16 +1981,36 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
         specs.append(("Sail Tracks", ", ".join(sail_tracks)))
     
     # Corner details (fittings only - allowances are on drawings)
-    points_data = attrs.get("points", {})
-    
+    # `attrs['points']` may be either a dict (label -> props) or a list
+    # (older/alternate payloads). Normalize to a mapping for predictable access.
+    raw_points = attrs.get("points", {})
+    if isinstance(raw_points, list):
+        pts_map = {}
+        for item in raw_points:
+            if not isinstance(item, dict):
+                continue
+            # Prefer explicit label/name keys if present
+            if 'label' in item:
+                pts_map[item['label']] = item
+            elif 'name' in item:
+                pts_map[item['name']] = item
+            elif len(item) == 1:
+                # Accept {"A": {...}} style entries
+                k, v = next(iter(item.items()))
+                if isinstance(v, dict):
+                    pts_map[k] = v
+        points_data = pts_map
+    else:
+        points_data = raw_points or {}
+
     # Tension hardware (only if specified)
     hardware_types = {}
     for label, pt in points_data.items():
+        if not isinstance(pt, dict):
+            continue
         hw = pt.get("tensionHardware")
         if hw:
-            if hw not in hardware_types:
-                hardware_types[hw] = []
-            hardware_types[hw].append(label)
+            hardware_types.setdefault(hw, []).append(label)
     
     if hardware_types:
         specs.append(("", ""))  # Spacer

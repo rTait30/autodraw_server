@@ -382,7 +382,7 @@ export default function ProjectDetailsPage() {
         }}
       >
         {/* LEFT - Form */}
-        <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0 }}>
+        <div className="pane left" style={{ flex: '1 1 auto', minWidth: 0, paddingBottom: '96px' }}>
           <div>
             <div>
               {Form ? (

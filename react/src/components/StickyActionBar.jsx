@@ -7,6 +7,16 @@ export default function StickyActionBar({
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const isFixed = mode === 'fixed';
+  
+  // If fixed, we want to ensure the body has enough padding so content isn't covered.
+  // However, multiple fixed bars might conflict.
+  // We assume StickyActionBar is the only other fixed bar besides the global nav.
+  useEffect(() => {
+    if (!isFixed || !mounted) return;
+  }, [isFixed, mounted]);
+
   if (!mounted) return null;
 
   const base =
@@ -16,13 +26,11 @@ export default function StickyActionBar({
 
   const layout = 'flex items-stretch gap-3 px-4 py-3 md:px-8';
 
-  // When used inside `ProjectInline`, render the bar positioned absolutely
-  // at the bottom of that container so it sits above the bottom nav correctly.
-  const fixedStyle = mode === 'fixed' ? {
-    position: 'absolute',
+  const fixedStyle = isFixed ? {
+    position: 'fixed',
     left: 0,
     right: 0,
-    bottom: '0px',
+    bottom: 'var(--bottom-nav-height, 0px)',
     zIndex: 60,
     height: '96px',
   } : {

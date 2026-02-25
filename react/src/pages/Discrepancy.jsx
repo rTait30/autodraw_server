@@ -240,7 +240,7 @@ export default function Discrepancy() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden" style={{ paddingBottom: 'var(--bottom-nav-height, 0px)' }}>
       
       {/* Toast Overlay */}
       {toast && (

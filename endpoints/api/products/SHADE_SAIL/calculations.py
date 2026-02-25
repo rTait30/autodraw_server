@@ -351,7 +351,7 @@ def _calculate_tr_angle_from_coords(tr: Dict[str, float], br: Dict[str, float], 
     diff = ang_right - global_angle_rad
     diff_deg = math.degrees(diff)
     diff_deg = (diff_deg + 180) % 360 - 180
-    return 180.0 - abs(diff_deg)
+    return diff_deg
 
 
 def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) -> Dict[int, Dict[str, float]]:
@@ -389,7 +389,7 @@ def _compute_positions_for_many_sided(N: int, xy_distances: Dict[str, float]) ->
                 prev_TR_angle = _calculate_tr_angle_from_coords(mapped[TR], mapped[BR], global_angle)
                 first_box = True
             else:
-                hinge_deg = 180.0 - (prev_TR_angle + angle_TL)
+                hinge_deg = prev_TR_angle + angle_TL
                 hinge_rad = math.radians(hinge_deg)
                 global_angle += hinge_rad
                 placed = _draw_box_at(pts, xy_distances, current_anchor, global_angle)

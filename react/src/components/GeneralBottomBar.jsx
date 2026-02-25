@@ -78,6 +78,8 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         const h = ref.current.offsetHeight;
         setHeight(h);
         document.documentElement.style.setProperty('--bottom-nav-height', `${h}px`);
+        // If the bottom bar is visible, add padding to body to prevent content cutoff.
+        document.body.style.paddingBottom = `${h}px`;
       }
     };
 
@@ -91,6 +93,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
     return () => {
       observer.disconnect();
       document.documentElement.style.removeProperty('--bottom-nav-height');
+      document.body.style.paddingBottom = '';
     };
   }, [mounted]);
 

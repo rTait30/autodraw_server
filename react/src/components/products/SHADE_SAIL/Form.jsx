@@ -572,13 +572,6 @@ export function ProductForm({
                <button type="button" className="w-12 h-12 bg-gray-200 rounded-r" onClick={() => setAttributes(p => ({...p, pointCount: Math.min(MAX_POINTS, p.pointCount+1)}))}>+</button>
             </div>
           </div>
-          <div className="flex flex-col justify-end">
-             <div className="flex pb-3 gap-2">
-                {['mm', 'cm', 'm'].map(u => (
-                  <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-1 rounded text-xs font-bold ${unit === u ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'}`}>{u.toUpperCase()}</button>
-                ))}
-             </div>
-          </div>
         </FormGrid>
         {!discrepancyChecker && (
              <div className="flex gap-4 mt-4">
@@ -664,7 +657,7 @@ export function ProductForm({
       <FormSection title="Point Specs">
          <div className="flex flex-col space-y-2">
             {pointsList.map((pt, i) => (
-               <div key={i} className="py-4 border-b last:border-0 flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+               <div key={i} className="py-4 flex flex-col lg:flex-row gap-6 items-start lg:items-center">
                   <div className="flex-none bg-blue-500/5 p-3 rounded lg:w-48 flex items-center gap-4">
                      <div className="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold">{getLabel(i)}</div>
                      <NumberInput
@@ -692,9 +685,9 @@ export function ProductForm({
 
       {/* EXTRAS */}
       {!discrepancyChecker && (
-        <details className="mt-8 border-t pt-6 bg-white dark:bg-transparent">
-           <summary className="font-bold text-xl cursor-pointer">Extras</summary>
-           <div className="mt-4 pl-4 border-l-2">
+        <details className="mt-8 pt-6 bg-white dark:bg-transparent">
+           <summary className="font-bold text-xl cursor-pointer">Other (UFC's and Trace Cables)</summary>
+           <div className="mt-4">
               <h4 className="font-bold">Trace Cables</h4>
               <div className="flex gap-2 items-end mb-2">
                  <SelectInput label="Point" value={pendingTrace.pointIndex} onChange={v => setPendingTrace(s => ({...s, pointIndex: Number(v)}))} options={pointOptions} />

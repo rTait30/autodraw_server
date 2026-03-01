@@ -19,7 +19,7 @@ import { getBaseUrl } from "../../../utils/baseUrl.js";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
-const MAX_POINTS = 21;
+const MAX_POINTS = 11;
 
 // ----------------------------------------------------------------------
 // Helpers

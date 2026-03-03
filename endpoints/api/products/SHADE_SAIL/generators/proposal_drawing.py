@@ -2124,7 +2124,5 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
 
 
 def charspec(idx):
-    char = chr(66 + idx)
-    if char == "G":
-        char = "A"  # Wrap around to A after F
+    char = chr(65 + idx)
     return char

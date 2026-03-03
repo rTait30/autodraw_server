@@ -395,6 +395,8 @@ function Projects() {
   const activeProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
   const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
 
+  const isInlineOpen = expandedProject && !showSelector;
+
   /*
 <Button
               variant="primary"
@@ -413,14 +415,15 @@ function Projects() {
       
     <div>
 
-      <div>
-
-      <PageHeader
-        title="Projects"
-        includeNav={false}
-        hideBackButton={true}
-      />
-      </div>
+      {!isInlineOpen && (
+        <div>
+        <PageHeader
+          title="Projects"
+          includeNav={false}
+          hideBackButton={true}
+        />
+        </div>
+      )}
       
       <div className="p-4 mt-2 flex flex-col gap-4">
 

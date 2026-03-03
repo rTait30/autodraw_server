@@ -48,6 +48,38 @@ except:
     FONT_BOLD = 'Helvetica-Bold'
 
 
+def _extract_sail_tracks(attrs, point_order):
+    """
+    Extracts sail tracks as a set of edge keys (e.g. "AB", "BA") from attributes.
+    Handles both legacy list of strings and new list of {from: i, to: j} objects.
+    """
+    if not attrs:
+        return set()
+    
+    raw = attrs.get("sailTracks", []) or []
+    sail_tracks = set()
+    
+    for item in raw:
+        if isinstance(item, str):
+            sail_tracks.add(item)
+        elif isinstance(item, dict):
+            try:
+                # Handle both string and int keys/values
+                u_val, v_val = item.get("from"), item.get("to")
+                if u_val is not None and v_val is not None and point_order:
+                    u, v = int(u_val), int(v_val)
+                    if 0 <= u < len(point_order) and 0 <= v < len(point_order):
+                        label_u = charspec(u) # e.g. 0 -> 'A'
+                        label_v = charspec(v) # e.g. 1 -> 'B'
+                        # Store both directions to be safe
+                        sail_tracks.add(f"{label_u}{label_v}")
+                        sail_tracks.add(f"{label_v}{label_u}")
+            except (ValueError, IndexError, TypeError):
+                continue
+                
+    return sail_tracks
+
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -63,7 +95,7 @@ SMALL_FONT = 9
 # Default colours (fallbacks)
 DEFAULT_SAIL_FILL = Color(0.75, 0.75, 0.75, alpha=0.9)  # Grey fallback
 SAIL_STROKE = Color(0.3, 0.3, 0.3)  # Dark grey outline
-SAILTRACK_COLOR = Color(0.8, 0.1, 0.1)  # Red for sail tracks
+SAILTRACK_COLOR = Color(1, 0.85, 0)  # Yellow for sail tracks
 STRUCTURE_COLOR = Color(0.5, 0.5, 0.5)  # Grey for structure/posts
 STRUCTURE_LIGHT = Color(0.7, 0.7, 0.7)  # Lighter grey for highlights
 GROUND_COLOR = Color(0.85, 0.82, 0.78)  # Light tan ground
@@ -576,7 +608,7 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     canvas_center = to_canvas(centroid)
     
     # Get sail tracks for highlighting
-    sail_tracks = set(attrs.get("sailTracks", []) or [])
+    sail_tracks = _extract_sail_tracks(attrs, point_order)
     
     # Always use workpoints for sail shape if they exist (they have allowance applied)
     use_workpoints = bool(workpoints)
@@ -617,11 +649,14 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         clip_path.moveTo(first_pt[0], first_pt[1])
         
         for i in range(len(sail_path_points)):
-            label_a = sail_path_points[i][0]
             p1 = sail_path_points[i][1]
-            label_b = sail_path_points[(i + 1) % len(sail_path_points)][0]
             p2 = sail_path_points[(i + 1) % len(sail_path_points)][1]
-            edge_key = f"{label_a}{label_b}"
+            
+            # Use index-based identifiers (A, B...) matching _extract_sail_tracks logic
+            idx_a = i
+            idx_b = (i + 1) % len(sail_path_points)
+            edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+            
             _add_catenary_edge_to_path(clip_path, p1, p2, canvas_center, 
                                         catenary_ratio, sail_tracks, edge_key)
         
@@ -674,7 +709,14 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                 next_label = point_order[(i + 1) % len(point_order)]
                 if next_label in sail_positions:
                     p1 = to_canvas(sail_positions[point_order[(i - 1 + len(point_order)) % len(point_order)]])
-                    edge_key = f"{point_order[(i - 1 + len(point_order)) % len(point_order)]}{label}"
+                    
+                    # Use index-based identifiers (A, B...) matching _extract_sail_tracks logic
+                    # This logic runs per loop, so i is current point.
+                    # The edge is from prev to i.
+                    idx_prev = (i - 1 + len(point_order)) % len(point_order)
+                    idx_curr = i
+                    edge_key = f"{charspec(idx_prev)}{charspec(idx_curr)}"
+                    
                     _add_catenary_edge_to_path(path, p1, (px, py), canvas_center,
                                                 catenary_ratio, sail_tracks, edge_key)
         path.close()
@@ -696,12 +738,16 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         p2 = to_canvas(sail_positions[b])
         
         # Check if this edge is a sail track
-        edge_key = f"{a}{b}"
-        edge_key_rev = f"{b}{a}"
+        # Use index-based identifiers (A, B...) matching _extract_sail_tracks logic
+        idx_a = i
+        idx_b = (i + 1) % len(point_order)
+        edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+        edge_key_rev = f"{charspec(idx_b)}{charspec(idx_a)}"
+        
         is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
         
         if is_sailtrack:
-            # Sail track edge - straight, thick red line
+            # Sail track edge - straight, thick yellow line
             c.setStrokeColor(SAILTRACK_COLOR)
             c.setLineWidth(3.5)
             c.line(p1[0], p1[1], p2[0], p2[1])
@@ -737,9 +783,11 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                 c.drawCentredString(mid_x, mid_y - 2, dim_text)
     
     # Draw corner points (posts) at positions - structure in grey
-    for label in point_order:
+    for idx, label in enumerate(point_order):
         if label not in positions:
             continue
+        
+        display_label = charspec(idx)
         
         pos = positions[label]
         px, py = to_canvas(pos)
@@ -798,7 +846,7 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         # Label inside circle
         c.setFillColor(black)
         c.setFont(FONT_BOLD, 10)
-        c.drawCentredString(px, py - 3.5, label)
+        c.drawCentredString(px, py - 3.5, display_label)
         
         # Draw corner info text (like DXF work model) - positioned outward from centroid
         cx, cy = canvas_center
@@ -1354,7 +1402,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         )
     
     # Get sail tracks
-    sail_tracks = set(attrs.get("sailTracks", []) or [])
+    sail_tracks = _extract_sail_tracks(attrs, point_order)
     
     # Sort points for painter's algo
     # For NW (315): Camera at (-X, +Y). Look (+X, -Y). Depth ~ X - Y.
@@ -1525,11 +1573,14 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                     clip_path.moveTo(first_pt[0], first_pt[1])
                     
                     for i in range(len(sail_canvas_points)):
-                        label_a = sail_canvas_points[i][0]
                         p1 = sail_canvas_points[i][1]
-                        label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
                         p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-                        edge_key = f"{label_a}{label_b}"
+                        
+                        # Use index-based identifiers (A, B...)
+                        idx_a = i
+                        idx_b = (i + 1) % len(sail_canvas_points)
+                        edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+                        
                         _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
                                                     catenary_ratio, sail_tracks, edge_key)
                     
@@ -1561,11 +1612,13 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                          first_pt = sail_canvas_points[0][1]
                          path.moveTo(first_pt[0], first_pt[1])
                          for i in range(len(sail_canvas_points)):
-                             label_a = sail_canvas_points[i][0]
                              p1 = sail_canvas_points[i][1]
-                             label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
                              p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-                             edge_key = f"{label_a}{label_b}"
+                             
+                             idx_a = i
+                             idx_b = (i + 1) % len(sail_canvas_points)
+                             edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+                             
                              _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
                          path.close()
                     c.setFillColor(sail_fill)
@@ -1583,8 +1636,13 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                     
                     p1 = pa[1]
                     p2 = pb[1]
-                    edge_key = f"{a}{b}"
-                    edge_key_rev = f"{b}{a}"
+                    
+                    # Use index-based identifiers (A, B...)
+                    idx_a = i
+                    idx_b = (i + 1) % len(point_order)
+                    edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+                    edge_key_rev = f"{charspec(idx_b)}{charspec(idx_a)}"
+                    
                     is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
                     
                     if is_sailtrack:
@@ -1798,6 +1856,13 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     for label, px, py, pz in sorted_posts:
         top_pt = to_canvas_iso(px, py, pz)
         
+        # Determine display label (A, B, C...) based on index in point_order
+        try:
+            lbl_idx = point_order.index(label)
+            display_label = charspec(lbl_idx)
+        except ValueError:
+            display_label = label
+        
         # Get corner info
         point_info = points_data.get(label, {})
         fitting = point_info.get("cornerFitting", "")
@@ -1825,7 +1890,7 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         # Label
         c.setFillColor(black)
         c.setFont(FONT_BOLD, 9)
-        c.drawCentredString(top_pt[0], top_pt[1] - 3, label)
+        c.drawCentredString(top_pt[0], top_pt[1] - 3, display_label)
         
         # Corner info text - position above pole cap
         info_y = top_pt[1] + 10
@@ -1976,9 +2041,18 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
         specs.append(("Cable Size", f"{cable_size}mm"))
     
     # Sail tracks
-    sail_tracks = attrs.get("sailTracks", [])
-    if sail_tracks:
-        specs.append(("Sail Tracks", ", ".join(sail_tracks)))
+    # Support both list-of-strings and list-of-objects via helper
+    point_order = geometry.get("point_order", [])
+    st_set = _extract_sail_tracks(attrs, point_order)
+    if st_set:
+        # Filter to canonical edges (e.g. A<B)
+        canonical_tracks = set()
+        for t in st_set:
+            if len(t) == 2:
+                canonical_tracks.add("".join(sorted(t)))
+            else:
+                canonical_tracks.add(t)
+        specs.append(("Sail Tracks", ", ".join(sorted(canonical_tracks))))
     
     # Corner details (fittings only - allowances are on drawings)
     # `attrs['points']` may be either a dict (label -> props) or a list
@@ -2046,3 +2120,11 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
             c.drawRightString(x + width - 4 * mm, content_y, value_str)
         
         content_y -= line_height
+
+
+
+def charspec(idx):
+    char = chr(66 + idx)
+    if char == "G":
+        char = "A"  # Wrap around to A after F
+    return char

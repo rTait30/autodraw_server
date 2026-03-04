@@ -41,7 +41,8 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
     ...acc,
     [`eyelet_${side}_enabled`]: false,
     [`eyelet_${side}_mode`]: "spacing", // 'count' or 'spacing'
-    [`eyelet_${side}_val`]: 500
+    [`eyelet_${side}_val`]: 500,
+    [`eyelet_${side}_size`]: "SP5"
   }), {}),
 
   fabricWidth: 3200,
@@ -52,10 +53,11 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
 function EyeletSideInput({ side, attributes, setAttr }) {
   const enabled = attributes[`eyelet_${side}_enabled`];
   const mode = attributes[`eyelet_${side}_mode`];
+  const size = attributes[`eyelet_${side}_size`];
   const label = side.charAt(0).toUpperCase() + side.slice(1);
 
   return (
-    <div className="border p-3 rounded-md mb-2">
+    <div className="border border-secondary p-3 rounded-md mb-2">
       <CheckboxInput
         label={`${label} Eyelets`}
         checked={enabled}
@@ -63,7 +65,17 @@ function EyeletSideInput({ side, attributes, setAttr }) {
       />
       
       {enabled && (
-        <div className="mt-2 pl-4 border-l-2 border-gray-100 space-y-2">
+        <div className="mt-2 pl-4 border-l-2 border-gray-100 space-y-1">
+          <SelectInput
+             label="Size"
+             value={size}
+             onChange={setAttr(`eyelet_${side}_size`)}
+             options={[
+               { label: "SP5", value: "SP5" },
+               { label: "SP7", value: "SP7" },
+               { label: "SP9", value: "SP9" }
+             ]}
+          />
           <SelectInput
             label="Spacing Mode"
             value={mode}
@@ -131,22 +143,23 @@ export function ProductForm({ formRef, hydrate = {} }) {
 
         <SelectInput label="Fabric Type" value={attributes.fabricType} onChange={setAttr("fabricType")} options={[
           { label: "PVC", value: "PVC" },
-          { label: "Polyester", value: "Polyester" },
-          { label: "Canvas", value: "Canvas" }
+          { label: "Shade Cloth", value: "Shade Cloth" }
         ]}/>
 
-        <SelectInput
-          label="Weld Size (mm)"
-          value={attributes.weldSize}
-          onChange={setAttr("weldSize")}
-          options={[
-            { label: "25 mm", value: 25 },
-            { label: "40 mm", value: 40 }
-          ]}
-        />
+        {attributes.fabricType === "PVC" && (
+          <SelectInput
+            label="Weld Size (mm)"
+            value={attributes.weldSize}
+            onChange={setAttr("weldSize")}
+            options={[
+              { label: "25 mm", value: 25 },
+              { label: "40 mm", value: 40 }
+            ]}
+          />
+        )}
 
         <FormSection title="Eyelets">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             {SIDES.map(side => (
               <EyeletSideInput 
                 key={side} 

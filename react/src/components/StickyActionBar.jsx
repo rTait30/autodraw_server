@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function StickyActionBar({
   children,
@@ -43,6 +44,10 @@ export default function StickyActionBar({
       {children}
     </div>
   );
+
+  if (isFixed) {
+      return createPortal(bar, document.body);
+  }
 
   // Render the bar in-place so it stays visible inside ProjectInline
   return bar;

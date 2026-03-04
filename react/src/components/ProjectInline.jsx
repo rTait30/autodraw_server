@@ -604,7 +604,6 @@ const ProjectInline = ({
       );
   }
 
-  if (!productName) return null;
 
   return (
 
@@ -728,11 +727,11 @@ const ProjectInline = ({
 
               {hasCalculatedOrSaved && (
               <CollapsibleCard 
-                  title={overlayMode === 'confirm' ? "Confirm Details" : overlayMode === 'success' ? "Success" : "Visualisation"}
+                  title={overlayMode === 'confirm' ? "Confirm Details" : overlayMode === 'success' ? "Success" : "View Preview"}
                   isOverlay={!!overlayMode}
                   onClose={overlayMode ? closeOverlay : null}
                   defaultOpen={true}
-                  className="!top-4 !bottom-32 md:!top-32 md:!bottom-32"
+                  className="!top-[80px] !bottom-[210px] md:!top-[140px] md:!bottom-[220px] !inset-x-4 md:!inset-x-40 shadow-2xl"
                   contentClassName={(!overlayMode || overlayMode === 'preview') ? "!p-0 bg-gray-50 dark:bg-gray-900 relative" : ""}
               >
                 <ProjectOverlay
@@ -755,7 +754,7 @@ const ProjectInline = ({
         </div>
       </div>
 
-      {productName && overlayMode !== 'success' && (
+      {overlayMode !== 'success' && (
       <StickyActionBar mode="fixed">
         {(overlayMode === 'preview' || overlayMode === 'confirm') ? (
           <>

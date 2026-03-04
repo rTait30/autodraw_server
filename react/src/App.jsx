@@ -15,7 +15,6 @@ const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const Legal = React.lazy(() => import('./pages/Legal'));
 const Account = React.lazy(() => import('./pages/Account'));
 const Projects = React.lazy(() => import('./pages/Projects'));
-const Project = React.lazy(() => import('./pages/Project'));
 const Users = React.lazy(() => import('./pages/Users'));
 const Database = React.lazy(() => import('./pages/Database'));
 const Analytics = React.lazy(() => import('./pages/Analytics'));
@@ -95,7 +94,6 @@ function App() {
               <Route path="/copelands/legal" element={<Legal />} />
               <Route path="/copelands/account" element={<Account />} />
               <Route path="/copelands/users" element={<Users />} />
-              <Route path="/copelands/projects/:id" element={<Project />} />
               <Route path="/copelands/database" element={<Database />} />
               <Route path="/copelands/analytics" element={<Analytics />} />
               <Route path="/copelands/tools" element={<Tools />} />

@@ -140,8 +140,19 @@ export function NumberInput({
         value={value ?? ""}
         onFocus={(e) => e.target.select()}
         onChange={(e) => {
-          const v = e.currentTarget.valueAsNumber;
-          onChange(Number.isNaN(v) ? null : v);
+          const val = e.target.value;
+          if (val === "") {
+            onChange("");
+            return;
+          }
+          const parsed = parseFloat(val);
+          // Only convert to number if it matches the string representation exactly.
+          // This preserves intermediate states like "1." or "0.0" or "-"
+          if (!isNaN(parsed) && String(parsed) === val) {
+            onChange(parsed);
+          } else {
+            onChange(val);
+          }
         }}
         autoComplete="off"
         {...(nav ? nav.bind(name) : {})}
@@ -182,6 +193,7 @@ export function TextInput({
         className={`input-base ${className}`}
         placeholder={placeholder || ""}
         value={value ?? ""}
+        onFocus={(e) => e.target.select()}
         onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
         {...(nav ? nav.bind(name) : {})}
@@ -325,7 +337,7 @@ export function FormGrid({ children, columns = 1, className = "" }) {
 }
 
 // --- Compact Inputs ---
-export function CompactTextInput({ className = "", ...props }) {
+export function CompactTextInput({ className = "", value, onChange, ...props }) {
   // Styles for a compact input used in dense tables/forms
   // p-2 border border-warm-grey rounded text-left h-10 md:h-8 px-2 
   // text-base md:text-xs 
@@ -339,12 +351,15 @@ export function CompactTextInput({ className = "", ...props }) {
         input-compact
         ${className}
       `}
+      value={value ?? ""}
+      onFocus={(e) => e.target.select()}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       {...props}
     />
   );
 }
 
-export function CompactNumberInput({ className = "", ...props }) {
+export function CompactNumberInput({ className = "", value, onChange, ...props }) {
     return (
       <input
         type="number"
@@ -353,18 +368,37 @@ export function CompactNumberInput({ className = "", ...props }) {
           ${className}
         `}
         step="any"
+        inputMode="decimal"
+        value={value ?? ""}
+        onChange={(e) => {
+           if (!onChange) return;
+           const val = e.target.value;
+           if (val === "") {
+             onChange("");
+             return;
+           }
+           const parsed = parseFloat(val);
+           // Only convert to number if it matches the string representation exactly.
+           if (!isNaN(parsed) && String(parsed) === val) {
+             onChange(parsed);
+           } else {
+             onChange(val);
+           }
+        }}
         {...props}
       />
     );
   }
 
-  export function CompactSelectInput({ options = [], className = "", ...props }) {
+  export function CompactSelectInput({ options = [], className = "", value, onChange, ...props }) {
     return (
         <select
             className={`
                 input-compact
                 ${className}
             `}
+            value={value ?? ""}
+            onChange={onChange ? (e) => onChange(e.target.value) : undefined}
             {...props}
         >
             {options.map((opt) => (

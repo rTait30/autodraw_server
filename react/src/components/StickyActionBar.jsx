@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 export default function StickyActionBar({
   children,
@@ -11,8 +10,7 @@ export default function StickyActionBar({
 
   const isFixed = mode === 'fixed';
   
-  // If fixed, we want to ensure the body has enough padding so content isn't covered.
-  // However, multiple fixed bars might conflict.
+  // If fixed, we want to ensure the body has enough padding.
   // We assume StickyActionBar is the only other fixed bar besides the global nav.
   useEffect(() => {
     if (!isFixed || !mounted) return;
@@ -39,16 +37,9 @@ export default function StickyActionBar({
     zIndex: 60,
   };
 
-  const bar = (
+  return (
     <div style={fixedStyle} className={[base, layout, className].join(' ').trim()}>
       {children}
     </div>
   );
-
-  if (isFixed) {
-      return createPortal(bar, document.body);
-  }
-
-  // Render the bar in-place so it stays visible inside ProjectInline
-  return bar;
 }

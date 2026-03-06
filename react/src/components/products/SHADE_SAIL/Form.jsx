@@ -737,3 +737,69 @@ export function ProductForm({
 }
 
 export default ProductForm;
+
+
+
+// Eventually migrate to this structure
+/*
+{
+  "project_info": {
+    "id": 74,
+    "name": "Murphy st",
+    "client": { "id": 150, "name": "gt" },
+    "meta": { "tenant": "Copelands", "status": "awaiting_deposit" }
+  },
+  "products": [
+    {
+      "id": 166,
+      "index": 0,
+      "name": "Left sail",
+      "specification": {
+        "fabric": { "id": 10, "name": "Bochini Blockout", "color": "Champagne" },
+        "hardware": { "cable_size_mm": 4, "edge_meter": 20 }
+      },
+      "topology": {
+        "points": {
+          "A": { "structure": "Pole", "base_height": 2600, "hardware": "M8 Bowshackle" },
+          "B": { "structure": "Pole", "base_height": 3500, "hardware": "M8 Bowshackle" },
+          "C": { "structure": "Pole", "base_height": 2600, "hardware": "M8 Bowshackle" },
+          "D": { "structure": "Pole", "base_height": 2100, "hardware": "M8 Turnbuckle" },
+          "E": { "structure": "Pole", "base_height": 1800, "hardware": "M8 Turnbuckle" }
+        },
+        "edges": {
+          "AB": { "type": "perimeter", "measured": 1840, "blame": 0 },
+          "BC": { "type": "perimeter", "measured": 1670, "blame": 0 },
+          "CD": { "type": "perimeter", "measured": 6230, "blame": 0 },
+          "DE": { "type": "perimeter", "measured": 3750, "blame": 0 },
+          "EA": { "type": "perimeter", "measured": 6190, "blame": 0 },
+          "AC": { "type": "diagonal", "measured": 3060, "blame": 0 },
+          "BD": { "type": "diagonal", "measured": 6710, "blame": 0 }
+        }
+      },
+      "validation": {
+        "max_discrepancy": 33.29,
+        "is_problematic": false,
+        "cells": [
+          { "id": "Box_1", "points": ["A", "B", "C", "D"], "error": 33.29 }
+        ]
+      },
+      "geometry_layers": {
+        "primary_solve": {
+          "A": { "x": 0.0, "y": 0.0, "z": 2600.0 },
+          "B": { "x": 1604.8, "y": 0.0, "z": 3500.0 },
+          "C": { "x": 3009.7, "y": -71.3, "z": 2600.0 },
+          "D": { "x": 3593.5, "y": -6253.7, "z": 2100.0 },
+          "E": { "x": -142.5, "y": -6136.4, "z": 1800.0 }
+        },
+        "workpoint_bisect": {
+          "A": { "x": 31.3, "y": -36.6, "z": 2613.2 },
+          "B": { "x": 1600.3, "y": -6.2, "z": 3350.1 }
+        },
+        "workpoint_planar": {
+          "A": { "x": 34.8, "y": -35.7, "z": 2597.1 },
+          "B": { "x": 1601.2, "y": -141.9, "z": 3451.7 }
+        }
+      }
+    }
+  ]
+} */

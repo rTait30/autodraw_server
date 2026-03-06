@@ -306,6 +306,16 @@ export default function ProjectForm({
 
   let role = localStorage.getItem("role");
 
+  
+
+
+
+// --------------------------- Render ---------------------------
+
+
+
+
+
   return (
   <div key={instanceKey} className="p-3 space-y-4">
 
@@ -417,17 +427,18 @@ export default function ProjectForm({
           <div className="mt-6 w-full">
             
             {/* Item Selector (mobile + desktop, consistent visual) */}
-<ItemSelector
-  label="Select Item to Edit:"
-  options={items}
-  value={activeIndex}
-  onChange={(next) => setActiveIndex(Number(next))}
-  getValue={(it) => it.productIndex}
-  getLabel={(_, i) => i + 1}
-  onAdd={addItem}
-  addLabel="Add New Item"
-  columnsMobile={4}
-/>
+
+            <ItemSelector
+              label="Select Item to Edit:"
+              options={items}
+              value={activeIndex}
+              onChange={(next) => setActiveIndex(Number(next))}
+              getValue={(it) => it.productIndex}
+              getLabel={(_, i) => i + 1}
+              onAdd={addItem}
+              addLabel="Add New Item"
+              columnsMobile={4}
+            />
 
             {/* Tab Content Panel */}
             <div className="bg-white dark:bg-gray-800 border-2 md:border-t-0 border-gray-300 dark:border-gray-700 rounded-lg md:rounded-t-none md:rounded-b-lg p-3 md:p-6 min-h-[300px] shadow-sm w-full transition-colors">

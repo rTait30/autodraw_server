@@ -5,19 +5,10 @@ export default function StickyActionBar({
   className = '',
   mode = 'fixed', // default to fixed because you want it to sit above the fixed bottom bar
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const isFixed = mode === 'fixed';
   
-  // If fixed, we want to ensure the body has enough padding.
-  // We assume StickyActionBar is the only other fixed bar besides the global nav.
-  useEffect(() => {
-    if (!isFixed || !mounted) return;
-  }, [isFixed, mounted]);
-
-  if (!mounted) return null;
-
+  // Clean initialization
+  
   const base =
     'w-full border-t bg-white dark:bg-gray-800 ' +
     'border-gray-200 dark:border-gray-700 ' +

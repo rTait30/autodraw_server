@@ -16,21 +16,13 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   const [isProjectMounted, setIsProjectMounted] = useState(false);
   const [isProjectVisible, setIsProjectVisible] = useState(false);
 
-  const [activePage, setActivePage] = useState(() => {
-    if (location.pathname.endsWith('/tools')) return 'tools';
-    if (location.pathname.endsWith('/projects')) return 'projects';
-    return '';
-  });
-
-  useEffect(() => {
-    if (isProjectVisible) {
-      setActivePage('project');
-    } else if (location.pathname.endsWith('/projects')) {
-      setActivePage('projects');
-    } else if (location.pathname.endsWith('/tools')) {
-      setActivePage('tools');
-    }
-  }, [location.pathname, isProjectVisible]);
+  const activePage = isProjectVisible
+    ? 'project'
+    : location.pathname.endsWith('/tools')
+      ? 'tools'
+      : location.pathname.endsWith('/projects')
+        ? 'projects'
+        : '';
 
   const [draftProject, setDraftProject] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
@@ -148,7 +140,6 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
 
       setIsProjectMounted(true);
       setIsProjectVisible(true);
-      setActivePage('project');
   };
 
   const cancelReplaceConfirm = () => setReplaceConfirm({ show: false });
@@ -241,7 +232,6 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             onClick={onProjectsClick || (() => { 
                 if (isProjectMounted) setSaveRequestToken(t => t + 1);
                 setIsProjectVisible(false);
-                setActivePage('projects');
                 navigate('/copelands/projects'); 
             })}
             title="View Projects"
@@ -307,7 +297,6 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             onClick={onToolsClick || (() => {
               if (isProjectMounted) setSaveRequestToken(t => t + 1);
               setIsProjectVisible(false);
-              setActivePage('tools');
               navigate('/copelands/tools');
             })}
             title="Tools"

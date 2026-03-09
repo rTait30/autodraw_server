@@ -650,7 +650,7 @@ const ProjectInline = ({
         )}
 
       {/* Scrollable Content */}
-      <div className={`flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900 ${(productName && overlayMode !== 'success') ? '!pb-24' : ''}`}>
+      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
         <div className="max-w-[1800px] mx-auto p-2 md:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
             
@@ -755,7 +755,7 @@ const ProjectInline = ({
       </div>
 
       {overlayMode !== 'success' && (
-      <StickyActionBar mode="fixed">
+      <StickyActionBar mode="inline" className="z-50 shrink-0">
         {(overlayMode === 'preview' || overlayMode === 'confirm') ? (
           <>
             <Button onClick={closeOverlay} variant="danger" className="flex-1">

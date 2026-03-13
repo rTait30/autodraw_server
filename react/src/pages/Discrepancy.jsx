@@ -240,7 +240,7 @@ export default function Discrepancy() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden" style={{ paddingBottom: 'var(--bottom-nav-height, 0px)' }}>
+    <div className="page-fixed">
       
       {/* Toast Overlay */}
       {toast && (
@@ -256,8 +256,8 @@ export default function Discrepancy() {
       {/* Header Bar */}
       <PageHeader 
         title="Sail Discrepancy Checker" 
-        backPath={isLoggedIn ? "/copelands/projects" : "/copelands/"} 
-        backLabel={isLoggedIn ? "Back to Projects" : "Back"}
+        backPath={isLoggedIn ? "/copelands/tools" : "/copelands/"} 
+        backLabel={"Back"}
       />
 
       {/* Login Modal */}

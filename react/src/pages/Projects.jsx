@@ -421,6 +421,7 @@ function Projects() {
           title="Projects"
           includeNav={false}
           hideBackButton={true}
+          fixed={false}
         />
         </div>
       )}
@@ -450,7 +451,7 @@ function Projects() {
         </CollapsibleCard>
 
         <CollapsibleCard 
-            title="Recover" 
+            title="Recently Deleted" 
             defaultOpen={false}
         >
              {loadingDeleted ? (

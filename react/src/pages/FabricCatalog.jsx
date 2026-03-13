@@ -14,17 +14,16 @@ const FabricCatalog = () => {
     // In catalog mode, maybe show details or something
   };
 
-  const backPath = isLoggedIn ? "/copelands/projects" : "/copelands/";
-  const backLabel = isLoggedIn ? "Back to Projects" : "Back";
+  const backPath = isLoggedIn ? "/copelands/tools" : "/copelands/";
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="page-fixed">
       
       {/* Header Bar */}
       <PageHeader 
         title="Fabric Catalog" 
         backPath={backPath}
-        backLabel={backLabel}
+        backLabel={"Back"}
       />
 
       {/* Scrollable Content */}

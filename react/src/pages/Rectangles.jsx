@@ -5,6 +5,9 @@ import { Button } from '../components/UI';
 import PageHeader from '../components/PageHeader';
 import CollapsibleCard from '../components/CollapsibleCard';
 
+// Simple check for active account (token/user existence)
+const isLoggedIn = !!localStorage.getItem('username');
+
 const RectanglesForm = React.lazy(() =>
   import("../components/products/RECTANGLES/Form.jsx").then((module) => ({
     default: module.ProjectForm,
@@ -101,16 +104,12 @@ export default function Rectangles() {
     }
   };
 
-  const handleBack = () => {
-    navigate("/copelands/");
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       <PageHeader 
         title="Rectangle Nesting Tool" 
-        backLabel="Back"
-        onBack={handleBack}
+        backLabel={"Back"}
+        backPath={isLoggedIn ? "/copelands/tools" : "/copelands/"} 
       />
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">

@@ -3,7 +3,7 @@ import PageHeader from '../components/PageHeader';
 
 const PrivacyPolicy = () => {
     return (
-        <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+        <div className="page-fixed">
             <PageHeader title="Privacy Policy" backPath={-1} backLabel="Back" />
             
             <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">

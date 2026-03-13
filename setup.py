@@ -59,9 +59,9 @@ def main():
     print("Running database migrations (if needed)...")
     run_command("python setup/update_db.py")
 
-    # 7. Bootstrap admin user
-    print("Bootstrapping admin user...")
-    run_command("python bootstrap_admin.py", cwd="setup")
+    # 7. Seed all data (admin, products, fabrics, prices)
+    print("Seeding data...")
+    run_command("python setup/seed.py")
 
     print("Setup complete.")
 

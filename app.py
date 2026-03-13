@@ -66,16 +66,6 @@ def create_app():
         JWT_REFRESH_COOKIE_PATH="/copelands/api/refresh",
     )
 
-    '''
-    # --- CORS (match your frontend origin exactly) ---
-    frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
-    CORS(app, origins=[
-            "http://127.0.0.1:5173",
-            "http://localhost:5173",
-        ], supports_credentials=True
-    )
-    '''
-
     # --- Init extensions ---
     if 'sqlalchemy' not in app.extensions:
         db.init_app(app)

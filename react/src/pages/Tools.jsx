@@ -13,6 +13,7 @@ const Tools = () => {
                 title="Tools"
                 includeNav={false}
                 hideBackButton={true}
+                fixed={false}
             />
 
         <div className="p-4 mt-2 flex flex-col gap-4">

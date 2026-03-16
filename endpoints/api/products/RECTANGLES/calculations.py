@@ -39,9 +39,11 @@ def calculate(data: Dict) -> Dict:
                 "label": rect_label,
                 "quantity": 1
             })
+            corner_radius = _num(rect.get("cornerRadius")) or 0
             meta_map[rect_label] = {
                 "width": width,
                 "height": height,
+                "cornerRadius": corner_radius,
                 "base": label,
                 "rectIndex": i
             }

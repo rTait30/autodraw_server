@@ -1,4 +1,8 @@
+#these are fabric types from 16/03/2025
+#this is just seed data to make sure theres a working set dont rely this will be up to date
+
 FABRIC_TYPES = [
+
     {"name": "Rainbow Z16", "category": "Shade", "colors": [
         {"name": "Cinnamon", "hex_value": "#C4A882"},
         {"name": "Desert Sand", "hex_value": "#D4B896"},
@@ -25,6 +29,7 @@ FABRIC_TYPES = [
         {"name": "Olive", "hex_value": "#4A5A30"},
         {"name": "Gumleaf", "hex_value": "#B0C4A0"},
     ]},
+
     {"name": "Poly Fx", "category": "Shade", "colors": [
         {"name": "Porcelain", "hex_value": "#D6C8B0"},
         {"name": "Paperbark", "hex_value": "#C4AA82"},
@@ -49,6 +54,7 @@ FABRIC_TYPES = [
         {"name": "Grape", "hex_value": "#6A3080"},
         {"name": "White", "hex_value": "#F0F0F0"},
     ]},
+
     {"name": "Extreme 32", "category": "Shade", "colors": [
         {"name": "Quartz", "hex_value": "#C8BCA8"},
         {"name": "Hazel", "hex_value": "#B0A088"},
@@ -68,6 +74,7 @@ FABRIC_TYPES = [
         {"name": "Sunflower Yellow", "hex_value": "#FFC800"},
         {"name": "Terracotta", "hex_value": "#906858"},
     ]},
+
     {"name": "Polyfab Xtra", "category": "Shade", "colors": [
         {"name": "Navy", "hex_value": "#1A2040"},
         {"name": "Turquoise", "hex_value": "#2080A0"},
@@ -84,12 +91,124 @@ FABRIC_TYPES = [
         {"name": "Sahara", "hex_value": "#C8B898"},
         {"name": "Porcelain", "hex_value": "#E8E0C8"},
     ]},
-    {"name": "Tensitech 480", "category": "Shade"},
-    {"name": "Monotec 370", "category": "Shade"},
-    {"name": "DriZ", "category": "Shade"},
-    {"name": "Bochini", "category": "PVC"},
-    {"name": "Bochini Blockout", "category": "PVC"},
-    {"name": "Mehler FR580", "category": "PVC"},
-    {"name": "Ferrari 502S2", "category": "PVC"},
-    {"name": "Ferrari 502V3", "category": "PVC"},
+
+    {"name": "Tensitech 480", "category": "Shade", "colors": [
+        {"name": "Ghost Gum", "hex_value": "#A0A090"},
+        {"name": "Ocean Blue", "hex_value": "#0838B0"},
+        {"name": "Gunmetal", "hex_value": "#383C40"},
+        {"name": "Charcoal", "hex_value": "#2A2A2A"},
+        {"name": "Midnight", "hex_value": "#101010"},
+    ]},
+
+    {"name": "Monotec 370", "category": "Shade", "colors": [
+        {"name": "Summit Cream", "hex_value": "#E8E0D0"},
+        {"name": "Thibault Blue", "hex_value": "#1A4BD4"},
+        {"name": "Deep Blue", "hex_value": "#0B2340"},
+        {"name": "Custom Black", "hex_value": "#0A0A0A"},
+        {"name": "Southern Sand", "hex_value": "#C9A975"},
+        {"name": "Precision Grey", "hex_value": "#6E6E74"},
+        {"name": "Mid West Red", "hex_value": "#7A1F2B"},
+        {"name": "Spartan Green", "hex_value": "#0A5B3A"},
+    ]},
+
+    {"name": "DriZ", "category": "Shade", "colors": [
+        {"name": "Charcoal", "hex_value": "#3B3B3B"},
+        {"name": "Black", "hex_value": "#1A1A1A"},
+        {"name": "Silver", "hex_value": "#A8A9AA"},
+        {"name": "Desert Sand", "hex_value": "#D2C0A3"},
+        {"name": "Cinnamon", "hex_value": "#C4A882"},
+        {"name": "Chocolate", "hex_value": "#4A2E1A"},
+        {"name": "Mulberry", "hex_value": "#5C1A3A"},
+        {"name": "Rainforest", "hex_value": "#1B4D2E"},
+        {"name": "Turquoise", "hex_value": "#008B8B"},
+        {"name": "Olive", "hex_value": "#4A5A30"},
+        {"name": "Navy Blue", "hex_value": "#1A2040"},
+        {"name": "Laguna Blue", "hex_value": "#4A6878"},
+        {"name": "Royal Blue", "hex_value": "#1640B0"},
+        {"name": "Terracotta", "hex_value": "#B07870"},
+        {"name": "Rust Gold", "hex_value": "#8B4513"},
+        {"name": "Sunset Red", "hex_value": "#E01010"},
+    ]},
+
+    {"name": "Bochini", "category": "PVC", "colors": [
+        {"name": "White", "hex_value": "#F0F0F0"},
+        {"name": "Cream", "hex_value": "#E8DCC8"},
+        {"name": "Champagne", "hex_value": "#D4C8A8"},
+        {"name": "Paperbark", "hex_value": "#C4AA82"},
+        {"name": "Royal Blue", "hex_value": "#0040C0"},
+        {"name": "Navy", "hex_value": "#1A2040"},
+        {"name": "Shale Grey", "hex_value": "#6E7078"},
+        {"name": "Mid Grey", "hex_value": "#909098"},
+        {"name": "Ironstone", "hex_value": "#484040"},
+        {"name": "Monument", "hex_value": "#3A3A3A"},
+        {"name": "Black", "hex_value": "#1A1A1A"},
+    ]},
+
+    {"name": "Bochini Blockout", "category": "PVC", "colors": [
+        {"name": "White", "hex_value": "#F0F0F0"},
+        {"name": "Champagne", "hex_value": "#D4C8A8"},
+        {"name": "Shale Grey", "hex_value": "#6E7078"},
+    ]},
+
+    {"name": "Mehler FR580", "category": "PVC", "colors": [
+        {"name": "Charcoal", "hex_value": "#3B3B3B"},
+        {"name": "Black", "hex_value": "#0A0A0A"},
+        {"name": "Silver", "hex_value": "#A8A9AA"},
+        {"name": "Desert Sand", "hex_value": "#D4B896"},
+        {"name": "Cinnamon", "hex_value": "#C4A882"},
+        {"name": "Chocolate", "hex_value": "#4A2E1A"},
+        {"name": "Mulberry", "hex_value": "#5C1A3A"},
+        {"name": "Rainforest", "hex_value": "#1B4D2E"},
+        {"name": "Turquoise", "hex_value": "#008B8B"},
+        {"name": "Olive", "hex_value": "#4A5A30"},
+        {"name": "Navy Blue", "hex_value": "#1A2040"},
+        {"name": "Laguna Blue", "hex_value": "#4A6878"},
+        {"name": "Royal Blue", "hex_value": "#1640B0"},
+        {"name": "Terracotta", "hex_value": "#B07870"},
+        {"name": "Rust Gold", "hex_value": "#8B4513"},
+        {"name": "Sunset Red", "hex_value": "#E01010"},
+    ]},
+
+    {"name": "Ferrari 502S2", "category": "PVC", "colors": [
+        {"name": "Concrete", "hex_value": "#6E6E78"},
+        {"name": "Boulder", "hex_value": "#B8BABC"},
+        {"name": "Champagne", "hex_value": "#E8DDB0"},
+        {"name": "White", "hex_value": "#FFFFFF"},
+    ]},
+
+    {"name": "Ferrari 502V3", "category": "PVC", "colors": [
+        {"name": "White", "hex_value": "#FFFFFF"},
+        {"name": "Boulder", "hex_value": "#C0C4C6"},
+        {"name": "Concrete", "hex_value": "#7A7D80"},
+        {"name": "Pearl White", "hex_value": "#F5F5F5"},
+        {"name": "Aluminium", "hex_value": "#BFC6C4"},
+        {"name": "Anthracite", "hex_value": "#2F2F2F"},
+        {"name": "Enamel White", "hex_value": "#F2EFE9"},
+        {"name": "Titanium", "hex_value": "#3E444A"},
+        {"name": "Black", "hex_value": "#000000"},
+        {"name": "Champagne", "hex_value": "#F2E6C9"},
+        {"name": "Lemon", "hex_value": "#FFD400"},
+        {"name": "Peach", "hex_value": "#FFD1B2"},
+        {"name": "Hemp", "hex_value": "#D6C5A3"},
+        {"name": "Buttercup", "hex_value": "#FFD700"},
+        {"name": "Raspberry", "hex_value": "#C11B3A"},
+        {"name": "Pepper", "hex_value": "#A68B6B"},
+        {"name": "Orange", "hex_value": "#F47C20"},
+        {"name": "Poppy", "hex_value": "#C21807"},
+        {"name": "Antelope", "hex_value": "#8E7B52"},
+        {"name": "Rust", "hex_value": "#8B3E2F"},
+        {"name": "Burgundy", "hex_value": "#5C0B1E"},
+        {"name": "Revival Blue", "hex_value": "#2D5DA0"},
+        {"name": "Alpine Blue", "hex_value": "#8AA7D9"},
+        {"name": "Tin Green", "hex_value": "#B7C2BB"},
+        {"name": "Victoria Blue", "hex_value": "#1261A7"},
+        {"name": "Lagoon", "hex_value": "#0FA3B1"},
+        {"name": "Spring Green", "hex_value": "#7FB069"},
+        {"name": "Midnight Blue", "hex_value": "#07203A"},
+        {"name": "Porcelain Green", "hex_value": "#9AC6B6"},
+        {"name": "Garden Green", "hex_value": "#2F7A4A"},
+        {"name": "Marine", "hex_value": "#0F3B6B"},
+        {"name": "Peacock Blue", "hex_value": "#007A85"},
+        {"name": "Tennis Green", "hex_value": "#1E6B3A"},
+    ]},
 ]

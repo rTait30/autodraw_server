@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
@@ -22,6 +22,7 @@ function Projects() {
   // Inline expansion state
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedProject, setExpandedProject] = useState(null);
+  const expandedProjectRef = useRef(expandedProject);
   
   const navigate = useNavigate();
 
@@ -149,13 +150,17 @@ function Projects() {
   }, []);
 
   // 2. Handle URL "open" param checks
+  // Keep ref in sync so the effect can read current value without re-running on every change
+  useEffect(() => { expandedProjectRef.current = expandedProject; }, [expandedProject]);
+
   useEffect(() => {
     const openId = searchParams.get('open');
     const isNew = searchParams.get('new');
+    const current = expandedProjectRef.current;
 
     if (openId) {
        // If we have a draft loaded for this ID, don't re-fetch
-      if (expandedProject && String(expandedProject.id) === String(openId)) {
+      if (current && String(current.id) === String(openId)) {
           // If we are currently viewing the requested project, don't re-fetch from server
           // This avoids overwriting local state if parent re-renders
           return;
@@ -168,16 +173,16 @@ function Projects() {
         .catch(err => console.error("Failed to load project details", err));
     } else if (isNew) {
       // New mode. ensure we have a project stub so ProjectInline can render (and handle draft check)
-      if (!expandedProject) {
+      if (!current) {
           setExpandedProject({ status: 'New', general: { name: 'New Project' } });
       }
     } else {
       // Only clear if NOT a draft we just loaded (prevents race condition where state updates before params)
-      if (!expandedProject?._isDraft) {
+      if (!current?._isDraft) {
           setExpandedProject(null);
       }
     }
-  }, [searchParams, expandedProject]);
+  }, [searchParams]);
 
   const proceedOpenProject = (id) => {
     discardDraftAndCloseInline();
@@ -224,6 +229,11 @@ function Projects() {
       proceedOpenProject(next.targetId);
     }
   };
+
+  // Notify bottom bar when a project is opened/closed on this page
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('autodraw:project-editor', { detail: { open: !!expandedProject } }));
+  }, [!!expandedProject]);
 
   const handleCloseProject = () => {
     setSearchParams((params) => {

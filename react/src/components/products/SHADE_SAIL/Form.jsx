@@ -14,8 +14,8 @@ import {
 } from "../../FormUI";
 import { Button } from "../../UI";
 
-import FabricSelector from "../../FabricSelector";
-import { getBaseUrl } from "../../../utils/baseUrl.js";
+import FabricSelector, { ColorSwatch } from "../../FabricSelector";
+import OverlayShell from "../../OverlayShell";
 
 import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
 
@@ -42,55 +42,6 @@ function getEdgeLabel(u, v) {
 // ----------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------
-
-const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2" }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [loadedSrc, setLoadedSrc] = useState('');
-
-  useEffect(() => {
-    setImageLoaded(false);
-    setImageError(false);
-    setLoadedSrc('');
-    if (!color?.name) return;
-
-    const basePath = `/static/textures/${fabricName?.toLowerCase().replace(/\s+/g, '')}/${color.name?.toLowerCase().replace(/\s+/g, '')}`;
-    const imageSrc = getBaseUrl(`${basePath}.webp`);
-    const alternativeSrc = getBaseUrl(`${basePath}.jpg`);
-    
-    const img = new Image();
-    let triedAlternative = false;
-
-    img.onload = () => {
-      setImageLoaded(true);
-      setLoadedSrc(img.src);
-    };
-    img.onerror = () => {
-      if (!triedAlternative && alternativeSrc) {
-        triedAlternative = true;
-        img.src = alternativeSrc;
-      } else {
-        setImageError(true);
-      }
-    };
-    img.src = imageSrc;
-  }, [fabricName, color?.name]);
-
-  if (imageLoaded && !imageError) {
-    return (
-      <div
-        className={`${className} bg-cover bg-center`}
-        style={{ backgroundImage: `url(${loadedSrc})` }}
-      />
-    );
-  }
-  return (
-    <div
-      className={className}
-      style={{ backgroundColor: color?.hex_value || '#ccc' }}
-    />
-  );
-};
 
 const TENSION_HARDWARE_OPTIONS = [
   "M8 Bowshackle", "M10 Bowshackle", "M12 Bowshackle",
@@ -721,17 +672,15 @@ export function ProductForm({
         </details>
       )}
 
-      {showFabricSelector && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center p-8 bg-black/50" onClick={() => setShowFabricSelector(false)}>
-            <div className="bg-white p-4 rounded-xl shadow-xl w-full max-w-4xl max-h-full overflow-auto" onClick={e => e.stopPropagation()}>
-               <FabricSelector 
-                   mode="selector" 
-                   onSelect={handleFabricSelect} 
-                   onClose={() => setShowFabricSelector(false)} 
-               />
-            </div>
-         </div>
-      )}
+      <OverlayShell open={showFabricSelector} onClose={() => setShowFabricSelector(false)} panelClassName="max-w-4xl">
+        <div className="p-4">
+          <FabricSelector
+            mode="selector"
+            onSelect={handleFabricSelect}
+            onClose={() => setShowFabricSelector(false)}
+          />
+        </div>
+      </OverlayShell>
     </div>
   );
 }

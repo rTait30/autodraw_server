@@ -164,6 +164,27 @@ export function render(canvas, data) {
     }
 
     // Draw outer perimeter edges with catenary curves only; color red if problematic
+    // Pre-build sail track edge set for efficient lookup
+    const sailTrackEdges = new Set();
+    (attributes.sailTracks || []).forEach(t => {
+      const k = [Number(t.from), Number(t.to)].sort((a,b) => a-b).join('-');
+      sailTrackEdges.add(k);
+    });
+    // Also check connections for sailTrack boolean flag
+    const connsForTrack = attributes.connections;
+    if (Array.isArray(connsForTrack)) {
+      connsForTrack.forEach(c => {
+        if (c && c.sailTrack) {
+          const k = [Number(c.from), Number(c.to)].sort((a,b) => a-b).join('-');
+          sailTrackEdges.add(k);
+        }
+      });
+    } else if (connsForTrack && typeof connsForTrack === 'object') {
+      Object.entries(connsForTrack).forEach(([key, val]) => {
+        if (val && val.sailTrack) sailTrackEdges.add(key);
+      });
+    }
+
     for (let i = 0; i < ordered.length; i++) {
       const p1 = ordered[i];
       const p2 = ordered[(i + 1) % ordered.length];
@@ -187,44 +208,73 @@ export function render(canvas, data) {
       if (!pos1 || !pos2) continue;
 
       const lineKey = [p1, p2].sort().join('-');
+      const numericKey = [Number(p1), Number(p2)].sort((a,b) => a-b).join('-');
       const isProblematicPerimeter = problematicLines.has(lineKey);
 
-      // Draw catenary curve (visual only, 5% dip)
-      // Find midpoint
+      // Skip sail track edges here — they are drawn in a separate pass below
+      if (sailTrackEdges.has(numericKey) || sailTrackEdges.has(lineKey)) continue;
+
+      const edgeColor = isProblematicPerimeter ? '#EB1C24' : '#004A7C';
+
+      ctx.save();
+      ctx.strokeStyle = edgeColor;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      // Catenary curve (quadratic, dipped toward center)
       const mx = (pos1.x + pos2.x) / 2;
       const my = (pos1.y + pos2.y) / 2;
-      // Vector from p1 to p2
-      const dx = pos2.x - pos1.x;
-      const dy = pos2.y - pos1.y;
-      const length = Math.hypot(dx, dy);
-      // Perpendicular vector (normalized)
-      const perpX = -dy / length;
-      const perpY = dx / length;
-      // Dip is 5% of edge length
+      const length = Math.hypot(pos2.x - pos1.x, pos2.y - pos1.y);
       const dip = 0.1 * length;
-      // Catenary control point (midpoint, dipped toward center)
-      // Find center of sail for general inward direction
-      const sailCenter = { x: cx, y: cy };
-      // Vector from midpoint to center
-      const toCenterX = sailCenter.x - mx;
-      const toCenterY = sailCenter.y - my;
+      const toCenterX = cx - mx;
+      const toCenterY = cy - my;
       const toCenterLen = Math.hypot(toCenterX, toCenterY) || 1;
-      // Direction for dip: blend between perfect inward and perfect perpendicular
-      // For simplicity, just use perpendicular toward center
-      let dipDirX = toCenterX / toCenterLen;
-      let dipDirY = toCenterY / toCenterLen;
-      // Control point for quadratic curve
-      const cx1 = mx + dipDirX * dip;
-      const cy1 = my + dipDirY * dip;
-      // Draw catenary as quadratic curve
-      ctx.save();
-      ctx.strokeStyle = isProblematicPerimeter ? '#EB1C24' : '#004A7C'; // red if problematic, else catenary blue
-      ctx.lineWidth = 4; // thicker but constant
-      ctx.beginPath();
+      const cx1 = mx + (toCenterX / toCenterLen) * dip;
+      const cy1 = my + (toCenterY / toCenterLen) * dip;
       ctx.moveTo(pos1.x, pos1.y);
       ctx.quadraticCurveTo(cx1, cy1, pos2.x, pos2.y);
       ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // Draw sail track edges separately (uses logical indices, not polar order)
+    for (const stKey of sailTrackEdges) {
+      const [sp1, sp2] = stKey.split('-');
+      const sPos1 = perimeterPoints[sp1] || mapped[sp1];
+      const sPos2 = perimeterPoints[sp2] || mapped[sp2];
+      if (!sPos1 || !sPos2) continue;
+
+      const stLineKey = [sp1, sp2].sort().join('-');
+      const isProblematic = problematicLines.has(stLineKey);
+      const stColor = isProblematic ? '#EB1C24' : '#004A7C';
+
+      // Draw straight line for sail track
+      ctx.save();
+      ctx.strokeStyle = stColor;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(sPos1.x, sPos1.y);
+      ctx.lineTo(sPos2.x, sPos2.y);
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw "Sail Track" label outside the sail
+      ctx.save();
+      const midX = (sPos1.x + sPos2.x) / 2;
+      const midY = (sPos1.y + sPos2.y) / 2;
+      const toOutX = midX - cx;
+      const toOutY = midY - cy;
+      const toOutLen = Math.hypot(toOutX, toOutY) || 1;
+      const offsetDist = 18;
+      const lblX = midX + (toOutX / toOutLen) * offsetDist;
+      const lblY = midY + (toOutY / toOutLen) * offsetDist;
+      let lblAngle = Math.atan2(sPos2.y - sPos1.y, sPos2.x - sPos1.x);
+      if (lblAngle > Math.PI / 2 || lblAngle < -Math.PI / 2) lblAngle += Math.PI;
+      ctx.font = 'bold 12px Arial';
+      ctx.fillStyle = stColor;
+      ctx.textAlign = 'center';
+      ctx.translate(lblX, lblY);
+      ctx.rotate(lblAngle);
+      ctx.fillText('Sail Track', 0, 0);
       ctx.restore();
     }
 

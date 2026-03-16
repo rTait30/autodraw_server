@@ -93,7 +93,12 @@ export default function ProjectForm({
   }, [product]);
   // Ref and state for global project attributes
   const projectFormRef = useRef();
-  const [projectData, setProjectData] = useState({});
+  const [projectData, setProjectData] = useState(() => {
+    const pa = initialRehydrate?.project_attributes;
+    return (pa && typeof pa === 'object' && Object.keys(pa).length > 0)
+      ? { ...pa }
+      : {};
+  });
   // Rehydrate logic
   // We use prop directly or just useState initializer. 
   // If the parent passes a new object, this component might need to be remounted (by key change)

@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import CollapsibleCard from './CollapsibleCard';
 import PageHeader from './PageHeader';
 import ConfirmOverlay from './ConfirmOverlay';
+import OverlayShell from './OverlayShell';
 import { discardDraftAndCloseInline } from '../utils/draft';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
@@ -39,8 +40,8 @@ const ProjectInline = ({
   const [hasCalculatedOrSaved, setHasCalculatedOrSaved] = useState(!isNew);
   // const [Form, setForm] = useState(null); // REMOVED
   const [toggleData, setToggleData] = useState(false);
-  const [overlayMode, setOverlayMode] = useState(null); // 'preview' | 'confirm' | null
-  const [isClosing, setIsClosing] = useState(false);
+  const [overlayMode, setOverlayMode] = useState(null); // 'preview' | 'confirm' | 'success' | null
+  const [isCalculating, setIsCalculating] = useState(false);
   
   // Estimate / Schema State
   const [schema, setSchema] = useState(null);
@@ -106,7 +107,6 @@ const ProjectInline = ({
 
     // Reset overlay mode when project prop changes (e.g. switching projects)
     setOverlayMode(null);
-    setIsClosing(false);
   }, [project]);
 
   // Ensure visualization updates when project data or visibility changes
@@ -116,11 +116,7 @@ const ProjectInline = ({
     const shouldRender = !overlayMode || overlayMode === 'preview';
     
     if (hasCalculatedOrSaved && editedProject && canvasRef.current && shouldRender) {
-        // Small timeout to ensure DOM is settled if switching modes (rendering into overlay)
-        // Especially important since CollapsibleCard reparents the canvas
-        requestAnimationFrame(() => {
-             renderPreview(editedProject);
-        });
+        renderPreview(editedProject);
     }
   }, [hasCalculatedOrSaved, editedProject, overlayMode]);
 
@@ -170,7 +166,7 @@ const ProjectInline = ({
 
   const saveDraftNow = useCallback(() => {
     // Don't save if in overlay mode (confirming/previewing) or closing
-    if (overlayMode === 'confirm' || isClosing) return;
+    if (overlayMode === 'confirm') return;
 
     // Check if user is still logged in (since logout clears localStorage)
     if (!localStorage.getItem('username')) return;
@@ -201,7 +197,7 @@ const ProjectInline = ({
     } catch (e) {
       console.warn("Autosave failed", e);
     }
-  }, [overlayMode, isClosing, isNew, syncEditedFromForm, onDraftMeta]);
+  }, [overlayMode, isNew, syncEditedFromForm, onDraftMeta]);
 
   // Autosave Draft
   useEffect(() => {
@@ -220,6 +216,7 @@ const ProjectInline = ({
     // Ensure form is accessible before checking
 
     setOverlayMode('preview');
+    setIsCalculating(true);
 
     if (!formRef.current) {
         // If the form isn't ready, don't submit empty data (which wipes the project)
@@ -274,19 +271,18 @@ const ProjectInline = ({
       // Trigger overlay only on mobile/tablet (below lg breakpoint) to show results without scrolling
       if (window.innerWidth < 1024) {
           setOverlayMode('preview');
-          setIsClosing(false);
       }
 
     } catch (e) {
       console.error(e);
-      
-      //showToast(TOAST_TAGS.GENERIC_ERROR, { args: [`checking project: ${e.message}`] })
       
       setToast({
         message: `checking project: ${e.message}`,
         type: "error",
         duration: 4000,
       });
+    } finally {
+      setIsCalculating(false);
     }
   };
 
@@ -314,11 +310,10 @@ const ProjectInline = ({
           return;
         }
 
-        // Ensure we have the latest form data in state before showing summary
-        setEditedProject(base);
-        setOverlayMode('confirm');
-        setIsClosing(false);
-        return;
+      // Ensure we have the latest form data in state before showing summary
+      setEditedProject(base);
+      setOverlayMode('confirm');
+      return;
     }
 
     try {
@@ -508,13 +503,7 @@ const ProjectInline = ({
     setEstimateVersion(v => v + 1);
   }, [editedSchema]);
 
-  const closeOverlay = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-        setIsClosing(false);
-        setOverlayMode(null);
-    }, 300); // match animation duration
-  };
+  const closeOverlay = () => setOverlayMode(null);
   
   const handleReturnToProjects = () => {
       navigate('/copelands/projects');
@@ -561,46 +550,34 @@ const ProjectInline = ({
   // New logic: Simple overlay for product selection
   if (!productName && isNew) {
       return (
-          <div 
-            className="fixed inset-0 z-[200] flex justify-center items-start pt-32 bg-white/5"
-          >
-            <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-sm flex flex-col gap-4"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Project</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">Choose a product to start</p>
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                    {productsList?.length > 0 ? productsList.map(p => (
-                      <Button
-                        key={p.id || p.name}
-                        onClick={() => setEditedProject({
-                          product: p,
-                          general: { name: 'New Project' },
-                          status: 'New'
-                        })}
-                        className="w-full text-center text-lg py-3 shadow-sm"
-                      >
-                          {p.name}
-                      </Button>
-                    )) : (
-                        <div className="text-center text-gray-500 py-4">Loading products...</div>
-                    )}
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close project overlay"
-                  className = "underline hover:text-gray-700 dark:hover:text-gray-300 mt-4"
-                >
-                  Cancel
-                </button>
+        <OverlayShell open onClose={onClose} panelClassName="max-w-sm" closeOnBackdrop={false}>
+          <div className="p-6 flex flex-col gap-4">
+            <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Project</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Choose a product to start</p>
             </div>
-            {/* Animations removed: fade-in-down keyframes and related class removed */}
+            <div className="flex flex-col gap-3">
+              {productsList?.length > 0 ? productsList.map(p => (
+                <Button
+                  key={p.id || p.name}
+                  onClick={() => setEditedProject({
+                    product: p,
+                    general: { name: 'New Project' },
+                    status: 'New'
+                  })}
+                  className="w-full text-center text-lg py-3 shadow-sm"
+                >
+                  {p.name}
+                </Button>
+              )) : (
+                <div className="text-center text-gray-500 py-4">Loading products...</div>
+              )}
+            </div>
+            <button type="button" onClick={onClose} className="underline hover:text-gray-700 dark:hover:text-gray-300 mt-4">
+              Cancel
+            </button>
           </div>
+        </OverlayShell>
       );
   }
 
@@ -639,14 +616,14 @@ const ProjectInline = ({
 
 
         {lastAutoSaved && savedIndicatorVisible && (
-        <div 
-          className="absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] opacity-100 translate-y-0"
-        >
-          <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
-            Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
+          <div 
+            className="absolute right-4 top-24 flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm pointer-events-none select-none z-[70] opacity-100 translate-y-0"
+          >
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              Saved {new Date(lastAutoSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
         )}
 
       {/* Scrollable Content */}
@@ -725,18 +702,50 @@ const ProjectInline = ({
                 </CollapsibleCard>
               )}
 
-              {hasCalculatedOrSaved && (
-              <CollapsibleCard 
-                  title={overlayMode === 'confirm' ? "Confirm Details" : overlayMode === 'success' ? "Success" : "View Preview"}
-                  isOverlay={!!overlayMode}
-                  onClose={overlayMode ? closeOverlay : null}
-                  defaultOpen={true}
-                  className="!top-[80px] !bottom-[210px] md:!top-[140px] md:!bottom-[220px] !inset-x-4 md:!inset-x-40 shadow-2xl"
-                  contentClassName={(!overlayMode || overlayMode === 'preview') ? "!p-0 bg-gray-50 dark:bg-gray-900 relative" : ""}
+              {hasCalculatedOrSaved && !overlayMode && (
+                <div className="bg-white dark:bg-gray-800 rounded-sm shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <ProjectOverlay
+                    canvasRef={canvasRef}
+                    project={editedProject}
+                    productName={productName}
+                    devMode={devMode}
+                    toggleData={toggleData}
+                    setToggleData={setToggleData}
+                  />
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay for preview/confirm/success modes */}
+      <OverlayShell open={!!overlayMode} onClose={closeOverlay} panelClassName="max-w-4xl">
+        {overlayMode && (
+          <>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+              <span className="font-bold text-lg text-gray-800 dark:text-gray-100">
+                {overlayMode === 'confirm' ? 'Confirm Details' : overlayMode === 'success' ? 'Success' : 'View Preview'}
+              </span>
+              <button 
+                onClick={closeOverlay}
+                className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+                aria-label="Close"
               >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className={overlayMode === 'preview' ? 'bg-gray-50 dark:bg-gray-900' : 'p-4'}>
+              {isCalculating ? (
+                <div className="flex items-center justify-center py-24">
+                  <span className="text-lg text-gray-500 dark:text-gray-400">Calculating...</span>
+                </div>
+              ) : (
                 <ProjectOverlay
                   mode={overlayMode}
-                  isClosing={isClosing}
                   onClose={closeOverlay}
                   onReturn={handleReturnToProjects}
                   canvasRef={canvasRef}
@@ -746,32 +755,25 @@ const ProjectInline = ({
                   toggleData={toggleData}
                   setToggleData={setToggleData}
                 />
-              </CollapsibleCard>
               )}
             </div>
-
-          </div>
-        </div>
-      </div>
-
-      {overlayMode !== 'success' && (
-      <StickyActionBar mode="inline" className="z-50 shrink-0">
-        {(overlayMode === 'preview' || overlayMode === 'confirm') ? (
-          <>
-            <Button onClick={closeOverlay} variant="danger" className="flex-1">
-              Continue Editing
-            </Button>
-            <Button onClick={handleSave} variant="submit" className="flex-1">
-              Submit {isNew ? 'Project' : 'Changes'}
-            </Button>
+            {overlayMode !== 'success' && (
+              <div className="sticky bottom-0 z-10 flex gap-3 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <Button onClick={closeOverlay} variant="danger" className="flex-1">Continue Editing</Button>
+                <Button onClick={handleSave} variant="submit" className="flex-1">Submit {isNew ? 'Project' : 'Changes'}</Button>
+              </div>
+            )}
           </>
-        ) : (
+        )}
+      </OverlayShell>
+
+      {!overlayMode && (
+        <StickyActionBar mode="inline" className="z-50 shrink-0">
           <Button onClick={handleCheck} variant="submit" className="flex-1">
             View / Submit
           </Button>
-        )}
-      </StickyActionBar>
-    )}
+        </StickyActionBar>
+      )}
     </div>
   );
 }

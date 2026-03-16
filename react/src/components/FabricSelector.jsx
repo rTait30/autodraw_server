@@ -274,7 +274,7 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
                   onClick={() => toggleCategory(category)}
                   className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center justify-between text-sm"
                 >
-                  <h4 className="font-medium">{category} Fabrics</h4>
+                  <h4 className="text-3xl">{category} Fabrics</h4>
                   <span className={`transform transition-transform ${expandedCategories[category] ? 'rotate-180' : ''}`}>
                     ▼
                   </span>
@@ -466,4 +466,5 @@ const FabricSelector = ({ onSelect, selectedFabric, selectedColor, onClose, mode
   );
 };
 
+export { ColorSwatch };
 export default FabricSelector;

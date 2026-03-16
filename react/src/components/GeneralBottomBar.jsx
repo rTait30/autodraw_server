@@ -16,13 +16,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   const [isProjectMounted, setIsProjectMounted] = useState(false);
   const [isProjectVisible, setIsProjectVisible] = useState(false);
 
-  const activePage = isProjectVisible
-    ? 'project'
-    : location.pathname.endsWith('/tools')
-      ? 'tools'
-      : location.pathname.endsWith('/projects')
-        ? 'projects'
-        : '';
+  const [activePage, setActivePage] = useState('');
 
   const [draftProject, setDraftProject] = useState({});
   const [hasDraft, setHasDraft] = useState(false);
@@ -34,6 +28,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
 
   // Landing is on /copelands. Check exact match or if it's the root.
   const isLanding = location.pathname === '/copelands' || location.pathname === '/copelands/';
+  const isLoggedIn = !!localStorage.getItem('username');
 
   const checkDraft = () => {
     try {
@@ -64,6 +59,25 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       setDraftName('');
     }
   };
+
+  // Sync activePage from URL when not viewing the bottom-bar project editor
+  useEffect(() => {
+    if (!isProjectVisible) {
+      if (location.pathname.endsWith('/tools')) setActivePage('tools');
+      else if (location.pathname.endsWith('/projects')) setActivePage('projects');
+      else setActivePage('');
+    }
+  }, [location.pathname, isProjectVisible]);
+
+  // Listen for project editor open/close from other pages (e.g. Projects page)
+  useEffect(() => {
+    const handler = (e) => {
+      const { open } = e.detail || {};
+      if (open) setActivePage('');
+    };
+    window.addEventListener('autodraw:project-editor', handler);
+    return () => window.removeEventListener('autodraw:project-editor', handler);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -106,6 +120,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         setSaveRequestToken(t => t + 1);
         setIsProjectVisible(false);
       } else {
+        setActivePage('project');
         setIsProjectVisible(true);
       }
       return;
@@ -138,6 +153,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
         setActiveProjectName(draftName);
       }
 
+      setActivePage('project');
       setIsProjectMounted(true);
       setIsProjectVisible(true);
   };
@@ -147,6 +163,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
     setReplaceConfirm({ show: false });
     handleCloseProjectWithOptions({ discardDraft: true });
     setDraftProject({ status: 'New', general: { name: 'New Project' } });
+    setActivePage('project');
     setIsProjectMounted(true);
     setIsProjectVisible(true);
   };
@@ -177,7 +194,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
     return () => window.removeEventListener('autodraw:close-project-inline', handler);
   }, []);
 
-  if (!mounted || isLanding) return null;
+  if (!mounted || isLanding || !isLoggedIn) return null;
 
   return (
     <>
@@ -232,6 +249,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             onClick={onProjectsClick || (() => { 
                 if (isProjectMounted) setSaveRequestToken(t => t + 1);
                 setIsProjectVisible(false);
+                setActivePage('projects');
                 navigate('/copelands/projects'); 
             })}
             title="View Projects"
@@ -297,6 +315,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             onClick={onToolsClick || (() => {
               if (isProjectMounted) setSaveRequestToken(t => t + 1);
               setIsProjectVisible(false);
+              setActivePage('tools');
               navigate('/copelands/tools');
             })}
             title="Tools"

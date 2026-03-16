@@ -10,8 +10,8 @@ import { Button } from "../../UI";
 
 export const PROJECT_DEFAULTS = Object.freeze({
   rectangles: [
-    { width: 1000, height: 800, label: "A", quantity: 1 },
-    { width: 600, height: 400, label: "B", quantity: 1 },
+    { width: 1000, height: 800, label: "A", quantity: 1, cornerRadius: 0 },
+    { width: 600, height: 400, label: "B", quantity: 1, cornerRadius: 0 },
   ],
   fabricWidth: 3200,
   fabricRollLength: 50000,
@@ -39,7 +39,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
       ...prev,
       rectangles: [
         ...prev.rectangles,
-        { width: 500, height: 500, label: `R${prev.rectangles.length + 1}`, quantity: 1 },
+        { width: 500, height: 500, label: `R${prev.rectangles.length + 1}`, quantity: 1, cornerRadius: 0 },
       ],
     }));
   };
@@ -94,9 +94,9 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
           {projectData.rectangles.map((rect, index) => (
             <div
               key={index}
-              className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
+              className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 grid grid-cols-2 md:grid-cols-12 gap-4 items-end"
             >
-              <div className="md:col-span-2">
+              <div className="col-span-2 md:col-span-2">
                 <TextInput
                   label="Label"
                   value={rect.label}
@@ -105,7 +105,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
                 />
               </div>
 
-              <div className="md:col-span-3">
+              <div className="md:col-span-2">
                 <NumberInput
                   label="Width (mm)"
                   value={rect.width}
@@ -114,7 +114,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
                 />
               </div>
 
-              <div className="md:col-span-3">
+              <div className="md:col-span-2">
                 <NumberInput
                   label="Height (mm)"
                   value={rect.height}
@@ -123,7 +123,7 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-1">
                 <NumberInput
                   label="Qty"
                   value={rect.quantity}
@@ -132,7 +132,16 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
+                <NumberInput
+                  label="Corner Radius (mm)"
+                  value={rect.cornerRadius ?? 0}
+                  onChange={(val) => updateRectangle(index, "cornerRadius", val)}
+                  wrapperClassName="mb-0"
+                />
+              </div>
+
+              <div className="col-span-2 md:col-span-2">
                 <button
                   type="button"
                   onClick={() => removeRectangle(index)}

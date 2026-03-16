@@ -19,7 +19,6 @@ export default function Discrepancy() {
   
   const [editedProject, setEditedProject] = useState({});
   const [overlayMode, setOverlayMode] = useState(null); // 'preview' | null
-  const [isClosing, setIsClosing] = useState(false);
   const [toggleData, setToggleData] = useState(false);
   
   // Login modal state
@@ -231,13 +230,7 @@ export default function Discrepancy() {
     }
   };
 
-  const closeOverlay = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setOverlayMode(null);
-      setIsClosing(false);
-    }, 300);
-  };
+  const closeOverlay = () => setOverlayMode(null);
 
   return (
     <div className="page-fixed">
@@ -348,15 +341,11 @@ export default function Discrepancy() {
             {/* Right: Viz */}
             <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar">
               <CollapsibleCard 
-                  title={overlayMode ? "Check Visualisation" : "Visualisation"}
-                  isOverlay={!!overlayMode}
-                  onClose={overlayMode ? closeOverlay : null}
+                  title="Visualisation"
                   defaultOpen={true}
               >
-                  {/* Container for render. ProjectOverlay handles modes. */}
                   <ProjectOverlay
                     mode={overlayMode}
-                    isClosing={isClosing}
                     onClose={closeOverlay}
                     canvasRef={canvasRef}
                     project={editedProject}

@@ -53,7 +53,7 @@ export default function Toast({
     <div
       role="alert"
       className={[
-        "fixed left-1/2 -translate-x-1/2 bottom-32 z-[9999] pointer-events-auto",
+        "fixed left-1/2 -translate-x-1/2 bottom-64 z-[9999] pointer-events-auto",
         "w-[92%] max-w-lg h-auto",
         "rounded-lg border shadow-lg",
         "px-4 py-3",

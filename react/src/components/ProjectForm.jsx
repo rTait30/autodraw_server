@@ -13,6 +13,7 @@ const DEFAULT_GENERAL = {
   client_id: 0,
   due_date: "",
   info: "",
+  order_type: "quote",
   // Add other default fields as needed
 };
 
@@ -238,69 +239,97 @@ export default function ProjectForm({
     });
   }, []);
 
+  const getValues = useCallback(() => {
+    let projectAttrs = {};
+    if (projectFormRef.current?.getValues) {
+      const val = projectFormRef.current.getValues();
+      projectAttrs = val?.project ?? {};
+    }
+
+    console.log("[ProjectForm] Collecting values. Items count:", items?.length);
+
+    let allRefsReady = true;
+
+    const products = Array.isArray(items) && items.length > 0
+      ? items.map((it) => {
+          const ref = itemRefs.current.get(it.productIndex);
+          if (!ref?.current?.getValues) {
+            console.warn(`[ProjectForm] Missing ref for item ${it.productIndex} - Form not ready`);
+            allRefsReady = false;
+            return null;
+          }
+          const values = ref.current.getValues();
+          return {
+            name: it.name ?? `Item ${it.productIndex + 1}`,
+            productIndex: it.productIndex,
+            attributes: values.attributes ?? {},
+          };
+        })
+      : [];
+
+    if (!allRefsReady) {
+      console.warn("[ProjectForm] Aborting getValues - not all child forms are ready.");
+      return null;
+    }
+
+    return {
+      general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
+      project_attributes: { ...projectAttrs, wg_data: wgData },
+      products: products.filter(Boolean),
+      submitToWG,
+    };
+  }, [generalData, items, submitToWG, wgData]);
+
+  const validate = useCallback((context = {}) => {
+    const errors = [];
+    const validationContext = {
+      ...context,
+      orderType: context.orderType || generalData?.order_type || "quote",
+    };
+
+    if (projectFormRef.current?.validate) {
+      const result = projectFormRef.current.validate(validationContext);
+      if (result?.valid === false) {
+        errors.push(...(result.errors || []));
+      }
+    }
+
+    if (Array.isArray(items) && items.length > 0) {
+      items.forEach((it) => {
+        const ref = itemRefs.current.get(it.productIndex);
+        const label = it.name?.trim() || `Item ${it.productIndex + 1}`;
+
+        if (!ref?.current?.validate) {
+          errors.push({ path: `products.${it.productIndex}`, message: `${label}: form not ready` });
+          return;
+        }
+
+        const result = ref.current.validate(validationContext);
+        if (result?.valid === false) {
+          (result.errors || []).forEach((error) => {
+            errors.push({
+              ...error,
+              message: `${label}: ${error.message}`,
+            });
+          });
+        }
+      });
+    }
+
+    return { valid: errors.length === 0, errors };
+  }, [generalData?.order_type, items]);
+
   useEffect(() => {
     if (!formRef) return;
     formRef.current = {
-      getValues: () => {
-        // Get global project attributes
-        let projectAttrs = {};
-        if (projectFormRef.current?.getValues) {
-          const val = projectFormRef.current.getValues();
-          projectAttrs = val?.project ?? {};
-        }
-        
-        console.log("[ProjectForm] Collecting values. Items count:", items?.length);
-        
-        // Safety check: specific refs must be ready if items exist
-        // If we have items but no refs yet, we are likely still loading/rendering child forms.
-        // Returning partial data here would be destructive (it would wipe the child data on autosave).
-        // We must return NULL to signal "not ready".
-        let allRefsReady = true;
-
-        const products = Array.isArray(items) && items.length > 0
-          ? items
-              .map((it) => {
-                const ref = itemRefs.current.get(it.productIndex);
-                if (!ref?.current?.getValues) {
-                    console.warn(`[ProjectForm] Missing ref for item ${it.productIndex} - Form not ready`);
-                    allRefsReady = false;
-                    return null;
-                }
-                const values = ref.current.getValues();
-                // console.log(`[ProjectForm] Item ${it.productIndex} values:`, values);
-                return {
-                  name: it.name ?? `Item ${it.productIndex + 1}`,
-                  productIndex: it.productIndex,
-                  attributes: values.attributes ?? {},
-                  // Optionally include calculated if needed:
-                  // calculated: values.calculated ?? {}
-                };
-              })
-          : [];
-
-        if (!allRefsReady) {
-            console.warn("[ProjectForm] Aborting getValues - not all child forms are ready.");
-            return null; 
-        }
-
-        const validProducts = products.filter(Boolean);
-
-        // Always return a general object with all default fields
-        const result = {
-          general: { ...DEFAULT_GENERAL, ...(generalData && typeof generalData === 'object' ? generalData : {}) },
-          project_attributes: { ...projectAttrs, wg_data: wgData },
-          products: validProducts,
-          submitToWG,
-        };
-        // console.log("[ProjectForm] Final result:", result);
-        return result;
-      },
+      getValues,
+      validate,
     };
 
     return () => {
       if (formRef) formRef.current = undefined;
     };
-  }, [formRef, items, generalData, wgData, submitToWG]);
+  }, [formRef, getValues, validate]);
 
   const handleTabNameChange = (productIndex, value) => {
     setItems((prev) => prev.map((it) => it.productIndex === productIndex ? { ...it, name: value } : it));

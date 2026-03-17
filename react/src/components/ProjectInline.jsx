@@ -164,6 +164,31 @@ const ProjectInline = ({
     return (typeof name === 'string' && name.trim()) ? name.trim() : 'Untitled';
   };
 
+  const validateCurrentForm = useCallback(() => {
+    const values = formRef.current?.getValues?.();
+    const result = formRef.current?.validate?.({
+      orderType: values?.general?.order_type || 'quote',
+    });
+
+    if (!result || result.valid) {
+      return true;
+    }
+
+    const messages = (result.errors || [])
+      .map((error) => error?.message)
+      .filter(Boolean);
+
+    setToast({
+      message: messages.length > 0
+        ? `Form not filled out properly: ${messages.join(', ')}`
+        : 'Form not filled out properly.',
+      type: 'error',
+      duration: 10000,
+    });
+
+    return false;
+  }, []);
+
   const saveDraftNow = useCallback(() => {
     // Don't save if in overlay mode (confirming/previewing) or closing
     if (overlayMode === 'confirm') return;
@@ -213,16 +238,18 @@ const ProjectInline = ({
   }, [requestSaveToken, saveDraftNow]);
 
   const handleCheck = async () => {
-    // Ensure form is accessible before checking
-
-    setOverlayMode('preview');
-    setIsCalculating(true);
-
     if (!formRef.current) {
         // If the form isn't ready, don't submit empty data (which wipes the project)
         console.warn("Form reference missing - cannot calculate.");
         return;
     }
+
+    if (!validateCurrentForm()) {
+      return;
+    }
+
+    setOverlayMode('preview');
+    setIsCalculating(true);
 
     const base = syncEditedFromForm();
     if (!base) return;
@@ -288,6 +315,10 @@ const ProjectInline = ({
 
   // Submit changes to server
   const handleSave = async () => {
+    if (!validateCurrentForm()) {
+      return;
+    }
+
     // Show confirmation screen first (Removed mobile check to allow on desktop too per request)
     if (overlayMode !== 'confirm') {
         const base = syncEditedFromForm() || editedProject;

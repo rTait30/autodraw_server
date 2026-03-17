@@ -17,9 +17,9 @@ export function deepNumberify(obj) {
 // --- Hooks ---
 
 /**
- * Manages the product attributes state, hydration, and exposes it via formRef.
+ * Manages the product attributes state and hydration.
  */
-export function useProductAttribute({ formRef, hydrate, defaults }) {
+export function useProductAttribute({ hydrate, defaults }) {
   const [attributes, setAttributes] = useState(() => ({
     ...defaults,
     ...deepNumberify(hydrate ?? {}),
@@ -39,18 +39,18 @@ export function useProductAttribute({ formRef, hydrate, defaults }) {
   const setAttr = (key) => (value) =>
     setAttributes((prev) => ({ ...prev, [key]: value }));
 
-  // Expose state to parent
+  return { attributes, setAttributes, setAttr };
+}
+
+export function useFormHandle(formRef, { getValues, validate }) {
   useImperativeHandle(
     formRef,
     () => ({
-      getValues: () => ({
-        attributes: deepNumberify(attributes),
-      }),
+      getValues,
+      validate,
     }),
-    [attributes]
+    [getValues, validate]
   );
-
-  return { attributes, setAttributes, setAttr };
 }
 
 /**

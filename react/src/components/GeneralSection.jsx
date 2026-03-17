@@ -9,6 +9,7 @@ const GENERAL_DEFAULTS = Object.freeze({
   due_date: "",
   info: "",
   status: "awaiting_deposit",
+  order_type: "quote",
 });
 
 const STATUS_OPTIONS = [
@@ -73,6 +74,16 @@ export function GeneralSection({ data, setData = () => {}, onlyName = false }) {
         label="Project Name"
         value={safe.name}
         onChange={updateField("name")}
+      />
+
+      <SelectInput
+        label="Order Type"
+        value={safe.order_type}
+        onChange={updateField("order_type")}
+        options={[
+          { value: "quote", label: "Quote" },
+          { value: "job", label: "Job" },
+        ]}
       />
 
       {staffFields && (

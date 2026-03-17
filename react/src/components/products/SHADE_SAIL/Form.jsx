@@ -1,13 +1,12 @@
-import React, { useEffect, useState, useRef, useImperativeHandle, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { 
+  deepNumberify,
   useProductAttribute, 
-  FormContainer, 
+  useFormHandle,
   SelectInput, 
   TextInput, 
   NumberInput,
   CheckboxInput,
-  CompactNumberInput,
-  CompactSelectInput,
   useFormNavigation,
   FormSection,
   FormGrid
@@ -17,7 +16,7 @@ import { Button } from "../../UI";
 import FabricSelector, { ColorSwatch } from "../../FabricSelector";
 import OverlayShell from "../../OverlayShell";
 
-import { DEFAULT_ATTRIBUTES, GENERAL_DEFAULTS } from "./constants";
+import { DEFAULT_ATTRIBUTES } from "./constants";
 
 const MAX_POINTS = 11;
 
@@ -77,11 +76,20 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
     location: projectDataHydrate.location ?? ""
   });
 
-  useImperativeHandle(
-    formRef,
-    () => ({ getValues: () => ({ project: projectData }) }),
-    [projectData]
-  );
+  const getValues = useCallback(() => ({ project: projectData }), [projectData]);
+
+  const validate = useCallback((context = {}) => {
+    const errors = [];
+    const isJob = context.orderType === "job";
+
+    if (isJob && !String(projectData.location ?? "").trim()) {
+      errors.push({ path: "project.location", message: "Location not filled" });
+    }
+
+    return { valid: errors.length === 0, errors };
+  }, [projectData.location]);
+
+  useFormHandle(formRef, { getValues, validate });
 
   return (
       <TextInput
@@ -103,7 +111,6 @@ export function ProductForm({
 }) {
   // Shared attribute hooks
   const { attributes, setAttributes, setAttr } = useProductAttribute({
-    formRef,
     hydrate,
     defaults: DEFAULT_ATTRIBUTES
   });
@@ -117,10 +124,6 @@ export function ProductForm({
   // Pending lists additions
   const [pendingTrace, setPendingTrace] = useState({ pointIndex: 0, length: "" });
   const [pendingUfc, setPendingUfc] = useState({ from: 0, to: 2, size: "", internalPocket: "standard", coatedCable: "no" });
-
-  // Refs for navigation
-  const heightRefs = useRef({}); // index -> ref
-  const connRefs = useRef({});   // "u-v" -> ref
 
   // ------------------------------------------------
   // Migration & Safety
@@ -322,10 +325,10 @@ export function ProductForm({
           // Defaults for new points
           newPts.push({
             height: "",
-            tensionHardware: TENSION_HARDWARE_OPTIONS[0],
-            tensionAllowance: 50,
-            cornerFitting: CORNER_FITTING_OPTIONS[0],
-            Structure: "Pole"
+            tensionHardware: "",
+            tensionAllowance: "",
+            cornerFitting: "",
+            Structure: ""
           });
         }
       }
@@ -417,6 +420,50 @@ export function ProductForm({
 
   const nav = useFormNavigation(fieldOrder);
 
+  const getValues = useCallback(() => ({
+    attributes: deepNumberify(attributes),
+  }), [attributes]);
+
+  const validate = useCallback((context = {}) => {
+    const errors = [];
+    const isJob = context.orderType === "job";
+
+    if (!discrepancyChecker && !String(attributes.fabricCategory ?? "").trim()) {
+      errors.push({ path: "attributes.fabricCategory", message: "Fabric category not filled" });
+    }
+
+    if (!discrepancyChecker && !String(attributes.fabricType ?? "").trim()) {
+      errors.push({ path: "attributes.fabricType", message: "Fabric type not filled" });
+    }
+
+    if (isJob && !discrepancyChecker && !String(attributes.colour ?? "").trim()) {
+      errors.push({ path: "attributes.colour", message: "Colour not filled" });
+    }
+
+    if (!discrepancyChecker && (attributes.cableSize === "" || attributes.cableSize === undefined || attributes.cableSize === null)) {
+      errors.push({ path: "attributes.cableSize", message: "Cable size not filled" });
+    }
+
+    if (!discrepancyChecker && !String(attributes.foldSides ?? "").trim()) {
+      errors.push({ path: "attributes.foldSides", message: "Hem fold side not filled" });
+    }
+
+    if (isJob && !discrepancyChecker) {
+      pointsList.forEach((point, index) => {
+        if (point?.tensionAllowance === "" || point?.tensionAllowance === undefined || point?.tensionAllowance === null) {
+          errors.push({
+            path: `attributes.points.${index}.tensionAllowance`,
+            message: `Allowance not filled for point ${getLabel(index)}`,
+          });
+        }
+      });
+    }
+
+    return { valid: errors.length === 0, errors };
+  }, [attributes.cableSize, attributes.colour, attributes.fabricCategory, attributes.fabricType, attributes.foldSides, discrepancyChecker, pointsList]);
+
+  useFormHandle(formRef, { getValues, validate });
+
   // ------------------------------------------------
   // Handlers
   // ------------------------------------------------
@@ -431,6 +478,7 @@ export function ProductForm({
       fabric_name: fabric.name,
       color_id: color.id,
       color_name: color.name,
+      color_hex: color.hex_value,
       fabricCategory: mappedCategory,
       fabricType: fabric.name,
       colour: color.name,
@@ -488,7 +536,10 @@ export function ProductForm({
              >
                <div className="w-20 h-20">
                  <ColorSwatch 
-                   color={{ name: attributes.color_name || "Please select material", hex_value: "#ffffff" }} 
+                     color={{
+                       name: attributes.color_name || "Please select material",
+                       hex_value: attributes.color_hex,
+                     }} 
                    fabricName={attributes.fabric_name || "Please select material"} 
                    className="w-full h-full rounded"
                  />
@@ -501,13 +552,13 @@ export function ProductForm({
            </div>
            
            <FormGrid columns={3}>
-              <SelectInput label="Fabric Category" value={attributes.fabricCategory} onChange={(val) => setAttributes(p => ({...p, fabricCategory: val}))} options={["PVC", "ShadeCloth"]} />
-              <SelectInput label="Fabric Type" value={attributes.fabricType} onChange={setAttr("fabricType")} options={FABRIC_OPTIONS[attributes.fabricCategory] || []} disabled={!attributes.fabricCategory} />
+              <SelectInput label="Fabric Category" value={attributes.fabricCategory} onChange={(val) => setAttributes(p => ({...p, fabricCategory: val, fabricType: p.fabricCategory === val ? p.fabricType : ""}))} options={[{ label: "Select category", value: "" }, { label: "PVC", value: "PVC" }, { label: "ShadeCloth", value: "ShadeCloth" }]} />
+              <SelectInput label="Fabric Type" value={attributes.fabricType} onChange={setAttr("fabricType")} options={[{ label: "Select fabric type", value: "" }, ...(FABRIC_OPTIONS[attributes.fabricCategory] || []).map(option => ({ label: option, value: option }))]} disabled={!attributes.fabricCategory} />
               <TextInput label="Colour" value={attributes.colour} onChange={setAttr("colour")} />
            </FormGrid>
            <FormGrid columns={2}>
-              <SelectInput label="Cable Size" value={attributes.cableSize} onChange={setAttr("cableSize")} options={CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))} />
-              <SelectInput label="Hem Fold Side" value={attributes.foldSides} onChange={setAttr("foldSides")} options={FOLD_SIDES} />
+              <SelectInput label="Cable Size" value={attributes.cableSize} onChange={setAttr("cableSize")} options={[{ label: "Select cable size", value: "" }, ...CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))]} />
+              <SelectInput label="Hem Fold Side" value={attributes.foldSides} onChange={setAttr("foldSides")} options={[{ label: "Select fold side", value: "" }, ...FOLD_SIDES.map(side => ({ label: side, value: side }))]} />
            </FormGrid>
         </FormSection>
       )}
@@ -623,9 +674,9 @@ export function ProductForm({
                   </div>
                   {!discrepancyChecker && (
                     <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-                       <SelectInput label="Fitting" options={CORNER_FITTING_OPTIONS} value={pt.cornerFitting} onChange={v => updatePoint(i, "cornerFitting", v)} />
-                       <SelectInput label="Hardware" options={TENSION_HARDWARE_OPTIONS} value={pt.tensionHardware} onChange={v => updatePoint(i, "tensionHardware", v)} />
-                       <SelectInput label="Structure" options={["Pole","Wall","Roof"]} value={pt.Structure} onChange={v => updatePoint(i, "Structure", v)} />
+                        <SelectInput label="Fitting" options={[{ label: "Select fitting", value: "" }, ...CORNER_FITTING_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.cornerFitting} onChange={v => updatePoint(i, "cornerFitting", v)} />
+                        <SelectInput label="Hardware" options={[{ label: "Select hardware", value: "" }, ...TENSION_HARDWARE_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.tensionHardware} onChange={v => updatePoint(i, "tensionHardware", v)} />
+                        <SelectInput label="Structure" options={[{ label: "Select structure", value: "" }, { label: "Pole", value: "Pole" }, { label: "Wall", value: "Wall" }, { label: "Roof", value: "Roof" }]} value={pt.Structure} onChange={v => updatePoint(i, "Structure", v)} />
                        <NumberInput label="Allowance" value={pt.tensionAllowance} onChange={v => updatePoint(i, "tensionAllowance", v)} />
                     </div>
                   )}

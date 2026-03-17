@@ -3,13 +3,41 @@ import { apiFetch } from '../services/auth';
 import { Button } from './UI';
 import { getBaseUrl } from '../utils/baseUrl';
 
+const DEFAULT_SWATCH_COLOR = '#d1d5db';
+
+const normalizeHexColor = (value) => {
+  const rawValue = String(value || '').trim();
+
+  if (/^#[0-9a-fA-F]{6}$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  if (/^[0-9a-fA-F]{6}$/.test(rawValue)) {
+    return `#${rawValue}`;
+  }
+
+  return DEFAULT_SWATCH_COLOR;
+};
+
+
+
+
 // Color swatch component that tries texture first, falls back to hex
 const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2" }) => {
+
+
+
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [loadedSrc, setLoadedSrc] = useState('');
+  const fallbackColor = normalizeHexColor(color?.hex_value);
 
   useEffect(() => {
+
+    if (String(color?.name || '').trim().toLowerCase() === 'please select material') {
+      return;
+    }
+
     setImageLoaded(false);
     setImageError(false);
     setLoadedSrc('');
@@ -49,8 +77,8 @@ const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2"
   // Fallback to hex color
   return (
     <div
-      className={className}
-      style={{ backgroundColor: color.hex_value }}
+      className={`${className} border border-gray-300 dark:border-gray-600`}
+      style={{ backgroundColor: fallbackColor }}
     />
   );
 };

@@ -30,8 +30,10 @@ export default {
 */
 
 
-import React, { useImperativeHandle, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { 
+  deepNumberify,
+  useFormHandle,
   useProductAttribute, 
   useFormNavigation, 
   FormContainer,
@@ -50,15 +52,13 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
     ...(projectDataHydrate ?? {}),
   });
 
-  useImperativeHandle(
-    formRef,
-    () => ({
-      getValues: () => ({
-        project: projectData,
-      }),
-    }), 
-    [projectData]
-  );
+  const getValues = useCallback(() => ({
+    project: projectData,
+  }), [projectData]);
+
+  const validate = useCallback(() => ({ valid: true, errors: [] }), []);
+
+  useFormHandle(formRef, { getValues, validate });
 
   return (
     <div>
@@ -90,10 +90,17 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
 export function ProductForm({ formRef, hydrate = {} }) {
   // Use the shared hook for attribute management
   const { attributes, setAttr } = useProductAttribute({
-    formRef,
     hydrate,
     defaults: ATTRIBUTE_DEFAULTS
   });
+
+  const getValues = useCallback(() => ({
+    attributes: deepNumberify(attributes),
+  }), [attributes]);
+
+  const validate = useCallback(() => ({ valid: true, errors: [] }), []);
+
+  useFormHandle(formRef, { getValues, validate });
 
   let role = localStorage.getItem("role");
   

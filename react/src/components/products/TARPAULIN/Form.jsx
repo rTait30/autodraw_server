@@ -1,5 +1,7 @@
-import React, { useImperativeHandle, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { 
+  deepNumberify,
+  useFormHandle,
   useProductAttribute, 
   FormContainer,
   NumberInput,
@@ -16,10 +18,11 @@ export function ProjectForm({ formRef, projectDataHydrate = {} }) {
     ...(projectDataHydrate ?? {}),
   });
 
-  useImperativeHandle(formRef, () => ({
-    getValues: () => ({ project: projectData }),
-    isValid: () => true, 
-  }));
+  const getValues = useCallback(() => ({ project: projectData }), [projectData]);
+
+  const validate = useCallback(() => ({ valid: true, errors: [] }), []);
+
+  useFormHandle(formRef, { getValues, validate });
 
   return (
     <FormContainer>
@@ -101,10 +104,17 @@ function EyeletSideInput({ side, attributes, setAttr }) {
 
 export function ProductForm({ formRef, hydrate = {} }) {
   const { attributes, setAttr } = useProductAttribute({
-    formRef,
     hydrate,
     defaults: ATTRIBUTE_DEFAULTS
   });
+
+  const getValues = useCallback(() => ({
+    attributes: deepNumberify(attributes),
+  }), [attributes]);
+
+  const validate = useCallback(() => ({ valid: true, errors: [] }), []);
+
+  useFormHandle(formRef, { getValues, validate });
 
   return (
     <FormContainer>

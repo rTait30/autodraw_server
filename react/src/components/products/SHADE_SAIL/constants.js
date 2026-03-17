@@ -6,18 +6,18 @@ export const GENERAL_DEFAULTS = Object.freeze({
 });
 
 export const DEFAULT_ATTRIBUTES = Object.freeze({
-  fabricCategory: "ShadeCloth",
-  fabricType: "Rainbow Z16",
-  foldSides: "Standard",
-  exitPoint: 0,
+  fabricCategory: "",
+  fabricType: "",
+  foldSides: "",
+  exitPoint: "",
   logoPoint: null,
-  cableSize: 4,
+  cableSize: "",
   pointCount: 4,
   points: [
-    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 },
-    { height: "", cornerFitting: "Pro-Rig", tensionHardware: "M8 Bowshackle", tensionAllowance: 50 }
+    { height: "", cornerFitting: "", tensionHardware: "", tensionAllowance: "", Structure: "" },
+    { height: "", cornerFitting: "", tensionHardware: "", tensionAllowance: "", Structure: "" },
+    { height: "", cornerFitting: "", tensionHardware: "", tensionAllowance: "", Structure: "" },
+    { height: "", cornerFitting: "", tensionHardware: "", tensionAllowance: "", Structure: "" }
   ],
   connections: [],
   sailTracks: [],
@@ -27,6 +27,7 @@ export const DEFAULT_ATTRIBUTES = Object.freeze({
   fabric_name: "",
   color_id: null,
   color_name: "",
+  color_hex: "",
   colour: "",
 });
 

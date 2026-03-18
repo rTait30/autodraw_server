@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function Toast({
   message,
@@ -49,7 +50,7 @@ export default function Toast({
     ),
   }[type];
 
-  return (
+  const toast = (
     <div
       role="alert"
       className={[
@@ -84,4 +85,10 @@ export default function Toast({
       </button>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return toast;
+  }
+
+  return createPortal(toast, document.body);
 }

@@ -204,7 +204,13 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
             isNew={true} 
             project={draftProject} 
             onClose={handleCloseProjectWithOptions} 
-            onSaved={handleCloseProject}
+            onSaved={(savedProject) => {
+              if (savedProject) {
+                setDraftProject(savedProject);
+                const nextName = savedProject?.general?.name;
+                setActiveProjectName(typeof nextName === 'string' && nextName.trim() ? nextName.trim() : '');
+              }
+            }}
             requestSaveToken={saveRequestToken}
             onDraftMeta={(meta) => {
               const nextName = meta?.name;

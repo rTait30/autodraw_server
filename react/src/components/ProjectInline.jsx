@@ -244,10 +244,6 @@ const ProjectInline = ({
         return;
     }
 
-    if (!validateCurrentForm()) {
-      return;
-    }
-
     setOverlayMode('preview');
     setIsCalculating(true);
 
@@ -457,7 +453,7 @@ const ProjectInline = ({
       // Clear draft on success
       localStorage.removeItem('autodraw_draft');
       
-      onSaved();
+      onSaved(updatedProject);
       
       // Improve UX: Show success message in overlay instead of abrupt close/navigate
       setOverlayMode('success');
@@ -565,7 +561,12 @@ const ProjectInline = ({
     }
   }, [isNew, project, productsStatus, dispatch]);
   
+  const currentOrderType =
+    formRef.current?.getValues?.()?.general?.order_type ||
+    editedProject?.general?.order_type ||
+    'quote';
   const productName = editedProject?.product?.name || editedProject?.type?.name;
+  const primaryActionLabel = editedProject?.id ? 'View / Edit' : 'View / Submit';
 
   const onCloseSelect = () => {
     // If we have no product selected yet, treat close as "cancel project creation" and return to projects list.
@@ -754,54 +755,28 @@ const ProjectInline = ({
       {/* Overlay for preview/confirm/success modes */}
       <OverlayShell open={!!overlayMode} onClose={closeOverlay} panelClassName="max-w-4xl">
         {overlayMode && (
-          <>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-              <span className="font-bold text-lg text-gray-800 dark:text-gray-100">
-                {overlayMode === 'confirm' ? 'Confirm Details' : overlayMode === 'success' ? 'Success' : 'View Preview'}
-              </span>
-              <button 
-                onClick={closeOverlay}
-                className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-                aria-label="Close"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className={overlayMode === 'preview' ? 'bg-gray-50 dark:bg-gray-900' : 'p-4'}>
-              {isCalculating ? (
-                <div className="flex items-center justify-center py-24">
-                  <span className="text-lg text-gray-500 dark:text-gray-400">Calculating...</span>
-                </div>
-              ) : (
-                <ProjectOverlay
-                  mode={overlayMode}
-                  onClose={closeOverlay}
-                  onReturn={handleReturnToProjects}
-                  canvasRef={canvasRef}
-                  project={editedProject}
-                  productName={productName}
-                  devMode={devMode}
-                  toggleData={toggleData}
-                  setToggleData={setToggleData}
-                />
-              )}
-            </div>
-            {overlayMode !== 'success' && (
-              <div className="sticky bottom-0 z-10 flex gap-3 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <Button onClick={closeOverlay} variant="danger" className="flex-1">Continue Editing</Button>
-                <Button onClick={handleSave} variant="submit" className="flex-1">Submit {isNew ? 'Project' : 'Changes'}</Button>
-              </div>
-            )}
-          </>
+          <ProjectOverlay
+            variant="dialog"
+            mode={overlayMode}
+            isCalculating={isCalculating}
+            currentOrderType={currentOrderType}
+            onClose={closeOverlay}
+            onReturn={handleReturnToProjects}
+            onSubmit={handleSave}
+            canvasRef={canvasRef}
+            project={editedProject}
+            productName={productName}
+            devMode={devMode}
+            toggleData={toggleData}
+            setToggleData={setToggleData}
+          />
         )}
       </OverlayShell>
 
       {!overlayMode && (
         <StickyActionBar mode="inline" className="z-50 shrink-0">
           <Button onClick={handleCheck} variant="submit" className="flex-1">
-            View / Submit
+            {primaryActionLabel}
           </Button>
         </StickyActionBar>
       )}

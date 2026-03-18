@@ -653,34 +653,35 @@ const ProjectInline = ({
         )}
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
-        <div className="max-w-[1800px] mx-auto p-2 md:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900 lg:overflow-hidden">
+        <div className="max-w-[1800px] mx-auto h-full p-2 md:p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start lg:h-full lg:min-h-0 lg:items-stretch">
             
             {/* Left: Form */}
-            <CollapsibleCard 
-              title="Project Specifications" 
-              className="lg:col-span-7 xl:col-span-8"
-              defaultOpen={true}
-            >
-              {productName ? (
-                <Suspense fallback={<div className="p-12 text-center text-lg text-gray-500">Loading form components...</div>}>
-                  <div className="p-1">
-                    <ProjectForm
-                        product={productName}
-                        formRef={formRef}
-                        rehydrate={editedProject}
-                    />
-                  </div>
-                  {/* Action Bar Moved to Page Footer */}
-                </Suspense>
-              ) : (
-                <div className="p-16 text-center text-gray-500 italic text-lg">Form definition not found for this product type.</div>
-              )}
-            </CollapsibleCard>
+            <div className="lg:col-span-7 xl:col-span-8 lg:min-h-0 lg:overflow-y-auto lg:pr-2 custom-scrollbar">
+              <CollapsibleCard 
+                title="Project Specifications" 
+                defaultOpen={true}
+              >
+                {productName ? (
+                  <Suspense fallback={<div className="p-12 text-center text-lg text-gray-500">Loading form components...</div>}>
+                    <div className="p-1">
+                      <ProjectForm
+                          product={productName}
+                          formRef={formRef}
+                          rehydrate={editedProject}
+                      />
+                    </div>
+                    {/* Action Bar Moved to Page Footer */}
+                  </Suspense>
+                ) : (
+                  <div className="p-16 text-center text-gray-500 italic text-lg">Form definition not found for this product type.</div>
+                )}
+              </CollapsibleCard>
+            </div>
 
             {/* Right: Viz (Sticky Sidebar and Overlay Wrapper) */}
-            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto custom-scrollbar z-40">
+            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pl-2 custom-scrollbar z-40">
               
               {/* Estimate Section (Visible in sidebar mode) */}
               {!overlayMode && isStaff && schema && (

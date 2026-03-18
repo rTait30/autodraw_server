@@ -5,6 +5,7 @@ import { Button } from './UI';
 export default function ProjectOverlay({ 
   mode, // 'preview' | 'confirm' | 'success' | null
   variant = 'embedded',
+  showDialogActions = true,
   isCalculating = false,
   currentOrderType = 'quote',
   onClose,
@@ -106,7 +107,7 @@ export default function ProjectOverlay({
         <div className={mode === 'preview' ? 'bg-gray-50 dark:bg-gray-900' : 'p-4'}>
           {renderContent()}
         </div>
-        {mode !== 'success' && !isCalculating && (
+        {showDialogActions && mode !== 'success' && !isCalculating && (
           <div className="sticky bottom-0 z-10 flex gap-3 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
             <Button onClick={onClose} variant="danger" className="flex-1">Continue Editing</Button>
             <Button onClick={onSubmit} variant="submit" className="flex-1">{submitLabel}</Button>

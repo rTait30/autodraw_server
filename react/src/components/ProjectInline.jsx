@@ -101,9 +101,6 @@ const ProjectInline = ({
     const formulaSchema = project?.estimate_schema || null;
     setSchema(formulaSchema);
     setEditedSchema(formulaSchema);
-    
-    // Initial Viz Render
-    if (project) renderPreview(project);
 
     // Reset overlay mode when project prop changes (e.g. switching projects)
     setOverlayMode(null);
@@ -115,10 +112,10 @@ const ProjectInline = ({
     // Confirm/Success modes don't use the canvas.
     const shouldRender = !overlayMode || overlayMode === 'preview';
     
-    if (hasCalculatedOrSaved && editedProject && canvasRef.current && shouldRender) {
+    if (!isCalculating && hasCalculatedOrSaved && editedProject && canvasRef.current && shouldRender) {
         renderPreview(editedProject);
     }
-  }, [hasCalculatedOrSaved, editedProject, overlayMode]);
+  }, [hasCalculatedOrSaved, editedProject, overlayMode, isCalculating]);
 
   // Helper to load form - REMOVED (Handled by ProjectForm)
   /*
@@ -287,9 +284,6 @@ const ProjectInline = ({
       if (result.estimate_schema_evaluated) {
           setSchema(result.estimate_schema_evaluated);
       }
-      
-      // Attempt to render preview (simple version for now)
-      renderPreview(updated);
       
       // Trigger overlay only on mobile/tablet (below lg breakpoint) to show results without scrolling
       if (window.innerWidth < 1024) {
@@ -480,7 +474,7 @@ const ProjectInline = ({
     }
   };
 
-  const renderPreview = async (proj) => {
+  const renderPreview = useCallback(async (proj) => {
     if (!canvasRef.current || !proj) return;
     const productName = (proj.product?.name || proj.type?.name || '').toUpperCase();
     
@@ -501,7 +495,7 @@ const ProjectInline = ({
       ctx.fillStyle = '#666';
       ctx.fillText('Preview not available', 20, 30);
     }
-  };
+  }, []);
 
   // Allow closing with Escape key
   useEffect(() => {

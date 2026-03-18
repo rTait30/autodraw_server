@@ -29,12 +29,13 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "5.4 Completed" },
 ];
 
-export function GeneralSection({ data, setData = () => {}, onlyName = false }) {
+export function GeneralSection({ data, setData = () => {}, onlyName = false, hideOrderType = false }) {
   const [clients, setClients] = useState([]);
   const [clientsError, setClientsError] = useState(null);
   
   const role = localStorage.getItem('role');
   const staffFields = !onlyName && (role === 'estimator' || role === 'admin' || role === 'designer');
+  const showOrderType = !onlyName && !hideOrderType;
 
   // Fetch clients on mount if user is staff
   useEffect(() => {
@@ -76,15 +77,17 @@ export function GeneralSection({ data, setData = () => {}, onlyName = false }) {
         onChange={updateField("name")}
       />
 
-      <SelectInput
-        label="Order Type"
-        value={safe.order_type}
-        onChange={updateField("order_type")}
-        options={[
-          { value: "quote", label: "Quote" },
-          { value: "job", label: "Job" },
-        ]}
-      />
+      {showOrderType && (
+        <SelectInput
+          label="Order Type"
+          value={safe.order_type}
+          onChange={updateField("order_type")}
+          options={[
+            { value: "quote", label: "Quote" },
+            { value: "job", label: "Job" },
+          ]}
+        />
+      )}
 
       {staffFields && (
         <>

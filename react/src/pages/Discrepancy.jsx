@@ -7,6 +7,7 @@ import ProjectConfirmation from "../components/ProjectConfirmation";
 import ProjectOverlay from "../components/ProjectOverlay";
 import StickyActionBar from "../components/StickyActionBar";
 import CollapsibleCard from "../components/CollapsibleCard";
+import OverlayShell from "../components/OverlayShell";
 import PageHeader from "../components/PageHeader";
 import Toast from '../components/Toast';
 import { Button } from '../components/UI';
@@ -15,7 +16,8 @@ export default function Discrepancy() {
   const navigate = useNavigate();
 
   const formRef = useRef(null);
-  const canvasRef = useRef(null);
+  const embeddedCanvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   
   const [editedProject, setEditedProject] = useState({});
   const [overlayMode, setOverlayMode] = useState(null); // 'preview' | null
@@ -51,9 +53,22 @@ export default function Discrepancy() {
     setToast({ msg, type });
   };
 
+  const syncOverlayCanvas = () => {
+    const sourceCanvas = embeddedCanvasRef.current;
+    const targetCanvas = overlayCanvasRef.current;
+
+    if (!sourceCanvas || !targetCanvas) return;
+
+    const targetCtx = targetCanvas.getContext("2d");
+    if (!targetCtx) return;
+
+    targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    targetCtx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+  };
+
   // Render canvas using Display module when project data changes
   useEffect(() => {
-    if (!editedProject || !canvasRef.current) return;
+    if (!editedProject || !embeddedCanvasRef.current) return;
 
     // Dynamically import Display module for SHADE_SAIL
     import("../components/products/SHADE_SAIL/Display.js")
@@ -64,13 +79,19 @@ export default function Discrepancy() {
           discrepancyChecker: true, 
         };
         if (typeof module.render === "function") {
-          module.render(canvasRef.current, data);
+          module.render(embeddedCanvasRef.current, data);
+          requestAnimationFrame(syncOverlayCanvas);
         }
       })
       .catch((e) => {
         console.warn("No Display module for SHADE_SAIL:", e.message);
       });
   }, [editedProject]);
+
+  useEffect(() => {
+    if (overlayMode !== 'preview') return;
+    requestAnimationFrame(syncOverlayCanvas);
+  }, [overlayMode, editedProject]);
 
   const syncEditedFromForm = () => {
     const values = formRef.current?.getValues?.();
@@ -94,9 +115,14 @@ export default function Discrepancy() {
     }
 
     // Clear canvas first
-    const ctx = canvasRef.current?.getContext("2d");
-    if (ctx && canvasRef.current) {
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    const embeddedCtx = embeddedCanvasRef.current?.getContext("2d");
+    if (embeddedCtx && embeddedCanvasRef.current) {
+      embeddedCtx.clearRect(0, 0, embeddedCanvasRef.current.width, embeddedCanvasRef.current.height);
+    }
+
+    const overlayCtx = overlayCanvasRef.current?.getContext("2d");
+    if (overlayCtx && overlayCanvasRef.current) {
+      overlayCtx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
     }
 
     try {
@@ -316,6 +342,25 @@ export default function Discrepancy() {
         </div>
       )}
 
+      <OverlayShell
+        open={overlayMode === 'preview'}
+        onClose={closeOverlay}
+        panelClassName="max-w-5xl"
+      >
+        <ProjectOverlay
+          variant="dialog"
+          mode="preview"
+          showDialogActions={false}
+          onClose={closeOverlay}
+          canvasRef={overlayCanvasRef}
+          project={editedProject}
+          productName="SHADE_SAIL"
+          devMode={false}
+          toggleData={toggleData}
+          setToggleData={setToggleData}
+        />
+      </OverlayShell>
+
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
         <div className="max-w-[1800px] mx-auto p-2 md:p-6">
@@ -347,7 +392,7 @@ export default function Discrepancy() {
                   <ProjectOverlay
                     mode={overlayMode}
                     onClose={closeOverlay}
-                    canvasRef={canvasRef}
+                    canvasRef={embeddedCanvasRef}
                     project={editedProject}
                     productName="SHADE_SAIL"
                     devMode={false}

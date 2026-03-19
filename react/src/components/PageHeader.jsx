@@ -33,16 +33,12 @@ const PageHeader = ({
     };
 
     const HeaderContent = () => {
-        // If there's a global navigation bar rendered elsewhere on the page
-        // (has class `topbar`), we should offset the fixed header below it
-        // even when `includeNav` is false. Detect that at render time.
-        const hasGlobalTopbar = (typeof document !== 'undefined') && !!document.querySelector('.topbar');
-        const needsOffset = fixed && (showNav || hasGlobalTopbar);
-        const topClass = fixed ? (needsOffset ? 'fixed top-[var(--header-height)] w-full' : 'fixed top-0 w-full') : 'relative w-full';
+        const topClass = fixed ? 'fixed w-full' : 'relative w-full';
 
         return (
         <div
             className={`bg-white ${topClass} flex items-center justify-between px-4 py-3 md:px-8 border-b border-gray-200 dark:border-gray-700 dark:bg-gray-800 shadow-sm z-[200]`}
+            style={fixed ? { top: 'var(--top-nav-height, 0px)' } : undefined}
         >
             <div className="flex items-center gap-4">
                 {!hideBackButton && (
@@ -84,10 +80,7 @@ const PageHeader = ({
         <div className="flex-none z-10 flex flex-col">
             {showNav && <Navigation />}
              <HeaderContent />
-                 {fixed && ( (showNav || (typeof document !== 'undefined' && !!document.querySelector('.topbar'))) ? (
-                     // spacer to keep page content below the fixed header when there's a nav
-                     <div aria-hidden style={{ height: 'var(--header-height)' }} />
-                 ) : null)}
+             {fixed && <div aria-hidden style={{ height: 'var(--header-height)' }} />}
         </div>
     );
 };

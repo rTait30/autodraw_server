@@ -1,4 +1,5 @@
 # app/crm/client.py
+import json
 import os, time, requests
 from typing import Optional, Dict, Any
 
@@ -36,6 +37,15 @@ def _now() -> int:
 
 import requests
 import traceback
+
+
+def _log_wg_payload(label: str, payload: dict):
+    try:
+        print(f"\n========== {label} ==========")
+        print(json.dumps(payload, indent=2, default=str))
+        print("======================================\n")
+    except Exception as exc:
+        print(f"[workGuru] Failed to log payload for {label}: {exc}")
 
 def _fetch_access_token(tenant: str):
     if not WORKGURU_ENABLED:
@@ -283,6 +293,129 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
     return res
 
 
+def _get_total_project_points(data: dict | None) -> int:
+    total_points = 0
+    for product in (data or {}).get("products") or []:
+        attributes = product.get("attributes") or {}
+        point_count = attributes.get("pointCount")
+        try:
+            total_points += int(float(point_count or 0))
+        except (TypeError, ValueError):
+            points = attributes.get("points") or []
+            total_points += len(points)
+    return total_points
+
+
+def cp_make_quote(name: str, data: dict | None = None, materials_labour: dict | None = None, client_wg_id: str = "147217", category: str = "1a"):
+
+    print("cp_make_quote:", "\nname:", name, "\ndata:", data, "\nmaterials_labour:", materials_labour, "\nclient_wg_id:", client_wg_id, "\ncategory:", category)
+
+    pro_rig_quantity = _get_total_project_points(data)
+
+    body = {
+        "Id": "0",
+        "tenantId": "825",
+        "CustomFieldGroupId": "",
+        "ExcludeFromPipeline": False,
+        "UseStaffRates": False,
+        "QuoteNumber": "",
+        "Status": "Draft",
+        "Revision": "0",
+        "Name": name,
+        "DocumentStorageId": "",
+        "Description": "",
+        "ProjectGroupId": "",
+        "ClientId": client_wg_id,
+        "ContactId": "",
+        "BillingClientId": client_wg_id,
+        "BillingClientContactId": "",
+        "QuoteOwnerId": "14366",
+        "ForecastJobDate": "",
+        "AssetId": "",
+        "LeadId": "",
+        "Phases": "",
+        "Currency": "AUD",
+        "ExchangeRate": "1",
+        "customFieldValues": [
+            {
+                "tenantId": "825",
+                "customfieldId": "3553",
+                "customField": {
+                    "tenantId": "825",
+                    "QuoteId": "0",
+                    "id": "0",
+                    "Value": get_category_display("CP", category) or "1a. Shade (Shade Cloth)",
+                },
+            },
+            {
+                "tenantId": "825",
+                "customfieldId": "3581",
+                "customField": {
+                    "tenantId": "825",
+                    "QuoteId": "0",
+                    "id": "0",
+                    "Value": "",
+                },
+            },
+            {
+                "tenantId": "825",
+                "customfieldId": "3585",
+                "customField": {
+                    "tenantId": "825",
+                    "QuoteId": "0",
+                    "id": "0",
+                    "Value": "",
+                },
+            },
+        ],
+        "Tasks": [],
+        "Products": [],
+        "Rounding": "",
+        "TaxRounding": "",
+    }
+
+    if pro_rig_quantity > 0:
+        body["Products"].append(
+            {
+                "ProductId": "873094",
+                "Id": "0",
+                "QuoteId": "0",
+                "TenantId": "825",
+                "SortOrder": "1",
+                "TaxName": "GST on Income",
+                "TaxRate": "10",
+                "AccountCode": "47000",
+                "IsAccepted": False,
+                "Sku": "2-CP-108",
+                "Name": "2-CP-108",
+                "Quantity": f"{pro_rig_quantity:.4f}",
+                "DiscountApplied": "",
+                "Discount": "",
+                "UnitAmount": "8.0000",
+                "Billable": True,
+                "LineTotal": str(pro_rig_quantity),
+                "Description": "Cast Double Dee 8 x 50mm",
+                "TaxType": "OUTPUT",
+                "TaxAmount": f"{pro_rig_quantity * 0.1:.1f}",
+                "UnitCost": "4.4000",
+                "MarkUp": "",
+            }
+        )
+
+    print(f"[workGuru] Derived Pro-Rig quantity from project points: {pro_rig_quantity}")
+    _log_wg_payload("CP QUOTE REQUEST BODY", body)
+
+    res = wg_post("CP", "Quote/AddOrUpdateQuote", body)
+
+    quote_result = {
+        "quote": res,
+        "materials_labour": materials_labour or {"materials": {}, "labour": {}},
+    }
+
+    print("CP QUOTE CREATED/UPDATED:", quote_result)
+    return quote_result
+
+
 def cp_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "194156"):
 
     print ("cp_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
@@ -326,11 +459,15 @@ def cp_make_lead(name: str, description: str, budget: int, category: str, go_per
         ]
     }
 
+    _log_wg_payload("CP LEAD REQUEST BODY", body)
+
     # Send JSON (not data=)
     res = wg_post("CP", "Lead/AddOrUpdateLead", body)
 
     print("CP LEAD CREATED/UPDATED:", res)
     return res
+
+
 
 
 def wg_get(tenant: str, endpoint: str, params: dict | None = None):
@@ -359,12 +496,19 @@ def wg_post(tenant: str, endpoint: str, body: dict):
         return {"result": {}} # Mock result
 
     url = f"{WG_BASE}/api/services/app/{endpoint}"
+    print(f"[workGuru] POST {url} for tenant {tenant}")
     headers = {
         "Authorization": f"Bearer {get_access_token(tenant)}",
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
     res = requests.post(url, headers=headers, json=body, timeout=30)
+    print(f"[workGuru] Response status: {res.status_code}")
+    try:
+        print("[workGuru] Response body preview:")
+        print((res.text or "")[:2000])
+    except Exception as exc:
+        print(f"[workGuru] Failed to read response body: {exc}")
     res.raise_for_status()
     return res.json()
 

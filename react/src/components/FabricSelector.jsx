@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../services/auth';
 import { Button } from './UI';
 import { getBaseUrl } from '../utils/baseUrl';
@@ -19,67 +19,116 @@ const normalizeHexColor = (value) => {
   return DEFAULT_SWATCH_COLOR;
 };
 
+const getTextureSources = (fabricName, colorName) => {
+  const normalizedFabricName = String(fabricName || '').trim().toLowerCase().replace(/\s+/g, '');
+  const normalizedColorName = String(colorName || '').trim().toLowerCase().replace(/\s+/g, '');
+
+  if (!normalizedFabricName || !normalizedColorName) {
+    return { primary: '', fallback: '' };
+  }
+
+  const basePath = `/static/textures/${normalizedFabricName}/${normalizedColorName}`;
+
+  return {
+    primary: getBaseUrl(`${basePath}.webp`),
+    fallback: getBaseUrl(`${basePath}.jpg`)
+  };
+};
+
+const getSwatchRootMargin = () => {
+  if (typeof navigator === 'undefined' || !navigator.connection) {
+    return '200px';
+  }
+
+  if (navigator.connection.saveData) {
+    return '25px';
+  }
+
+  if (['slow-2g', '2g'].includes(navigator.connection.effectiveType)) {
+    return '50px';
+  }
+
+  return '200px';
+};
+
 
 
 
 // Color swatch component that tries texture first, falls back to hex
 const ColorSwatch = ({ color, fabricName, className = "w-full h-16 rounded mb-2" }) => {
-
-
-
+  const swatchRef = useRef(null);
+  const [shouldLoadImage, setShouldLoadImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [loadedSrc, setLoadedSrc] = useState('');
   const fallbackColor = normalizeHexColor(color?.hex_value);
+  const isPlaceholder = String(color?.name || '').trim().toLowerCase() === 'please select material';
+  const { primary, fallback } = getTextureSources(fabricName, color?.name);
 
   useEffect(() => {
-
-    if (String(color?.name || '').trim().toLowerCase() === 'please select material') {
-      return;
-    }
-
+    setShouldLoadImage(false);
     setImageLoaded(false);
     setImageError(false);
     setLoadedSrc('');
 
-    // Always construct path: /static/textures/{fabricName lowercase no spaces}/{colorName lowercase no spaces}
-    const basePath = `/static/textures/${fabricName?.toLowerCase().replace(/\s+/g, '')}/${color.name?.toLowerCase().replace(/\s+/g, '')}`;
-    const imageSrc = getBaseUrl(`${basePath}.webp`);
-    const alternativeSrc = getBaseUrl(`${basePath}.jpg`);
-    
-    const img = new Image();
-    let triedAlternative = false;
+    if (isPlaceholder || !primary) {
+      return;
+    }
 
-    img.onload = () => {
-      setImageLoaded(true);
-      setLoadedSrc(img.src);
-    };
-    img.onerror = () => {
-      if (!triedAlternative && alternativeSrc) {
-        triedAlternative = true;
-        img.src = alternativeSrc;
-      } else {
-        setImageError(true);
+    if (typeof IntersectionObserver === 'undefined') {
+      setShouldLoadImage(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoadImage(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: getSwatchRootMargin(),
+        threshold: 0.01
       }
-    };
-    img.src = imageSrc;
-  }, [fabricName, color.name]);
-
-  if (imageLoaded && !imageError) {
-    return (
-      <div
-        className={`${className} bg-cover bg-center`}
-        style={{ backgroundImage: `url(${loadedSrc})` }}
-      />
     );
-  }
 
-  // Fallback to hex color
+    if (swatchRef.current) {
+      observer.observe(swatchRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isPlaceholder, primary]);
+
   return (
     <div
-      className={`${className} border border-gray-300 dark:border-gray-600`}
+      ref={swatchRef}
+      className={`${className} relative overflow-hidden border border-gray-300 dark:border-gray-600`}
       style={{ backgroundColor: fallbackColor }}
-    />
+    >
+      {shouldLoadImage && !imageError && (
+        <img
+          alt={color?.name || 'Fabric swatch'}
+          className={`absolute left-0 top-1/2 w-full -translate-y-1/2 transition-opacity duration-200 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          decoding="async"
+          fetchPriority="low"
+          loading="lazy"
+          sizes="(min-width: 1024px) 12rem, 50vw"
+          src={loadedSrc || primary}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            if (loadedSrc !== fallback && fallback) {
+              setImageLoaded(false);
+              setLoadedSrc(fallback);
+              return;
+            }
+
+            setImageError(true);
+          }}
+          style={{ maxWidth: 'none' }}
+        />
+      )}
+    </div>
   );
 };
 

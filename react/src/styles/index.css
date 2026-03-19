@@ -3,6 +3,8 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
+  --header-height: 60px;
+  --top-nav-height: 0px;
   --color-bg-base: #ffffff;
   --color-bg-surface: #ffffff;
   --color-bg-surface-hover: #f9fafb;
@@ -83,7 +85,8 @@
 /* Full-screen fixed page shell. Automatically reserves space for GeneralBottomBar. */
 @layer components {
   .page-fixed {
-    @apply fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden;
+    @apply fixed left-0 right-0 bottom-0 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden;
+    top: var(--top-nav-height, 0px);
     padding-bottom: var(--bottom-nav-height, 0px);
   }
 }

@@ -101,37 +101,8 @@ def create_app():
     # --- One-time DB create ---
     with app.app_context():
         db.create_all()
-        
-        # Sync WorkGuru clients on startup
-        try:
-            if os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true":
-                from endpoints.integrations.workguru.client import sync_wg_clients
-                sync_wg_clients(db, User)
-            else:
-                print("WorkGuru sync skipped (WORKGURU_INTEGRATION not true)")
-        except Exception as e:
-            print(f"Warning: Could not sync WorkGuru clients: {e}")
 
     # --- Static + SPA routes ---
-    @app.route('/copelands/assets/<path:filename>')
-    def serve_assets(filename):
-        return send_from_directory('static/assets', filename)
-
-    @app.route('/copelands/', defaults={'path': ''})
-    @app.route('/copelands/<path:path>')
-    def serve_react_app(path):
-        print(f"DEBUG: serve_react_app called for path: {path}")
-        # Let React Router handle the path; index.html must exist in templates/
-        return render_template('index.html')
-
-    # --- Minimal security headers (adjust CSP as you harden) ---
-    @app.after_request
-    def set_security_headers(resp):
-        # In dev, avoid strict CSP that breaks Vite HMR; tighten for prod build
-        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-        resp.headers.setdefault("X-Frame-Options", "DENY")
-        resp.headers.setdefault("Referrer-Policy", "no-referrer-when-downgrade")
-        return resp
 
     return app
 

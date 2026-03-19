@@ -87,7 +87,11 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   }, []);
 
   useEffect(() => {
-    if (!mounted || !ref.current) return;
+    if (!mounted || isLanding || !isLoggedIn || !ref.current) {
+      document.documentElement.style.removeProperty('--bottom-nav-height');
+      document.body.style.paddingBottom = '';
+      return undefined;
+    }
 
     const updateHeight = () => {
       if (ref.current) {
@@ -107,7 +111,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
       document.documentElement.style.removeProperty('--bottom-nav-height');
       document.body.style.paddingBottom = '';
     };
-  }, [mounted]);
+  }, [mounted, isLanding, isLoggedIn]);
 
   const handleNewProjectClick = () => {
     if (isProjectMounted && isProjectVisible) {

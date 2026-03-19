@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleDarkMode, toggleDevMode } from '../store/togglesSlice';
@@ -8,6 +8,7 @@ import { logout } from '../services/auth';
 import { Button } from "./UI";
 
 const Navigation = () => {
+  const navRef = useRef(null);
   const name = localStorage.getItem('username');
   const role = localStorage.getItem('role');
   const verified = localStorage.getItem('verified') === 'true';
@@ -35,6 +36,28 @@ const Navigation = () => {
   const handleDevModeToggle = () => {
     dispatch(toggleDevMode());
   };
+
+  useEffect(() => {
+    if (!navRef.current) {
+      return undefined;
+    }
+
+    const updateHeight = () => {
+      if (navRef.current) {
+        document.documentElement.style.setProperty('--top-nav-height', `${navRef.current.offsetHeight}px`);
+      }
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(navRef.current);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.setProperty('--top-nav-height', '0px');
+    };
+  }, [verified]);
   
   const toggleBtnStyle = (active) => ({
     background: active ? 'var(--color-toggle-active)' : 'var(--color-toggle-inactive)',
@@ -95,45 +118,46 @@ const Navigation = () => {
 
   return (
     <>
-      <style>{`:root { --header-height: 60px; }`}</style>
-      <header className="topbar flex-none flex items-center justify-between px-5 h-[var(--header-height)] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
-        <div className="flex items-center gap-4 flex-1">
-          <img
-            src={getBaseUrl('/static/img/WhiteLogos.png')}
-            alt="Logo"
-            className="h-9 mr-5 object-contain"
-          />
-        </div>
+      <div ref={navRef}>
+        <header className="topbar flex-none flex items-center justify-between px-5 h-[var(--header-height)] w-full bg-primary dark:bg-gray-900 text-white transition-colors duration-200 z-[100]">
+          <div className="flex items-center gap-4 flex-1">
+            <img
+              src={getBaseUrl('/static/img/WhiteLogos.png')}
+              alt="Logo"
+              className="h-9 mr-5 object-contain"
+            />
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <span className="hidden md:inline txt-role">{name}</span>
-          <span className="hidden md:inline txt-role">{role}</span>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[100px] h-[44px] hover:bg-white/10 transition-colors"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-          >
-            <span className="text-lg font-bold tracking-wide">{menuOpen ? 'Close' : 'Menu'}</span>
-            {menuOpen ? (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            ) : (
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect y="7" width="32" height="3" rx="1.5" fill="currentColor" />
-                <rect y="14" width="32" height="3" rx="1.5" fill="currentColor" />
-                <rect y="21" width="32" height="3" rx="1.5" fill="currentColor" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </header>
-      {!verified && role !== 'admin' && (
-        <div className="w-full bg-yellow-500 text-black text-center py-2 font-bold px-4 shadow-sm relative">
-          ⚠️ Account Not Verified - Access Limited
-        </div>
-      )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+            <span className="hidden md:inline txt-role">{name}</span>
+            <span className="hidden md:inline txt-role">{role}</span>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="bg-transparent border border-white rounded p-0 text-white cursor-pointer leading-none flex items-center justify-center gap-3 w-[100px] h-[44px] hover:bg-white/10 transition-colors"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+            >
+              <span className="text-lg font-bold tracking-wide">{menuOpen ? 'Close' : 'Menu'}</span>
+              {menuOpen ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect y="7" width="32" height="3" rx="1.5" fill="currentColor" />
+                  <rect y="14" width="32" height="3" rx="1.5" fill="currentColor" />
+                  <rect y="21" width="32" height="3" rx="1.5" fill="currentColor" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </header>
+        {!verified && role !== 'admin' && (
+          <div className="w-full bg-yellow-500 text-black text-center py-2 font-bold px-4 shadow-sm relative">
+            ⚠️ Account Not Verified - Access Limited
+          </div>
+        )}
+      </div>
       {createPortal(mobileMenu, document.body)}
     </>
   );

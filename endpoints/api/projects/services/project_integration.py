@@ -1,4 +1,5 @@
-from endpoints.integrations.workguru.client import cp_make_lead, dr_make_lead, wg_get
+from endpoints.api.products.SHADE_SAIL.materials_labour import get_materials_labour
+from endpoints.integrations.workguru.client import cp_make_lead, cp_make_quote, dr_make_lead, wg_get
 import math
 import os
 
@@ -133,6 +134,7 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
         description += "\n"
 
     estimated_price = project.estimate_total or 0.0
+    materials_labour = get_materials_labour(data)
 
     if attributes.get("fabricCategory", "") == "PVC":
         category = "1b"
@@ -146,4 +148,12 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
         category=category,
         go_percent=100,
         client_wg_id=wg_client_id
+    )
+
+    cp_make_quote(
+        name=name,
+        data=data,
+        materials_labour=materials_labour,
+        client_wg_id=wg_client_id,
+        category=category,
     )

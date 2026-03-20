@@ -16,16 +16,16 @@ import math
 from .shared import _get_dist_xy
 
 # Workpoint algorithm modules
-from .workpoints_centroid import compute_workpoints_centroid
-from .workpoints_bisect import compute_workpoints_bisect
-from .workpoints_midpoint import compute_workpoints_midpoint
-from .workpoints_area_centroid import compute_workpoints_area_centroid
-from .workpoints_weighted import compute_workpoints_weighted
-from .workpoints_minimal import compute_workpoints_minimal
-from .workpoints_bisect_rotate import compute_workpoints_bisect_rotate
-from .workpoints_bisect_rotate_normalized import compute_workpoints_bisect_rotate_normalized
-from .workpoints_bisect_rotate_planar import compute_workpoints_bisect_rotate_planar
-from .workpoints_plane_resultant import compute_workpoints_plane_resultant
+from .workpoints.workpoints_centroid import compute_workpoints_centroid
+from .workpoints.workpoints_bisect import compute_workpoints_bisect
+from .workpoints.workpoints_midpoint import compute_workpoints_midpoint
+from .workpoints.workpoints_area_centroid import compute_workpoints_area_centroid
+from .workpoints.workpoints_weighted import compute_workpoints_weighted
+from .workpoints.workpoints_minimal import compute_workpoints_minimal
+from .workpoints.workpoints_bisect_rotate import compute_workpoints_bisect_rotate
+from .workpoints.workpoints_bisect_rotate_normalized import compute_workpoints_bisect_rotate_normalized
+from .workpoints.workpoints_bisect_rotate_planar import compute_workpoints_bisect_rotate_planar
+from .workpoints.workpoints_plane_resultant import compute_workpoints_plane_resultant
 
 # Configuration: Enable/disable workpoint algorithms
 # Set to True to compute and include in attributes

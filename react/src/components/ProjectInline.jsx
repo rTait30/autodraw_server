@@ -242,11 +242,13 @@ const ProjectInline = ({
         return;
     }
 
-    setOverlayMode('preview');
     setIsCalculating(true);
 
     const base = syncEditedFromForm();
-    if (!base) return;
+    if (!base) {
+      setIsCalculating(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -285,11 +287,9 @@ const ProjectInline = ({
       if (result.estimate_schema_evaluated) {
           setSchema(result.estimate_schema_evaluated);
       }
-      
-      // Trigger overlay only on mobile/tablet (below lg breakpoint) to show results without scrolling
-      if (window.innerWidth < 1024) {
-          setOverlayMode('preview');
-      }
+
+      // Open the preview only after the calculated project state is ready.
+      setOverlayMode('preview');
 
     } catch (e) {
       console.error(e);

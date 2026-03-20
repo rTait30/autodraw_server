@@ -36,8 +36,10 @@ def estimate_project_total(project):
     
     for i, pp in enumerate(products):
         # Merge attributes and calculated values for the evaluation context
-        eval_context = (pp.attributes or {}).copy()
+        eval_context = (project.project_attributes or {}).copy()
+        eval_context.update(pp.attributes or {})
         eval_context.update(pp.calculated or {})
+        eval_context["project_attributes"] = project.project_attributes or {}
         eval_context["attributes"] = pp.attributes or {}
         eval_context["calculated"] = pp.calculated or {}
 
@@ -137,8 +139,10 @@ def estimate_payload(product_id, payload_data, schema=None):
         attrs = pp.get("attributes") or {}
         calc = pp.get("calculated") or {}
         
-        eval_context = attrs.copy()
+        eval_context = project_attrs.copy()
+        eval_context.update(attrs)
         eval_context.update(calc)
+        eval_context["project_attributes"] = project_attrs
         eval_context["attributes"] = attrs
         eval_context["calculated"] = calc
         

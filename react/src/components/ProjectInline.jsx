@@ -31,7 +31,8 @@ const ProjectInline = ({
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const formRef = useRef(null);
-  const canvasRef = useRef(null);
+  const inlineCanvasRef = useRef(null);
+  const dialogCanvasRef = useRef(null);
   const productsList = useSelector(state => state.products.list);
   const productsStatus = useSelector(state => state.products.status);
   
@@ -111,8 +112,9 @@ const ProjectInline = ({
     // Only render in inline mode (null) or preview mode. 
     // Confirm/Success modes don't use the canvas.
     const shouldRender = !overlayMode || overlayMode === 'preview';
+    const activeCanvas = overlayMode === 'preview' ? dialogCanvasRef.current : inlineCanvasRef.current;
     
-    if (!isCalculating && hasCalculatedOrSaved && editedProject && canvasRef.current && shouldRender) {
+    if (!isCalculating && hasCalculatedOrSaved && editedProject && activeCanvas && shouldRender) {
         renderPreview(editedProject);
     }
   }, [hasCalculatedOrSaved, editedProject, overlayMode, isCalculating]);
@@ -134,11 +136,10 @@ const ProjectInline = ({
     
   // Reset canvas when project changes
   useEffect(() => {
-    if (canvasRef.current && editedProject) {
-      // Logic handled in renderPreview called by check/calc or explicit effect?
-      // For now, let's just clear
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    const canvases = [inlineCanvasRef.current, dialogCanvasRef.current].filter(Boolean);
+    for (const canvas of canvases) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   }, [editedProject?.product?.id]); // clear when product changes
 
@@ -475,13 +476,14 @@ const ProjectInline = ({
   };
 
   const renderPreview = useCallback(async (proj) => {
-    if (!canvasRef.current || !proj) return;
+    const canvas = overlayMode === 'preview' ? dialogCanvasRef.current : inlineCanvasRef.current;
+    if (!canvas || !proj) return;
     const productName = (proj.product?.name || proj.type?.name || '').toUpperCase();
     
     try {
       const module = await import(`./products/${productName}/Display.js`);
       if (typeof module.render === 'function') {
-        module.render(canvasRef.current, {
+        module.render(canvas, {
           products: proj.products || [],
           project_attributes: proj.project_attributes || {},
         });
@@ -489,13 +491,18 @@ const ProjectInline = ({
     } catch (e) {
       console.warn('No display module found or render failed', e);
       // Fallback text
-      const ctx = canvasRef.current.getContext('2d');
+      const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#f3f4f6';
       ctx.fillRect(0,0,800,300);
       ctx.fillStyle = '#666';
       ctx.fillText('Preview not available', 20, 30);
     }
-  }, []);
+  }, [overlayMode]);
+
+  const handlePreviewReady = useCallback(() => {
+    if (!editedProject || isCalculating) return;
+    renderPreview(editedProject);
+  }, [editedProject, isCalculating, renderPreview]);
 
   // Allow closing with Escape key
   useEffect(() => {
@@ -732,7 +739,7 @@ const ProjectInline = ({
               {hasCalculatedOrSaved && !overlayMode && (
                 <div className="bg-white dark:bg-gray-800 rounded-sm shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <ProjectOverlay
-                    canvasRef={canvasRef}
+                    canvasRef={inlineCanvasRef}
                     project={editedProject}
                     productName={productName}
                     devMode={devMode}
@@ -758,7 +765,8 @@ const ProjectInline = ({
             onClose={closeOverlay}
             onReturn={handleReturnToProjects}
             onSubmit={handleSave}
-            canvasRef={canvasRef}
+            canvasRef={dialogCanvasRef}
+            onPreviewReady={handlePreviewReady}
             project={editedProject}
             productName={productName}
             devMode={devMode}

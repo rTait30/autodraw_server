@@ -16,6 +16,34 @@ import re
 from typing import Any, Dict, List
 
 
+class _MissingValue:
+    def get(self, _key, default=0.0):
+        return default
+
+    def __getattr__(self, _name):
+        return self
+
+    def __getitem__(self, _key):
+        return 0.0
+
+    def __bool__(self):
+        return False
+
+    def __float__(self):
+        return 0.0
+
+    def __int__(self):
+        return 0
+
+    def __repr__(self):
+        return "0"
+
+
+class _EvalContext(dict):
+    def __missing__(self, _key):
+        return _MissingValue()
+
+
 def _process_ternary(expr: str) -> str:
     """Core logic to convert a single ternary expression string.
     
@@ -97,7 +125,7 @@ def _eval_python_expr(expr: str, variables: Dict[str, Any]) -> float:
     # but the primary context has "attributes" as a dict.
     
     # Create a safe-ish context
-    context = {
+    context = _EvalContext({
         "math": math,
         "abs": abs,
         "min": min,
@@ -106,7 +134,7 @@ def _eval_python_expr(expr: str, variables: Dict[str, Any]) -> float:
         "int": int,
         "float": float,
         **variables # Inject all top-level variables (attributes, inputs, calculated, etc.)
-    }
+    })
     
     # Helper: allow direct access to attributes keys if they don't conflict
     if "attributes" in variables and isinstance(variables["attributes"], dict):

@@ -122,7 +122,11 @@ class Project(db.Model):
             grand_total = 0.0
             for item in self.products:
                 # Use the item-specific attributes when evaluating
-                result = estimate_price_from_schema(self.estimate_schema, item.attributes or {}) or {}
+                eval_context = (self.project_attributes or {}).copy()
+                eval_context.update(item.attributes or {})
+                eval_context["project_attributes"] = self.project_attributes or {}
+                eval_context["attributes"] = item.attributes or {}
+                result = estimate_price_from_schema(self.estimate_schema, eval_context) or {}
                 totals = result.get("totals") or {}
                 item_total = (
                     totals.get("grand_total")
@@ -138,7 +142,9 @@ class Project(db.Model):
         # Fallback: evaluate against project-level attributes
         if not self.estimate_schema:
             return None
-        results = estimate_price_from_schema(self.estimate_schema, self.project_attributes or {})
+        eval_context = (self.project_attributes or {}).copy()
+        eval_context["project_attributes"] = self.project_attributes or {}
+        results = estimate_price_from_schema(self.estimate_schema, eval_context)
         totals = results.get("totals") or {}
         return (
             totals.get("grand_total")

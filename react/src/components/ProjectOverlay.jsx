@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ProjectConfirmation from './ProjectConfirmation';
 import { Button } from './UI';
 
@@ -12,6 +12,7 @@ export default function ProjectOverlay({
   onReturn,
   onSubmit,
   canvasRef, 
+  onPreviewReady,
   project, 
   productName,
   devMode,
@@ -27,8 +28,14 @@ export default function ProjectOverlay({
       : 'View Preview';
   const submitLabel = `${isExistingProject ? 'Edit' : 'Submit'} ${currentOrderType === 'job' ? 'Job' : 'Quote'}`;
 
+  useEffect(() => {
+    if (mode !== 'preview' || isCalculating) return;
+    if (!canvasRef?.current) return;
+    onPreviewReady?.(canvasRef.current);
+  }, [mode, isCalculating, canvasRef, onPreviewReady, project]);
+
   const renderPreview = () => (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full min-h-[360px]">
       <canvas 
         ref={canvasRef} 
         width={800} 

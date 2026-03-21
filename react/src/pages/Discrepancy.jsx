@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState, Suspense } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, setAccessToken } from "../services/auth";
+import { apiFetch } from "../services/auth";
 import ProjectForm from "../components/ProjectForm";
 import Authentication from "../components/Authentication";
 import ProjectConfirmation from "../components/ProjectConfirmation";
@@ -259,7 +259,7 @@ export default function Discrepancy() {
   const closeOverlay = () => setOverlayMode(null);
 
   return (
-    <div className="page-fixed">
+    <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       
       {/* Toast Overlay */}
       {toast && (
@@ -346,12 +346,13 @@ export default function Discrepancy() {
         open={overlayMode === 'preview'}
         onClose={closeOverlay}
         panelClassName="max-w-5xl"
+        showCloseButton={true}
+        title="View Preview"
       >
         <ProjectOverlay
           variant="dialog"
           mode="preview"
           showDialogActions={false}
-          onClose={closeOverlay}
           canvasRef={overlayCanvasRef}
           project={editedProject}
           productName="SHADE_SAIL"
@@ -361,9 +362,8 @@ export default function Discrepancy() {
         />
       </OverlayShell>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
-        <div className="max-w-[1800px] mx-auto p-2 md:p-6">
+      <main className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-50 dark:bg-gray-900 p-4 md:p-8 pb-24">
+        <div className="max-w-[1800px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
             
             {/* Left: Form */}
@@ -391,7 +391,6 @@ export default function Discrepancy() {
               >
                   <ProjectOverlay
                     mode={overlayMode}
-                    onClose={closeOverlay}
                     canvasRef={embeddedCanvasRef}
                     project={editedProject}
                     productName="SHADE_SAIL"
@@ -404,7 +403,7 @@ export default function Discrepancy() {
 
           </div>
         </div>
-      </div>
+      </main>
 
        {/* Footer Action Bar */}
        <StickyActionBar 
@@ -426,23 +425,6 @@ export default function Discrepancy() {
                 Save as Draft
             </Button>
       </StickyActionBar>
-
-      <style>{`
-        @keyframes slide-up-card {
-          from { transform: translateY(100%); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-up-card {
-          animation: slide-up-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes slide-down-card {
-          from { transform: translateY(0); opacity: 1; }
-          to { transform: translateY(100%); opacity: 0; }
-        }
-        .animate-slide-down-card {
-          animation: slide-down-card 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
 
     </div>
   );

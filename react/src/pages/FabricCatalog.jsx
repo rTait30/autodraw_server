@@ -17,7 +17,7 @@ const FabricCatalog = () => {
   const backPath = isLoggedIn ? "/copelands/tools" : "/copelands/";
 
   return (
-    <div className="page-fixed">
+    <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       
       {/* Header Bar */}
       <PageHeader 
@@ -27,11 +27,11 @@ const FabricCatalog = () => {
       />
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto p-4 py-8">
+      <main className="flex-1 overflow-y-auto overscroll-y-contain bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
           <FabricSelector onSelect={handleSelect} mode="catalog" />
         </div>
-      </div>
+      </main>
 
     </div>
   );

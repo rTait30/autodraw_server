@@ -10,6 +10,8 @@ export default function OverlayShell({
   closeOnBackdrop = true,
   closeOnEsc = true,
   lockScroll = true,
+  showCloseButton = false,
+  title = null,
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -70,6 +72,29 @@ export default function OverlayShell({
         // Prevent backdrop close when clicking inside
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {(title || showCloseButton) && (
+          <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+            <span className="font-bold text-lg text-gray-800 dark:text-gray-100">
+              {title || ''}
+            </span>
+            {showCloseButton && (
+              <button
+                type="button"
+                aria-label="Close dialog"
+                className={[
+                  'p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg',
+                  'hover:bg-gray-200 dark:hover:bg-gray-600',
+                  'text-gray-600 dark:text-gray-300 transition-colors',
+                ].join(' ')}
+                onClick={() => onClose?.()}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
         {children}
       </div>
     </div>

@@ -8,7 +8,6 @@ export default function ProjectOverlay({
   showDialogActions = true,
   isCalculating = false,
   currentOrderType = 'quote',
-  onClose,
   onReturn,
   onSubmit,
   canvasRef, 
@@ -21,11 +20,6 @@ export default function ProjectOverlay({
   children
 }) {
   const isExistingProject = Boolean(project?.id);
-  const dialogTitle = mode === 'confirm'
-    ? 'Confirm Details'
-    : mode === 'success'
-      ? 'Success'
-      : 'View Preview';
   const submitLabel = `${isExistingProject ? 'Edit' : 'Submit'} ${currentOrderType === 'job' ? 'Job' : 'Quote'}`;
 
   useEffect(() => {
@@ -38,8 +32,8 @@ export default function ProjectOverlay({
     <div className="flex flex-col h-full w-full min-h-[360px]">
       <canvas 
         ref={canvasRef} 
-        width={800} 
-        height={600} 
+        width={500} 
+        height={500} 
         className="w-full h-auto"
       />
       {devMode && (
@@ -77,12 +71,9 @@ export default function ProjectOverlay({
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Project Submitted!</h2>
           <p className="text-base text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
-            Your project has been successfully saved. What would you like to do next?
+            Your project has been successfully saved.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <Button onClick={onReturn} variant="secondary" className="flex-1">Return to Projects</Button>
-            <Button onClick={onClose} className="flex-1">Continue Editing</Button>
-          </div>
+          <Button onClick={onReturn} variant="secondary" className="w-full">Return to Projects</Button>
         </div>
       );
     }
@@ -97,26 +88,11 @@ export default function ProjectOverlay({
   if (variant === 'dialog') {
     return (
       <>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-          <span className="font-bold text-lg text-gray-800 dark:text-gray-100">
-            {dialogTitle}
-          </span>
-          <button 
-            onClick={onClose}
-            className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
         <div className={mode === 'preview' ? 'bg-gray-50 dark:bg-gray-900' : 'p-4'}>
           {renderContent()}
         </div>
         {showDialogActions && mode !== 'success' && !isCalculating && (
-          <div className="sticky bottom-0 z-10 flex gap-3 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <Button onClick={onClose} variant="danger" className="flex-1">Continue Editing</Button>
+          <div className="sticky bottom-0 z-10 flex p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
             <Button onClick={onSubmit} variant="submit" className="flex-1">{submitLabel}</Button>
           </div>
         )}

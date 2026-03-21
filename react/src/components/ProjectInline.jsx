@@ -15,6 +15,8 @@ import CollapsibleCard from './CollapsibleCard';
 import PageHeader from './PageHeader';
 import ConfirmOverlay from './ConfirmOverlay';
 import OverlayShell from './OverlayShell';
+import ProductSelector from './ProductSelector';
+
 import { discardDraftAndCloseInline } from '../utils/draft';
 
 // Helper to load dynamic form components (used internally by ProjectForm now)
@@ -566,6 +568,11 @@ const ProjectInline = ({
     formRef.current?.getValues?.()?.general?.order_type ||
     editedProject?.general?.order_type ||
     'quote';
+  const overlayTitle = overlayMode === 'confirm'
+    ? 'Confirm Details'
+    : overlayMode === 'success'
+      ? 'Success'
+      : 'View Preview';
   const productName = editedProject?.product?.name || editedProject?.type?.name;
   const primaryActionLabel = editedProject?.id ? 'View / Edit' : 'View / Submit';
 
@@ -582,36 +589,30 @@ const ProjectInline = ({
 
   // New logic: Simple overlay for product selection
   if (!productName && isNew) {
-      return (
-        <OverlayShell open onClose={onClose} panelClassName="max-w-sm" closeOnBackdrop={false}>
-          <div className="p-6 flex flex-col gap-4">
-            <div className="text-center border-b border-gray-100 dark:border-gray-700 pb-3">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Project</h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Choose a product to start</p>
-            </div>
-            <div className="flex flex-col gap-3">
-              {productsList?.length > 0 ? productsList.map(p => (
-                <Button
-                  key={p.id || p.name}
-                  onClick={() => setEditedProject({
-                    product: p,
-                    general: { name: 'New Project' },
-                    status: 'New'
-                  })}
-                  className="w-full text-center text-lg py-3 shadow-sm"
-                >
-                  {p.name}
-                </Button>
-              )) : (
-                <div className="text-center text-gray-500 py-4">Loading products...</div>
-              )}
-            </div>
-            <button type="button" onClick={onClose} className="underline hover:text-gray-700 dark:hover:text-gray-300 mt-4">
-              Cancel
-            </button>
-          </div>
-        </OverlayShell>
-      );
+    const handleSelectProduct = (product) => {
+      setEditedProject({
+        product,
+        general: { name: "New Project" },
+        status: "New",
+      });
+    };
+
+    return (
+      <OverlayShell
+        open
+        onClose={onClose}
+        panelClassName="max-w-sm"
+        closeOnBackdrop={false}
+        showCloseButton={true}
+        title="Select Product"
+      >
+        <ProductSelector
+          products={productsList}
+          onSelect={handleSelectProduct}
+          onClose={onClose}
+        />
+      </OverlayShell>
+    );
   }
 
 
@@ -755,25 +756,27 @@ const ProjectInline = ({
       </div>
 
       {/* Overlay for preview/confirm/success modes */}
-      <OverlayShell open={!!overlayMode} onClose={closeOverlay} panelClassName="max-w-4xl">
-        {overlayMode && (
-          <ProjectOverlay
-            variant="dialog"
-            mode={overlayMode}
-            isCalculating={isCalculating}
-            currentOrderType={currentOrderType}
-            onClose={closeOverlay}
-            onReturn={handleReturnToProjects}
-            onSubmit={handleSave}
-            canvasRef={dialogCanvasRef}
-            onPreviewReady={handlePreviewReady}
-            project={editedProject}
-            productName={productName}
-            devMode={devMode}
-            toggleData={toggleData}
-            setToggleData={setToggleData}
-          />
-        )}
+      <OverlayShell
+        open={!!overlayMode}
+        onClose={closeOverlay}
+        showCloseButton={true}
+        title={overlayTitle}
+      >
+        <ProjectOverlay
+          variant="dialog"
+          mode={overlayMode}
+          isCalculating={isCalculating}
+          currentOrderType={currentOrderType}
+          onReturn={handleReturnToProjects}
+          onSubmit={handleSave}
+          canvasRef={dialogCanvasRef}
+          onPreviewReady={handlePreviewReady}
+          project={editedProject}
+          productName={productName}
+          devMode={devMode}
+          toggleData={toggleData}
+          setToggleData={setToggleData}
+        />
       </OverlayShell>
 
       {!overlayMode && (

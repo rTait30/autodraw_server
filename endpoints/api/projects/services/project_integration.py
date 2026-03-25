@@ -1,5 +1,5 @@
 from endpoints.api.products.SHADE_SAIL.materials_labour import get_materials_labour
-from endpoints.integrations.workguru.client import cp_make_lead, cp_make_quote, dr_make_lead, wg_get
+from endpoints.integrations.workguru.client import create_cp_lead, create_cp_quote, create_dr_lead, workguru_get
 import math
 import os
 
@@ -31,13 +31,13 @@ def enrich_wg_data(wg_data):
         if tenant == "D&R Liners":
             tenant_code = "DR"
 
-        GetProjectId = wg_get(tenant_code, f"/Project/GetProjectIdByNumber?number=PR-{tenant_code}-{project_number}")
+        GetProjectId = workguru_get(tenant_code, f"/Project/GetProjectIdByNumber?number=PR-{tenant_code}-{project_number}")
 
         projectId = GetProjectId.get("result", None)
 
         print (f"WorkGuru API: Fetched project ID {projectId} for project number {project_number} under tenant {tenant}")
 
-        GetProjectById = wg_get(tenant_code, f"/Project/GetProjectById?id={projectId}")
+        GetProjectById = workguru_get(tenant_code, f"/Project/GetProjectById?id={projectId}")
 
         api_response = {
             "projectId": projectId,
@@ -79,7 +79,7 @@ def submit_cover_to_workguru(project, data, wg_client_id):
 
     estimated_price = project.estimate_total or 0.0
     
-    dr_make_lead(
+    create_dr_lead(
         name=name,
         description=description,
         budget=math.ceil(estimated_price) if estimated_price else 0,
@@ -141,7 +141,7 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
     else:
         category = "1a"
     
-    cp_make_lead(
+    create_cp_lead(
         name=name,
         description=description,
         budget=math.ceil(estimated_price) if estimated_price else 0,
@@ -150,7 +150,7 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
         client_wg_id=wg_client_id
     )
 
-    cp_make_quote(
+    create_cp_quote(
         name=name,
         data=data,
         materials_labour=materials_labour,

@@ -11,149 +11,19 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from calendar import monthrange
 
-# WG/workGuru.py -> WG/ -> top-level/
-TOP = Path(__file__).resolve().parent.parent
-load_dotenv(TOP / "instance" / ".env")
-
-WG_BASE = "https://api.workguru.io/"
-# Default to FALSE (OFFLINE) unless explicitly enabled
-WORKGURU_ENABLED = os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true"
-
-TENANTS = {
-    "CP": {
-        "key": os.getenv("CP_KEY"),
-        "secret": os.getenv("CP_SECRET"),
-        "token": None,  # optional pre-set token
-    },
-    "DR": {
-        "key": os.getenv("DR_KEY"),
-        "secret": os.getenv("DR_SECRET"),
-        "token": None,  # optional pre-set token
-    },
-}
-
-def _now() -> int:
-    return int(time.time())
+from .auth import WG_BASE, WORKGURU_ENABLED, TENANTS, get_access_token, _log_wg_payload
 
 import requests
 import traceback
 
 
-def _log_wg_payload(label: str, payload: dict):
-    try:
-        print(f"\n========== {label} ==========")
-        print(json.dumps(payload, indent=2, default=str))
-        print("======================================\n")
-    except Exception as exc:
-        print(f"[workGuru] Failed to log payload for {label}: {exc}")
-
-def _fetch_access_token(tenant: str):
-    if not WORKGURU_ENABLED:
-        print(f"[OFFLINE MODE] Skipping token fetch for {tenant}")
-        return "OFFLINE_TOKEN"
-
-    print("\n========== FETCHING NEW WORKGURU TOKEN ==========")
-    print(f"Tenant: {tenant}")
-
-    creds = TENANTS.get(tenant)
-    if not creds:
-        raise RuntimeError(f"No credentials configured for tenant '{tenant}'")
-
-    base = WG_BASE.rstrip("/")  # e.g. "https://api.workguru.io"
-    url = f"{base}/api/ClientTokenAuth/Authenticate/api/client/v1/tokenauth"
-    print(f"Auth URL: {url}")
-
-    payload = {
-        "apiKey": creds["key"],
-        "secret": creds["secret"],
-    }
-    print("Payload keys present:", {
-        "apiKey": bool(creds.get("key")),
-        "secret": bool(creds.get("secret")),
-    })
-
-    try:
-        res = requests.post(url, json=payload, timeout=20)
-
-        # Debug info
-        print("Auth status code:", res.status_code)
-        try:
-            # First 500 chars of body so logs don't explode
-            print("Auth response body preview:")
-            print((res.text or "")[:500])
-        except Exception:
-            print("Could not read response text")
-
-        res.raise_for_status()
-        data = res.json()
-
-    except Exception as e:
-        # This is what you’re seeing now in the traceback
-        print("\n!!!!!! ERROR WHILE FETCHING WORKGURU TOKEN !!!!!!")
-        print("Tenant:", tenant)
-        print("Exception:", repr(e))
-        print("Traceback:")
-        traceback.print_exc()
-        print("--------------------------------------------------")
-        raise RuntimeError(
-            f"Failed to fetch WorkGuru token for tenant '{tenant}'. "
-            f"HTTP status: {getattr(res, 'status_code', 'unknown')}. "
-            f"See logs above for full response."
-        ) from e
-
-    access = data.get("accessToken")
-    if not access:
-        raise RuntimeError(
-            f"WorkGuru token response did not contain 'accessToken' for tenant '{tenant}'. "
-            f"Raw response: {data}"
-        )
-
-    # Common fields in WG token responses: accessToken, expiresInSeconds
-    expires_in = int(data.get("expiresInSeconds", data.get("expires_in", 3600)))
-    exp = _now() + max(60, expires_in - 30)
-
-    TENANTS[tenant]["token"] = access
-    TENANTS[tenant]["token_exp"] = exp
-
-    print("Token fetched OK for tenant", tenant)
-    print("Token expires at:", exp)
-    print("==================================================\n")
-
-    return access
-
-
-
-def get_access_token(tenant):
-
-    print (f"Getting access token for tenant: {tenant}")
-
-    if TENANTS[tenant]["token"]:
-        return TENANTS[tenant]["token"]
-
-    else:
-        _fetch_access_token(tenant)
-        return TENANTS[tenant]["token"]
-
-def warm_crm_token(*tenants: str) -> None:
-    """Optional: prefetch tokens at startup."""
-    targets = tenants or list(TENANTS.keys())
-    for t in targets:
-        try:
-            get_access_token(t, force=True)
-        except Exception as e:
-            # non-fatal warmup
-            print(f"[workGuru] Warmup failed for {t}: {e}")
-
-
-    
-        
-def get_leads(tenant): #DR/CP
+def get_workguru_leads(tenant): #DR/CP
     """
     Example function to fetch leads from the CRM.
     Adjust URL/headers as per your CRM API.
     """
     if not WORKGURU_ENABLED:
-        print(f"[OFFLINE MODE] Skipping get_leads({tenant})")
+        print(f"[OFFLINE MODE] Skipping get_workguru_leads({tenant})")
         return []
 
     print ("Fetching leads for tenant:", tenant)
@@ -172,9 +42,9 @@ def get_leads(tenant): #DR/CP
     return res.json().get("result", [])
 
 
-def add_cover(name: str, description: str):
+def create_workguru_lead(name: str, description: str):
     if not WORKGURU_ENABLED:
-        print(f"[OFFLINE MODE] Skipping add_cover({name})")
+        print(f"[OFFLINE MODE] Skipping create_workguru_lead({name})")
         return {"id": "OFFLINE_ID", "name": name}
 
     access_token = get_access_token("DR")
@@ -200,7 +70,7 @@ def add_cover(name: str, description: str):
         "CategoryId": 2140,          # dr warm
         "StageId": 2607,             # dr lead
         "CloseProbability": 90,
-        "ForecastCloseDate": get_forecastclose_date(),
+        "ForecastCloseDate": calculate_forecast_close_date(),
         "ClientId": 178827,          # dr parameter
         "ContactId": None,           # or omit if not used
         "BillingClientId": 178827,
@@ -242,10 +112,73 @@ def add_cover(name: str, description: str):
     print("LEAD CREATED/UPDATED:", data)
     return data
 
+def _get_total_project_points(data: dict | None) -> int:
+    total_points = 0
+    for product in (data or {}).get("products") or []:
+        attributes = product.get("attributes") or {}
+        point_count = attributes.get("pointCount")
+        try:
+            total_points += int(float(point_count or 0))
+        except (TypeError, ValueError):
+            points = attributes.get("points") or []
+            total_points += len(points)
+    return total_points
 
-def dr_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "178827"):
 
-    print ("dr_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
+def create_cp_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "194156"):
+
+    print ("create_cp_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
+
+    # Build the exact shape that matches the working example
+    body = {
+        "Id": "0",
+        "TenantId": "825",
+        "WonOrLostDate": "",
+        "Status": "Current",
+        "CreatorUserId": "",
+        "LeadNumber": "",
+        "Name": name,
+        "Description": description,
+        "OwnerId": "14366",          # From working example
+        "CategoryId": "1735",
+        "StageId": "2123",           # From working example (was 2618)
+        "CloseProbability": str(int(go_percent * 0.5)),
+        "ForecastCloseDate": calculate_forecast_close_date(),
+        "ClientId": client_wg_id,    # From working example
+        "ContactId": "",
+        "BillingClientId": client_wg_id, # From working example
+        "BillingClientContactId": "",
+        "Budget": budget,
+        "CustomFieldValues": [
+            {
+                "TenantId": "825",
+                "CustomFieldId": "3553",
+                "Value": get_category_display_name("CP", category) or "1a. Shade (Shade Cloth)"
+            },
+            {
+                "TenantId": "825",
+                "CustomFieldId": "5289",
+                "Value": str(go_percent * 0.5),  # Get% 50
+            },
+            {
+                "TenantId": "825",
+                "CustomFieldId": "5290",
+                "Value": str(go_percent),  # Go% supplied by customer
+            },
+        ]
+    }
+
+    _log_wg_payload("CP LEAD REQUEST BODY", body)
+
+    # Send JSON (not data=)
+    res = workguru_post("CP", "Lead/AddOrUpdateLead", body)
+
+    print("CP LEAD CREATED/UPDATED:", res)
+    return res
+
+def create_dr_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "178827"):
+
+    print ("create_dr_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
 
     # Build the exact shape that matches the working example
     body = {
@@ -261,7 +194,7 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
         "CategoryId": "2140",        # STRING - dr warm
         "StageId": "2607",           # STRING - dr lead
         "CloseProbability": str(int(go_percent * 0.5)),  # STRING
-        "ForecastCloseDate": get_forecastclose_date(),
+        "ForecastCloseDate": calculate_forecast_close_date(),
         "ClientId": client_wg_id,    # STRING - Dynamic
         "ContactId": "",             # Empty string, not None
         "BillingClientId": client_wg_id, # STRING - Dynamic
@@ -271,7 +204,7 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
             {
                 "TenantId": "826",   # STRING
                 "CustomFieldId": "3686",  # STRING
-                "Value": get_category_display("DR", category),
+                "Value": get_category_display_name("DR", category),
             },
             {
                 "TenantId": "826",
@@ -287,28 +220,90 @@ def dr_make_lead(name: str, description: str, budget: int, category: str, go_per
     }
 
     # Send JSON (not data=)
-    res = wg_post("DR", "Lead/AddOrUpdateLead", body)
+    res = workguru_post("DR", "Lead/AddOrUpdateLead", body)
 
     print("DR LEAD CREATED/UPDATED:", res)
     return res
 
 
-def _get_total_project_points(data: dict | None) -> int:
-    total_points = 0
-    for product in (data or {}).get("products") or []:
-        attributes = product.get("attributes") or {}
-        point_count = attributes.get("pointCount")
-        try:
-            total_points += int(float(point_count or 0))
-        except (TypeError, ValueError):
-            points = attributes.get("points") or []
-            total_points += len(points)
-    return total_points
+
+def add_update_lead(
+    tenant: str,
+    id: Optional[str],  # None for create, string ID for update
+    name: str,
+    description: str,
+    budget: int,
+    category: str,
+    go_percent: int = 100,
+    client_wg_id: str | None = None,
+):
+    tenant = tenant.upper()
+    cfg = LEAD_TENANT_CONFIG[tenant]
+
+    client_wg_id = client_wg_id or cfg["default_client_wg_id"]
+    get_percent = int(go_percent * 0.5)
+
+    print(
+        "make_lead:",
+        "\ntenant:", tenant,
+        "\nname:", name,
+        "\ndescription:", description,
+        "\nbudget:", budget,
+        "\ncategory:", category,
+        "\ngo_percent:", go_percent,
+        "\nclient_wg_id:", client_wg_id,
+    )
+
+    body = {
+        "Id": id or "0",
+        "TenantId": cfg["tenant_id"],
+        "WonOrLostDate": "",
+        "Status": "Current",
+        "CreatorUserId": "",
+        "LeadNumber": "",
+        "Name": name,
+        "Description": description,
+        "OwnerId": cfg["owner_id"],
+        "CategoryId": cfg["category_id"],
+        "StageId": cfg["stage_id"],
+        "CloseProbability": str(get_percent),
+        "ForecastCloseDate": get_forecast_close_date(),
+        "ClientId": client_wg_id,
+        "ContactId": "",
+        "BillingClientId": client_wg_id,
+        "BillingClientContactId": "",
+        "Budget": budget,
+        "CustomFieldValues": [
+            {
+                "TenantId": cfg["tenant_id"],
+                "CustomFieldId": cfg["category_custom_field_id"],
+                "Value": get_category_display(tenant, category) or cfg["default_category_display"],
+            },
+            {
+                "TenantId": cfg["tenant_id"],
+                "CustomFieldId": cfg["get_percent_custom_field_id"],
+                "Value": str(get_percent),
+            },
+            {
+                "TenantId": cfg["tenant_id"],
+                "CustomFieldId": cfg["go_percent_custom_field_id"],
+                "Value": str(go_percent),
+            },
+        ],
+    }
+
+    _log_wg_payload(f"{tenant} LEAD REQUEST BODY", body)
+
+    res = wg_post(tenant, "Lead/AddOrUpdateLead", body)
+
+    print(f"{tenant} LEAD CREATED/UPDATED:", res)
+    return res
 
 
-def cp_make_quote(name: str, data: dict | None = None, materials_labour: dict | None = None, client_wg_id: str = "147217", category: str = "1a"):
 
-    print("cp_make_quote:", "\nname:", name, "\ndata:", data, "\nmaterials_labour:", materials_labour, "\nclient_wg_id:", client_wg_id, "\ncategory:", category)
+def create_cp_quote(name: str, data: dict | None = None, materials_labour: dict | None = None, client_wg_id: str = "147217", category: str = "1a"):
+
+    print("create_cp_quote:", "\nname:", name, "\ndata:", data, "\nmaterials_labour:", materials_labour, "\nclient_wg_id:", client_wg_id, "\ncategory:", category)
 
     pro_rig_quantity = _get_total_project_points(data)
 
@@ -416,58 +411,6 @@ def cp_make_quote(name: str, data: dict | None = None, materials_labour: dict | 
     return quote_result
 
 
-def cp_make_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "194156"):
-
-    print ("cp_make_lead:", "\nname:", name, "\ndescription:", description, "\nbudget:", budget, "\ncategory:", category, "\ngo_percent:", go_percent, "\nclient_wg_id:", client_wg_id)
-
-    # Build the exact shape that matches the working example
-    body = {
-        "Id": "0",
-        "TenantId": "825",
-        "WonOrLostDate": "",
-        "Status": "Current",
-        "CreatorUserId": "",
-        "LeadNumber": "",
-        "Name": name,
-        "Description": description,
-        "OwnerId": "14366",          # From working example
-        "CategoryId": "1735",
-        "StageId": "2123",           # From working example (was 2618)
-        "CloseProbability": str(int(go_percent * 0.5)),
-        "ForecastCloseDate": get_forecastclose_date(),
-        "ClientId": client_wg_id,    # From working example
-        "ContactId": "",
-        "BillingClientId": client_wg_id, # From working example
-        "BillingClientContactId": "",
-        "Budget": budget,
-        "CustomFieldValues": [
-            {
-                "TenantId": "825",
-                "CustomFieldId": "3553",
-                "Value": get_category_display("CP", category) or "1a. Shade (Shade Cloth)"
-            },
-            {
-                "TenantId": "825",
-                "CustomFieldId": "5289",
-                "Value": str(go_percent * 0.5),  # Get% 50
-            },
-            {
-                "TenantId": "825",
-                "CustomFieldId": "5290",
-                "Value": str(go_percent),  # Go% supplied by customer
-            },
-        ]
-    }
-
-    _log_wg_payload("CP LEAD REQUEST BODY", body)
-
-    # Send JSON (not data=)
-    res = wg_post("CP", "Lead/AddOrUpdateLead", body)
-
-    print("CP LEAD CREATED/UPDATED:", res)
-    return res
-
-
 
 
 def wg_get(tenant: str, endpoint: str, params: dict | None = None):
@@ -514,7 +457,7 @@ def wg_post(tenant: str, endpoint: str, body: dict):
 
 
 
-def get_forecastclose_date():
+def get_forecast_close_date():
     today = datetime.now()
     # Get last day of current month
     last_day_of_month = monthrange(today.year, today.month)[1]
@@ -540,33 +483,7 @@ def get_forecastclose_date():
     return forecastclose_date
 
 
-DR_CATEGORIES = {
-    "1a": {"id": 1,  "name": "Dam & Pond Liners",             "group": "Environmental"},
-    "1b": {"id": 2,  "name": "Tank Liners",                   "group": "Environmental"},
-    "1c": {"id": 3,  "name": "Spill Control and Containment", "group": "Environmental"},
-    "1d": {"id": 4,  "name": "Waste Management",              "group": "Environmental"},
 
-    "2a": {"id": 5,  "name": "Tarpaulins",                    "group": "Tarps and Covers"},
-    "2b": {"id": 6,  "name": "Grain and Stockpile Covers",    "group": "Tarps and Covers"},
-    "2c": {"id": 7,  "name": "Truck & Transport",             "group": "Tarps and Covers"},
-
-    "3a": {"id": 8,  "name": "Marine Curtains",               "group": "Industrial Curtains"},
-    "3b": {"id": 9,  "name": "Industrial Curtains",           "group": "Industrial Curtains"},
-    "3c": {"id": 10, "name": "Cold Store Curtains",           "group": "Industrial Curtains"},
-
-    "4a": {"id": 11, "name": "Fumigation Tarps",              "group": "Fumigation"},
-    "4b": {"id": 12, "name": "Fumigation Chamber Covers",     "group": "Fumigation"},
-
-    "5":  {"id": 13, "name": "Poultry",                       "group": "Poultry"},
-    "6":  {"id": 14, "name": "Miscellaneous",                 "group": "Miscellaneous"},
-}
-
-CP_CATEGORIES = {
-
-    "1a": {"id": 1,  "name": "Shade",             "group": "Shade Cloth"},
-    "1b": {"id": 2,  "name": "Shade",              "group": "PVC Membranes"},
-
-}
 
 def get_category_display(tenant, code):
     """
@@ -583,7 +500,7 @@ def get_category_display(tenant, code):
     return f"{code}. {item['name'] } ({item['group']})"
 
 
-def sync_wg_clients(db, User):
+def sync_workguru_clients(db, User):
     """
     Fetch all clients from WorkGuru for each tenant and sync to User table.
     Only adds new clients that don't already exist (by wg_id + tenant).
@@ -597,7 +514,7 @@ def sync_wg_clients(db, User):
     for tenant in TENANTS.keys():
         try:
             print(f"Fetching clients for tenant: {tenant}")
-            response = wg_get(tenant, "Client/GetClientNamesAndIds")
+            response = workguru_get(tenant, "Client/GetClientNamesAndIds")
             clients = response.get("result", [])
             print(f"Found {len(clients)} clients for {tenant}")
             
@@ -639,3 +556,65 @@ def sync_wg_clients(db, User):
             continue
     
     print("========== SYNC COMPLETE ==========\n")
+
+
+
+
+
+
+
+# ---------- DATA --------------
+
+LEAD_TENANT_CONFIG = {
+    "CP": {
+        "tenant_id": "825",
+        "owner_id": "14366",
+        "category_id": "1735",
+        "stage_id": "2123",
+        "default_client_wg_id": "194156",
+        "category_custom_field_id": "3553",
+        "get_percent_custom_field_id": "5289",
+        "go_percent_custom_field_id": "5290",
+        "default_category_display": "1a. Shade (Shade Cloth)",
+    },
+    "DR": {
+        "tenant_id": "826",
+        "owner_id": "14364",
+        "category_id": "2140",
+        "stage_id": "2607",
+        "default_client_wg_id": "178827",
+        "category_custom_field_id": "3686",
+        "get_percent_custom_field_id": "5385",
+        "go_percent_custom_field_id": "5386",
+        "default_category_display": "",
+    },
+}
+
+
+DR_CATEGORIES = {
+    "1a": {"id": 1,  "name": "Dam & Pond Liners",             "group": "Environmental"},
+    "1b": {"id": 2,  "name": "Tank Liners",                   "group": "Environmental"},
+    "1c": {"id": 3,  "name": "Spill Control and Containment", "group": "Environmental"},
+    "1d": {"id": 4,  "name": "Waste Management",              "group": "Environmental"},
+
+    "2a": {"id": 5,  "name": "Tarpaulins",                    "group": "Tarps and Covers"},
+    "2b": {"id": 6,  "name": "Grain and Stockpile Covers",    "group": "Tarps and Covers"},
+    "2c": {"id": 7,  "name": "Truck & Transport",             "group": "Tarps and Covers"},
+
+    "3a": {"id": 8,  "name": "Marine Curtains",               "group": "Industrial Curtains"},
+    "3b": {"id": 9,  "name": "Industrial Curtains",           "group": "Industrial Curtains"},
+    "3c": {"id": 10, "name": "Cold Store Curtains",           "group": "Industrial Curtains"},
+
+    "4a": {"id": 11, "name": "Fumigation Tarps",              "group": "Fumigation"},
+    "4b": {"id": 12, "name": "Fumigation Chamber Covers",     "group": "Fumigation"},
+
+    "5":  {"id": 13, "name": "Poultry",                       "group": "Poultry"},
+    "6":  {"id": 14, "name": "Miscellaneous",                 "group": "Miscellaneous"},
+}
+
+CP_CATEGORIES = {
+
+    "1a": {"id": 1,  "name": "Shade",             "group": "Shade Cloth"},
+    "1b": {"id": 2,  "name": "Shade",              "group": "PVC Membranes"},
+
+}

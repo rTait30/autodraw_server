@@ -10,19 +10,20 @@ export function render(canvas, data) {
 
   const sails = data.products || [];
 
-  // Layout configuration
-  const perSailHeight = 500;
-  const sectionPadding = 20;
-  const sectionGap = 20;
-  const sailDrawingHeight = 280;
-  const textSectionHeight = 160;
+  // Layout configuration tuned for the 1000x1000 overlay canvas.
+  const perSailHeight = 1000;
+  const sectionPadding = 50;
+  const sectionGap = 12;
+  const textSectionHeight = 256;
+  const sailDrawingHeight = perSailHeight - (sectionPadding * 2) - sectionGap - textSectionHeight;
   
   canvas.height = perSailHeight * sails.length;
 
   // Responsive scale factors based on viewport width
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const baseScale = 3.0; // leaner base scaling
-  const fontScale = 1.0;
+  const strokeScale = 1.08;
+  const fontScale = 1.08;
   const paddingScale = 1.0;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -30,11 +31,11 @@ export function render(canvas, data) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  ctx.lineWidth = 2 * baseScale;
+  ctx.lineWidth = 2 * baseScale * strokeScale;
   ctx.strokeStyle = '#1a1a1a';
 
-  const padX = isMobile ? 24 : 48;
-  const padY = 20;
+  const padX = isMobile ? 44 : 92;
+  const padY = isMobile ? 34 : 40;
 
   sails.forEach((sail, idx) => {
     const startY = idx * perSailHeight;
@@ -59,6 +60,11 @@ export function render(canvas, data) {
             corners = boxKey.split('-');
         } else {
             corners = boxKey.replace(/[^A-Za-z0-9]/g, '').split('');
+        }
+
+        if (corners.length === 2) {
+          problematicLines.add(corners.sort().join('-'));
+          return;
         }
         
         if (corners.length < 4) return;
@@ -147,7 +153,7 @@ export function render(canvas, data) {
     if (hasWorkpoints) {
         ctx.save();
         ctx.strokeStyle = '#666'; 
-        ctx.lineWidth = 1 * baseScale;
+        ctx.lineWidth = 1 * baseScale * strokeScale;
         ctx.setLineDash([5, 5]); 
         ids.forEach(id => {
             const post = mapped[id];
@@ -200,7 +206,7 @@ export function render(canvas, data) {
       if (post1 && post2) {
           ctx.save();
           ctx.strokeStyle = '#000'; 
-          ctx.lineWidth = 1 * baseScale;
+          ctx.lineWidth = 1 * baseScale * strokeScale;
           ctx.beginPath();
           ctx.moveTo(post1.x, post1.y);
           ctx.lineTo(post2.x, post2.y);
@@ -223,7 +229,7 @@ export function render(canvas, data) {
 
       ctx.save();
       ctx.strokeStyle = edgeColor;
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 4 * strokeScale;
       ctx.beginPath();
       // Catenary curve (quadratic, dipped toward center)
       const mx = (pos1.x + pos2.x) / 2;
@@ -255,7 +261,7 @@ export function render(canvas, data) {
       // Draw straight line for sail track
       ctx.save();
       ctx.strokeStyle = stColor;
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 8 * strokeScale;
       ctx.beginPath();
       ctx.moveTo(sPos1.x, sPos1.y);
       ctx.lineTo(sPos2.x, sPos2.y);
@@ -274,7 +280,7 @@ export function render(canvas, data) {
       const lblY = midY + (toOutY / toOutLen) * offsetDist;
       let lblAngle = Math.atan2(sPos2.y - sPos1.y, sPos2.x - sPos1.x);
       if (lblAngle > Math.PI / 2 || lblAngle < -Math.PI / 2) lblAngle += Math.PI;
-      ctx.font = 'bold 11px Arial';
+      ctx.font = `bold ${Math.round(32 * fontScale)}px Arial`;
       ctx.fillStyle = stColor;
       ctx.textAlign = 'center';
       ctx.translate(lblX, lblY);
@@ -289,12 +295,15 @@ export function render(canvas, data) {
       if (!p) return;
       let vx = p.x - cx; let vy = p.y - cy; let vlen = Math.hypot(vx, vy) || 1; vx /= vlen; vy /= vlen;
       const baseDist = 36;
-      const lineSpacingLarge = 20;
-      const lineSpacingSmall = 14;
+      const lineSpacingLarge = 48;
+      const lineSpacingSmall = 32;
       const anchorX = p.x + vx * baseDist;
       const anchorY = p.y + vy * baseDist;
       const perpX = -vx; const perpY = vy; const lateral = 2 * paddingScale;
-      const labelX = anchorX + perpX * lateral * 0.2 - 50;
+      const rawLabelX = anchorX + perpX * lateral * 0.2 - 50;
+      const minLabelX = padX - 10;
+      const maxLabelX = canvas.width - padX - 170;
+      const labelX = Math.max(minLabelX, Math.min(rawLabelX, maxLabelX));
 
       let detailLineCount = 0;
       if (points[id] && points[id].height !== undefined && points[id].height !== '') detailLineCount += 1;
@@ -314,27 +323,34 @@ export function render(canvas, data) {
       ctx.arc(p.x, p.y, (isReflex ? 8 : 5), 0, Math.PI * 2);
       ctx.fillStyle = isReflex ? '#dc2626' : '#2563eb';
       ctx.fill();
-      ctx.strokeStyle = '#004A7C'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = '#004A7C'; ctx.lineWidth = 1 * strokeScale; ctx.stroke();
 
       ctx.fillStyle = '#000';
-      ctx.font = `bold 24px Arial`;
+      ctx.font = `bold ${Math.round(48 * fontScale)}px Arial`;
       // Convert id 0->A, 1->B, 2->C...
-      const labelChar = String.fromCharCode(65 + Number(id)); 
+      const labelChar = String.fromCharCode(65 + Number(id));
       ctx.fillText(`${labelChar}`, labelX, labelY);
-      
-      ctx.font = `bold 11px Arial`;
+
+      ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
 
       let nextY = labelY + lineSpacingLarge;
       if (points[id] && points[id].height !== undefined && points[id].height !== '') {
         ctx.fillText(`Height: ${points[id].height}`, labelX, nextY); nextY += lineSpacingSmall;
       }
-      
+
       if (!data.discrepancyChecker) {
-        ctx.fillText(`Fitting: ${points[id]?.cornerFitting ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
-        ctx.fillText(`Hardware: ${points[id]?.tensionHardware ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
-        ctx.fillText(`Allowance: ${points[id]?.tensionAllowance ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
+        if (points[id]?.cornerFitting !== undefined && points[id]?.cornerFitting !== '') {
+          ctx.fillText(`Fitting: ${points[id]?.cornerFitting ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
+        }
+        if (points[id]?.tensionHardware !== undefined && points[id]?.tensionHardware !== '') {
+          ctx.fillText(`Hardware: ${points[id]?.tensionHardware ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
+        }
+        if (points[id]?.tensionAllowance !== undefined && points[id]?.tensionAllowance !== '') {
+          ctx.fillText(`Allowance: ${points[id]?.tensionAllowance ?? ''}`, labelX, nextY); nextY += lineSpacingSmall;
+        }
       }
-      ctx.font = `bold 11px Arial`;
+
+      ctx.font = `bold ${Math.round(32 * fontScale)}px Arial`;
       ctx.fillStyle = '#EB1C24';
       if (attributes.exitPoint === id && !data.discrepancyChecker) { ctx.fillText('Exit Point', labelX, nextY); nextY += lineSpacingSmall; }
       if (attributes.logoPoint === id && !data.discrepancyChecker) { ctx.fillText('Logo', labelX, nextY); nextY += lineSpacingSmall; }
@@ -353,6 +369,23 @@ export function render(canvas, data) {
         const n = Number(idx);
         if (isNaN(n)) return idx; // fallback if already a letter
         return String.fromCharCode(65 + n);
+    };
+
+    const getEvaluatedDimension = (p1, p2) => {
+      const pos1 = positions[p1];
+      const pos2 = positions[p2];
+      if (!pos1 || !pos2) return null;
+
+      const point1 = points[p1] || {};
+      const point2 = points[p2] || {};
+      const z1 = Number(point1.z ?? point1.height ?? 0);
+      const z2 = Number(point2.z ?? point2.height ?? 0);
+      const dx = Number(pos2.x) - Number(pos1.x);
+      const dy = Number(pos2.y) - Number(pos1.y);
+      const dz = z2 - z1;
+
+      if ([dx, dy, dz].some(Number.isNaN)) return null;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
     };
 
     // Unified dimensions map for drawing
@@ -406,7 +439,8 @@ export function render(canvas, data) {
     }
 
     // Dimensions (edges + diagonals) with rotated labels
-    ctx.lineWidth = 1; ctx.fillStyle = '#333'; ctx.font = `bold 12px Arial`;
+    ctx.lineWidth = 1 * strokeScale; ctx.fillStyle = '#333';
+    ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
     const drawnLines = new Set();
     const isPerimeterEdge = (p1, p2) => {
       const i1 = ordered.indexOf(p1); const i2 = ordered.indexOf(p2);
@@ -419,6 +453,7 @@ export function render(canvas, data) {
       
       const [p1, p2] = edgeKey.split('-');
       const lineKey = [p1, p2].sort().join('-'); // string sort for unique set key
+      const isProblematicDimension = problematicLines.has(lineKey);
       
       if (drawnLines.has(lineKey)) continue;
       drawnLines.add(lineKey);
@@ -427,9 +462,8 @@ export function render(canvas, data) {
       // If p1/p2 (indices) are not in mapped positions, skip
       if (!pos1 || !pos2) continue;
       if (!isPerimeterEdge(p1, p2)) {
-        const isProblematicLine = problematicLines.has(lineKey);
-        ctx.strokeStyle = isProblematicLine ? '#EB1C24' : '#999';
-        ctx.lineWidth = 1 * baseScale; ctx.beginPath(); ctx.moveTo(pos1.x, pos1.y); ctx.lineTo(pos2.x, pos2.y); ctx.stroke();
+        ctx.strokeStyle = isProblematicDimension ? '#EB1C24' : '#999';
+        ctx.lineWidth = 1 * baseScale * strokeScale; ctx.beginPath(); ctx.moveTo(pos1.x, pos1.y); ctx.lineTo(pos2.x, pos2.y); ctx.stroke();
       }
       const midX = (pos1.x + pos2.x) / 2; const midY = (pos1.y + pos2.y) / 2; 
       let angle = Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x);
@@ -441,22 +475,33 @@ export function render(canvas, data) {
       // Convert indices to labels for display
       const L1 = getLabel(p1);
       const L2 = getLabel(p2);
-      const label = `${L1}-${L2}: ${dimValue}mm`;
+      const enteredDimension = Number(dimValue);
+      const evaluatedDimension = getEvaluatedDimension(p1, p2);
+      const enteredText = Number.isFinite(enteredDimension) ? enteredDimension.toFixed(0) : String(dimValue);
+      const evaluatedText = Number.isFinite(evaluatedDimension) ? ` (${evaluatedDimension.toFixed(0)}mm)` : '';
+      const label = `${L1}-${L2}: ${enteredText}mm${evaluatedText}`;
 
 
       //console.log("[DEBUG] Drawing dimension label:", label, "at", midX, midY, "angle", angle);
 
-      ctx.save(); ctx.translate(midX, midY); ctx.rotate(angle); ctx.fillText(label, 0, -6); ctx.restore();
+      ctx.save();
+      ctx.fillStyle = isProblematicDimension ? '#EB1C24' : '#333';
+      ctx.translate(midX, midY);
+      ctx.rotate(angle);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, 0, -6);
+      ctx.restore();
     }
 
     // Summary metrics in a fixed bottom section for each sail
     const maxInfoRows = 4;
     const yPos = infoTop;
-    const textBlockWidth = Math.min(canvas.width - sectionPadding * 2, 560);
+    const textBlockWidth = Math.min(canvas.width - sectionPadding * 2, 900);
     const startX = Math.max(sectionPadding, (canvas.width - textBlockWidth) / 2);
     const boxPadding = 20;
     const col1X = startX + boxPadding;
-    const col2X = startX + 280; // Second column start
+    const col2X = startX + 400; // Second column start
 
     // Prepare data first to calculate layout
     const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
@@ -503,27 +548,27 @@ export function render(canvas, data) {
     ctx.fillRect(startX, yPos, textBlockWidth, textSectionHeight);
     
     ctx.strokeStyle = isProblem ? '#fca5a5' : '#86efac';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * strokeScale;
     ctx.strokeRect(startX, yPos, textBlockWidth, textSectionHeight);
     
     // Draw Header Content
     let currentY = yPos + 26;
     
-    ctx.font = 'bold 14px Arial';
+    ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
     ctx.fillStyle = "#111";
     ctx.fillText(`Max Discrepancy: ${(attributes.maxDiscrepancy || 0).toFixed(0)} mm`, col1X, currentY);
 
     ctx.fillStyle = isProblem ? '#dc2626' : '#16a34a'; // Red or Green
     ctx.fillText(isProblem ? "These dimensions have discrepancies." : "Specifications Valid", col2X, currentY);
 
-    currentY += 22;
+    currentY += 28;
     ctx.fillStyle = "#4b5563";
-    ctx.font = 'italic 12px Arial';
+    ctx.font = `italic ${Math.round(22 * fontScale)}px Arial`;
 
     if (isProblem) {
        ctx.fillText("Shape does not close geometrically.", col1X, currentY);
        if (suggestionText) {
-          ctx.fillText(suggestionText, col2X - 50, currentY); // Offset slightly
+          ctx.fillText(suggestionText, col2X + 50, currentY); // Offset slightly
        }
     } else {
        ctx.fillText("Measurements form a consistent geometric shape.", col1X, currentY);
@@ -531,21 +576,21 @@ export function render(canvas, data) {
 
     // Draw Tables
     if (hasData && (sortedDiscrepancies.length > 0 || groupedBlame.length > 0)) {
-        currentY += 24;
+        currentY += 28;
         const tableHeaderY = currentY;
         
-        ctx.font = 'bold 11px Arial';
+        ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
         ctx.fillStyle = "#111";
         if (sortedDiscrepancies.length > 0) ctx.fillText("Discrepancies (Loop Errors):", col1X, tableHeaderY);
         if (groupedBlame.length > 0) ctx.fillText("Likely Error Source:", col2X, tableHeaderY);
         
-        currentY += 16;
-        ctx.font = '11px Arial';
+        currentY += 24;
+        ctx.font = `${Math.round(22 * fontScale)}px Arial`;
         
         // Loop for rows
         const maxRows = Math.max(sortedDiscrepancies.length, groupedBlame.length);
         for(let i=0; i<maxRows; i++) {
-          let rowY = currentY + (i * 14);
+          let rowY = currentY + (i * 24);
            
            // Col 1
            if (i < sortedDiscrepancies.length) {

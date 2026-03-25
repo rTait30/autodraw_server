@@ -1,7 +1,7 @@
 import os
 from flask import Blueprint, request, jsonify
 from endpoints.api.auth.utils import role_required  # reuse your auth helpers
-from endpoints.integrations.workguru.client import add_cover, get_leads
+from endpoints.integrations.workguru.client import create_workguru_lead, get_workguru_leads
 
 workguru_api_bp = Blueprint("workguru_api", __name__)
 
@@ -26,8 +26,8 @@ def api_add_cover():
         return jsonify({"error": "name is required"}), 400
 
     try:
-        result = add_cover(name, description)
+        result = create_workguru_lead(name, description)
     except Exception as e:
-        return jsonify({"error": f"workGuru add_cover failed: {e}"}), 500
+        return jsonify({"error": f"workGuru create_workguru_lead failed: {e}"}), 500
 
     return jsonify({"ok": True, "result": result}), 200

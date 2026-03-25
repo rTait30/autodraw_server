@@ -136,7 +136,7 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
         _compute_3d_geometry(attributes, points_list)
         
         # Discrepancies
-        disc = _compute_discrepancies_and_blame(point_count, attributes["xyDistances"], sail)
+        disc = _compute_discrepancies_and_blame(point_count, attributes["xyDistances"], dim_map, points_list, sail)
         attributes["discrepancies"] = disc["discrepancies"]
         attributes["blame"] = disc["blame"]
         attributes["boxProblems"] = disc["boxProblems"]
@@ -798,7 +798,55 @@ def _compute_discrepancy_xy(dims_map: Dict[str, float]) -> Dict[str, Any]:
     }
 
 
-def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[str, Any]) -> Dict[str, Any]:
+def _get_point_3d_distance(points_list: List[Dict[str, Any]], u: int, v: int) -> float:
+    if u >= len(points_list) or v >= len(points_list):
+        return 0.0
+    p1 = points_list[u]
+    p2 = points_list[v]
+    dx = (p2.get("x") or 0.0) - (p1.get("x") or 0.0)
+    dy = (p2.get("y") or 0.0) - (p1.get("y") or 0.0)
+    dz = (p2.get("z") or 0.0) - (p1.get("z") or 0.0)
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+
+
+def _is_adjacent_index(u: int, v: int, count: int) -> bool:
+    return abs(u - v) == 1 or abs(u - v) == count - 1
+
+
+def _compute_tip_connection_discrepancies(
+    N: int,
+    dim_map: Dict[Tuple[int, int], float],
+    points_list: List[Dict[str, Any]],
+) -> Dict[str, float]:
+    tip_discrepancies: Dict[str, float] = {}
+
+    if N < 5 or N % 2 == 0:
+        return tip_discrepancies
+
+    tip_idx = N // 2
+    if tip_idx >= len(points_list):
+        return tip_discrepancies
+
+    for (u, v), measured_3d in dim_map.items():
+        if measured_3d is None or tip_idx not in (u, v):
+            continue
+        if _is_adjacent_index(u, v, N):
+            continue
+
+        theoretical_3d = _get_point_3d_distance(points_list, u, v)
+        key = f"{min(u, v)}-{max(u, v)}"
+        tip_discrepancies[key] = abs(theoretical_3d - measured_3d)
+
+    return tip_discrepancies
+
+
+def _compute_discrepancies_and_blame(
+    N: int,
+    xy: Dict[str, float],
+    dim_map: Dict[Tuple[int, int], float],
+    points_list: List[Dict[str, Any]],
+    sail: Dict[str, Any],
+) -> Dict[str, Any]:
     discrepancies: Dict[str, Any] = {}
     blame: Dict[str, float] = {}
     box_problems: Dict[str, bool] = {}
@@ -858,6 +906,13 @@ def _compute_discrepancies_and_blame(N: int, xy: Dict[str, float], sail: Dict[st
                                 blame[blame_key] += disc
                     except ValueError:
                         pass
+
+    tip_discrepancies = _compute_tip_connection_discrepancies(N, dim_map, points_list)
+    for key, disc in tip_discrepancies.items():
+        discrepancies[key] = disc
+        if disc is not None and math.isfinite(disc) and disc > discrepancy_threshold:
+            box_problems[key] = True
+            blame[key] = (blame.get(key) or 0.0) + disc
 
     return {
         "discrepancies": discrepancies,

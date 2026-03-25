@@ -32,8 +32,8 @@ export default function ProjectOverlay({
     <div className="flex flex-col h-full w-full min-h-[360px]">
       <canvas 
         ref={canvasRef} 
-        width={500} 
-        height={500} 
+        width={1000} 
+        height={1000}
         className="w-full h-auto"
       />
       {devMode && (

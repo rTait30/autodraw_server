@@ -7,6 +7,8 @@ from endpoints.api.products import dispatch_document
 from endpoints.api.projects.services.project_integration import enrich_wg_data, submit_cover_to_workguru, submit_shade_sail_to_workguru
 from endpoints.api.projects.services.project_calculator import calculate_project_metrics, estimate_totals, generate_record_template
 
+from integrations.workguru.product_submissions.cover.lead import cover_lead
+
 def _as_int(v):
     try:
         return int(v) if v not in (None, "") else None

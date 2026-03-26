@@ -1,5 +1,5 @@
 from endpoints.api.products.SHADE_SAIL.materials_labour import get_materials_labour
-from endpoints.integrations.workguru.client import create_cp_lead, create_cp_quote, create_dr_lead, wg_get, add_update_lead
+from integrations.workguru.wg_endpoints import create_cp_lead, create_cp_quote, create_dr_lead, wg_get, add_update_lead
 import math
 import os
 

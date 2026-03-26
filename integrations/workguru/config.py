@@ -53,3 +53,19 @@ CP_CATEGORIES = {
     "1b": {"id": 2,  "name": "Shade",              "group": "PVC Membranes"},
 
 }
+
+
+
+def get_category_display(tenant, code):
+    """
+    Returns a display string like:
+    "1a. Dam & Pond Liners (Environmental)"
+
+    """
+
+    categories = DR_CATEGORIES if tenant == "DR" else CP_CATEGORIES
+
+    item = categories.get(code)
+    if not item:
+        return None
+    return f"{code}. {item['name'] } ({item['group']})"

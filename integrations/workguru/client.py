@@ -40,7 +40,6 @@ def get_workguru_leads(tenant): #DR/CP
 
     return res.json().get("result", [])
 
-
 def add_update_lead(
     tenant: str,
     id: Optional[str],  # None for create, string ID for update
@@ -115,7 +114,6 @@ def add_update_lead(
     print(f"{tenant} LEAD CREATED/UPDATED:", res)
     return res
 
-
 def add_update_quote(
     tenant: str,
     id: Optional[str],  # None for create, string ID for update
@@ -156,7 +154,6 @@ def add_update_quote(
 
     pass
 
-
 def get_forecast_close_date():
     today = datetime.now()
     # Get last day of current month
@@ -181,8 +178,6 @@ def get_forecast_close_date():
         forecastclose_date = f"{last_day_of_month:02d}/{today.month:02d}/{today.year}"
     
     return forecastclose_date
-
-
 
 def sync_workguru_clients(db, User):
     """
@@ -242,8 +237,17 @@ def sync_workguru_clients(db, User):
     print("========== SYNC COMPLETE ==========\n")
 
 
-# ----------deprecated older functions below, may be removed in future ----------
 
+
+
+
+
+
+
+
+
+
+# ----------deprecated older functions below, may be removed in future ----------
 
 def create_workguru_lead(name: str, description: str):
     if not WORKGURU_ENABLED:
@@ -314,8 +318,6 @@ def create_workguru_lead(name: str, description: str):
     data = res.json()
     print("LEAD CREATED/UPDATED:", data)
     return data
-
-
 
 def create_cp_lead(name: str, description: str, budget: int, category: str, go_percent: int = 100, client_wg_id: str = "194156"):
 

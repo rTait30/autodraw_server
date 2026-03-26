@@ -6,7 +6,7 @@ from datetime import datetime, timezone, date
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
-from endpoints.integrations.workguru.client import workguru_get
+from endpoints.integrations.workguru.client import wg_get
 
 database_api_bp = Blueprint('database_api', __name__)
 
@@ -71,7 +71,7 @@ def fetch_sku_from_crm(sku_code: str):
     if os.getenv("WORKGURU_INTEGRATION", "false").lower() != "true":
         return None
 
-    sku_data = workguru_get("DR", "Product/GetProductBySku", {"sku": sku_code})
+    sku_data = wg_get("DR", "Product/GetProductBySku", {"sku": sku_code})
     
     if sku_data and isinstance(sku_data, dict):
         return sku_data

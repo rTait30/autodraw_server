@@ -171,7 +171,7 @@ def create_cp_lead(name: str, description: str, budget: int, category: str, go_p
     _log_wg_payload("CP LEAD REQUEST BODY", body)
 
     # Send JSON (not data=)
-    res = workguru_post("CP", "Lead/AddOrUpdateLead", body)
+    res = wg_post("CP", "Lead/AddOrUpdateLead", body)
 
     print("CP LEAD CREATED/UPDATED:", res)
     return res
@@ -220,7 +220,7 @@ def create_dr_lead(name: str, description: str, budget: int, category: str, go_p
     }
 
     # Send JSON (not data=)
-    res = workguru_post("DR", "Lead/AddOrUpdateLead", body)
+    res = wg_post("DR", "Lead/AddOrUpdateLead", body)
 
     print("DR LEAD CREATED/UPDATED:", res)
     return res
@@ -235,8 +235,10 @@ def add_update_lead(
     budget: int,
     category: str,
     go_percent: int = 100,
-    client_wg_id: str | None = None,
-):
+    client_wg_id: str | None = None
+    ):
+    
+
     tenant = tenant.upper()
     cfg = LEAD_TENANT_CONFIG[tenant]
 
@@ -410,6 +412,45 @@ def create_cp_quote(name: str, data: dict | None = None, materials_labour: dict 
     print("CP QUOTE CREATED/UPDATED:", quote_result)
     return quote_result
 
+def add_update_quote(
+    tenant: str,
+    id: Optional[str],  # None for create, string ID for update
+    name: str,
+    description: str,
+    labour: dict | None = None,
+    materials: dict | None = None,
+    ):
+
+    body= {
+
+        "Id": id or "0",
+        "tenantId": LEAD_TENANT_CONFIG[tenant]["tenant_id"],
+        "CustomFieldGroupId": "",
+        "ExcludeFromPipeline": False,
+        "UseStaffRates": False,
+        "QuoteNumber": "",
+        "Status": "Draft",
+        "Revision": "0",
+        "Name": name,
+        "DocumentStorageId": "",
+        "Description": description,
+        "ProjectGroupId": "",
+        "ClientId": LEAD_TENANT_CONFIG[tenant]["default_client_wg_id"],
+        "ContactId": "",
+        "BillingClientId": LEAD_TENANT_CONFIG[tenant]["default_client_wg_id"],
+        "BillingClientContactId": "",
+        "QuoteOwnerId": LEAD_TENANT_CONFIG[tenant]["owner_id"],
+        "ForecastJobDate": "",
+        "AssetId": "",
+        "LeadId": "",
+        "Phases": "",
+        "Currency": "AUD",
+        "ExchangeRate": "1",
+        "Tasks": [],
+        "Products": []
+    }
+
+    pass
 
 
 
@@ -514,7 +555,7 @@ def sync_workguru_clients(db, User):
     for tenant in TENANTS.keys():
         try:
             print(f"Fetching clients for tenant: {tenant}")
-            response = workguru_get(tenant, "Client/GetClientNamesAndIds")
+            response = wg_get(tenant, "Client/GetClientNamesAndIds")
             clients = response.get("result", [])
             print(f"Found {len(clients)} clients for {tenant}")
             

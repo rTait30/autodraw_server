@@ -1,5 +1,5 @@
 from endpoints.api.products.SHADE_SAIL.materials_labour import get_materials_labour
-from endpoints.integrations.workguru.client import create_cp_lead, create_cp_quote, create_dr_lead, workguru_get
+from endpoints.integrations.workguru.client import create_cp_lead, create_cp_quote, create_dr_lead, wg_get, add_update_lead
 import math
 import os
 
@@ -31,13 +31,13 @@ def enrich_wg_data(wg_data):
         if tenant == "D&R Liners":
             tenant_code = "DR"
 
-        GetProjectId = workguru_get(tenant_code, f"/Project/GetProjectIdByNumber?number=PR-{tenant_code}-{project_number}")
+        GetProjectId = wg_get(tenant_code, f"/Project/GetProjectIdByNumber?number=PR-{tenant_code}-{project_number}")
 
         projectId = GetProjectId.get("result", None)
 
         print (f"WorkGuru API: Fetched project ID {projectId} for project number {project_number} under tenant {tenant}")
 
-        GetProjectById = workguru_get(tenant_code, f"/Project/GetProjectById?id={projectId}")
+        GetProjectById = wg_get(tenant_code, f"/Project/GetProjectById?id={projectId}")
 
         api_response = {
             "projectId": projectId,
@@ -71,14 +71,14 @@ def submit_cover_to_workguru(project, data, wg_client_id):
         cover_width = attributes.get("width", 0)
         cover_height = attributes.get("height", 0)
 
-        stay_puts = attributes.get("stayputs", False)
-        stay_puts_str = "; Stay Puts" if stay_puts else ""
+        stay_puts_str = "; Stay Puts" if attributes.get("stayputs", False) else ""
 
         description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
 
 
     estimated_price = project.estimate_total or 0.0
     
+    '''
     create_dr_lead(
         name=name,
         description=description,
@@ -87,6 +87,19 @@ def submit_cover_to_workguru(project, data, wg_client_id):
         go_percent=100,
         client_wg_id=wg_client_id
     )
+    '''
+
+    add_update_lead(
+        tenant="DR",
+        id="0",
+        name=name,
+        description=description,
+        budget=math.ceil(estimated_price) if estimated_price else 0,
+        category="2a",
+        go_percent=100,
+        client_wg_id=wg_client_id
+    )
+        
 
 def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
     if not is_workguru_enabled():

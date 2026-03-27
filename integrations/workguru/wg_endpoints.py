@@ -1,3 +1,4 @@
+import json
 import requests
 from typing import Optional
 
@@ -9,7 +10,7 @@ from calendar import monthrange
 
 from .auth import WG_BASE, WORKGURU_ENABLED, TENANTS, get_access_token, _log_wg_payload
 
-from .config import LEAD_TENANT_CONFIG, DR_CATEGORIES, CP_CATEGORIES
+from .config import LEAD_TENANT_CONFIG, DR_CATEGORIES, CP_CATEGORIES, get_category_display
 
 from .requests import wg_get, wg_post
 
@@ -114,18 +115,163 @@ def add_update_lead(
     print(f"{tenant} LEAD CREATED/UPDATED:", res)
     return res
 
+QUOTE_TASK_TEMPLATES = {
+    "CP": {
+        "labour_1": {
+            "TaskTemplateId": "13207",
+            "TenantId": "825",
+            "TaxName": "GST on Income",
+            "AccountCode": "",
+            "TaxRate": "10",
+            "IsAccepted": False,
+            "Phase": "",
+            "UnitAmount": "120.0000",
+            "Billable": True,
+            "Description": "",
+            "TaxType": "OUTPUT",
+            "UnitCost": "60.0000",
+            "CostMultiplier": "1.00",
+            "ForceTaskRateCosting": True,
+            "Name": "Labour - 1",
+        }
+    },
+    "DR": {
+        "Labour - 1": {
+            "Name": "Labour - 1",
+            "TaskTemplateId": "15017",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "AccountCode": "",
+            "TaxRate": "10",
+            "IsAccepted": False,
+            "Phase": "",
+            "UnitAmount": "120.0000",
+            "Billable": False,
+            "Description": "",
+            "TaxType": "OUTPUT",
+            "UnitCost": "60.0000",
+            "CostMultiplier": "1.00",
+            "ForceTaskRateCosting": True,
+        }
+    },
+}
+
+QUOTE_MATERIAL_TEMPLATES = {
+    "DR": {
+        "3-DR-043": {
+            "ProductId": "909137",
+            "Sku": "3-DR-043",
+            "Name": "covntrolley",
+            "Description": "Clear PVC Trolley Cover",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "TaxRate": "10",
+            "AccountCode": "46000",
+            "IsAccepted": False,
+            "Phase": "",
+            "DiscountApplied": "",
+            "Discount": "",
+            "UnitAmount": "50.0000",
+            "Billable": False,
+            "TaxType": "OUTPUT",
+            "UnitCost": "0.0000",
+            "MarkUp": "",
+        },
+        "2-DR-F-225": {
+            "ProductId": "1082391",
+            "Sku": "2-DR-F-225",
+            "Name": "Easislip - 0.75mm - 1.37 x 30m roll",
+            "Description": "9DIC Easislip 0.75mm 1370mmx30m UV",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "TaxRate": "10",
+            "AccountCode": "",
+            "IsAccepted": False,
+            "Phase": "",
+            "DiscountApplied": "",
+            "Discount": "",
+            "UnitAmount": "22.0000",
+            "Billable": True,
+            "TaxType": "OUTPUT",
+            "UnitCost": "11.0000",
+            "MarkUp": "",
+        },
+        "2-DR-H-113": {
+            "ProductId": "909415",
+            "Sku": "2-DR-H-113",
+            "Name": "Zip - Endless - No. 10 - 100m - White",
+            "Description": "No.10 Coil Endless White 100m",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "TaxRate": "10",
+            "AccountCode": "46000",
+            "IsAccepted": False,
+            "Phase": "",
+            "DiscountApplied": "",
+            "Discount": "",
+            "UnitAmount": "1.1600",
+            "Billable": True,
+            "TaxType": "OUTPUT",
+            "UnitCost": "0.5800",
+            "MarkUp": "",
+        },
+        "2-DR-H-001-W": {
+            "ProductId": "1897441",
+            "Sku": "2-DR-H-001-W",
+            "Name": "Zip - Slider - Long Pull - Nonlock - No 10 - White",
+            "Description": "No 10 Coil Long Pull Nonlock Slider White",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "TaxRate": "10",
+            "AccountCode": "46000",
+            "IsAccepted": False,
+            "Phase": "",
+            "DiscountApplied": "",
+            "Discount": "",
+            "UnitAmount": "2.2400",
+            "Billable": True,
+            "TaxType": "OUTPUT",
+            "UnitCost": "1.1200",
+            "MarkUp": "",
+        },
+        "2-DR-H-268 - C2CSN": {
+            "ProductId": "1549063",
+            "Sku": "2-DR-H-268 - C2CSN",
+            "Name": "Stayput Canvas to Canvas Single Natural",
+            "Description": "Stayput Canvas to Canvas Single Natural",
+            "TenantId": "826",
+            "TaxName": "GST on Income",
+            "TaxRate": "10",
+            "AccountCode": "46000",
+            "IsAccepted": False,
+            "Phase": "",
+            "DiscountApplied": "",
+            "Discount": "",
+            "UnitAmount": "2.0000",
+            "Billable": True,
+            "TaxType": "OUTPUT",
+            "UnitCost": "1.0315",
+            "MarkUp": "",
+        },
+    },
+    "CP": {}
+}
+
+
 def add_update_quote(
     tenant: str,
-    id: Optional[str],  # None for create, string ID for update
+    id: Optional[str],
     name: str,
     description: str,
+    lead_id: Optional[str] = None,
     labour: dict | None = None,
     materials: dict | None = None,
-    ):
+):
+    tenant = tenant.upper()
+    quote_id = id or "0"
 
-    body= {
-
-        "Id": id or "0",
+    body = {
+        "Id": quote_id,
         "tenantId": LEAD_TENANT_CONFIG[tenant]["tenant_id"],
         "CustomFieldGroupId": "",
         "ExcludeFromPipeline": False,
@@ -144,15 +290,72 @@ def add_update_quote(
         "QuoteOwnerId": LEAD_TENANT_CONFIG[tenant]["owner_id"],
         "ForecastJobDate": "",
         "AssetId": "",
-        "LeadId": "",
+        "LeadId": lead_id or "",
         "Phases": "",
         "Currency": "AUD",
         "ExchangeRate": "1",
-        "Tasks": [],
-        "Products": []
+        "Tasks": [] if labour else None,
+        "Products": [] if materials else None,
     }
 
-    pass
+    for sort_order, (task_key, task_value) in enumerate((labour or {}).items()):
+        template = QUOTE_TASK_TEMPLATES[tenant][task_key].copy()
+
+        if isinstance(task_value, dict):
+            quantity = float(task_value.get("quantity", 1))
+            task_name = task_value.get("name", template["Name"])
+        else:
+            quantity = float(task_value)
+            task_name = template["Name"]
+
+        unit_amount = float(template["UnitAmount"])
+        tax_amount = quantity * unit_amount * 0.10
+
+        template.update({
+            "Id": "0",
+            "QuoteId": quote_id,
+            "SortOrder": str(sort_order),
+            "Name": task_name,
+            "Quantity": f"{quantity:.4f}",
+            "TaxAmount": f"{tax_amount:.2f}",
+        })
+
+        body["Tasks"].append(template)
+
+    for sort_order, material in enumerate((materials or []), start=0):
+        material_key = material["key"]
+        template = QUOTE_MATERIAL_TEMPLATES[tenant][material_key].copy()
+
+        quantity = float(material.get("quantity", 1))
+        material_name = material.get("name", template["Name"])
+        unit_cost = float(material.get("unit_cost", template["UnitCost"]))
+
+        print (f"Processing material {material_key}: quantity={quantity}, unit_cost={unit_cost}")
+        item_description = material.get("item_description", template["Description"])
+
+        tax_rate = float(template["TaxRate"])
+        line_total = quantity * unit_cost
+        tax_amount = line_total * (tax_rate / 100)
+
+        template.update({
+            "Id": "0",
+            "QuoteId": quote_id,
+            "SortOrder": str(sort_order),
+            "Name": material_name,
+            "Description": item_description,
+            "Quantity": f"{quantity:.4f}",
+            "UnitAmount": f"{unit_cost:.4f}",
+            "LineTotal": f"{line_total:.2f}",
+            "TaxAmount": f"{tax_amount:.2f}".rstrip("0").rstrip(".") if tax_amount else "0",
+        })
+
+        body["Products"].append(template)
+
+    print(json.dumps(body, indent=2))
+
+    res = wg_post(tenant, "Quote/AddOrUpdateQuote", body)
+
+    return res
 
 def get_forecast_close_date():
     today = datetime.now()

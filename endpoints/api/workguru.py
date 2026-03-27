@@ -1,7 +1,7 @@
 import os
 from flask import Blueprint, request, jsonify
 from endpoints.api.auth.utils import role_required  # reuse your auth helpers
-from endpoints.integrations.workguru.client import create_workguru_lead, get_workguru_leads
+from integrations.workguru.wg_endpoints import create_workguru_lead, get_workguru_leads
 
 workguru_api_bp = Blueprint("workguru_api", __name__)
 

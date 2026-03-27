@@ -1,9 +1,20 @@
 import math
 import os
 
-from wg_endpoints import add_update_lead
+from integrations.workguru.wg_endpoints import add_update_lead
+from models import User
 
-def cover_lead(project, data, wg_client_id):
+def cover_lead(project, data, client_id):
+
+    print(f"Making cover lead for client {client_id}")
+
+    wg_client_id = None
+    if client_id:
+        client_user = User.query.filter_by(id=client_id).first()
+        if client_user and client_user.wg_id:
+            wg_client_id = str(client_user.wg_id)
+
+    print (f"Client WG ID: {wg_client_id}")
 
     print (f"Submitting cover project to WorkGuru (Client WG ID: {wg_client_id})...")
     name = (data.get("general").get("name") or "").strip()
@@ -19,21 +30,9 @@ def cover_lead(project, data, wg_client_id):
 
         description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
 
-
     estimated_price = project.estimate_total or 0.0
-    
-    '''
-    create_dr_lead(
-        name=name,
-        description=description,
-        budget=math.ceil(estimated_price) if estimated_price else 0,
-        category="2a",
-        go_percent=100,
-        client_wg_id=wg_client_id
-    )
-    '''
 
-    add_update_lead(
+    res = add_update_lead(
         tenant="DR",
         id="0",
         name=name,
@@ -43,3 +42,7 @@ def cover_lead(project, data, wg_client_id):
         go_percent=100,
         client_wg_id=wg_client_id
     )
+
+    return res, name, description
+
+

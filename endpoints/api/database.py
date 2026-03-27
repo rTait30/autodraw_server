@@ -6,7 +6,7 @@ from datetime import datetime, timezone, date
 
 from endpoints.api.auth.utils import current_user, role_required, _json, _user_by_credentials
 
-from endpoints.integrations.workguru.client import wg_get
+from integrations.workguru.wg_endpoints import wg_get
 
 database_api_bp = Blueprint('database_api', __name__)
 

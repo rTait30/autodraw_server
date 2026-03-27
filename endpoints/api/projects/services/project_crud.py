@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from dateutil.parser import parse as parse_date
 from sqlalchemy.orm.attributes import flag_modified
+from integrations.workguru.product_submissions.cover.quote import cover_quote
 from models import db, Project, ProjectProduct, User, Product, ProjectStatus
 from endpoints.api.products import dispatch_document
 
@@ -175,6 +176,20 @@ def create_project(user, data):
     # WorkGuru submission
     if (data.get("product_id") == 1 and data.get("submitToWG") == True):
         # Resolve WorkGuru Client ID
+
+        print ("\n\n------------------------------\n\n")
+
+        res, name, description = cover_lead(project, data, target_client_id)
+
+        print (res)
+
+        print (f"(lead_id: {res.get('result') if res else 'No result from cover_lead'})")
+
+        res = cover_quote(project, data, name, description, target_client_id, lead_id=res.get('result') if res else None)
+
+        print ("\n\n------------------------------\n\n")
+
+        '''
         wg_client_id = "178827" # Default NSC for DR
         if project.client_id:
             client_user = db.session.get(User, project.client_id)
@@ -182,6 +197,7 @@ def create_project(user, data):
                  wg_client_id = str(client_user.wg_id)
         
         submit_cover_to_workguru(project, data, wg_client_id)
+        '''
 
     if (data.get("product_id") == 2 and data.get("submitToWG") == True):
         # Resolve WorkGuru Client ID

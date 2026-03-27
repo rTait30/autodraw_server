@@ -46,8 +46,9 @@ def wg_post(tenant: str, endpoint: str, body: dict):
     res = requests.post(url, headers=headers, json=body, timeout=30)
     print(f"[workGuru] Response status: {res.status_code}")
     try:
-        print("[workGuru] Response body preview:")
-        print((res.text or "")[:2000])
+        #print("[workGuru] Response body preview:")
+        #print((res.text or "")[:2000])
+        pass
     except Exception as exc:
         print(f"[workGuru] Failed to read response body: {exc}")
     res.raise_for_status()

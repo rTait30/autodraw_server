@@ -1,5 +1,5 @@
 from endpoints.api.products.SHADE_SAIL.materials_labour import get_materials_labour
-from integrations.workguru.wg_endpoints import create_cp_lead, create_cp_quote, create_dr_lead, wg_get, add_update_lead
+from integrations.workguru.wg_endpoints import wg_get, add_update_lead
 import math
 import os
 
@@ -154,6 +154,8 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
     else:
         category = "1a"
     
+'''
+
     create_cp_lead(
         name=name,
         description=description,
@@ -170,3 +172,4 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
         client_wg_id=wg_client_id,
         category=category,
     )
+'''

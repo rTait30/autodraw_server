@@ -177,13 +177,14 @@ def _safe_eval_expr(expr: str, variables: Dict[str, Any]) -> float:
     # Verbose logging for debugging "cable" or "Evaluations"
     verbose = any(x in original_expr for x in ["cable", "=="])
     if verbose:
-        print(f"EVAL START: '{original_expr}' -> '{expr}'")
+        #print(f"EVAL START: '{original_expr}' -> '{expr}'")
+        pass
 
     try:
         node = ast.parse(expr, mode="eval")
     except SyntaxError as e:
         if verbose:
-             print(f"EVAL ERROR: SyntaxError: {e}")
+            print(f"EVAL ERROR: SyntaxError: {e}")
         return 0.0
 
     def _eval(n: ast.AST) -> Any:

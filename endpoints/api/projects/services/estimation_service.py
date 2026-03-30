@@ -81,11 +81,12 @@ def estimate_project_total(project):
             "name": pp.label or f"Item {i+1}",
             "contingencyPercent": contingency_pct,
             "marginPercent": margin_pct,
-            "sections": evaluated_struct.get("sections", {})
+            "sections": evaluated_struct.get("sections", {}),
+            "meta": evaluated_struct.get("meta", {})
         })
     
-    # Save the structured evaluation
-    project.estimate_schema_evaluated = { "items": evaluated_items }
+    # Save the structured evaluation including overall meta (grand total)
+    project.estimate_schema_evaluated = { "items": evaluated_items, "meta": { "grand_total": grand_total } }
     project.estimate_total = grand_total
     
     return grand_total
@@ -179,7 +180,8 @@ def estimate_payload(product_id, payload_data, schema=None):
             "name": pp.get("label") or f"Item {i+1}",
             "contingencyPercent": contingency_pct,
             "marginPercent": margin_pct,
-            "sections": evaluated_struct.get("sections", {})
+            "sections": evaluated_struct.get("sections", {}),
+            "meta": evaluated_struct.get("meta", {})
         })
         
-    return { "items": evaluated_items }
+    return { "items": evaluated_items, "meta": { "grand_total": grand_total } }

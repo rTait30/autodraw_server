@@ -339,16 +339,20 @@ export default function SimpleEstimateTable({
             onChange={setActiveItemIdx}
             getValue={(_, idx) => idx}
             getLabel={(item, idx) => {
-                const total = Object.values(item.sections || {}).reduce((acc, rows) => {
-                return acc + (
-                    Array.isArray(rows)
-                    ? rows.reduce(
-                        (s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)),
-                        0
-                        )
-                    : 0
-                );
-                }, 0);
+                // Prefer precomputed item-level total if available
+                const preTotal = item?.meta?.grand_total;
+                const total = (preTotal != null)
+                    ? preTotal
+                    : Object.values(item.sections || {}).reduce((acc, rows) => {
+                        return acc + (
+                            Array.isArray(rows)
+                            ? rows.reduce(
+                                (s, r) => s + ((r.quantity || 0) * (r.unitCost || 0)),
+                                0
+                                )
+                            : 0
+                        );
+                    }, 0);
 
                 return (
                 <div className="flex flex-col items-center leading-tight">

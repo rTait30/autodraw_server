@@ -17,6 +17,7 @@ from .requests import wg_get, wg_post
 import requests
 
 
+
 def get_workguru_leads(tenant): #DR/CP
     """
     Example function to fetch leads from the CRM.
@@ -172,7 +173,7 @@ QUOTE_MATERIAL_TEMPLATES = {
             "DiscountApplied": "",
             "Discount": "",
             "UnitAmount": "50.0000",
-            "Billable": False,
+            "Billable": True,
             "TaxType": "OUTPUT",
             "UnitCost": "0.0000",
             "MarkUp": "",
@@ -191,9 +192,9 @@ QUOTE_MATERIAL_TEMPLATES = {
             "DiscountApplied": "",
             "Discount": "",
             "UnitAmount": "22.0000",
-            "Billable": True,
+            "Billable": False,
             "TaxType": "OUTPUT",
-            "UnitCost": "11.0000",
+            "UnitCost": "14.1931",
             "MarkUp": "",
         },
         "2-DR-H-113": {
@@ -210,7 +211,7 @@ QUOTE_MATERIAL_TEMPLATES = {
             "DiscountApplied": "",
             "Discount": "",
             "UnitAmount": "1.1600",
-            "Billable": True,
+            "Billable": False,
             "TaxType": "OUTPUT",
             "UnitCost": "0.5800",
             "MarkUp": "",
@@ -229,7 +230,7 @@ QUOTE_MATERIAL_TEMPLATES = {
             "DiscountApplied": "",
             "Discount": "",
             "UnitAmount": "2.2400",
-            "Billable": True,
+            "Billable": False,
             "TaxType": "OUTPUT",
             "UnitCost": "1.1200",
             "MarkUp": "",
@@ -248,7 +249,7 @@ QUOTE_MATERIAL_TEMPLATES = {
             "DiscountApplied": "",
             "Discount": "",
             "UnitAmount": "2.0000",
-            "Billable": True,
+            "Billable": False,
             "TaxType": "OUTPUT",
             "UnitCost": "1.0315",
             "MarkUp": "",
@@ -258,7 +259,9 @@ QUOTE_MATERIAL_TEMPLATES = {
 }
 
 
+
 def add_update_quote(
+
     tenant: str,
     id: Optional[str],
     name: str,
@@ -267,6 +270,7 @@ def add_update_quote(
     labour: dict | None = None,
     materials: dict | None = None,
 ):
+    
     tenant = tenant.upper()
     quote_id = id or "0"
 
@@ -298,7 +302,12 @@ def add_update_quote(
         "Products": [] if materials else None,
     }
 
+    idx  = 1
+
     for sort_order, (task_key, task_value) in enumerate((labour or {}).items()):
+
+        #print ("sort_order:", sort_order, "task_key:", task_key, "task_value:", task_value)
+
         template = QUOTE_TASK_TEMPLATES[tenant][task_key].copy()
 
         if isinstance(task_value, dict):
@@ -314,7 +323,7 @@ def add_update_quote(
         template.update({
             "Id": "0",
             "QuoteId": quote_id,
-            "SortOrder": str(sort_order),
+            "SortOrder": str(idx),
             "Name": task_name,
             "Quantity": f"{quantity:.4f}",
             "TaxAmount": f"{tax_amount:.2f}",
@@ -322,25 +331,32 @@ def add_update_quote(
 
         body["Tasks"].append(template)
 
+        idx += 1
+
+    idx = 1
+
     for sort_order, material in enumerate((materials or []), start=0):
         material_key = material["key"]
         template = QUOTE_MATERIAL_TEMPLATES[tenant][material_key].copy()
 
         quantity = float(material.get("quantity", 1))
         material_name = material.get("name", template["Name"])
-        unit_cost = float(material.get("unit_cost", template["UnitCost"]))
+        unit_cost = float(material.get("unit_cost", template["UnitAmount"]))
 
         print (f"Processing material {material_key}: quantity={quantity}, unit_cost={unit_cost}")
-        item_description = material.get("item_description", template["Description"])
+        item_description = template["Description"]
+        material_name = material.get("name", template["Name"])
 
         tax_rate = float(template["TaxRate"])
         line_total = quantity * unit_cost
         tax_amount = line_total * (tax_rate / 100)
 
+        print (f"345 wg_endpoints.py unit_cost: {unit_cost}")
+
         template.update({
             "Id": "0",
             "QuoteId": quote_id,
-            "SortOrder": str(sort_order),
+            "SortOrder": str(idx),
             "Name": material_name,
             "Description": item_description,
             "Quantity": f"{quantity:.4f}",
@@ -351,7 +367,9 @@ def add_update_quote(
 
         body["Products"].append(template)
 
-    print(json.dumps(body, indent=2))
+        idx += 1
+
+    #print(json.dumps(body, indent=2))
 
     res = wg_post(tenant, "Quote/AddOrUpdateQuote", body)
 
@@ -451,6 +469,8 @@ def sync_workguru_clients(db, User):
 
 
 # ----------deprecated older functions below, may be removed in future ----------
+
+'''
 
 def create_workguru_lead(name: str, description: str):
     if not WORKGURU_ENABLED:
@@ -730,3 +750,5 @@ def create_cp_quote(name: str, data: dict | None = None, materials_labour: dict 
 
     print("CP QUOTE CREATED/UPDATED:", quote_result)
     return quote_result
+
+'''

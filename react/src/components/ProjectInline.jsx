@@ -705,7 +705,7 @@ const ProjectInline = ({
                   }
                 >
                    <div className="p-5">
-                      <SimpleEstimateTable 
+                      <SimpleEstimateTable
                         schema={editedSchema} 
                         evaluatedSchema={editedProject?.estimate_schema_evaluated}
                         onTotalChange={setCurrentEstimateTotal} 

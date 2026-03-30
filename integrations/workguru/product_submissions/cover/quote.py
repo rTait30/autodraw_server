@@ -31,29 +31,47 @@ def cover_quote(project, data, name, description, client_id, lead_id = None):
 
     idx = 0
 
-    zip_slider = 0
+    zip_slider_mm = 0
+
+    total_covers = 0
 
     for cover in data.get("products", []):
 
         attributes = cover.get("attributes", {})
         quantity = attributes.get("quantity", 0)
         stayputs = attributes.get("stayputs", False)
+
+        total_covers += quantity
+
         if stayputs: hours += quantity * 2.5
         else: hours += quantity * 2
 
-        unit_cost = estimate_schema_evaluated.get("items", {})[idx].get("unitCost", 0) if estimate_schema_evaluated.get("items") else 0
+        print ("estimate_schema_evaluated:", estimate_schema_evaluated)
+
+        # Extract unit cost from the evaluated estimate.
+        # Items often contain unitCost nested inside `sections` (e.g. 'Combined' -> [ { 'unitCost': ... } ])
+        
+        # unit_cost = 0
+
+        items = estimate_schema_evaluated.get("items") or []
+        
+        unit_cost = items[idx].get("meta", {}).get("grand_total", 0) if items else 0
 
         cover_length = attributes.get("length", 0)
         cover_width = attributes.get("width", 0)
         cover_height = attributes.get("height", 0)
 
-        stay_puts_str = "; Stay Puts" if attributes.get("stayputs", False) else ""
+        stay_puts_str = "with stay puts" if attributes.get("stayputs", False) else ""
 
-        item_description = (f"{quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
+        item_description = (f"Clear trolley cover {cover_length}mm x {cover_width}mm x {cover_height}mm {stay_puts_str}\n")
 
-        materials.append({"key": "3-DR-043", "description": item_description, "quantity": quantity, "unit_cost": unit_cost, "billable": True})
+        print ("quote.py 54 unit_cost", unit_cost)
+
+        materials.append({"key": "3-DR-043", "name": item_description, "quantity": quantity, "unit_cost": unit_cost, "billable": True})
     
-        zip_slider += cover_height
+        zip_slider_mm += cover_height * quantity * 2
+
+        idx += 1
 
     print ("\n\n#########################################\n\n")
 
@@ -66,9 +84,12 @@ def cover_quote(project, data, name, description, client_id, lead_id = None):
 
     materials.append({"key": "2-DR-F-225","quantity": material_buy})
 
-    materials.append({"key": "2-DR-H-113","quantity": idx * 2})
+    materials.append({"key": "2-DR-H-001-W","quantity": total_covers * 2})
 
-    materials.append({"key": "2-DR-H-001-W","quantity": math.ceil(zip_slider / 1000)})
+    zip_slider_m_ceil = math.ceil(zip_slider_mm / 1000)
+    
+
+    materials.append({"key": "2-DR-H-113","quantity": zip_slider_m_ceil})
 
     res = add_update_quote(
         tenant="DR",

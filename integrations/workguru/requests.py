@@ -37,7 +37,10 @@ def wg_post(tenant: str, endpoint: str, body: dict):
         return {"result": {}} # Mock result
 
     url = f"{WG_BASE}/api/services/app/{endpoint}"
-    print(f"[workGuru] POST {url} for tenant {tenant}")
+
+
+
+    print(f"[workGuru] POST {url} for tenant {tenant}, body: {body}")
     headers = {
         "Authorization": f"Bearer {get_access_token(tenant)}",
         "Accept": "application/json",

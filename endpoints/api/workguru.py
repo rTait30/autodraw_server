@@ -1,13 +1,14 @@
 import os
 from flask import Blueprint, request, jsonify
 from endpoints.api.auth.utils import role_required  # reuse your auth helpers
-from integrations.workguru.wg_endpoints import create_workguru_lead, get_workguru_leads
+#from integrations.workguru.wg_endpoints import create_workguru_lead
 
 workguru_api_bp = Blueprint("workguru_api", __name__)
 
 def is_workguru_enabled():
     return os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true"
 
+'''
 @workguru_api_bp.route("/add_cover", methods=["POST"])
 @role_required("estimator", "designer", "admin")
 def api_add_cover():
@@ -31,3 +32,4 @@ def api_add_cover():
         return jsonify({"error": f"workGuru create_workguru_lead failed: {e}"}), 500
 
     return jsonify({"ok": True, "result": result}), 200
+'''

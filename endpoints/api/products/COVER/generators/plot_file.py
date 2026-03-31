@@ -295,6 +295,7 @@ def generate_dxf(project, download_name: str):
                     (x + height + hem, y_pos - half_tick),
                     dxfattribs={"layer": layer}
                 )
+                
                 msp.add_line(
                     (x + height + hem - half_tick, y_pos - half_tick),
                     (x + height + hem + half_tick, y_pos - half_tick),

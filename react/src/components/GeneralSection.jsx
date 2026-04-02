@@ -9,7 +9,7 @@ const GENERAL_DEFAULTS = Object.freeze({
   due_date: "",
   info: "",
   status: "awaiting_deposit",
-  order_type: "quote",
+  order_type: "job",
 });
 
 const STATUS_OPTIONS = [
@@ -28,6 +28,8 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "5.3 Cancelled" },
   { value: "completed", label: "5.4 Completed" },
 ];
+
+const normalizeOrderType = (value) => (value === "quote" ? "quote" : "job");
 
 export function GeneralSection({ data, setData = () => {}, onlyName = false, hideOrderType = false }) {
   const [clients, setClients] = useState([]);
@@ -59,13 +61,15 @@ export function GeneralSection({ data, setData = () => {}, onlyName = false, hid
         base[key] = data[key] !== undefined ? data[key] : GENERAL_DEFAULTS[key];
       });
     }
+    base.order_type = normalizeOrderType(base.order_type);
     return base;
   }, [data]);
 
   const updateField = (name) => (nextValue) => {
+    const value = name === "order_type" ? normalizeOrderType(nextValue) : nextValue;
     setData((prev) => {
       const base = { ...GENERAL_DEFAULTS, ...(prev ?? {}) };
-      return { ...base, [name]: nextValue };
+      return { ...base, [name]: value };
     });
   };
 
@@ -83,8 +87,8 @@ export function GeneralSection({ data, setData = () => {}, onlyName = false, hid
           value={safe.order_type}
           onChange={updateField("order_type")}
           options={[
-            { value: "quote", label: "Quote" },
             { value: "job", label: "Job" },
+            { value: "quote", label: "Quote" }
           ]}
         />
       )}

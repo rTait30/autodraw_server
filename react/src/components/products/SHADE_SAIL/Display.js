@@ -3,12 +3,556 @@
  * Mirrors original drawFunction logic from Steps.js with dynamic scaling for mobile/desktop.
  */
 
+const normalizePointId = (value) => {
+  const str = String(value ?? '').trim();
+  if (/^[A-Za-z]$/.test(str)) return String(str.toUpperCase().charCodeAt(0) - 65);
+  return str;
+};
+
+const DEFAULT_SAIL_TRACK_CUTOUT = 50;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const getNumericPointId = (value) => {
+  const normalized = normalizePointId(value);
+  if (normalized === '') return null;
+
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const normalizeMeasurement = (value, fallback = '') => {
+  if (value === '' || value === undefined || value === null) {
+    return fallback;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : value;
+};
+
+const getFiniteMeasurement = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const getEdgeKey = (from, to) => [Number(from), Number(to)].sort((a, b) => a - b).join('-');
+
+const normalizeSailTrackEntry = (entry) => {
+  let rawFrom;
+  let rawTo;
+  let rawFromSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
+  let rawToSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
+
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
+      [rawFrom, rawTo] = trimmed.split('-');
+    } else if (trimmed.length >= 2) {
+      rawFrom = trimmed[0];
+      rawTo = trimmed[1];
+    }
+  } else if (Array.isArray(entry)) {
+    [rawFrom, rawTo] = entry;
+  } else if (entry && typeof entry === 'object') {
+    rawFrom = entry.from;
+    rawTo = entry.to;
+    rawFromSideCutout = entry.fromSideCutout;
+    rawToSideCutout = entry.toSideCutout;
+  }
+
+  const originalFrom = getNumericPointId(rawFrom);
+  const originalTo = getNumericPointId(rawTo);
+  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
+    return null;
+  }
+
+  const from = Math.min(originalFrom, originalTo);
+  const to = Math.max(originalFrom, originalTo);
+  const isReversed = originalFrom > originalTo;
+
+  return {
+    from,
+    to,
+    fromSideCutout: normalizeMeasurement(isReversed ? rawToSideCutout : rawFromSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
+    toSideCutout: normalizeMeasurement(isReversed ? rawFromSideCutout : rawToSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
+  };
+};
+
+const normalizeSailTracks = (value) => (Array.isArray(value) ? value.map(normalizeSailTrackEntry).filter(Boolean) : []);
+
+const normalizeEdgeCutoutEntry = (entry) => {
+  let rawFrom;
+  let rawTo;
+  let rawFromCutout = '';
+  let rawToCutout = '';
+  let rawCutoutWidth = '';
+  let rawCutoutProjection = '';
+
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
+      [rawFrom, rawTo] = trimmed.split('-');
+    } else if (trimmed.length >= 2) {
+      rawFrom = trimmed[0];
+      rawTo = trimmed[1];
+    }
+  } else if (Array.isArray(entry)) {
+    [rawFrom, rawTo] = entry;
+  } else if (entry && typeof entry === 'object') {
+    rawFrom = entry.from;
+    rawTo = entry.to;
+    rawFromCutout = entry.fromCutout;
+    rawToCutout = entry.toCutout;
+    rawCutoutWidth = entry.cutoutWidth;
+    rawCutoutProjection = entry.cutoutProjection;
+  }
+
+  const originalFrom = getNumericPointId(rawFrom);
+  const originalTo = getNumericPointId(rawTo);
+  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
+    return null;
+  }
+
+  const from = Math.min(originalFrom, originalTo);
+  const to = Math.max(originalFrom, originalTo);
+  const isReversed = originalFrom > originalTo;
+
+  return {
+    from,
+    to,
+    fromCutout: normalizeMeasurement(isReversed ? rawToCutout : rawFromCutout),
+    toCutout: normalizeMeasurement(isReversed ? rawFromCutout : rawToCutout),
+    cutoutWidth: normalizeMeasurement(rawCutoutWidth),
+    cutoutProjection: normalizeMeasurement(rawCutoutProjection),
+  };
+};
+
+const normalizeEdgeCutouts = (value) => (Array.isArray(value) ? value.map(normalizeEdgeCutoutEntry).filter(Boolean) : []);
+
+const getEdgeGeometry = (fromPos, toPos, centroidX, centroidY, edgeLength, isStraightEdge = false) => {
+  const dx = toPos.x - fromPos.x;
+  const dy = toPos.y - fromPos.y;
+  const displayedLength = Math.hypot(dx, dy);
+  const length = getFiniteMeasurement(edgeLength);
+
+  if (!displayedLength || !length || length <= 0) {
+    return null;
+  }
+
+  const unitX = dx / displayedLength;
+  const unitY = dy / displayedLength;
+  const midX = (fromPos.x + toPos.x) / 2;
+  const midY = (fromPos.y + toPos.y) / 2;
+  let normalX = -unitY;
+  let normalY = unitX;
+  const toCenterX = centroidX - midX;
+  const toCenterY = centroidY - midY;
+  const toCenterLen = Math.hypot(toCenterX, toCenterY) || 1;
+  const dip = 0.1 * displayedLength;
+  const control = isStraightEdge
+    ? null
+    : {
+        x: midX + (toCenterX / toCenterLen) * dip,
+        y: midY + (toCenterY / toCenterLen) * dip,
+      };
+
+  if ((toCenterX * normalX) + (toCenterY * normalY) < 0) {
+    normalX *= -1;
+    normalY *= -1;
+  }
+
+  return {
+    start: fromPos,
+    end: toPos,
+    unitX,
+    unitY,
+    normalX,
+    normalY,
+    displayedLength,
+    length,
+    mmToPx: displayedLength / length,
+    angle: Math.atan2(dy, dx),
+    centroidX,
+    centroidY,
+    control,
+  };
+};
+
+const getQuadraticPoint = (start, control, end, t) => {
+  const mt = 1 - t;
+  return {
+    x: (mt * mt * start.x) + (2 * mt * t * control.x) + (t * t * end.x),
+    y: (mt * mt * start.y) + (2 * mt * t * control.y) + (t * t * end.y),
+  };
+};
+
+const getQuadraticTangent = (start, control, end, t) => ({
+  x: (2 * (1 - t) * (control.x - start.x)) + (2 * t * (end.x - control.x)),
+  y: (2 * (1 - t) * (control.y - start.y)) + (2 * t * (end.y - control.y)),
+});
+
+const getEdgeOffsetRatio = (edgeGeometry, offsetMm) => {
+  if (!edgeGeometry.length) return 0;
+  return clamp(offsetMm, 0, edgeGeometry.length) / edgeGeometry.length;
+};
+
+const getPointOnEdge = (edgeGeometry, offsetMm) => {
+  const clampedOffset = clamp(offsetMm, 0, edgeGeometry.length);
+  const t = getEdgeOffsetRatio(edgeGeometry, clampedOffset);
+
+  if (edgeGeometry.control) {
+    return getQuadraticPoint(edgeGeometry.start, edgeGeometry.control, edgeGeometry.end, t);
+  }
+
+  const distancePx = clampedOffset * edgeGeometry.mmToPx;
+
+  return {
+    x: edgeGeometry.start.x + (edgeGeometry.unitX * distancePx),
+    y: edgeGeometry.start.y + (edgeGeometry.unitY * distancePx),
+  };
+};
+
+const getEdgeNormal = (edgeGeometry, offsetMm) => {
+  if (!edgeGeometry.control) {
+    return { x: edgeGeometry.normalX, y: edgeGeometry.normalY };
+  }
+
+  const t = getEdgeOffsetRatio(edgeGeometry, offsetMm);
+  const point = getQuadraticPoint(edgeGeometry.start, edgeGeometry.control, edgeGeometry.end, t);
+  const tangent = getQuadraticTangent(edgeGeometry.start, edgeGeometry.control, edgeGeometry.end, t);
+  const tangentLength = Math.hypot(tangent.x, tangent.y) || 1;
+  let normalX = -(tangent.y / tangentLength);
+  let normalY = tangent.x / tangentLength;
+  const toCenterX = edgeGeometry.centroidX - point.x;
+  const toCenterY = edgeGeometry.centroidY - point.y;
+
+  if ((toCenterX * normalX) + (toCenterY * normalY) < 0) {
+    normalX *= -1;
+    normalY *= -1;
+  }
+
+  return { x: normalX, y: normalY };
+};
+
+const getEdgeCutoutSpan = (cutout, edgeLength) => {
+  const fromOffset = getFiniteMeasurement(cutout?.fromCutout);
+  const toOffset = getFiniteMeasurement(cutout?.toCutout);
+  const width = getFiniteMeasurement(cutout?.cutoutWidth);
+
+  let start = fromOffset === null ? null : clamp(fromOffset, 0, edgeLength);
+  const endFromTo = toOffset === null ? null : clamp(edgeLength - toOffset, 0, edgeLength);
+
+  if (start !== null && endFromTo !== null && endFromTo > start) {
+    if (width !== null && width > 0) {
+      const center = (start + endFromTo) / 2;
+      start = clamp(center - (width / 2), 0, edgeLength);
+      return {
+        start,
+        end: clamp(center + (width / 2), 0, edgeLength),
+      };
+    }
+
+    return { start, end: endFromTo };
+  }
+
+  if (width !== null && width > 0) {
+    if (start !== null) {
+      return { start, end: clamp(start + width, 0, edgeLength) };
+    }
+
+    if (endFromTo !== null) {
+      return { start: clamp(endFromTo - width, 0, edgeLength), end: endFromTo };
+    }
+  }
+
+  return null;
+};
+
+const drawSquareMarker = (ctx, centerX, centerY, angle, size, lineWidth, strokeStyle) => {
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle);
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = lineWidth;
+  ctx.beginPath();
+  ctx.rect(-(size / 2), -(size / 2), size, size);
+  ctx.stroke();
+  ctx.restore();
+};
+
+const drawSailTrackSideMarker = (ctx, edgeGeometry, offsetMm, strokeScale, strokeStyle) => {
+  const offset = getFiniteMeasurement(offsetMm);
+  if (offset === null || offset < 0) {
+    return;
+  }
+
+  const point = getPointOnEdge(edgeGeometry, offset);
+  const normal = getEdgeNormal(edgeGeometry, offset);
+  const size = clamp(12 * strokeScale, 10, 16);
+  const edgeOffset = 4 + (size / 2);
+  const centerX = point.x + (normal.x * edgeOffset);
+  const centerY = point.y + (normal.y * edgeOffset);
+
+  drawSquareMarker(
+    ctx,
+    centerX,
+    centerY,
+    edgeGeometry.angle,
+    size,
+    2 * strokeScale,
+    strokeStyle,
+  );
+};
+
+const drawEdgeCutout = (ctx, edgeGeometry, cutout, strokeScale, strokeStyle) => {
+  const span = getEdgeCutoutSpan(cutout, edgeGeometry.length);
+  const projection = getFiniteMeasurement(cutout?.cutoutProjection);
+
+  if (!span || span.end <= span.start || projection === null || projection <= 0) {
+    return;
+  }
+
+  const startPoint = getPointOnEdge(edgeGeometry, span.start);
+  const endPoint = getPointOnEdge(edgeGeometry, span.end);
+  const startNormal = getEdgeNormal(edgeGeometry, span.start);
+  const endNormal = getEdgeNormal(edgeGeometry, span.end);
+  const depthPx = Math.max(10, projection * edgeGeometry.mmToPx);
+  const innerStartX = startPoint.x + (startNormal.x * depthPx);
+  const innerStartY = startPoint.y + (startNormal.y * depthPx);
+  const innerEndX = endPoint.x + (endNormal.x * depthPx);
+  const innerEndY = endPoint.y + (endNormal.y * depthPx);
+
+  ctx.save();
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = 4 * strokeScale;
+  ctx.beginPath();
+  ctx.moveTo(startPoint.x, startPoint.y);
+  ctx.lineTo(innerStartX, innerStartY);
+  ctx.lineTo(innerEndX, innerEndY);
+  ctx.lineTo(endPoint.x, endPoint.y);
+  ctx.stroke();
+  ctx.restore();
+};
+
+const buildDimensionsMap = (attributes = {}) => {
+  const dimensionsMap = {};
+  const conns = attributes.connections;
+
+  if (Array.isArray(conns)) {
+    conns.forEach((conn) => {
+      const from = normalizePointId(conn?.from);
+      const to = normalizePointId(conn?.to);
+      if (from === '' || to === '' || conn?.value === undefined || conn?.value === null || conn.value === '') return;
+      const key = [from, to].sort((a, b) => Number(a) - Number(b)).join('-');
+      dimensionsMap[key] = conn.value;
+    });
+  } else if (conns && typeof conns === 'object') {
+    Object.entries(conns).forEach(([key, value]) => {
+      let p1;
+      let p2;
+
+      if (key.includes('-')) {
+        [p1, p2] = key.split('-');
+      } else if (key.length === 2) {
+        [p1, p2] = key.split('');
+      }
+
+      if (p1 === undefined || p2 === undefined || !value?.value) return;
+      const normKey = [normalizePointId(p1), normalizePointId(p2)]
+        .sort((a, b) => Number(a) - Number(b))
+        .join('-');
+      dimensionsMap[normKey] = value.value;
+    });
+  }
+
+  if (attributes.dimensions) {
+    Object.entries(attributes.dimensions).forEach(([key, value]) => {
+      let p1;
+      let p2;
+
+      if (key.length === 2) {
+        [p1, p2] = key.split('');
+      } else if (key.includes('-')) {
+        [p1, p2] = key.split('-');
+      }
+
+      if (p1 === undefined || p2 === undefined || !value) return;
+      const normKey = [normalizePointId(p1), normalizePointId(p2)]
+        .sort((a, b) => Number(a) - Number(b))
+        .join('-');
+      if (!dimensionsMap[normKey]) dimensionsMap[normKey] = value;
+    });
+  }
+
+  return dimensionsMap;
+};
+
+const getQuotePointIds = (attributes = {}, positions = {}, dimensionsMap = {}) => {
+  const pointCount = Number(attributes.pointCount) || (Array.isArray(attributes.points) ? attributes.points.length : 0);
+  if (pointCount >= 3) {
+    return Array.from({ length: pointCount }, (_, index) => String(index));
+  }
+
+  const positionIds = Object.keys(positions).sort((a, b) => Number(a) - Number(b));
+  if (positionIds.length >= 3) return positionIds;
+
+  const maxIndex = Object.keys(dimensionsMap).reduce((currentMax, key) => {
+    const [p1, p2] = key.split('-').map(Number);
+    if (!Number.isFinite(p1) || !Number.isFinite(p2)) return currentMax;
+    return Math.max(currentMax, p1, p2);
+  }, -1);
+
+  if (maxIndex >= 2) {
+    return Array.from({ length: maxIndex + 1 }, (_, index) => String(index));
+  }
+
+  return [];
+};
+
+const buildQuotePositions = (ids, dimensionsMap) => {
+  const rawLengths = ids.map((id, index) => {
+    const nextId = ids[(index + 1) % ids.length];
+    const edgeKey = [id, nextId].sort((a, b) => Number(a) - Number(b)).join('-');
+    const value = Number(dimensionsMap[edgeKey]);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  });
+
+  const knownLengths = rawLengths.filter((value) => value > 0);
+  const fallbackLength = knownLengths.length > 0
+    ? knownLengths.reduce((sum, value) => sum + value, 0) / knownLengths.length
+    : 1000;
+  const lengths = rawLengths.map((value) => (value > 0 ? value : fallbackLength));
+  const perimeter = lengths.reduce((sum, value) => sum + value, 0) || (ids.length * fallbackLength);
+  const radius = perimeter / (Math.PI * 2);
+  let angle = Math.PI / 2;
+
+  return Object.fromEntries(ids.map((id, index) => {
+    const point = [id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }];
+    angle -= (lengths[index] / perimeter) * Math.PI * 2;
+    return point;
+  }));
+};
+
+const isPerimeterEdge = (pointCount, p1, p2) => {
+  const delta = Math.abs(Number(p1) - Number(p2));
+  return delta === 1 || delta === pointCount - 1;
+};
+
+const getPointCount = (attributes = {}) => Math.max(
+  3,
+  Number(attributes.pointCount) || (Array.isArray(attributes.points) ? attributes.points.length : 0) || 0,
+);
+
+const getPointLabel = (value) => String.fromCharCode(65 + Number(value));
+
+const getDimensionLabel = (p1, p2) => `${getPointLabel(p1)}${getPointLabel(p2)}`;
+
+const chunkItems = (items, size) => {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
+const getRequiredJobDimensions = (attributes = {}) => {
+  const pointCount = getPointCount(attributes);
+  const edges = Array.from({ length: pointCount }, (_, index) => ({
+    p1: index,
+    p2: (index + 1) % pointCount,
+  }));
+
+  const mandatoryKeys = new Set();
+  if (pointCount >= 4) {
+    const maxK = Math.floor((pointCount - 4) / 2);
+    for (let k = 0; k <= maxK; k += 1) {
+      const topL = k;
+      const topR = k + 1;
+      const botR = pointCount - k - 2;
+      const botL = pointCount - k - 1;
+
+      mandatoryKeys.add([topL, botR].sort((a, b) => a - b).join('-'));
+      mandatoryKeys.add([topR, botL].sort((a, b) => a - b).join('-'));
+      mandatoryKeys.add([topL, botL].sort((a, b) => a - b).join('-'));
+      mandatoryKeys.add([topR, botR].sort((a, b) => a - b).join('-'));
+    }
+  }
+
+  const mandatory = [...mandatoryKeys]
+    .map((key) => {
+      const [p1, p2] = key.split('-');
+      return { p1, p2 };
+    })
+    .filter(({ p1, p2 }) => !isPerimeterEdge(pointCount, p1, p2));
+
+  const tip = [];
+  if (pointCount >= 5 && pointCount % 2 !== 0) {
+    const tipIdx = Math.floor(pointCount / 2);
+    for (let start = 0; start < pointCount; start += 1) {
+      for (let end = start + 2; end < pointCount; end += 1) {
+        if (start === 0 && end === pointCount - 1) continue;
+        if (start !== tipIdx && end !== tipIdx) continue;
+
+        const key = [start, end].join('-');
+        if (!mandatoryKeys.has(key)) {
+          tip.push({ p1: start, p2: end });
+        }
+      }
+    }
+  }
+
+  return { edges, mandatory, tip };
+};
+
+const buildRequiredDimensionLines = (requiredDimensions) => {
+  const lines = [];
+  const pushList = (prefix, items, separator, chunkSize) => {
+    if (!items.length) return;
+    chunkItems(items, chunkSize).forEach((chunk, index) => {
+      lines.push(`${index === 0 ? prefix : ''}${chunk.join(separator)}`);
+    });
+  };
+
+  pushList('Edges: ', requiredDimensions.edges.map(({ p1, p2 }) => getDimensionLabel(p1, p2)), ', ', 5);
+  pushList('Checks: ', requiredDimensions.mandatory.map(({ p1, p2 }) => getDimensionLabel(p1, p2)), ', ', 5);
+  pushList('Tip check (one needed): ', requiredDimensions.tip.map(({ p1, p2 }) => getDimensionLabel(p1, p2)), ' or ', 3);
+
+  return lines;
+};
+
+const hasDimensionValue = (dimensionsMap, p1, p2) => {
+  const key = [String(p1), String(p2)].sort((a, b) => Number(a) - Number(b)).join('-');
+  const value = Number(dimensionsMap[key]);
+  return Number.isFinite(value) && value > 0;
+};
+
+const hasRequiredJobDimensions = (requiredDimensions, dimensionsMap = {}) => {
+  for (const { p1, p2 } of requiredDimensions.edges) {
+    if (!hasDimensionValue(dimensionsMap, p1, p2)) {
+      return false;
+    }
+  }
+
+  for (const { p1, p2 } of requiredDimensions.mandatory) {
+    if (!hasDimensionValue(dimensionsMap, p1, p2)) {
+      return false;
+    }
+  }
+
+  if (requiredDimensions.tip.length > 0 && !requiredDimensions.tip.some(({ p1, p2 }) => hasDimensionValue(dimensionsMap, p1, p2))) {
+    return false;
+  }
+
+  return true;
+};
+
 export function render(canvas, data) {
   if (!canvas || !data) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
   const sails = data.products || [];
+  const showQuoteWarning = data.general?.order_type === 'quote';
 
   // Layout configuration tuned for the 1000x1000 overlay canvas.
   const perSailHeight = 1000;
@@ -43,10 +587,39 @@ export function render(canvas, data) {
     const infoTop = drawingTop + sailDrawingHeight + sectionGap;
     
     const attributes = sail.attributes || {};
-    const positions = attributes.positions || {};
     const points = attributes.points || {};
-    const ids = Object.keys(positions);
-    if (!ids.length) return;
+    const dimensionsMap = buildDimensionsMap(attributes);
+    const sourcePositions = attributes.positions || {};
+    const sourcePositionIds = Object.keys(sourcePositions).sort((a, b) => Number(a) - Number(b));
+    const requiredDimensions = getRequiredJobDimensions(attributes);
+    const hasMeasuredGeometry = hasRequiredJobDimensions(requiredDimensions, dimensionsMap);
+    const expectedPointCount = getPointCount(attributes);
+    const hasSolvedPositions = hasMeasuredGeometry && sourcePositionIds.length >= expectedPointCount;
+    const useQuoteFallback = showQuoteWarning && !hasSolvedPositions;
+    const ids = useQuoteFallback
+      ? getQuotePointIds(attributes, sourcePositions, dimensionsMap)
+      : (hasSolvedPositions ? sourcePositionIds : []);
+    if (!ids.length) {
+      if (!useQuoteFallback) {
+        const warningLines = buildRequiredDimensionLines(requiredDimensions);
+        const warningStartY = startY + (perSailHeight / 2) - ((warningLines.length + 1) * 20);
+
+        ctx.save();
+        ctx.fillStyle = '#dc2626';
+        ctx.font = `bold ${Math.round(42 * fontScale)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Please provide required dimensions', canvas.width / 2, warningStartY);
+
+        ctx.font = `${Math.round(26 * fontScale)}px Arial`;
+        warningLines.forEach((line, lineIndex) => {
+          ctx.fillText(line, canvas.width / 2, warningStartY + 54 + (lineIndex * 32));
+        });
+        ctx.restore();
+      }
+      return;
+    }
+    const positions = useQuoteFallback ? buildQuotePositions(ids, dimensionsMap) : sourcePositions;
 
     // Build a set of problematic line keys (unordered pairs) from boxProblems
     // For any box like ABCD or 0-1-2-3, mark AB, BC, CD, DA and diagonals AC, BD as problematic
@@ -117,7 +690,7 @@ export function render(canvas, data) {
 
     // Map workpoints (tension points) if available
     const mappedWorkpoints = {};
-    const workpoints = attributes.workpoints || {};
+    const workpoints = useQuoteFallback ? {} : (attributes.workpoints || {});
     const hasWorkpoints = Object.keys(workpoints).length > 0;
     
     if (hasWorkpoints) {
@@ -133,7 +706,7 @@ export function render(canvas, data) {
 
     // Use pre-calculated centroid from backend if available, mapped to canvas
     let cx = 0, cy = 0;
-    if (attributes.centroid) {
+    if (!useQuoteFallback && attributes.centroid) {
         cx = offsetX + (attributes.centroid.x - minX) * scale;
       cy = offsetY + (maxY - attributes.centroid.y) * scale;
     } else {
@@ -148,6 +721,9 @@ export function render(canvas, data) {
     // Order points by polar angle around centroid to approximate perimeter order
     const angles = Object.fromEntries(ids.map(id => [id, Math.atan2((perimeterPoints[id] || mapped[id]).y - cy, (perimeterPoints[id] || mapped[id]).x - cx)]));
     const ordered = [...ids].sort((a, b) => angles[a] - angles[b]);
+    const sailTracks = normalizeSailTracks(attributes.sailTracks);
+    const edgeCutouts = normalizeEdgeCutouts(attributes.edgeCutouts);
+    const sailTrackMap = new Map(sailTracks.map((track) => [getEdgeKey(track.from, track.to), track]));
 
     // Draw tensioners (lines from post to workpoint)
     if (hasWorkpoints) {
@@ -177,8 +753,8 @@ export function render(canvas, data) {
     // Draw outer perimeter edges with catenary curves only; color red if problematic
     // Pre-build sail track edge set for efficient lookup
     const sailTrackEdges = new Set();
-    (attributes.sailTracks || []).forEach(t => {
-      const k = [Number(t.from), Number(t.to)].sort((a,b) => a-b).join('-');
+    sailTracks.forEach((track) => {
+      const k = getEdgeKey(track.from, track.to);
       sailTrackEdges.add(k);
     });
     // Also check connections for sailTrack boolean flag
@@ -186,13 +762,30 @@ export function render(canvas, data) {
     if (Array.isArray(connsForTrack)) {
       connsForTrack.forEach(c => {
         if (c && c.sailTrack) {
-          const k = [Number(c.from), Number(c.to)].sort((a,b) => a-b).join('-');
-          sailTrackEdges.add(k);
+          const from = getNumericPointId(c.from);
+          const to = getNumericPointId(c.to);
+          if (from !== null && to !== null && from !== to) {
+            sailTrackEdges.add(getEdgeKey(from, to));
+          }
         }
       });
     } else if (connsForTrack && typeof connsForTrack === 'object') {
       Object.entries(connsForTrack).forEach(([key, val]) => {
-        if (val && val.sailTrack) sailTrackEdges.add(key);
+        if (!val || !val.sailTrack) return;
+
+        let from;
+        let to;
+        if (key.includes('-')) {
+          [from, to] = key.split('-');
+        } else if (key.length === 2) {
+          [from, to] = key.split('');
+        }
+
+        const numericFrom = getNumericPointId(from);
+        const numericTo = getNumericPointId(to);
+        if (numericFrom !== null && numericTo !== null && numericFrom !== numericTo) {
+          sailTrackEdges.add(getEdgeKey(numericFrom, numericTo));
+        }
       });
     }
 
@@ -268,6 +861,15 @@ export function render(canvas, data) {
       ctx.stroke();
       ctx.restore();
 
+      const sailTrack = sailTrackMap.get(stKey);
+      if (sailTrack) {
+        const edgeGeometry = getEdgeGeometry(sPos1, sPos2, cx, cy, dimensionsMap[stKey], true);
+        if (edgeGeometry) {
+          drawSailTrackSideMarker(ctx, edgeGeometry, sailTrack.fromSideCutout, strokeScale, stColor);
+          drawSailTrackSideMarker(ctx, edgeGeometry, edgeGeometry.length - Number(sailTrack.toSideCutout), strokeScale, stColor);
+        }
+      }
+
       // Draw "Sail Track" label outside the sail
       ctx.save();
       const midX = (sPos1.x + sPos2.x) / 2;
@@ -289,33 +891,97 @@ export function render(canvas, data) {
       ctx.restore();
     }
 
+    edgeCutouts.forEach((cutout) => {
+      const edgeKey = getEdgeKey(cutout.from, cutout.to);
+      if (!sailTrackMap.has(edgeKey)) return;
+
+      const fromId = String(cutout.from);
+      const toId = String(cutout.to);
+      const lineKey = [fromId, toId].sort().join('-');
+      const cutoutColor = problematicLines.has(lineKey) ? '#EB1C24' : '#004A7C';
+      const fromPos = perimeterPoints[fromId] || mapped[fromId];
+      const toPos = perimeterPoints[toId] || mapped[toId];
+      if (!fromPos || !toPos) return;
+
+      const edgeGeometry = getEdgeGeometry(fromPos, toPos, cx, cy, dimensionsMap[edgeKey], sailTrackEdges.has(edgeKey));
+      if (!edgeGeometry) return;
+
+      drawEdgeCutout(ctx, edgeGeometry, cutout, strokeScale, cutoutColor);
+    });
+
+    // Draw UFCs as thick blue lines between the referenced corners
+    (attributes.ufcs || []).forEach((ufc) => {
+      const fromId = normalizePointId(ufc?.from);
+      const toId = normalizePointId(ufc?.to);
+      const fromPos = perimeterPoints[fromId] || mapped[fromId];
+      const toPos = perimeterPoints[toId] || mapped[toId];
+      if (!fromPos || !toPos || fromId === toId) return;
+
+      const midX = (fromPos.x + toPos.x) / 2;
+      const midY = (fromPos.y + toPos.y) / 2;
+      const dx = toPos.x - fromPos.x;
+      const dy = toPos.y - fromPos.y;
+      const length = Math.hypot(dx, dy);
+      const unitX = length ? dx / length : 0;
+      const unitY = length ? dy / length : 0;
+      const dimensionKey = [fromId, toId].sort((a, b) => Number(a) - Number(b)).join('-');
+      const dimensionValue = Number(dimensionsMap[dimensionKey]);
+
+      ctx.save();
+      ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
+      const dimensionLabel = Number.isFinite(dimensionValue) && dimensionValue > 0
+        ? `${getDimensionLabel(fromId, toId)}: ${dimensionValue.toFixed(0)}mm`
+        : getDimensionLabel(fromId, toId);
+      const dimensionWidth = ctx.measureText(dimensionLabel).width;
+      ctx.restore();
+
+      const gapHalf = Math.max(0, Math.min((length / 2) - 12, (dimensionWidth / 2) + 42));
+
+      ctx.save();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 6 * strokeScale;
+      ctx.beginPath();
+      if (gapHalf > 0) {
+        ctx.moveTo(fromPos.x, fromPos.y);
+        ctx.lineTo(midX - (unitX * gapHalf), midY - (unitY * gapHalf));
+        ctx.moveTo(midX + (unitX * gapHalf), midY + (unitY * gapHalf));
+        ctx.lineTo(toPos.x, toPos.y);
+      } else {
+        ctx.moveTo(fromPos.x, fromPos.y);
+        ctx.lineTo(toPos.x, toPos.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      let angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
+      ctx.font = `bold ${Math.round(28 * fontScale)}px Arial`;
+      ctx.fillStyle = '#2563eb';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.translate(midX, midY);
+      ctx.rotate(angle);
+      ctx.fillText('UFC', 0, 28);
+      ctx.restore();
+    });
+
     // Point labels & metadata (responsive sizing)
     ordered.forEach(id => {
       const p = mapped[id];
       if (!p) return;
       let vx = p.x - cx; let vy = p.y - cy; let vlen = Math.hypot(vx, vy) || 1; vx /= vlen; vy /= vlen;
-      const baseDist = 36;
-      const lineSpacingLarge = 48;
-      const lineSpacingSmall = 32;
+      const baseDist = 24;
+      const labelHalfWidth = 22;
+      const labelHalfHeight = 22;
       const anchorX = p.x + vx * baseDist;
       const anchorY = p.y + vy * baseDist;
-      const perpX = -vx; const perpY = vy; const lateral = 2 * paddingScale;
-      const rawLabelX = anchorX + perpX * lateral * 0.2 - 50;
-      const minLabelX = padX - 10;
-      const maxLabelX = canvas.width - padX - 170;
-      const labelX = Math.max(minLabelX, Math.min(rawLabelX, maxLabelX));
-
-      let detailLineCount = 0;
-      if (points[id] && points[id].height !== undefined && points[id].height !== '') detailLineCount += 1;
-      if (!data.discrepancyChecker) detailLineCount += 3;
-      if (attributes.exitPoint === id && !data.discrepancyChecker) detailLineCount += 1;
-      if (attributes.logoPoint === id && !data.discrepancyChecker) detailLineCount += 1;
-
-      const labelBlockHeight = 8 + lineSpacingLarge + (detailLineCount * lineSpacingSmall);
-      const minLabelY = drawingTop + 22;
-      const maxLabelY = infoTop - labelBlockHeight - 18;
-      const rawLabelY = anchorY + perpY * lateral * 0.2 - 50;
-      const labelY = Math.max(minLabelY, Math.min(rawLabelY, maxLabelY));
+      const minLabelX = padX + labelHalfWidth;
+      const maxLabelX = canvas.width - padX - labelHalfWidth;
+      const labelX = Math.max(minLabelX, Math.min(anchorX, maxLabelX));
+      const minLabelY = drawingTop + labelHalfHeight;
+      const maxLabelY = infoTop - labelHalfHeight;
+      const labelY = Math.max(minLabelY, Math.min(anchorY, maxLabelY));
 
       // Point circle (with reflex angle highlight if provided)
       const isReflex = attributes.reflexAngleValues && attributes.reflexAngleValues[id] != null;
@@ -325,11 +991,27 @@ export function render(canvas, data) {
       ctx.fill();
       ctx.strokeStyle = '#004A7C'; ctx.lineWidth = 1 * strokeScale; ctx.stroke();
 
+      ctx.save();
       ctx.fillStyle = '#000';
       ctx.font = `bold ${Math.round(48 * fontScale)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       // Convert id 0->A, 1->B, 2->C...
       const labelChar = String.fromCharCode(65 + Number(id));
       ctx.fillText(`${labelChar}`, labelX, labelY);
+      
+      ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
+
+      if (points[id] && points[id].height !== undefined && points[id].height !== '') {
+        ctx.fillText(`Height: ${points[id].height}`, labelX + 100, labelY + 50);
+      }
+
+
+      ctx.restore();
+
+      /*
+
+      
 
       ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
 
@@ -355,6 +1037,8 @@ export function render(canvas, data) {
       if (attributes.exitPoint === id && !data.discrepancyChecker) { ctx.fillText('Exit Point', labelX, nextY); nextY += lineSpacingSmall; }
       if (attributes.logoPoint === id && !data.discrepancyChecker) { ctx.fillText('Logo', labelX, nextY); nextY += lineSpacingSmall; }
       
+      */
+
       /*
       reflex not working yet
       if (isReflex) {
@@ -372,6 +1056,8 @@ export function render(canvas, data) {
     };
 
     const getEvaluatedDimension = (p1, p2) => {
+      if (useQuoteFallback) return null;
+
       const pos1 = positions[p1];
       const pos2 = positions[p2];
       if (!pos1 || !pos2) return null;
@@ -387,56 +1073,6 @@ export function render(canvas, data) {
       if ([dx, dy, dz].some(Number.isNaN)) return null;
       return Math.sqrt(dx * dx + dy * dy + dz * dz);
     };
-
-    // Unified dimensions map for drawing
-    // Prioritize connections (list or dict), fallback to dimensions
-    const dimensionsMap = {};
-    const conns = attributes.connections;
-    if (Array.isArray(conns)) {
-        conns.forEach(c => {
-             // For drawing, we want consistent keying.
-             // But we want to display letters.
-             // Let's store by index-key for drawing logic, map to label for text.
-             const k = [c.from, c.to].sort((a,b)=>a-b).join('-'); // Numeric sort for indices
-             if (c.value) dimensionsMap[k] = c.value;
-        });
-    } else if (conns && typeof conns === 'object') {
-        Object.entries(conns).forEach(([k, valObj]) => {
-             // k is "u-v" or "uv"
-             // normalize to sorted "u-v"
-             let p1, p2;
-             if (k.includes('-')) {
-                 [p1, p2] = k.split('-');
-             } else if (k.length === 2) {
-                 [p1, p2] = k.split('');
-             }
-             if (p1 !== undefined) {
-                 // Numeric sort to match above
-                 const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
-                 if (valObj && valObj.value) dimensionsMap[normK] = valObj.value;
-             }
-        });
-    }
-    
-    // Fallback/Legacy dimensions merge
-    if (attributes.dimensions) {
-        Object.entries(attributes.dimensions).forEach(([k, v]) => {
-             let p1, p2;
-             if (k.length === 2) {
-                 p1 = k[0]; p2 = k[1];
-                 // Convert letters to indices if needed
-                 if (/[A-Z]/.test(p1)) p1 = (p1.charCodeAt(0) - 65).toString();
-                 if (/[A-Z]/.test(p2)) p2 = (p2.charCodeAt(0) - 65).toString();
-             } else if (k.includes('-')) {
-                 [p1, p2] = k.split('-');
-             }
-             
-             if (p1 !== undefined) {
-                 const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
-                 if (v && !dimensionsMap[normK]) dimensionsMap[normK] = v;
-             }
-        });
-    }
 
     // Dimensions (edges + diagonals) with rotated labels
     ctx.lineWidth = 1 * strokeScale; ctx.fillStyle = '#333';
@@ -538,7 +1174,7 @@ export function render(canvas, data) {
           suggestionText = "Cannot determine specific problem dimension.";
        } else {
           const topSuspects = topSuspectKeys.map(k => translateKey(k)).join(' or ');
-          suggestionText = `Check dimension ${topSuspects} or similar.`;
+         suggestionText = `Check Dimension ${topSuspects} or similar.`;
        }
     }
 
@@ -567,9 +1203,6 @@ export function render(canvas, data) {
 
     if (isProblem) {
        ctx.fillText("Shape does not close geometrically.", col1X, currentY);
-       if (suggestionText) {
-          ctx.fillText(suggestionText, col2X + 50, currentY); // Offset slightly
-       }
     } else {
        ctx.fillText("Measurements form a consistent geometric shape.", col1X, currentY);
     }
@@ -635,7 +1268,32 @@ export function render(canvas, data) {
            }
         }
     }
+
+    if (isProblem && suggestionText) {
+      ctx.save();
+      ctx.font = `bold ${Math.round(32 * fontScale)}px Arial`;
+      ctx.fillStyle = '#dc2626';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(suggestionText, startX + (textBlockWidth / 2), yPos + textSectionHeight - 28);
+      ctx.restore();
+    }
     ctx.restore();
+
+    if (showQuoteWarning) {
+      ctx.save();
+      ctx.translate(canvas.width / 2, startY + (perSailHeight / 2));
+      //ctx.rotate(-Math.PI / 10);
+      ctx.font = `bold ${Math.round(48 * fontScale)}px Arial`;
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.5)';
+      ctx.textAlign = 'center';
+      ctx.fillText('QUOTE ONLY - DIMENSIONS NOT FINAL', 0, -200);
+
+      ctx.font = `bold ${Math.round(36 * fontScale)}px Arial`;
+      
+      ctx.fillText('CANNOT PROCEED WITH PRODUCTION', 0, -100);
+      ctx.restore();
+    }
   });
 
   ctx.restore();

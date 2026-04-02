@@ -106,6 +106,20 @@ export function FormContainer({ children, className = "" }) {
   return <div className={`p-3 space-y-3 ${className}`}>{children}</div>;
 }
 
+function FieldLabel({ inputId, label, mandatory = false }) {
+  if (!label) return null;
+
+  return (
+    <label
+      htmlFor={inputId}
+      className={`input-label ${mandatory ? "text-red-600 dark:text-red-400" : ""}`}
+    >
+      {label}
+      {mandatory && <span className="ml-1 font-bold">*</span>}
+    </label>
+  );
+}
+
 // --- Number Input ---
 export function NumberInput({
   label,
@@ -116,6 +130,7 @@ export function NumberInput({
   className = "",
   wrapperClassName = "",
   placeholder,
+  mandatory = false,
   ref,
   ...props
 }) {
@@ -124,11 +139,7 @@ export function NumberInput({
   
   return (
     <div className={wrapperClassName}>
-      {label && (
-        <label htmlFor={inputId} className="input-label">
-          {label}
-        </label>
-      )}
+      <FieldLabel inputId={inputId} label={label} mandatory={mandatory} />
       <input
         id={inputId}
         ref={ref}
@@ -172,6 +183,7 @@ export function TextInput({
   className = "",
   wrapperClassName = "",
   placeholder,
+  mandatory = false,
   ref, 
   ...props 
 }) {
@@ -180,11 +192,7 @@ export function TextInput({
 
   return (
     <div className={wrapperClassName}>
-      {label && (
-        <label htmlFor={inputId} className="input-label">
-          {label}
-        </label>
-      )}
+      <FieldLabel inputId={inputId} label={label} mandatory={mandatory} />
       <input
         id={inputId}
         ref={ref}
@@ -212,7 +220,8 @@ export function SelectInput({
     nav,
     className = "",
     wrapperClassName = "",
-    ref, 
+    ref,
+    mandatory = false,
     ...props 
 }) {
   const uniqueId = useId();
@@ -220,11 +229,7 @@ export function SelectInput({
 
   return (
     <div className={`flex flex-col ${wrapperClassName}`}>
-      {label && (
-        <label htmlFor={inputId} className="input-label">
-          {label}
-        </label>
-      )}
+      <FieldLabel inputId={inputId} label={label} mandatory={mandatory} />
       
       <div className="relative">
         <select
@@ -255,7 +260,7 @@ export function SelectInput({
   );
 }
 
-export function CheckboxInput({ label, checked, onChange, ...props }) {
+export function CheckboxInput({ label, checked, onChange, mandatory = false, ...props }) {
   return (
     // h-12 (48px) matches the height of our TextInputs exactly.
     // rounded-lg matches the curvature of the inputs.
@@ -289,8 +294,11 @@ export function CheckboxInput({ label, checked, onChange, ...props }) {
         <polyline points="20 6 9 17 4 12" />
       </svg>
 
-      <span className="ml-3 text-base font-bold text-gray-700 group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white">
+      <span
+        className={`ml-3 text-base font-bold ${mandatory ? "text-red-600 group-hover:text-red-700 dark:text-red-400 dark:group-hover:text-red-300" : "text-gray-700 group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white"}`}
+      >
         {label}
+        {mandatory && <span className="ml-1">*</span>}
       </span>
     </label>
   );

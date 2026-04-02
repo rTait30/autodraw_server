@@ -68,7 +68,7 @@ export default function Toast({
       <div className="shrink-0 mt-0.5">{icon}</div>
 
       {/* message scrolls if long */}
-      <div className="flex-1 text-sm font-medium pr-1 overflow-y-auto max-h-[60dvh]">
+      <div className="flex-1 text-sm font-medium pr-1 overflow-y-auto max-h-[60dvh] whitespace-pre-line">
         {message}
       </div>
 

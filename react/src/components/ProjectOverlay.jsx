@@ -7,7 +7,7 @@ export default function ProjectOverlay({
   variant = 'embedded',
   showDialogActions = true,
   isCalculating = false,
-  currentOrderType = 'quote',
+  currentOrderType = 'job',
   onReturn,
   onSubmit,
   canvasRef, 

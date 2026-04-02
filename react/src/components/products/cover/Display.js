@@ -115,10 +115,10 @@ function drawCover3DPreviews(ctx, products, layout) {
 
     // Labels
     ctx.fillStyle = '#000';
-    ctx.font = `12px sans-serif`;
+    ctx.font = `32px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(`${length}mm × ${width}mm × ${height}mm`, startX + boxW / 2, startY + boxH + boxHem + 20);
-    ctx.font = `bold 20px sans-serif`;
+    ctx.font = `bold 32px sans-serif`;
     ctx.fillText(`× ${quantity}`, startX + boxW / 2, startY + boxH + boxHem + 40);
     const bottom = startY + boxH + boxHem + 50;
     if (bottom > maxBottomY) maxBottomY = bottom;
@@ -184,7 +184,7 @@ function drawFlattenedPanels(ctx, products, layout) {
 
     // Labels
     ctx.fillStyle = '#000';
-    ctx.font = `10px sans-serif`;
+    ctx.font = `32px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(`Main: ${flatMainWidth}×${flatMainHeight}mm`, originX + mainW / 2, originY - 5);
     ctx.fillText(`Side: ${flatSideWidth}×${flatSideHeight}mm`, originX + sideW / 2, sideY - 5);
@@ -231,7 +231,7 @@ function drawSplitPanels(ctx, products, layout) {
     let xOffset = 50;
     // Optional: product header
     ctx.fillStyle = '#111827';
-    ctx.font = `12px sans-serif`;
+    ctx.font = `32px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(`Size ${i + 1} (${attrs.length} x ${attrs.width} x ${attrs.height})`, xOffset, Math.round(offsetY + i * rowHeight - 4));
 
@@ -278,13 +278,13 @@ function drawSplitPanels(ctx, products, layout) {
 
       // Label (dimensions) under panel
       ctx.fillStyle = '#000';
-      ctx.font = `10px sans-serif`;
+      ctx.font = `32px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(`${Math.round(sample.width)}×${Math.round(sample.height)}mm`, Math.round(x + w / 2), Math.round(y + h + 12));
 
       // Count annotation x{num} beside the panel
-      ctx.font = `bold 12px sans-serif`;
+      ctx.font = `bold 32px sans-serif`;
       ctx.textAlign = 'left';
       ctx.fillText(`x${count}`, Math.round(x + w + 8), Math.round(y + h / 2));
 
@@ -328,7 +328,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     ctx.stroke();
 
     ctx.fillStyle = '#000';
-    ctx.font = `12px sans-serif`;
+    ctx.font = `32px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(`${nest.total_width || nest.required_width}mm`, binX + binW / 2, dimY + 12);
 
@@ -362,7 +362,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
       ctx.strokeRect(x, y, w, h);
 
       ctx.fillStyle = '#fff';
-      ctx.font = `8px sans-serif`;
+      ctx.font = `32px sans-serif`;
       ctx.fillText(label, x + w / 2, y + h / 2);
     }
     
@@ -378,7 +378,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
   if (nest.last_roll_length) {
     ctx.save();
     ctx.fillStyle = '#dc2626'; // Prominent Red
-    ctx.font = `bold 24px sans-serif`;
+    ctx.font = `bold 32px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(`Final Roll Length: ${nest.last_roll_length}mm`, padding, currentY + 10);
     ctx.restore();
@@ -410,7 +410,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
 
     // Roll label
     ctx.fillStyle = roll.is_last ? '#f59e0b' : '#111827';
-    ctx.font = `bold 12px sans-serif`;
+    ctx.font = `bold 32px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(
       `Roll ${roll.roll_number}${roll.is_last ? ' (Final Roll)' : ''}`,
@@ -448,7 +448,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
       ctx.strokeRect(x, y, w, h);
 
       ctx.fillStyle = '#fff';
-      ctx.font = `8px sans-serif`;
+      ctx.font = `32px sans-serif`;
       ctx.fillText(label, x + w / 2, y + h / 2);
     }
 
@@ -466,7 +466,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     ctx.stroke();
 
     ctx.fillStyle = '#374151';
-    ctx.font = `10px sans-serif`;
+    ctx.font = `32px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(`${roll.width}mm × ${roll.height}mm`, binX + binW / 2, dimY + 12);
 
@@ -483,7 +483,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     // Prominent Bottom Label
     ctx.save();
     ctx.fillStyle = '#dc2626'; // Prominent Red
-    ctx.font = `bold 24px sans-serif`;
+    ctx.font = `bold 32px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(
       `Total Rolls: ${rolls.length} | Final Roll Length: ${nest.last_roll_length}mm`,

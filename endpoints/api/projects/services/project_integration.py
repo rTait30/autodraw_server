@@ -3,6 +3,62 @@ from integrations.workguru.wg_endpoints import wg_get, add_update_lead
 import math
 import os
 
+
+def _format_sailtrack_point(value):
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        if raw.isdigit():
+            value = int(raw)
+        elif len(raw) == 1:
+            return raw.upper()
+        else:
+            return raw
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        index = int(value)
+        if 0 <= index < 26:
+            return chr(ord("A") + index)
+        return str(index)
+
+    return str(value)
+
+
+def _get_sailtrack_points(sailtrack):
+    if isinstance(sailtrack, dict):
+        return (
+            _format_sailtrack_point(sailtrack.get("from")),
+            _format_sailtrack_point(sailtrack.get("to")),
+        )
+
+    if isinstance(sailtrack, (list, tuple)) and len(sailtrack) >= 2:
+        return (
+            _format_sailtrack_point(sailtrack[0]),
+            _format_sailtrack_point(sailtrack[1]),
+        )
+
+    if isinstance(sailtrack, str):
+        raw = sailtrack.strip()
+        if not raw:
+            return (None, None)
+        if "-" in raw:
+            left, right = raw.split("-", 1)
+            return (
+                _format_sailtrack_point(left),
+                _format_sailtrack_point(right),
+            )
+        if len(raw) >= 2:
+            return (
+                _format_sailtrack_point(raw[0]),
+                _format_sailtrack_point(raw[1]),
+            )
+
+    return (None, None)
+
 def is_workguru_enabled():
     return os.getenv("WORKGURU_INTEGRATION", "false").lower() == "true"
 
@@ -141,8 +197,10 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
         else: description += (f"{edgeMeter}EM, {fabric_type} {colour}, {corners}C, {cableSize}mm Cable")
 
         for sailtrack in (attributes.get("sailTracks", [])):
-            
-            description += (f", ST From {sailtrack[0]} to {sailtrack[1]}")
+            sailtrack_from, sailtrack_to = _get_sailtrack_points(sailtrack)
+
+            if sailtrack_from and sailtrack_to:
+                description += (f", ST From {sailtrack_from} to {sailtrack_to}")
 
         description += "\n"
 

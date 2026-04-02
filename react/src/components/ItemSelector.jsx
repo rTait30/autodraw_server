@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDisplayLabel } from "../utils/formatDisplayLabel";
 
 export function ItemSelector({
   label,
@@ -64,6 +65,7 @@ export function ItemSelector({
         {options.map((opt, index) => {
           const optValue = getValue(opt, index);
           const isActive = Object.is(optValue, value);
+          const renderedLabel = formatDisplayLabel(getLabel(opt, index));
 
           return (
             <button
@@ -86,7 +88,7 @@ export function ItemSelector({
                 buttonClassName,
               ].join(" ")}
             >
-              {getLabel(opt, index)}
+              {renderedLabel}
             </button>
           );
         })}

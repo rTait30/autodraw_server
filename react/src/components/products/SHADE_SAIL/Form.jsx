@@ -16,9 +16,43 @@ import { Button } from "../../UI";
 import FabricSelector, { ColorSwatch } from "../../FabricSelector";
 import OverlayShell from "../../OverlayShell";
 
-import { DEFAULT_ATTRIBUTES } from "./constants";
-
 const MAX_POINTS = 11;
+const DEFAULT_SAIL_TRACK_CUTOUT = 50;
+const PVC_FABRIC_CATEGORY = "PVC";
+const UNDERSIDE_FOLD_SIDE = "Underside";
+export const PROJECT_DEFAULTS = Object.freeze({
+  location: "",
+});
+
+const DEFAULT_POINT = Object.freeze({
+  height: "",
+  cornerFitting: "",
+  tensionHardware: "",
+  tensionAllowance: "",
+  Structure: "",
+});
+
+export const ATTRIBUTE_DEFAULTS = Object.freeze({
+  fabricCategory: "",
+  fabricType: "",
+  foldSides: "",
+  exitPoint: "",
+  logoPoint: null,
+  cableSize: "",
+  pointCount: 4,
+  points: Array.from({ length: 4 }, () => ({ ...DEFAULT_POINT })),
+  connections: [],
+  sailTracks: [],
+  edgeCutouts: [],
+  traceCables: [],
+  ufcs: [],
+  fabric_id: null,
+  fabric_name: "",
+  color_id: null,
+  color_name: "",
+  color_hex: "",
+  colour: "",
+});
 
 // ----------------------------------------------------------------------
 // Helpers
@@ -28,14 +62,430 @@ function clamp(x, lo, hi) {
   return Math.max(lo, Math.min(hi, x));
 }
 
+function createDefaultPoint() {
+  return { ...DEFAULT_POINT };
+}
+
+function buildValidationResult(errors) {
+  return { valid: errors.length === 0, errors };
+}
+
+function isPvcFabricCategory(value) {
+  return String(value ?? "").trim().toUpperCase() === PVC_FABRIC_CATEGORY;
+}
+
+function getNormalizedFoldSides(attributes) {
+  return isPvcFabricCategory(attributes?.fabricCategory)
+    ? UNDERSIDE_FOLD_SIDE
+    : (attributes?.foldSides ?? "");
+}
+
+function isBlank(value) {
+  return value === "" || value === undefined || value === null;
+}
+
+function getConnectionsList(attributes) {
+  return Array.isArray(attributes?.connections) ? attributes.connections : [];
+}
+
 // Display label generator (0 -> "A", 1 -> "B", etc.)
 function getLabel(index) {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   return letters[index % letters.length];
 }
 
+function getPointIndex(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  if (/^\d+$/.test(raw)) {
+    return Number(raw);
+  }
+
+  if (/^[A-Z]$/i.test(raw)) {
+    return raw.toUpperCase().charCodeAt(0) - 65;
+  }
+
+  return null;
+}
+
 function getEdgeLabel(u, v) {
   return `${getLabel(u)}${getLabel(v)}`;
+}
+
+function normalizeMeasurement(value, fallback = "") {
+  if (value === "" || value === undefined || value === null) {
+    return fallback;
+  }
+
+  const num = Number(value);
+  return Number.isFinite(num) ? num : value;
+}
+
+function getSailTrackKey(u, v) {
+  return `${Math.min(u, v)}-${Math.max(u, v)}`;
+}
+
+function areNormalizedEdgeListsEquivalent(current, normalized) {
+  const currentList = Array.isArray(current) ? current : [];
+  return JSON.stringify(currentList) === JSON.stringify(normalized);
+}
+
+function normalizeSailTrackEntry(entry) {
+  let rawFrom;
+  let rawTo;
+  let rawFromSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
+  let rawToSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
+  let base = {};
+
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
+      const [fromPart, toPart] = trimmed.split("-");
+      rawFrom = fromPart;
+      rawTo = toPart;
+    } else if (trimmed.length >= 2) {
+      rawFrom = trimmed[0];
+      rawTo = trimmed[1];
+    }
+  } else if (Array.isArray(entry)) {
+    [rawFrom, rawTo] = entry;
+  } else if (entry && typeof entry === "object") {
+    const { from, to, fromSideCutout, toSideCutout, ...rest } = entry;
+    base = rest;
+    rawFrom = from;
+    rawTo = to;
+    rawFromSideCutout = fromSideCutout;
+    rawToSideCutout = toSideCutout;
+  }
+
+  const originalFrom = getPointIndex(rawFrom);
+  const originalTo = getPointIndex(rawTo);
+
+  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
+    return null;
+  }
+
+  const from = Math.min(originalFrom, originalTo);
+  const to = Math.max(originalFrom, originalTo);
+  const isReversed = originalFrom > originalTo;
+
+  return {
+    ...base,
+    from,
+    to,
+    fromSideCutout: normalizeMeasurement(isReversed ? rawToSideCutout : rawFromSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
+    toSideCutout: normalizeMeasurement(isReversed ? rawFromSideCutout : rawToSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
+  };
+}
+
+function normalizeSailTracks(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map(normalizeSailTrackEntry).filter(Boolean);
+}
+
+function normalizeEdgeCutoutEntry(entry) {
+  let rawFrom;
+  let rawTo;
+  let rawFromCutout = "";
+  let rawToCutout = "";
+  let rawCutoutWidth = "";
+  let rawCutoutProjection = "";
+  let base = {};
+
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
+      const [fromPart, toPart] = trimmed.split("-");
+      rawFrom = fromPart;
+      rawTo = toPart;
+    } else if (trimmed.length >= 2) {
+      rawFrom = trimmed[0];
+      rawTo = trimmed[1];
+    }
+  } else if (Array.isArray(entry)) {
+    [rawFrom, rawTo] = entry;
+  } else if (entry && typeof entry === "object") {
+    const {
+      from,
+      to,
+      fromCutout,
+      toCutout,
+      cutoutWidth,
+      cutoutProjection,
+      ...rest
+    } = entry;
+    base = rest;
+    rawFrom = from;
+    rawTo = to;
+    rawFromCutout = fromCutout;
+    rawToCutout = toCutout;
+    rawCutoutWidth = cutoutWidth;
+    rawCutoutProjection = cutoutProjection;
+  }
+
+  const originalFrom = getPointIndex(rawFrom);
+  const originalTo = getPointIndex(rawTo);
+
+  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
+    return null;
+  }
+
+  const from = Math.min(originalFrom, originalTo);
+  const to = Math.max(originalFrom, originalTo);
+  const isReversed = originalFrom > originalTo;
+
+  return {
+    ...base,
+    from,
+    to,
+    fromCutout: normalizeMeasurement(isReversed ? rawToCutout : rawFromCutout),
+    toCutout: normalizeMeasurement(isReversed ? rawFromCutout : rawToCutout),
+    cutoutWidth: normalizeMeasurement(rawCutoutWidth),
+    cutoutProjection: normalizeMeasurement(rawCutoutProjection),
+  };
+}
+
+function normalizeEdgeCutouts(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map(normalizeEdgeCutoutEntry).filter(Boolean);
+}
+
+function filterEdgeCutoutsToSailTracks(edgeCutouts, sailTracks) {
+  if (!Array.isArray(edgeCutouts) || edgeCutouts.length === 0) {
+    return [];
+  }
+
+  const sailTrackKeys = new Set(
+    (Array.isArray(sailTracks) ? sailTracks : []).map((track) => getSailTrackKey(track.from, track.to))
+  );
+
+  return edgeCutouts.filter((cutout) => sailTrackKeys.has(getSailTrackKey(cutout.from, cutout.to)));
+}
+
+function findSailTrackIndex(sailTracks, u, v) {
+  const key = getSailTrackKey(u, v);
+  return sailTracks.findIndex((track) => getSailTrackKey(track.from, track.to) === key);
+}
+
+function getConnectionValue(connectionsList, u, v) {
+  const minI = Math.min(u, v);
+  const maxI = Math.max(u, v);
+  const conn = connectionsList.find((connection) =>
+    (connection.from === minI && connection.to === maxI) ||
+    (connection.from === maxI && connection.to === minI)
+  );
+  return conn ? conn.value : "";
+}
+
+function buildGeometry(attributes) {
+  const N = clamp(Number(attributes?.pointCount) || 3, 3, MAX_POINTS);
+  const connectionsList = getConnectionsList(attributes);
+  const edges = [];
+
+  for (let i = 0; i < N; i++) {
+    const u = i;
+    const v = (i + 1) % N;
+    edges.push({ u, v, value: getConnectionValue(connectionsList, u, v) });
+  }
+
+  const diags = [];
+  for (let i = 0; i < N; i++) {
+    for (let j = i + 2; j < N; j++) {
+      if (i === 0 && j === N - 1) continue;
+      diags.push({ u: i, v: j, value: getConnectionValue(connectionsList, i, j) });
+    }
+  }
+
+  const mandatoryKeys = new Set();
+  if (N >= 4) {
+    const maxK = Math.floor((N - 4) / 2);
+    for (let k = 0; k <= maxK; k++) {
+      const topL = k;
+      const topR = k + 1;
+      const botR = N - k - 2;
+      const botL = N - k - 1;
+
+      mandatoryKeys.add(`${Math.min(topL, botR)}-${Math.max(topL, botR)}`);
+      mandatoryKeys.add(`${Math.min(topR, botL)}-${Math.max(topR, botL)}`);
+      mandatoryKeys.add(`${Math.min(topL, botL)}-${Math.max(topL, botL)}`);
+      mandatoryKeys.add(`${Math.min(topR, botR)}-${Math.max(topR, botR)}`);
+    }
+  }
+
+  const mandatory = diags.filter((diag) => mandatoryKeys.has(`${Math.min(diag.u, diag.v)}-${Math.max(diag.u, diag.v)}`));
+  const others = diags.filter((diag) => !mandatoryKeys.has(`${Math.min(diag.u, diag.v)}-${Math.max(diag.u, diag.v)}`));
+
+  let tip = [];
+  let optional = others;
+
+  if (N >= 5 && N % 2 !== 0) {
+    const tipIdx = Math.floor(N / 2);
+    tip = optional.filter((diag) => diag.u === tipIdx || diag.v === tipIdx);
+    optional = optional.filter((diag) => diag.u !== tipIdx && diag.v !== tipIdx);
+  }
+
+  const perimeterMM = edges.reduce((sum, edge) => sum + (Number(edge.value) || 0), 0);
+
+  return { N, edges, mandatory, tip, optional, perimeterMM };
+}
+
+function validateRequiredConnections(attributes, context = {}) {
+  const errors = [];
+  const isJob = context.orderType === "job";
+  const geometry = buildGeometry(attributes);
+
+  geometry.edges.forEach(({ u, v, value }) => {
+    if (isBlank(value)) {
+      errors.push({
+        path: `attributes.connections.edge-${u}-${v}`,
+        message: `Edge ${getEdgeLabel(u, v)} not filled`,
+      });
+    }
+  });
+
+  if (isJob) {
+    geometry.mandatory.forEach(({ u, v, value }) => {
+      if (isBlank(value)) {
+        errors.push({
+          path: `attributes.connections.diag-${u}-${v}`,
+          message: `Required diagonal ${getEdgeLabel(u, v)} not filled`,
+        });
+      }
+    });
+  }
+
+  return errors;
+}
+
+function validateProjectData(projectData, context = {}) {
+  const errors = [];
+  const isJob = context.orderType === "job";
+
+  if (isJob && !String(projectData.location ?? "").trim()) {
+    errors.push({ path: "project.location", message: "Location not filled" });
+  }
+
+  return buildValidationResult(errors);
+}
+
+function validateProductData(attributes, pointsList, context = {}, discrepancyChecker = false) {
+  const errors = [];
+  const isJob = context.orderType === "job";
+  const sailTracks = normalizeSailTracks(attributes.sailTracks);
+  const edgeCutouts = filterEdgeCutoutsToSailTracks(normalizeEdgeCutouts(attributes.edgeCutouts), sailTracks);
+  const foldSides = getNormalizedFoldSides(attributes);
+
+  errors.push(...validateRequiredConnections(attributes, context));
+
+  if (!discrepancyChecker && !String(attributes.fabricCategory ?? "").trim()) {
+    errors.push({ path: "attributes.fabricCategory", message: "Fabric category not filled" });
+  }
+
+  if (!discrepancyChecker && !String(attributes.fabricType ?? "").trim()) {
+    errors.push({ path: "attributes.fabricType", message: "Fabric type not filled" });
+  }
+
+  if (isJob && !discrepancyChecker && !String(attributes.colour ?? "").trim()) {
+    errors.push({ path: "attributes.colour", message: "Colour not filled" });
+  }
+
+  if (!discrepancyChecker && isBlank(attributes.cableSize)) {
+    errors.push({ path: "attributes.cableSize", message: "Cable size not filled" });
+  }
+
+  if (!discrepancyChecker && !String(foldSides).trim()) {
+    errors.push({ path: "attributes.foldSides", message: "Hem fold side not filled" });
+  }
+
+  if (!discrepancyChecker) {
+    sailTracks.forEach((track, index) => {
+      const edgeLabel = getEdgeLabel(track.from, track.to);
+
+      if (isBlank(track.fromSideCutout)) {
+        errors.push({
+          path: `attributes.sailTracks.${index}.fromSideCutout`,
+          message: `Cutout on ${getLabel(track.from)} side not filled for sailtrack ${edgeLabel}`,
+        });
+      }
+
+      if (isBlank(track.toSideCutout)) {
+        errors.push({
+          path: `attributes.sailTracks.${index}.toSideCutout`,
+          message: `Cutout on ${getLabel(track.to)} side not filled for sailtrack ${edgeLabel}`,
+        });
+      }
+    });
+
+    edgeCutouts.forEach((cutout, index) => {
+      const edgeLabel = getEdgeLabel(cutout.from, cutout.to);
+
+      if (isBlank(cutout.fromCutout)) {
+        errors.push({
+          path: `attributes.edgeCutouts.${index}.fromCutout`,
+          message: `Distance to cutout edge from ${getLabel(cutout.from)} not filled for edge ${edgeLabel}`,
+        });
+      }
+
+      if (isBlank(cutout.toCutout)) {
+        errors.push({
+          path: `attributes.edgeCutouts.${index}.toCutout`,
+          message: `Distance to cutout edge from ${getLabel(cutout.to)} not filled for edge ${edgeLabel}`,
+        });
+      }
+
+      if (isBlank(cutout.cutoutWidth)) {
+        errors.push({
+          path: `attributes.edgeCutouts.${index}.cutoutWidth`,
+          message: `Cutout width not filled for edge ${edgeLabel}`,
+        });
+      }
+
+      if (isBlank(cutout.cutoutProjection)) {
+        errors.push({
+          path: `attributes.edgeCutouts.${index}.cutoutProjection`,
+          message: `Cutout projection not filled for edge ${edgeLabel}`,
+        });
+      }
+    });
+  }
+
+  if (isJob && !discrepancyChecker) {
+    pointsList.forEach((point, index) => {
+      if (!String(point?.cornerFitting ?? "").trim()) {
+        errors.push({
+          path: `attributes.points.${index}.cornerFitting`,
+          message: `Fitting not filled for point ${getLabel(index)}`,
+        });
+      }
+
+      if (!String(point?.tensionHardware ?? "").trim()) {
+        errors.push({
+          path: `attributes.points.${index}.tensionHardware`,
+          message: `Hardware not filled for point ${getLabel(index)}`,
+        });
+      }
+
+      if (isBlank(point?.tensionAllowance)) {
+        errors.push({
+          path: `attributes.points.${index}.tensionAllowance`,
+          message: `Allowance not filled for point ${getLabel(index)}`,
+        });
+      }
+    });
+  }
+
+  return buildValidationResult(errors);
 }
 
 // ----------------------------------------------------------------------
@@ -55,47 +505,32 @@ const CORNER_FITTING_OPTIONS = [
   "Sailtrack Corner"
 ];
 
-const FABRIC_OPTIONS = {
-  ShadeCloth: ["Rainbow Z16", "Poly Fx", "Extreme 32", "Polyfab Xtra", "Tensitech 480", "Monotec 370", "DriZ"],
-  PVC: ["Bochini", "Bochini Blockout", "Mehler FR580", "Ferrari 502S2", "Ferrari 502V3"]
-};
-const FOLD_SIDES = ["Standard", "Underside", "Topside"];
+const FOLD_SIDES = [UNDERSIDE_FOLD_SIDE, "Topside"];
 const CABLE_SIZE_OPTIONS = [4, 5, 6, 8];
-
-const TENSION_HARDWARE_DEFAULTS = {
-  "M8 Bowshackle": 50, "M10 Bowshackle": 50, "M12 Bowshackle": 50,
-  "M8 Turnbuckle": 300, "M10 Turnbuckle": 350, "M12 Turnbuckle": 450,
-  "M12 Togglebolt": 150, "Sailtrack Corner": 0
-};
 
 // ----------------------------------------------------------------------
 // Project Form
 // ----------------------------------------------------------------------
-export function ProjectForm({ formRef, projectDataHydrate = {} }) {
+export function ProjectForm({ formRef, projectDataHydrate = {}, currentOrderType = "job" }) {
   const [projectData, setProjectData] = useState({
-    location: projectDataHydrate.location ?? ""
+    ...PROJECT_DEFAULTS,
+    ...(projectDataHydrate ?? {}),
   });
+  const isJob = currentOrderType === "job";
 
   const getValues = useCallback(() => ({ project: projectData }), [projectData]);
 
-  const validate = useCallback((context = {}) => {
-    const errors = [];
-    const isJob = context.orderType === "job";
-
-    if (isJob && !String(projectData.location ?? "").trim()) {
-      errors.push({ path: "project.location", message: "Location not filled" });
-    }
-
-    return { valid: errors.length === 0, errors };
-  }, [projectData.location]);
+  const validate = useCallback((context = {}) => validateProjectData(projectData, context), [projectData]);
 
   useFormHandle(formRef, { getValues, validate });
 
   return (
+
       <TextInput
-        label="Location" 
+        label="Location/Postcode" 
         value={projectData.location} 
         onChange={(val) => setProjectData(prev => ({ ...prev, location: val }))} 
+        mandatory={isJob}
         placeholder="Enter location..."
       />
   );
@@ -108,12 +543,17 @@ export function ProductForm({
   formRef,
   hydrate = {},
   discrepancyChecker = false,
+  currentOrderType = "job",
 }) {
+  const isJob = currentOrderType === "job";
+
   // Shared attribute hooks
   const { attributes, setAttributes, setAttr } = useProductAttribute({
     hydrate,
-    defaults: DEFAULT_ATTRIBUTES
+    defaults: ATTRIBUTE_DEFAULTS
   });
+  const isPvcFabric = isPvcFabricCategory(attributes.fabricCategory);
+  const foldSidesValue = getNormalizedFoldSides(attributes);
 
   // Local state
   const [unit, setUnit] = useState("mm");
@@ -178,13 +618,44 @@ export function ProductForm({
             changed = true;
         }
 
+        const normalizedSailTracks = normalizeSailTracks(prev.sailTracks);
+        if (!areNormalizedEdgeListsEquivalent(prev.sailTracks, normalizedSailTracks)) {
+          next.sailTracks = normalizedSailTracks;
+          changed = true;
+        }
+
+        const normalizedEdgeCutouts = filterEdgeCutoutsToSailTracks(
+          normalizeEdgeCutouts(prev.edgeCutouts),
+          normalizedSailTracks
+        );
+        if (!areNormalizedEdgeListsEquivalent(prev.edgeCutouts, normalizedEdgeCutouts)) {
+          next.edgeCutouts = normalizedEdgeCutouts;
+          changed = true;
+        }
+
         return changed ? next : prev;
     });
-  }, [attributes.points, attributes.dimensions, attributes.connections, setAttributes]);
+      }, [attributes.points, attributes.dimensions, attributes.connections, attributes.sailTracks, attributes.edgeCutouts, setAttributes]);
+
+  useEffect(() => {
+    if (!isPvcFabric || attributes.foldSides === UNDERSIDE_FOLD_SIDE) {
+      return;
+    }
+
+    setAttributes((prev) => {
+      if (!isPvcFabricCategory(prev.fabricCategory) || prev.foldSides === UNDERSIDE_FOLD_SIDE) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        foldSides: UNDERSIDE_FOLD_SIDE,
+      };
+    });
+  }, [attributes.foldSides, isPvcFabric, setAttributes]);
 
   // Safe Accessors (use these in render to prevent crashes before Effect runs)
   const pointsList = Array.isArray(attributes.points) ? attributes.points : [];
-  const connectionsList = Array.isArray(attributes.connections) ? attributes.connections : [];
 
   // ------------------------------------------------
   // Data Access Helpers
@@ -204,15 +675,11 @@ export function ProductForm({
     return num * unitFactor;
   };
 
-  // Find value of connection between u and v
-  const getConnectionValue = (u, v) => {
-    const minI = Math.min(u, v);
-    const maxI = Math.max(u, v);
-    const conn = connectionsList.find(c => 
-      (c.from === minI && c.to === maxI) || (c.from === maxI && c.to === minI)
-    );
-    return conn ? conn.value : "";
-  };
+  const sailTracksList = useMemo(() => normalizeSailTracks(attributes.sailTracks), [attributes.sailTracks]);
+  const edgeCutoutsList = useMemo(
+    () => filterEdgeCutoutsToSailTracks(normalizeEdgeCutouts(attributes.edgeCutouts), sailTracksList),
+    [attributes.edgeCutouts, sailTracksList]
+  );
 
   // Update connection value
   const updateConnection = (u, v, val) => {
@@ -249,21 +716,8 @@ export function ProductForm({
       
       const pts = [...prev.points];
       if (!pts[index]) return prev;
-      
-      const nextPt = { ...pts[index], [field]: value };
 
-      // Helpers logic
-      if (field === "tensionHardware") {
-        const hw = String(value || "").toLowerCase();
-        let defaultCorner = nextPt.cornerFitting ?? CORNER_FITTING_OPTIONS[0];
-        if (hw.includes("bowshackle") || hw.includes("turnbuckle")) defaultCorner = "Pro-Rig";
-        else if (hw.includes("togglebolt")) defaultCorner = "Pro-Rig with Small Pipe";
-        
-        nextPt.tensionAllowance = TENSION_HARDWARE_DEFAULTS[value] ?? 50;
-        nextPt.cornerFitting = defaultCorner;
-      }
-
-      pts[index] = nextPt;
+      pts[index] = { ...pts[index], [field]: value };
       return { ...prev, points: pts };
     });
   };
@@ -271,37 +725,142 @@ export function ProductForm({
   // SailTracks logic
   const toggleSailTrack = (u, v) => {
     setAttributes(prev => {
-      const list = (prev.sailTracks || []).slice();
-      // Store as object {from, to} or string? 
-      // The previous version stored "AB". The backend expects list of strings or list of objs.
-      // Let's store as objects {from, to} to match the new style, 
-      // OR convert to "AB" if the backend *strictly* asks for it.
-      // The current backend `calculations.py` doesn't use `sailTracks` for `_dist_xy`.
-      // The report generation likely uses it. Let's assume the legacy "AB" is safer for now 
-      // OR update to strings of labels.
-      // User said "not even have a label". But for compatibility with `sailTracks` which might be used elsewhere...
-      // I'll store it as `{ from: u, to: v }` objects if possible, but let's stick to list of edge indices?
-      // Actually, let's stick to strings "0-1" or labels "AB"?
-      // To follow instructions: "use location and not even have a label".
-      // I'll store as `{from: u, to: v}`.
-      
-      const existsIdx = list.findIndex(x => 
-        (x.from === u && x.to === v) || (x.from === v && x.to === u)
-      );
+      const sailTracks = normalizeSailTracks(prev.sailTracks);
+      const edgeCutouts = normalizeEdgeCutouts(prev.edgeCutouts);
+      const existsIdx = findSailTrackIndex(sailTracks, u, v);
+      let nextSailTracks = sailTracks;
       
       if (existsIdx >= 0) {
-        list.splice(existsIdx, 1);
+        nextSailTracks = sailTracks.filter((_, index) => index !== existsIdx);
       } else {
-        list.push({ from: Math.min(u,v), to: Math.max(u,v) });
+        nextSailTracks = [
+          ...sailTracks,
+          {
+          from: Math.min(u, v),
+          to: Math.max(u, v),
+          fromSideCutout: DEFAULT_SAIL_TRACK_CUTOUT,
+          toSideCutout: DEFAULT_SAIL_TRACK_CUTOUT,
+          },
+        ];
       }
+
+      return {
+        ...prev,
+        sailTracks: nextSailTracks,
+        edgeCutouts: filterEdgeCutoutsToSailTracks(edgeCutouts, nextSailTracks),
+      };
+    });
+  };
+
+  const updateSailTrackSideCutout = (u, v, pointIndex, value) => {
+    setAttributes(prev => {
+      const list = normalizeSailTracks(prev.sailTracks);
+      const trackIndex = findSailTrackIndex(list, u, v);
+
+      if (trackIndex < 0) {
+        return prev;
+      }
+
+      const track = list[trackIndex];
+      const cutoutField = track.from === pointIndex ? "fromSideCutout" : "toSideCutout";
+      list[trackIndex] = { ...track, [cutoutField]: value };
+
       return { ...prev, sailTracks: list };
     });
   };
 
-  const isSailTrack = (u, v) => {
-    return (attributes.sailTracks || []).some(x => 
-      (x.from === u && x.to === v) || (x.from === v && x.to === u)
-    );
+  const toggleEdgeCutout = (u, v, enabled) => {
+    setAttributes(prev => {
+      const sailTracks = normalizeSailTracks(prev.sailTracks);
+      if (findSailTrackIndex(sailTracks, u, v) < 0) {
+        return prev;
+      }
+
+      const list = normalizeEdgeCutouts(prev.edgeCutouts);
+      const cutoutIndex = findSailTrackIndex(list, u, v);
+
+      if (cutoutIndex < 0) {
+        if (!enabled) {
+          return prev;
+        }
+
+        list.push({
+          from: Math.min(u, v),
+          to: Math.max(u, v),
+          fromCutout: "",
+          toCutout: "",
+          cutoutWidth: "",
+          cutoutProjection: "",
+        });
+        return { ...prev, edgeCutouts: list };
+      }
+
+      if (!enabled) {
+        list.splice(cutoutIndex, 1);
+        return { ...prev, edgeCutouts: list };
+      }
+
+      return prev;
+    });
+  };
+
+  const updateEdgeCutoutField = (u, v, field, value) => {
+    setAttributes(prev => {
+      const list = normalizeEdgeCutouts(prev.edgeCutouts);
+      const cutoutIndex = findSailTrackIndex(list, u, v);
+
+      if (cutoutIndex < 0) {
+        return prev;
+      }
+
+      list[cutoutIndex] = {
+        ...list[cutoutIndex],
+        [field]: value,
+      };
+
+      return { ...prev, edgeCutouts: list };
+    });
+  };
+
+  const updateEdgeCutoutDistance = (u, v, pointIndex, value) => {
+    setAttributes(prev => {
+      const list = normalizeEdgeCutouts(prev.edgeCutouts);
+      const cutoutIndex = findSailTrackIndex(list, u, v);
+
+      if (cutoutIndex < 0) {
+        return prev;
+      }
+
+      const cutout = list[cutoutIndex];
+      const cutoutField = cutout.from === pointIndex ? "fromCutout" : "toCutout";
+      list[cutoutIndex] = { ...cutout, [cutoutField]: value };
+
+      return { ...prev, edgeCutouts: list };
+    });
+  };
+
+  const getSailTrack = (u, v) => {
+    const trackIndex = findSailTrackIndex(sailTracksList, u, v);
+    return trackIndex >= 0 ? sailTracksList[trackIndex] : null;
+  };
+
+  const getSailTrackSideCutout = (track, pointIndex) => {
+    if (!track) return "";
+    if (track.from === pointIndex) return track.fromSideCutout;
+    if (track.to === pointIndex) return track.toSideCutout;
+    return "";
+  };
+
+  const getEdgeCutout = (u, v) => {
+    const cutoutIndex = findSailTrackIndex(edgeCutoutsList, u, v);
+    return cutoutIndex >= 0 ? edgeCutoutsList[cutoutIndex] : null;
+  };
+
+  const getEdgeCutoutDistance = (cutout, pointIndex) => {
+    if (!cutout) return "";
+    if (cutout.from === pointIndex) return cutout.fromCutout;
+    if (cutout.to === pointIndex) return cutout.toCutout;
+    return "";
   };
 
   // Point Count Effects
@@ -313,8 +872,9 @@ export function ProductForm({
       const target = clamp(prev.pointCount, 3, MAX_POINTS);
       const currentPts = prev.points;
       const currentConns = Array.isArray(prev.connections) ? prev.connections : [];
-      
-      if (currentPts.length === target) return prev;
+      const currentSailTracks = normalizeSailTracks(prev.sailTracks);
+      const currentEdgeCutouts = normalizeEdgeCutouts(prev.edgeCutouts);
+      const needsResize = currentPts.length !== target;
 
       // Resize points
       const newPts = [];
@@ -322,21 +882,33 @@ export function ProductForm({
         if (i < currentPts.length) {
           newPts.push(currentPts[i]);
         } else {
-          // Defaults for new points
-          newPts.push({
-            height: "",
-            tensionHardware: "",
-            tensionAllowance: "",
-            cornerFitting: "",
-            Structure: ""
-          });
+          newPts.push(createDefaultPoint());
         }
       }
 
       // Filter invalid connections
       const newConns = currentConns.filter(c => c.from < target && c.to < target);
+      const newSailTracks = currentSailTracks.filter(track => track.from < target && track.to < target);
+      const resizedEdgeCutouts = currentEdgeCutouts.filter(cutout => cutout.from < target && cutout.to < target);
+      const newEdgeCutouts = filterEdgeCutoutsToSailTracks(resizedEdgeCutouts, newSailTracks);
 
-      return { ...prev, pointCount: target, points: newPts, connections: newConns };
+      if (
+        !needsResize &&
+        newConns.length === currentConns.length &&
+        newSailTracks.length === currentSailTracks.length &&
+        newEdgeCutouts.length === currentEdgeCutouts.length
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        pointCount: target,
+        points: newPts,
+        connections: newConns,
+        sailTracks: newSailTracks,
+        edgeCutouts: newEdgeCutouts,
+      };
     });
   }, [attributes.pointCount, attributes.points]); // Depend on points to retry after migration
 
@@ -345,73 +917,29 @@ export function ProductForm({
   // Geometry & Navigation
   // ------------------------------------------------
 
-  const geometry = useMemo(() => {
-    const N = Math.max(3, Number(attributes.pointCount) || 3);
-    const edges = [];
-    for (let i = 0; i < N; i++) {
-      const u = i;
-      const v = (i + 1) % N;
-      edges.push({ u, v, value: getConnectionValue(u, v) });
-    }
-
-    // Diagonals
-    const diags = [];
-    const diagSet = new Set();
-    // All possible diags
-    for (let i = 0; i < N; i++) {
-        for (let j = i + 2; j < N; j++) {
-            if (i === 0 && j === N - 1) continue; // 0->N-1 is an edge
-            diags.push({ u: i, v: j, value: getConnectionValue(i, j) });
-            diagSet.add(`${i}-${j}`);
-        }
-    }
-
-    // Calculate Mandatory
-    const mandatoryKeys = new Set();
-    if (N >= 4) {
-      const maxK = Math.floor((N - 4) / 2);
-      for (let k = 0; k <= maxK; k++) {
-        const topL = k;
-        const topR = k + 1;
-        const botR = N - k - 2;
-        const botL = N - k - 1;
-        
-        // Diagonals of the box/strip
-        // topL-botR (cross diagonal)
-        mandatoryKeys.add(`${Math.min(topL, botR)}-${Math.max(topL, botR)}`);
-        // topR-botL (cross diagonal)
-        mandatoryKeys.add(`${Math.min(topR, botL)}-${Math.max(topR, botL)}`);
-        // Also include the four sides of the box as mandatory where they are not polygon edges
-        // topL-botL (left vertical of the box)
-        mandatoryKeys.add(`${Math.min(topL, botL)}-${Math.max(topL, botL)}`);
-        // topR-botR (right vertical of the box)
-        mandatoryKeys.add(`${Math.min(topR, botR)}-${Math.max(topR, botR)}`);
-        // Note: some of these may correspond to polygon edges for small N; deduping is handled by using a Set.
-      }
-    }
-
-    const mandatory = diags.filter(d => mandatoryKeys.has(`${Math.min(d.u,d.v)}-${Math.max(d.u,d.v)}`));
-    const others = diags.filter(d => !mandatoryKeys.has(`${Math.min(d.u,d.v)}-${Math.max(d.u,d.v)}`));
-    
-    // Tip logic for odd points
-    let tip = [];
-    let optional = others;
-    
-    if (N >= 5 && N % 2 !== 0) {
-        // Simple heuristic: Diagonals connecting directly to the 'tip' index
-        const tipIdx = Math.floor(N / 2);
-        tip = optional.filter(d => d.u === tipIdx || d.v === tipIdx);
-        optional = optional.filter(d => d.u !== tipIdx && d.v !== tipIdx);
-    }
-    
-    const perimeterMM = edges.reduce((sum, e) => sum + (Number(e.value) || 0), 0);
-
-    return { N, edges, mandatory, tip, optional, perimeterMM };
-  }, [attributes.pointCount, attributes.connections]);
+  const geometry = useMemo(() => buildGeometry(attributes), [attributes.pointCount, attributes.connections]);
 
 
   const fieldOrder = [
-    ...geometry.edges.map(e => `edge-${e.u}-${e.v}`),
+    ...geometry.edges.flatMap((edge) => {
+      const names = [`edge-${edge.u}-${edge.v}`];
+      const sailTrack = getSailTrack(edge.u, edge.v);
+      const edgeCutout = getEdgeCutout(edge.u, edge.v);
+
+      if (!discrepancyChecker && sailTrack) {
+        names.push(`edge-sailtrack-cutout-${edge.u}-${edge.v}-${edge.u}`);
+        names.push(`edge-sailtrack-cutout-${edge.u}-${edge.v}-${edge.v}`);
+      }
+
+      if (!discrepancyChecker && edgeCutout) {
+        names.push(`edge-cutout-${edge.u}-${edge.v}-${edge.u}`);
+        names.push(`edge-cutout-${edge.u}-${edge.v}-${edge.v}`);
+        names.push(`edge-cutout-width-${edge.u}-${edge.v}`);
+        names.push(`edge-cutout-projection-${edge.u}-${edge.v}`);
+      }
+
+      return names;
+    }),
     ...geometry.mandatory.map(d => `diag-${d.u}-${d.v}`),
     ...geometry.tip.map(d => `diag-${d.u}-${d.v}`),
     ...geometry.optional.map(d => `diag-${d.u}-${d.v}`),
@@ -421,46 +949,16 @@ export function ProductForm({
   const nav = useFormNavigation(fieldOrder);
 
   const getValues = useCallback(() => ({
-    attributes: deepNumberify(attributes),
+    attributes: deepNumberify({
+      ...attributes,
+      foldSides: getNormalizedFoldSides(attributes),
+    }),
   }), [attributes]);
 
-  const validate = useCallback((context = {}) => {
-    const errors = [];
-    const isJob = context.orderType === "job";
-
-    if (!discrepancyChecker && !String(attributes.fabricCategory ?? "").trim()) {
-      errors.push({ path: "attributes.fabricCategory", message: "Fabric category not filled" });
-    }
-
-    if (!discrepancyChecker && !String(attributes.fabricType ?? "").trim()) {
-      errors.push({ path: "attributes.fabricType", message: "Fabric type not filled" });
-    }
-
-    if (isJob && !discrepancyChecker && !String(attributes.colour ?? "").trim()) {
-      errors.push({ path: "attributes.colour", message: "Colour not filled" });
-    }
-
-    if (!discrepancyChecker && (attributes.cableSize === "" || attributes.cableSize === undefined || attributes.cableSize === null)) {
-      errors.push({ path: "attributes.cableSize", message: "Cable size not filled" });
-    }
-
-    if (!discrepancyChecker && !String(attributes.foldSides ?? "").trim()) {
-      errors.push({ path: "attributes.foldSides", message: "Hem fold side not filled" });
-    }
-
-    if (isJob && !discrepancyChecker) {
-      pointsList.forEach((point, index) => {
-        if (point?.tensionAllowance === "" || point?.tensionAllowance === undefined || point?.tensionAllowance === null) {
-          errors.push({
-            path: `attributes.points.${index}.tensionAllowance`,
-            message: `Allowance not filled for point ${getLabel(index)}`,
-          });
-        }
-      });
-    }
-
-    return { valid: errors.length === 0, errors };
-  }, [attributes.cableSize, attributes.colour, attributes.fabricCategory, attributes.fabricType, attributes.foldSides, discrepancyChecker, pointsList]);
+  const validate = useCallback(
+    (context = {}) => validateProductData(attributes, pointsList, context, discrepancyChecker),
+    [attributes, discrepancyChecker, pointsList]
+  );
 
   useFormHandle(formRef, { getValues, validate });
 
@@ -481,6 +979,7 @@ export function ProductForm({
       color_hex: color.hex_value,
       fabricCategory: mappedCategory,
       fabricType: fabric.name,
+      foldSides: mappedCategory === PVC_FABRIC_CATEGORY ? UNDERSIDE_FOLD_SIDE : prev.foldSides,
       colour: color.name,
     }));
   };
@@ -551,14 +1050,9 @@ export function ProductForm({
              </div>
            </div>
            
-           <FormGrid columns={3}>
-              <SelectInput label="Fabric Category" value={attributes.fabricCategory} onChange={(val) => setAttributes(p => ({...p, fabricCategory: val, fabricType: p.fabricCategory === val ? p.fabricType : ""}))} options={[{ label: "Select category", value: "" }, { label: "PVC", value: "PVC" }, { label: "ShadeCloth", value: "ShadeCloth" }]} />
-              <SelectInput label="Fabric Type" value={attributes.fabricType} onChange={setAttr("fabricType")} options={[{ label: "Select fabric type", value: "" }, ...(FABRIC_OPTIONS[attributes.fabricCategory] || []).map(option => ({ label: option, value: option }))]} disabled={!attributes.fabricCategory} />
-              <TextInput label="Colour" value={attributes.colour} onChange={setAttr("colour")} />
-           </FormGrid>
            <FormGrid columns={2}>
-              <SelectInput label="Cable Size" value={attributes.cableSize} onChange={setAttr("cableSize")} options={[{ label: "Select cable size", value: "" }, ...CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))]} />
-              <SelectInput label="Hem Fold Side" value={attributes.foldSides} onChange={setAttr("foldSides")} options={[{ label: "Select fold side", value: "" }, ...FOLD_SIDES.map(side => ({ label: side, value: side }))]} />
+              <SelectInput mandatory={true} label="Cable Size" value={attributes.cableSize} onChange={setAttr("cableSize")} options={[{ label: "-", value: "" }, ...CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))]} />
+              <SelectInput mandatory={true} label="Hem Fold Side" value={foldSidesValue} onChange={setAttr("foldSides")} options={[{ label: "-", value: "" }, ...FOLD_SIDES.map(side => ({ label: side, value: side }))]} disabled={isPvcFabric} title={isPvcFabric ? "PVC sails always use Underside fold side" : undefined} />
            </FormGrid>
         </FormSection>
       )}
@@ -586,21 +1080,115 @@ export function ProductForm({
       {/* SECTION 3: DIMENSIONS */}
       <FormSection title="Edge Dimensions">
         <FormGrid columns={geometry.edges.length > 4 ? 3 : 2}>
-           {geometry.edges.map(({u, v, value}) => (
+           {geometry.edges.map(({u, v, value}) => {
+              const sailTrack = getSailTrack(u, v);
+              const edgeCutout = getEdgeCutout(u, v);
+
+              return (
               <div key={`edge-${u}-${v}`} className="flex flex-col">
                 <NumberInput
                   nav={nav}
                   name={`edge-${u}-${v}`}
                   label={`Edge ${getEdgeLabel(u, v)} (${unit})`}
+                  mandatory={true}
                   min={0}
                   value={toDisplay(value)}
                   onChange={val => updateConnection(u, v, fromDisplay(val))}
                 />
-                <div className="mt-1">
-                  <CheckboxInput label="Sailtrack" checked={isSailTrack(u, v)} onChange={() => toggleSailTrack(u, v)} />
-                </div>
+                {!discrepancyChecker && (
+                  <>
+                    <div className="mt-1">
+                      <CheckboxInput label="Sailtrack" checked={Boolean(sailTrack)} onChange={() => toggleSailTrack(u, v)} />
+                    </div>
+                    {sailTrack && (
+                      <div className="mt-3 rounded-lg border border-gray-300 p-3">
+                        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Sailtrack Side Cutouts
+                        </div>
+                        <FormGrid columns={2}>
+                          <NumberInput
+                            nav={nav}
+                            name={`edge-sailtrack-cutout-${u}-${v}-${u}`}
+                            label={`Cutout on ${getLabel(u)} Side (${unit})`}
+                            mandatory={true}
+                            min={0}
+                            value={toDisplay(getSailTrackSideCutout(sailTrack, u))}
+                            onChange={(val) => updateSailTrackSideCutout(u, v, u, fromDisplay(val))}
+                            wrapperClassName="mb-0"
+                          />
+                          <NumberInput
+                            nav={nav}
+                            name={`edge-sailtrack-cutout-${u}-${v}-${v}`}
+                            label={`Cutout on ${getLabel(v)} Side (${unit})`}
+                            mandatory={true}
+                            min={0}
+                            value={toDisplay(getSailTrackSideCutout(sailTrack, v))}
+                            onChange={(val) => updateSailTrackSideCutout(u, v, v, fromDisplay(val))}
+                            wrapperClassName="mb-0"
+                          />
+                        </FormGrid>
+                        <div className="mt-3">
+                          <CheckboxInput
+                            label="Cutout"
+                            checked={Boolean(edgeCutout)}
+                            onChange={(checked) => toggleEdgeCutout(u, v, checked)}
+                          />
+                        </div>
+                        {edgeCutout && (
+                          <div className="mt-3 rounded-lg border border-gray-300 p-3">
+                            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Cutout Dimensions
+                            </div>
+                            <FormGrid columns={2}>
+                              <NumberInput
+                                nav={nav}
+                                name={`edge-cutout-${u}-${v}-${u}`}
+                                label={`Distance to Cutout Edge from ${getLabel(u)} (${unit})`}
+                                mandatory={true}
+                                min={0}
+                                value={toDisplay(getEdgeCutoutDistance(edgeCutout, u))}
+                                onChange={(val) => updateEdgeCutoutDistance(u, v, u, fromDisplay(val))}
+                                wrapperClassName="mb-0"
+                              />
+                              <NumberInput
+                                nav={nav}
+                                name={`edge-cutout-${u}-${v}-${v}`}
+                                label={`Distance to Cutout Edge from ${getLabel(v)} (${unit})`}
+                                mandatory={true}
+                                min={0}
+                                value={toDisplay(getEdgeCutoutDistance(edgeCutout, v))}
+                                onChange={(val) => updateEdgeCutoutDistance(u, v, v, fromDisplay(val))}
+                                wrapperClassName="mb-0"
+                              />
+                              <NumberInput
+                                nav={nav}
+                                name={`edge-cutout-width-${u}-${v}`}
+                                label={`Width (${unit})`}
+                                mandatory={true}
+                                min={0}
+                                value={toDisplay(edgeCutout.cutoutWidth)}
+                                onChange={(val) => updateEdgeCutoutField(u, v, "cutoutWidth", fromDisplay(val))}
+                                wrapperClassName="mb-0"
+                              />
+                              <NumberInput
+                                nav={nav}
+                                name={`edge-cutout-projection-${u}-${v}`}
+                                label={`Projection (${unit})`}
+                                mandatory={true}
+                                min={0}
+                                value={toDisplay(edgeCutout.cutoutProjection)}
+                                onChange={(val) => updateEdgeCutoutField(u, v, "cutoutProjection", fromDisplay(val))}
+                                wrapperClassName="mb-0"
+                              />
+                            </FormGrid>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-           ))}
+           )})}
         </FormGrid>
         <div className="mt-4 text-center text-sm font-medium text-gray-500">Perimeter: {geometry.perimeterMM}mm ({Math.round(geometry.perimeterMM/100)/10}m)</div>
       </FormSection>
@@ -608,13 +1196,13 @@ export function ProductForm({
       <FormSection title="Diagonal Dimensions">
          {geometry.mandatory.length > 0 && (
              <div className="mb-6">
-                <h4 className="text-sm font-bold text-red-600 mb-2">Required</h4>
                 <FormGrid columns={3}>
                    {geometry.mandatory.map(({u, v, value}) => (
                       <NumberInput 
                         key={`diag-${u}-${v}`} nav={nav} name={`diag-${u}-${v}`}
                         label={`${getEdgeLabel(u, v)} (${unit})`}
-                        className="text-red border-red-400 focus:border-red-500"
+                        mandatory={isJob}
+                        className={isJob ? "text-red border-red-400 focus:border-red-500" : ""}
                         value={toDisplay(value)}
                         onChange={val => updateConnection(u, v, fromDisplay(val))}
                       />
@@ -674,10 +1262,11 @@ export function ProductForm({
                   </div>
                   {!discrepancyChecker && (
                     <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-                        <SelectInput label="Fitting" options={[{ label: "Select fitting", value: "" }, ...CORNER_FITTING_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.cornerFitting} onChange={v => updatePoint(i, "cornerFitting", v)} />
-                        <SelectInput label="Hardware" options={[{ label: "Select hardware", value: "" }, ...TENSION_HARDWARE_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.tensionHardware} onChange={v => updatePoint(i, "tensionHardware", v)} />
-                        <SelectInput label="Structure" options={[{ label: "Select structure", value: "" }, { label: "Pole", value: "Pole" }, { label: "Wall", value: "Wall" }, { label: "Roof", value: "Roof" }]} value={pt.Structure} onChange={v => updatePoint(i, "Structure", v)} />
-                       <NumberInput label="Allowance" value={pt.tensionAllowance} onChange={v => updatePoint(i, "tensionAllowance", v)} />
+                        <SelectInput mandatory={isJob} label="Fitting" options={[{ label: "-", value: "" }, ...CORNER_FITTING_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.cornerFitting} onChange={v => updatePoint(i, "cornerFitting", v)} />
+                        <SelectInput mandatory={isJob} label="Hardware" options={[{ label: "-", value: "" }, ...TENSION_HARDWARE_OPTIONS.map(option => ({ label: option, value: option }))]} value={pt.tensionHardware} onChange={v => updatePoint(i, "tensionHardware", v)} />
+                        <NumberInput mandatory={isJob} label="Allowance" value={pt.tensionAllowance} onChange={v => updatePoint(i, "tensionAllowance", v)} />
+                        <SelectInput label="Structure" options={[{ label: "-", value: "" }, { label: "Pole", value: "Pole" }, { label: "Wall", value: "Wall" }, { label: "Roof", value: "Roof" }]} value={pt.Structure} onChange={v => updatePoint(i, "Structure", v)} />
+                        
                     </div>
                   )}
                </div>
@@ -723,7 +1312,12 @@ export function ProductForm({
         </details>
       )}
 
-      <OverlayShell open={showFabricSelector} onClose={() => setShowFabricSelector(false)} panelClassName="max-w-4xl">
+      <OverlayShell
+        open={showFabricSelector}
+        onClose={() => setShowFabricSelector(false)}
+        panelClassName="max-w-4xl"
+        showCloseButton={true}
+      >
         <div className="p-4">
           <FabricSelector
             mode="selector"

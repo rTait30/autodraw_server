@@ -1,6 +1,7 @@
 import React from "react";
 
 import { Button } from './UI';
+import { formatDisplayLabel } from "../utils/formatDisplayLabel";
 
 export default function ProductSelector({
   products = [],
@@ -18,7 +19,7 @@ export default function ProductSelector({
               onClick={() => onSelect(product)}
               className="w-full text-center text-lg py-3 shadow-sm"
             >
-              {product.name}
+              {formatDisplayLabel(product.name)}
             </Button>
           ))
         ) : (

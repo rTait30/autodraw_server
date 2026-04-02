@@ -279,31 +279,21 @@ export default function Discrepancy() {
         backLabel={"Back"}
       />
 
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in">
-          <div className="w-full max-w-md">
-               <CollapsibleCard 
-                    title="Save Project" 
-                    defaultOpen={true}
-                    className="w-full !rounded-2xl !shadow-2xl border-opacity-50"
-                    contentClassName="bg-white dark:bg-gray-800"
-               > 
-                    <Authentication 
-                        onAuthSuccess={() => {
-                            setShowLoginModal(false);
-                            onSave();
-                        }} 
-                        onCancel={() => setShowLoginModal(false)}
-                    />
-               </CollapsibleCard>
-          </div>
-          <style>{`
-            @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-            .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
-          `}</style>
-        </div>
-      )}
+      <OverlayShell
+        open={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        className="!z-[110]"
+        panelClassName="max-w-md"
+        showCloseButton={true}
+        title="Save Project"
+      >
+        <Authentication
+          onAuthSuccess={() => {
+            setShowLoginModal(false);
+            onSave();
+          }}
+        />
+      </OverlayShell>
 
       {/* Success Modal */}
       {savedProject && (
@@ -341,6 +331,11 @@ export default function Discrepancy() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+      `}</style>
 
       <OverlayShell
         open={overlayMode === 'preview'}

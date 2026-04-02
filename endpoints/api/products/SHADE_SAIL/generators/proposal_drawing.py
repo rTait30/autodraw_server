@@ -2111,6 +2111,7 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
             c.setFillColor(black)
             c.drawString(content_x, content_y, label)
         else:
+
             c.setFont(FONT_REGULAR, 8)
             c.setFillColor(black)
             c.drawString(content_x, content_y, f"{label}:")

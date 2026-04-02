@@ -19,6 +19,16 @@ import ProductSelector from './ProductSelector';
 
 import { discardDraftAndCloseInline } from '../utils/draft';
 
+const normalizeOrderType = (value) => (value === 'quote' ? 'quote' : 'job');
+
+const mergeGeneral = (...sources) => {
+  const merged = Object.assign({}, ...sources.filter(Boolean));
+  return {
+    ...merged,
+    order_type: normalizeOrderType(merged.order_type),
+  };
+};
+
 // Helper to load dynamic form components (used internally by ProjectForm now)
 // async function loadTypeResources(type) { ... } REMOVED
 
@@ -152,7 +162,7 @@ const ProjectInline = ({
 
     return {
       ...editedProject,
-      general: values.general || editedProject?.general || {},
+      general: mergeGeneral(editedProject?.general, values.general),
       project_attributes: values.project_attributes || editedProject?.project_attributes || {},
       products: values.products || editedProject?.products || [],
       submitToWG: values.submitToWG,
@@ -167,7 +177,7 @@ const ProjectInline = ({
   const validateCurrentForm = useCallback(() => {
     const values = formRef.current?.getValues?.();
     const result = formRef.current?.validate?.({
-      orderType: values?.general?.order_type || 'quote',
+      orderType: values?.general?.order_type || 'job',
     });
 
     if (!result || result.valid) {
@@ -180,7 +190,7 @@ const ProjectInline = ({
 
     setToast({
       message: messages.length > 0
-        ? `Form not filled out properly: ${messages.join(', ')}`
+        ? `Form not filled out properly:\n${messages.join('\n')}`
         : 'Form not filled out properly.',
       type: 'error',
       duration: 10000,
@@ -257,7 +267,7 @@ const ProjectInline = ({
         // If updating, include ID so backend can find existing schema
         ...(isNew ? {} : { id: base.id }),
         product_id: base.product_id || base.product?.id,
-        general: base.general || {},
+        general: mergeGeneral(base.general),
         project_attributes: base.project_attributes || {},
         products: base.products || [],
         estimate_schema: editedSchema, // Send current schema state for immediate recosting with edits
@@ -276,8 +286,9 @@ const ProjectInline = ({
       // Merge result but preserve product/type objects if backend returns incomplete data
       setHasCalculatedOrSaved(true);
       const updated = { 
-          ...base, 
-          ...result, 
+          ...base,
+          ...result,
+          general: mergeGeneral(base.general, result.general),
           products: result.products || base.products,
           product: result.product || base.product, // Preserve product object
           type: result.type || base.type           // Preserve type object
@@ -378,7 +389,7 @@ const ProjectInline = ({
         // If updating, include ID
         ...(isCreating ? {} : { id: effectiveId }),
         product_id: base.product_id || base.product?.id,
-        general: base.general || {},
+        general: mergeGeneral(base.general),
         project_attributes: base.project_attributes || {},
         products: base.products || [],
         estimate_total: currentEstimateTotal,
@@ -416,6 +427,7 @@ const ProjectInline = ({
       const updatedProject = { 
            ...base, 
            ...serverData,
+         general: mergeGeneral(base.general, serverData.general),
            // Preserve nested objects if missing in server response but present in base
            product: serverData.product || base.product || editedProject?.product,
            type: serverData.type || base.type || editedProject?.type,
@@ -486,6 +498,7 @@ const ProjectInline = ({
       const module = await import(`./products/${productName}/Display.js`);
       if (typeof module.render === 'function') {
         module.render(canvas, {
+          general: mergeGeneral(proj.general),
           products: proj.products || [],
           project_attributes: proj.project_attributes || {},
         });
@@ -565,9 +578,10 @@ const ProjectInline = ({
   }, [isNew, project, productsStatus, dispatch]);
   
   const currentOrderType =
-    formRef.current?.getValues?.()?.general?.order_type ||
-    editedProject?.general?.order_type ||
-    'quote';
+    normalizeOrderType(
+      formRef.current?.getValues?.()?.general?.order_type ||
+      editedProject?.general?.order_type
+    );
   const overlayTitle = overlayMode === 'confirm'
     ? 'Confirm Details'
     : overlayMode === 'success'
@@ -577,13 +591,13 @@ const ProjectInline = ({
   const primaryActionLabel = editedProject?.id ? 'View / Edit' : 'View / Submit';
 
   const onCloseSelect = () => {
-    // If we have no product selected yet, treat close as "cancel project creation" and return to projects list.
     if (!productName) {
-        handleReturnToProjects();
-    } else {
-        // Otherwise, just close the overlay and return to editing (e.g. if they want to change product)
-        setOverlayMode(null);
+      onClose({ discardDraft: true });
+      return;
     }
+
+    // Otherwise, just close the overlay and return to editing (e.g. if they want to change product)
+    setOverlayMode(null);
   };
 
 
@@ -600,7 +614,7 @@ const ProjectInline = ({
     return (
       <OverlayShell
         open
-        onClose={onClose}
+        onClose={onCloseSelect}
         panelClassName="max-w-sm"
         closeOnBackdrop={false}
         showCloseButton={true}
@@ -609,7 +623,7 @@ const ProjectInline = ({
         <ProductSelector
           products={productsList}
           onSelect={handleSelectProduct}
-          onClose={onClose}
+          onClose={onCloseSelect}
         />
       </OverlayShell>
     );
@@ -634,7 +648,7 @@ const ProjectInline = ({
       {/* Header Bar - includeNav={false} because parent layout already has Nav */}
       <PageHeader
         title={editedProject?.general?.name || `Project #${editedProject?.id || 'New'}`}
-        subtitle={`${editedProject?.status || 'New'} ${productName ? `• ${productName}` : ''}`}
+        subtitle={`${productName ? `${productName}` : ''}`}
         fixed={false}
         hideBackButton={true}
       />

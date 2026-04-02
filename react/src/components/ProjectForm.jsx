@@ -13,7 +13,7 @@ const DEFAULT_GENERAL = {
   client_id: 0,
   due_date: "",
   info: "",
-  order_type: "quote",
+  order_type: "job",
   // Add other default fields as needed
 };
 
@@ -116,6 +116,7 @@ export default function ProjectForm({
       ? { ...rehydrate.general }
       : {}
   ));
+  const currentOrderType = generalData?.order_type === 'quote' ? 'quote' : 'job';
 
   // WorkGuru data state with rehydration (nested in project_attributes)
   const [wgData, setWgData] = useState(() => {
@@ -284,7 +285,7 @@ export default function ProjectForm({
     const errors = [];
     const validationContext = {
       ...context,
-      orderType: context.orderType || generalData?.order_type || "quote",
+      orderType: context.orderType || currentOrderType,
     };
 
     if (projectFormRef.current?.validate) {
@@ -317,7 +318,7 @@ export default function ProjectForm({
     }
 
     return { valid: errors.length === 0, errors };
-  }, [generalData?.order_type, items]);
+  }, [currentOrderType, items]);
 
   useEffect(() => {
     if (!formRef) return;
@@ -452,6 +453,7 @@ export default function ProjectForm({
             <ProjectFormComponent
               formRef={projectFormRef}
               projectDataHydrate={projectData}
+              currentOrderType={currentOrderType}
             />
         )}
         
@@ -529,6 +531,7 @@ export default function ProjectForm({
                             formRef={ref}
                             hydrate={it.attributesHydrate}
                             {...productProps}
+                            currentOrderType={currentOrderType}
                           />
                       )}
                     </div>

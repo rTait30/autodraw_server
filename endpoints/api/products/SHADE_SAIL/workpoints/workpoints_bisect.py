@@ -4,18 +4,18 @@ import math
 from typing import Dict, Any, List
 
 
-def compute_workpoints_bisect(points_3d: List[Dict[str, Any]], cx: float, cy: float, cz: float) -> Dict[str, Dict[str, float]]:
+def compute_workpoints_bisect(points, cx, cy, cz):
     """Compute workpoints using bisect method.
 
     Projects the workpoint inwards along the angle bisector of adjacent edges.
     """
     workpoints_bisect = {}
-    count = len(points_3d)
+    count = len(points)
 
     for i in range(count):
-        curr_p = points_3d[i]
-        prev_p = points_3d[(i - 1 + count) % count]
-        next_p = points_3d[(i + 1) % count]
+        curr_p = points[i]
+        prev_p = points[(i - 1 + count) % count]
+        next_p = points[(i + 1) % count]
 
         # Vectors from Current -> Prev, Current -> Next
         v_prev = (prev_p["x"] - curr_p["x"], prev_p["y"] - curr_p["y"], prev_p["z"] - curr_p["z"])
@@ -44,11 +44,14 @@ def compute_workpoints_bisect(points_3d: List[Dict[str, Any]], cx: float, cy: fl
         else:
              u_bisect = [c / len_bisect for c in bisect]
 
-        ta = curr_p["ta"]
+        ta = curr_p.get("tensionAllowance") or 0.0
         wx = curr_p["x"] + u_bisect[0] * ta
         wy = curr_p["y"] + u_bisect[1] * ta
         wz = curr_p["z"] + u_bisect[2] * ta
 
-        workpoints_bisect[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
+        workpoints_bisect = {"x": wx, "y": wy, "z": wz}
+
+        points[i].setdefault("workpoint_methods", {})
+        points[i]["workpoint_methods"]["bisect"] = workpoints_bisect
 
     return workpoints_bisect

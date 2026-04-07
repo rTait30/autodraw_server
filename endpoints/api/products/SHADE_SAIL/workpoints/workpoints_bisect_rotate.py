@@ -94,11 +94,11 @@ def compute_workpoints_bisect_rotate(points_3d: List[Dict[str, Any]], cx_area: f
             uz = proj_z / proj_mag
 
         # Apply tension allowance
-        ta = curr_p["ta"]
+        ta = curr_p.get("tensionAllowance") or 0.0
         wx = curr_p["x"] + ux * ta
         wy = curr_p["y"] + uy * ta
         wz = curr_p["z"] + uz * ta
 
-        workpoints_bisect_rotate[curr_p["label"]] = {"x": wx, "y": wy, "z": wz}
+        workpoints_bisect_rotate = {"x": wx, "y": wy, "z": wz}
 
     return workpoints_bisect_rotate

@@ -4,16 +4,15 @@ import math
 from typing import Dict, Any, List
 
 
-def compute_workpoints_centroid(points_3d: List[Dict[str, Any]], cx: float, cy: float, cz: float) -> Dict[str, Dict[str, float]]:
+def compute_workpoints_centroid(points, cx: float, cy: float, cz: float) -> Dict[str, Dict[str, float]]:
     """Compute workpoints using centroid method.
 
     Projects the workpoint inwards towards the centroid.
     """
     workpoints_centroid = {}
 
-    for p in points_3d:
-        label = p["label"]
-        x, y, z, ta = p["x"], p["y"], p["z"], p["ta"]
+    for p in points:
+        x, y, z, ta = p["x"], p["y"], p["z"], p["tensionAllowance"] or 0.0
 
         # Vector from point to centroid
         dx = cx - x
@@ -32,7 +31,8 @@ def compute_workpoints_centroid(points_3d: List[Dict[str, Any]], cx: float, cy: 
         wx = x + ux * ta
         wy = y + uy * ta
         wz = z + uz * ta
-
-        workpoints_centroid[label] = {"x": wx, "y": wy, "z": wz}
+        
+        p.setdefault("workpoint_methods", {})
+        p["workpoint_methods"]["centroid"] = {"x": wx, "y": wy, "z": wz}
 
     return workpoints_centroid

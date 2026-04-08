@@ -124,8 +124,10 @@ class Project(db.Model):
                 # Use the item-specific attributes when evaluating
                 eval_context = (self.project_attributes or {}).copy()
                 eval_context.update(item.attributes or {})
+                eval_context.update(item.calculated or {})
                 eval_context["project_attributes"] = self.project_attributes or {}
                 eval_context["attributes"] = item.attributes or {}
+                eval_context["calculated"] = item.calculated or {}
                 result = estimate_price_from_schema(self.estimate_schema, eval_context) or {}
                 totals = result.get("totals") or {}
                 item_total = (

@@ -41,9 +41,8 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   cableSize: "",
   pointCount: 4,
   points: Array.from({ length: 4 }, () => ({ ...DEFAULT_POINT })),
-  connections: [],
-  sailTracks: [],
-  edgeCutouts: [],
+  connections: {},
+  sailTracks: {},
   traceCables: [],
   ufcs: [],
   fabric_id: null,
@@ -131,78 +130,8 @@ export function ProductForm({
   const [pendingUfc, setPendingUfc] = useState({ from: 0, to: 1, size: "", internalPocket: "standard", coatedCable: "no" });
 
   // ------------------------------------------------
-  // Migration & Safety
+  // Safety
   // ------------------------------------------------
-
-
-  useEffect(() => {
-    setAttributes(prev => {
-        let next = { ...prev };
-        let changed = false;
-
-        // 1. Points Migration: Object -> Array
-        if (prev.points && !Array.isArray(prev.points)) {
-            const count = Number(prev.pointCount) || 3;
-            const newPoints = [];
-            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            for(let i=0; i<count; i++) {
-                const label = letters[i];
-                // Try to retrieve from dictionary by label, else empty object
-                const ptData = prev.points[label] || {};
-                newPoints.push(ptData);
-            }
-            next.points = newPoints;
-            changed = true;
-        }
-
-        // 2. Dimensions Migration: "AB": 1000 -> connections: [{from:0, to:1, value: 1000}]
-        // Only if connections is missing or empty, AND dimensions exists
-        const safeConns = Array.isArray(prev.connections) ? prev.connections : [];
-        if (safeConns.length === 0 && prev.dimensions && Object.keys(prev.dimensions).length > 0) {
-           const newConns = [];
-           const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-           
-           Object.entries(prev.dimensions).forEach(([key, val]) => {
-               if (key.length === 2) {
-                   const u = letters.indexOf(key[0]);
-                   const v = letters.indexOf(key[1]);
-                   if (u !== -1 && v !== -1) {
-                       newConns.push({ from: Math.min(u,v), to: Math.max(u,v), value: val });
-                   }
-               }
-           });
-           
-           if (newConns.length > 0) {
-               next.connections = newConns;
-               // Clear old dimensions to prevent re-migration loop? 
-               // Or keeps them for backward compat? Prefer cleaning up state.
-               // next.dimensions = {}; 
-               changed = true;
-           }
-        } else if (!Array.isArray(prev.connections)) {
-            // Ensure it is at least an empty array
-            next.connections = [];
-            changed = true;
-        }
-
-        const normalizedSailTracks = normalizeSailTracks(prev.sailTracks);
-        if (!areNormalizedEdgeListsEquivalent(prev.sailTracks, normalizedSailTracks)) {
-          next.sailTracks = normalizedSailTracks;
-          changed = true;
-        }
-
-        const normalizedEdgeCutouts = filterEdgeCutoutsToSailTracks(
-          normalizeEdgeCutouts(prev.edgeCutouts),
-          normalizedSailTracks
-        );
-        if (!areNormalizedEdgeListsEquivalent(prev.edgeCutouts, normalizedEdgeCutouts)) {
-          next.edgeCutouts = normalizedEdgeCutouts;
-          changed = true;
-        }
-
-        return changed ? next : prev;
-    });
-  }, [attributes.points, attributes.dimensions, attributes.connections, attributes.sailTracks, attributes.edgeCutouts, setAttributes]);
 
 
 
@@ -240,36 +169,12 @@ export function ProductForm({
     return parseFloat((num).toFixed(4));
   };
 
-  const sailTracksList = useMemo(() => normalizeSailTracks(attributes.sailTracks), [attributes.sailTracks]);
-  const edgeCutoutsList = useMemo(
-    () => filterEdgeCutoutsToSailTracks(normalizeEdgeCutouts(attributes.edgeCutouts), sailTracksList),
-    [attributes.edgeCutouts, sailTracksList]
-  );
-
   // Update connection value
   const updateConnection = (u, v, val) => {
     setAttributes(prev => {
-      const minI = Math.min(u, v);
-      const maxI = Math.max(u, v);
-      // Ensure we have an array to work with
-      const list = Array.isArray(prev.connections) ? prev.connections.slice() : [];
-      
-      const idx = list.findIndex(c => 
-        (c.from === minI && c.to === maxI) || (c.from === maxI && c.to === minI)
-      );
-      
-      if (idx >= 0) {
-        if (val === "" || val === undefined) {
-             list[idx] = { ...list[idx], value: "" }; 
-        } else {
-             list[idx] = { ...list[idx], value: val };
-        }
-      } else {
-        if (val !== "" && val !== undefined) {
-          list.push({ from: minI, to: maxI, value: val });
-        }
-      }
-      return { ...prev, connections: list };
+      const key = connKey(u, v);
+      const conns = prev.connections && typeof prev.connections === 'object' ? prev.connections : {};
+      return { ...prev, connections: { ...conns, [key]: { ...conns[key], value: val ?? "" } } };
     });
   };
 
@@ -290,155 +195,103 @@ export function ProductForm({
   // SailTracks logic
   const toggleSailTrack = (u, v) => {
     setAttributes(prev => {
-      const sailTracks = normalizeSailTracks(prev.sailTracks);
-      const edgeCutouts = normalizeEdgeCutouts(prev.edgeCutouts);
-      const existsIdx = findSailTrackIndex(sailTracks, u, v);
-      let nextSailTracks = sailTracks;
-      
-      if (existsIdx >= 0) {
-        nextSailTracks = sailTracks.filter((_, index) => index !== existsIdx);
+      const key = connKey(u, v);
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? { ...prev.sailTracks } : {};
+      if (tracks[key]) {
+        delete tracks[key];
       } else {
-        nextSailTracks = [
-          ...sailTracks,
-          {
-          from: Math.min(u, v),
-          to: Math.max(u, v),
+        tracks[key] = {
           fromSideCutout: DEFAULT_SAIL_TRACK_CUTOUT,
           toSideCutout: DEFAULT_SAIL_TRACK_CUTOUT,
-          },
-        ];
+        };
       }
-
-      return {
-        ...prev,
-        sailTracks: nextSailTracks,
-        edgeCutouts: filterEdgeCutoutsToSailTracks(edgeCutouts, nextSailTracks),
-      };
+      return { ...prev, sailTracks: tracks };
     });
   };
 
   const updateSailTrackSideCutout = (u, v, pointIndex, value) => {
     setAttributes(prev => {
-      const list = normalizeSailTracks(prev.sailTracks);
-      const trackIndex = findSailTrackIndex(list, u, v);
-
-      if (trackIndex < 0) {
-        return prev;
-      }
-
-      const track = list[trackIndex];
-      const cutoutField = track.from === pointIndex ? "fromSideCutout" : "toSideCutout";
-      list[trackIndex] = { ...track, [cutoutField]: value };
-
-      return { ...prev, sailTracks: list };
+      const key = connKey(u, v);
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? prev.sailTracks : {};
+      const track = tracks[key];
+      if (!track) return prev;
+      const minPt = Math.min(u, v);
+      const cutoutField = pointIndex === minPt ? "fromSideCutout" : "toSideCutout";
+      return { ...prev, sailTracks: { ...tracks, [key]: { ...track, [cutoutField]: value } } };
     });
   };
 
   const toggleEdgeCutout = (u, v, enabled) => {
     setAttributes(prev => {
-      const sailTracks = normalizeSailTracks(prev.sailTracks);
-      if (findSailTrackIndex(sailTracks, u, v) < 0) {
-        return prev;
+      const key = connKey(u, v);
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? prev.sailTracks : {};
+      const track = tracks[key];
+      if (!track) return prev;
+      if (enabled && !track.cutout) {
+        return { ...prev, sailTracks: { ...tracks, [key]: { ...track, cutout: { fromCutout: "", toCutout: "", cutoutWidth: "", cutoutProjection: "" } } } };
       }
-
-      const list = normalizeEdgeCutouts(prev.edgeCutouts);
-      const cutoutIndex = findSailTrackIndex(list, u, v);
-
-      if (cutoutIndex < 0) {
-        if (!enabled) {
-          return prev;
-        }
-
-        list.push({
-          from: Math.min(u, v),
-          to: Math.max(u, v),
-          fromCutout: "",
-          toCutout: "",
-          cutoutWidth: "",
-          cutoutProjection: "",
-        });
-        return { ...prev, edgeCutouts: list };
+      if (!enabled && track.cutout) {
+        const { cutout, ...rest } = track;
+        return { ...prev, sailTracks: { ...tracks, [key]: rest } };
       }
-
-      if (!enabled) {
-        list.splice(cutoutIndex, 1);
-        return { ...prev, edgeCutouts: list };
-      }
-
       return prev;
     });
   };
 
   const updateEdgeCutoutField = (u, v, field, value) => {
     setAttributes(prev => {
-      const list = normalizeEdgeCutouts(prev.edgeCutouts);
-      const cutoutIndex = findSailTrackIndex(list, u, v);
-
-      if (cutoutIndex < 0) {
-        return prev;
-      }
-
-      list[cutoutIndex] = {
-        ...list[cutoutIndex],
-        [field]: value,
-      };
-
-      return { ...prev, edgeCutouts: list };
+      const key = connKey(u, v);
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? prev.sailTracks : {};
+      const track = tracks[key];
+      if (!track?.cutout) return prev;
+      return { ...prev, sailTracks: { ...tracks, [key]: { ...track, cutout: { ...track.cutout, [field]: value } } } };
     });
   };
 
   const updateEdgeCutoutDistance = (u, v, pointIndex, value) => {
     setAttributes(prev => {
-      const list = normalizeEdgeCutouts(prev.edgeCutouts);
-      const cutoutIndex = findSailTrackIndex(list, u, v);
-
-      if (cutoutIndex < 0) {
-        return prev;
-      }
-
-      const cutout = list[cutoutIndex];
-      const cutoutField = cutout.from === pointIndex ? "fromCutout" : "toCutout";
-      list[cutoutIndex] = { ...cutout, [cutoutField]: value };
-
-      return { ...prev, edgeCutouts: list };
+      const key = connKey(u, v);
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? prev.sailTracks : {};
+      const track = tracks[key];
+      if (!track?.cutout) return prev;
+      const minPt = Math.min(u, v);
+      const cutoutField = pointIndex === minPt ? "fromCutout" : "toCutout";
+      return { ...prev, sailTracks: { ...tracks, [key]: { ...track, cutout: { ...track.cutout, [cutoutField]: value } } } };
     });
   };
 
   const getSailTrack = (u, v) => {
-    const trackIndex = findSailTrackIndex(sailTracksList, u, v);
-    return trackIndex >= 0 ? sailTracksList[trackIndex] : null;
+    const tracks = attributes.sailTracks;
+    if (!tracks || typeof tracks !== 'object') return null;
+    return tracks[connKey(u, v)] || null;
   };
 
-  const getSailTrackSideCutout = (track, pointIndex) => {
+  const getSailTrackSideCutout = (u, v, pointIndex) => {
+    const track = getSailTrack(u, v);
     if (!track) return "";
-    if (track.from === pointIndex) return track.fromSideCutout;
-    if (track.to === pointIndex) return track.toSideCutout;
-    return "";
+    const minPt = Math.min(u, v);
+    return pointIndex === minPt ? track.fromSideCutout : track.toSideCutout;
   };
 
   const getEdgeCutout = (u, v) => {
-    const cutoutIndex = findSailTrackIndex(edgeCutoutsList, u, v);
-    return cutoutIndex >= 0 ? edgeCutoutsList[cutoutIndex] : null;
+    const track = getSailTrack(u, v);
+    return track?.cutout || null;
   };
 
-  const getEdgeCutoutDistance = (cutout, pointIndex) => {
+  const getEdgeCutoutDistance = (u, v, pointIndex) => {
+    const cutout = getEdgeCutout(u, v);
     if (!cutout) return "";
-    if (cutout.from === pointIndex) return cutout.fromCutout;
-    if (cutout.to === pointIndex) return cutout.toCutout;
-    return "";
+    const minPt = Math.min(u, v);
+    return pointIndex === minPt ? cutout.fromCutout : cutout.toCutout;
   };
 
   // Point Count Effects
   useEffect(() => {
     setAttributes(prev => {
-      // Wait for migration if points is not an array yet
       if (!Array.isArray(prev.points)) return prev;
 
       const target = clamp(prev.pointCount, 3, MAX_POINTS);
       const currentPts = prev.points;
-      const currentConns = Array.isArray(prev.connections) ? prev.connections : [];
-      const currentSailTracks = normalizeSailTracks(prev.sailTracks);
-      const currentEdgeCutouts = normalizeEdgeCutouts(prev.edgeCutouts);
       const needsResize = currentPts.length !== target;
 
       // Resize points
@@ -451,17 +304,26 @@ export function ProductForm({
         }
       }
 
-      // Filter invalid connections
-      const newConns = currentConns.filter(c => c.from < target && c.to < target);
-      const newSailTracks = currentSailTracks.filter(track => track.from < target && track.to < target);
-      const resizedEdgeCutouts = currentEdgeCutouts.filter(cutout => cutout.from < target && cutout.to < target);
-      const newEdgeCutouts = filterEdgeCutoutsToSailTracks(resizedEdgeCutouts, newSailTracks);
+      // Filter connections with invalid point indices
+      const conns = prev.connections && typeof prev.connections === 'object' ? prev.connections : {};
+      const newConns = {};
+      for (const [key, val] of Object.entries(conns)) {
+        const [a, b] = key.split(',').map(Number);
+        if (a < target && b < target) newConns[key] = val;
+      }
+
+      // Filter sailTracks with invalid point indices
+      const tracks = prev.sailTracks && typeof prev.sailTracks === 'object' ? prev.sailTracks : {};
+      const newTracks = {};
+      for (const [key, val] of Object.entries(tracks)) {
+        const [a, b] = key.split(',').map(Number);
+        if (a < target && b < target) newTracks[key] = val;
+      }
 
       if (
         !needsResize &&
-        newConns.length === currentConns.length &&
-        newSailTracks.length === currentSailTracks.length &&
-        newEdgeCutouts.length === currentEdgeCutouts.length
+        Object.keys(newConns).length === Object.keys(conns).length &&
+        Object.keys(newTracks).length === Object.keys(tracks).length
       ) {
         return prev;
       }
@@ -471,11 +333,10 @@ export function ProductForm({
         pointCount: target,
         points: newPts,
         connections: newConns,
-        sailTracks: newSailTracks,
-        edgeCutouts: newEdgeCutouts,
+        sailTracks: newTracks,
       };
     });
-  }, [attributes.pointCount, attributes.points]); // Depend on points to retry after migration
+  }, [attributes.pointCount, attributes.points]);
 
 
   // ------------------------------------------------
@@ -677,7 +538,7 @@ export function ProductForm({
                             label={`Cutout on ${getLabel(u)} Side`}
                             mandatory={true}
                             min={0}
-                            value={toDisplay(getSailTrackSideCutout(sailTrack, u))}
+                            value={toDisplay(getSailTrackSideCutout(u, v, u))}
                             onChange={(val) => updateSailTrackSideCutout(u, v, u, val)}
                             wrapperClassName="mb-0"
                           />
@@ -687,7 +548,7 @@ export function ProductForm({
                             label={`Cutout on ${getLabel(v)} Side`}
                             mandatory={true}
                             min={0}
-                            value={toDisplay(getSailTrackSideCutout(sailTrack, v))}
+                            value={toDisplay(getSailTrackSideCutout(u, v, v))}
                             onChange={(val) => updateSailTrackSideCutout(u, v, v, val)}
                             wrapperClassName="mb-0"
                           />
@@ -711,7 +572,7 @@ export function ProductForm({
                                 label={`Distance to Cutout Edge from ${getLabel(u)}`}
                                 mandatory={true}
                                 min={0}
-                                value={toDisplay(getEdgeCutoutDistance(edgeCutout, u))}
+                                value={toDisplay(getEdgeCutoutDistance(u, v, u))}
                                 onChange={(val) => updateEdgeCutoutDistance(u, v, u, val)}
                                 wrapperClassName="mb-0"
                               />
@@ -721,7 +582,7 @@ export function ProductForm({
                                 label={`Distance to Cutout Edge from ${getLabel(v)}`}
                                 mandatory={true}
                                 min={0}
-                                value={toDisplay(getEdgeCutoutDistance(edgeCutout, v))}
+                                value={toDisplay(getEdgeCutoutDistance(u, v, v))}
                                 onChange={(val) => updateEdgeCutoutDistance(u, v, v, val)}
                                 wrapperClassName="mb-0"
                               />
@@ -906,6 +767,10 @@ function clamp(x, lo, hi) {
   return Math.max(lo, Math.min(hi, x));
 }
 
+function connKey(u, v) {
+  return `${Math.min(u, v)},${Math.max(u, v)}`;
+}
+
 function createDefaultPoint() {
   return { ...DEFAULT_POINT };
 }
@@ -928,226 +793,32 @@ function isBlank(value) {
   return value === "" || value === undefined || value === null;
 }
 
-function getConnectionsList(attributes) {
-  return Array.isArray(attributes?.connections) ? attributes.connections : [];
-}
-
 // Display label generator (0 -> "A", 1 -> "B", etc.)
 function getLabel(index) {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   return letters[index % letters.length];
 }
 
-function getPointIndex(value) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-
-  if (/^\d+$/.test(raw)) {
-    return Number(raw);
-  }
-
-  if (/^[A-Z]$/i.test(raw)) {
-    return raw.toUpperCase().charCodeAt(0) - 65;
-  }
-
-  return null;
-}
-
 function getEdgeLabel(u, v) {
   return `${getLabel(u)}${getLabel(v)}`;
 }
 
-function normalizeMeasurement(value, fallback = "") {
-  if (value === "" || value === undefined || value === null) {
-    return fallback;
-  }
-
-  const num = Number(value);
-  return Number.isFinite(num) ? num : value;
-}
-
-function getSailTrackKey(u, v) {
-  return `${Math.min(u, v)}-${Math.max(u, v)}`;
-}
-
-function areNormalizedEdgeListsEquivalent(current, normalized) {
-  const currentList = Array.isArray(current) ? current : [];
-  return JSON.stringify(currentList) === JSON.stringify(normalized);
-}
-
-function normalizeSailTrackEntry(entry) {
-  let rawFrom;
-  let rawTo;
-  let rawFromSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
-  let rawToSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
-  let base = {};
-
-  if (typeof entry === "string") {
-    const trimmed = entry.trim();
-    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
-      const [fromPart, toPart] = trimmed.split("-");
-      rawFrom = fromPart;
-      rawTo = toPart;
-    } else if (trimmed.length >= 2) {
-      rawFrom = trimmed[0];
-      rawTo = trimmed[1];
-    }
-  } else if (Array.isArray(entry)) {
-    [rawFrom, rawTo] = entry;
-  } else if (entry && typeof entry === "object") {
-    const { from, to, fromSideCutout, toSideCutout, ...rest } = entry;
-    base = rest;
-    rawFrom = from;
-    rawTo = to;
-    rawFromSideCutout = fromSideCutout;
-    rawToSideCutout = toSideCutout;
-  }
-
-  const originalFrom = getPointIndex(rawFrom);
-  const originalTo = getPointIndex(rawTo);
-
-  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
-    return null;
-  }
-
-  const from = Math.min(originalFrom, originalTo);
-  const to = Math.max(originalFrom, originalTo);
-  const isReversed = originalFrom > originalTo;
-
-  return {
-    ...base,
-    from,
-    to,
-    fromSideCutout: normalizeMeasurement(isReversed ? rawToSideCutout : rawFromSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
-    toSideCutout: normalizeMeasurement(isReversed ? rawFromSideCutout : rawToSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
-  };
-}
-
-function normalizeSailTracks(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map(normalizeSailTrackEntry).filter(Boolean);
-}
-
-function normalizeEdgeCutoutEntry(entry) {
-  let rawFrom;
-  let rawTo;
-  let rawFromCutout = "";
-  let rawToCutout = "";
-  let rawCutoutWidth = "";
-  let rawCutoutProjection = "";
-  let base = {};
-
-  if (typeof entry === "string") {
-    const trimmed = entry.trim();
-    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
-      const [fromPart, toPart] = trimmed.split("-");
-      rawFrom = fromPart;
-      rawTo = toPart;
-    } else if (trimmed.length >= 2) {
-      rawFrom = trimmed[0];
-      rawTo = trimmed[1];
-    }
-  } else if (Array.isArray(entry)) {
-    [rawFrom, rawTo] = entry;
-  } else if (entry && typeof entry === "object") {
-    const {
-      from,
-      to,
-      fromCutout,
-      toCutout,
-      cutoutWidth,
-      cutoutProjection,
-      ...rest
-    } = entry;
-    base = rest;
-    rawFrom = from;
-    rawTo = to;
-    rawFromCutout = fromCutout;
-    rawToCutout = toCutout;
-    rawCutoutWidth = cutoutWidth;
-    rawCutoutProjection = cutoutProjection;
-  }
-
-  const originalFrom = getPointIndex(rawFrom);
-  const originalTo = getPointIndex(rawTo);
-
-  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
-    return null;
-  }
-
-  const from = Math.min(originalFrom, originalTo);
-  const to = Math.max(originalFrom, originalTo);
-  const isReversed = originalFrom > originalTo;
-
-  return {
-    ...base,
-    from,
-    to,
-    fromCutout: normalizeMeasurement(isReversed ? rawToCutout : rawFromCutout),
-    toCutout: normalizeMeasurement(isReversed ? rawFromCutout : rawToCutout),
-    cutoutWidth: normalizeMeasurement(rawCutoutWidth),
-    cutoutProjection: normalizeMeasurement(rawCutoutProjection),
-  };
-}
-
-function normalizeEdgeCutouts(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map(normalizeEdgeCutoutEntry).filter(Boolean);
-}
-
-function filterEdgeCutoutsToSailTracks(edgeCutouts, sailTracks) {
-  if (!Array.isArray(edgeCutouts) || edgeCutouts.length === 0) {
-    return [];
-  }
-
-  const sailTrackKeys = new Set(
-    (Array.isArray(sailTracks) ? sailTracks : []).map((track) => getSailTrackKey(track.from, track.to))
-  );
-
-  return edgeCutouts.filter((cutout) => sailTrackKeys.has(getSailTrackKey(cutout.from, cutout.to)));
-}
-
-function findSailTrackIndex(sailTracks, u, v) {
-  const key = getSailTrackKey(u, v);
-  return sailTracks.findIndex((track) => getSailTrackKey(track.from, track.to) === key);
-}
-
-function getConnectionValue(connectionsList, u, v) {
-  const minI = Math.min(u, v);
-  const maxI = Math.max(u, v);
-  const conn = connectionsList.find((connection) =>
-    (connection.from === minI && connection.to === maxI) ||
-    (connection.from === maxI && connection.to === minI)
-  );
-  return conn ? conn.value : "";
-}
-
 function buildGeometry(attributes) {
   const N = clamp(Number(attributes?.pointCount) || 3, 3, MAX_POINTS);
-  const connectionsList = getConnectionsList(attributes);
+  const conns = attributes?.connections && typeof attributes.connections === 'object' ? attributes.connections : {};
   const edges = [];
 
   for (let i = 0; i < N; i++) {
     const u = i;
     const v = (i + 1) % N;
-    edges.push({ u, v, value: getConnectionValue(connectionsList, u, v) });
+    edges.push({ u, v, value: conns[connKey(u, v)]?.value ?? "" });
   }
 
   const diags = [];
   for (let i = 0; i < N; i++) {
     for (let j = i + 2; j < N; j++) {
       if (i === 0 && j === N - 1) continue;
-      diags.push({ u: i, v: j, value: getConnectionValue(connectionsList, i, j) });
+      diags.push({ u: i, v: j, value: conns[connKey(i, j)]?.value ?? "" });
     }
   }
 
@@ -1226,8 +897,7 @@ function validateProjectData(projectData, context = {}) {
 function validateProductData(attributes, pointsList, context = {}, discrepancyChecker = false) {
   const errors = [];
   const isJob = context.orderType === "job";
-  const sailTracks = normalizeSailTracks(attributes.sailTracks);
-  const edgeCutouts = filterEdgeCutoutsToSailTracks(normalizeEdgeCutouts(attributes.edgeCutouts), sailTracks);
+  const tracks = attributes.sailTracks && typeof attributes.sailTracks === 'object' ? attributes.sailTracks : {};
   const foldSides = getNormalizedFoldSides(attributes);
 
   errors.push(...validateRequiredConnections(attributes, context));
@@ -1253,55 +923,54 @@ function validateProductData(attributes, pointsList, context = {}, discrepancyCh
   }
 
   if (!discrepancyChecker) {
-    sailTracks.forEach((track, index) => {
-      const edgeLabel = getEdgeLabel(track.from, track.to);
+    for (const [key, track] of Object.entries(tracks)) {
+      const [from, to] = key.split(',').map(Number);
+      const edgeLabel = getEdgeLabel(from, to);
 
       if (isBlank(track.fromSideCutout)) {
         errors.push({
-          path: `attributes.sailTracks.${index}.fromSideCutout`,
-          message: `Cutout on ${getLabel(track.from)} side not filled for sailtrack ${edgeLabel}`,
+          path: `attributes.sailTracks.${key}.fromSideCutout`,
+          message: `Cutout on ${getLabel(from)} side not filled for sailtrack ${edgeLabel}`,
         });
       }
 
       if (isBlank(track.toSideCutout)) {
         errors.push({
-          path: `attributes.sailTracks.${index}.toSideCutout`,
-          message: `Cutout on ${getLabel(track.to)} side not filled for sailtrack ${edgeLabel}`,
-        });
-      }
-    });
-
-    edgeCutouts.forEach((cutout, index) => {
-      const edgeLabel = getEdgeLabel(cutout.from, cutout.to);
-
-      if (isBlank(cutout.fromCutout)) {
-        errors.push({
-          path: `attributes.edgeCutouts.${index}.fromCutout`,
-          message: `Distance to cutout edge from ${getLabel(cutout.from)} not filled for edge ${edgeLabel}`,
+          path: `attributes.sailTracks.${key}.toSideCutout`,
+          message: `Cutout on ${getLabel(to)} side not filled for sailtrack ${edgeLabel}`,
         });
       }
 
-      if (isBlank(cutout.toCutout)) {
-        errors.push({
-          path: `attributes.edgeCutouts.${index}.toCutout`,
-          message: `Distance to cutout edge from ${getLabel(cutout.to)} not filled for edge ${edgeLabel}`,
-        });
-      }
+      if (track.cutout) {
+        if (isBlank(track.cutout.fromCutout)) {
+          errors.push({
+            path: `attributes.sailTracks.${key}.cutout.fromCutout`,
+            message: `Distance to cutout edge from ${getLabel(from)} not filled for edge ${edgeLabel}`,
+          });
+        }
 
-      if (isBlank(cutout.cutoutWidth)) {
-        errors.push({
-          path: `attributes.edgeCutouts.${index}.cutoutWidth`,
-          message: `Cutout width not filled for edge ${edgeLabel}`,
-        });
-      }
+        if (isBlank(track.cutout.toCutout)) {
+          errors.push({
+            path: `attributes.sailTracks.${key}.cutout.toCutout`,
+            message: `Distance to cutout edge from ${getLabel(to)} not filled for edge ${edgeLabel}`,
+          });
+        }
 
-      if (isBlank(cutout.cutoutProjection)) {
-        errors.push({
-          path: `attributes.edgeCutouts.${index}.cutoutProjection`,
-          message: `Cutout projection not filled for edge ${edgeLabel}`,
-        });
+        if (isBlank(track.cutout.cutoutWidth)) {
+          errors.push({
+            path: `attributes.sailTracks.${key}.cutout.cutoutWidth`,
+            message: `Cutout width not filled for edge ${edgeLabel}`,
+          });
+        }
+
+        if (isBlank(track.cutout.cutoutProjection)) {
+          errors.push({
+            path: `attributes.sailTracks.${key}.cutout.cutoutProjection`,
+            message: `Cutout projection not filled for edge ${edgeLabel}`,
+          });
+        }
       }
-    });
+    }
   }
 
   if (isJob && !discrepancyChecker) {

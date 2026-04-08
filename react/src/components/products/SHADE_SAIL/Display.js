@@ -78,7 +78,51 @@ const normalizeSailTrackEntry = (entry) => {
   };
 };
 
-const normalizeSailTracks = (value) => (Array.isArray(value) ? value.map(normalizeSailTrackEntry).filter(Boolean) : []);
+const normalizeSailTracks = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value).map(([key, track]) => {
+      const sep = key.includes(',') ? ',' : '-';
+      const [fromStr, toStr] = key.split(sep);
+      const from = getNumericPointId(fromStr);
+      const to = getNumericPointId(toStr);
+      if (from === null || to === null || from === to) return null;
+      const minPt = Math.min(from, to);
+      const maxPt = Math.max(from, to);
+      return {
+        from: minPt,
+        to: maxPt,
+        fromSideCutout: track?.fromSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
+        toSideCutout: track?.toSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
+      };
+    }).filter(Boolean);
+  }
+  if (Array.isArray(value)) return value.map(normalizeSailTrackEntry).filter(Boolean);
+  return [];
+};
+
+const normalizeEdgeCutoutsFromTracks = (sailTracksValue) => {
+  if (sailTracksValue && typeof sailTracksValue === 'object' && !Array.isArray(sailTracksValue)) {
+    return Object.entries(sailTracksValue).map(([key, track]) => {
+      if (!track?.cutout) return null;
+      const sep = key.includes(',') ? ',' : '-';
+      const [fromStr, toStr] = key.split(sep);
+      const from = getNumericPointId(fromStr);
+      const to = getNumericPointId(toStr);
+      if (from === null || to === null || from === to) return null;
+      const minPt = Math.min(from, to);
+      const maxPt = Math.max(from, to);
+      return {
+        from: minPt,
+        to: maxPt,
+        fromCutout: track.cutout.fromCutout ?? '',
+        toCutout: track.cutout.toCutout ?? '',
+        cutoutWidth: track.cutout.cutoutWidth ?? '',
+        cutoutProjection: track.cutout.cutoutProjection ?? '',
+      };
+    }).filter(Boolean);
+  }
+  return [];
+};
 
 const normalizeEdgeCutoutEntry = (entry) => {
   let rawFrom;
@@ -353,6 +397,8 @@ const buildDimensionsMap = (attributes = {}) => {
 
       if (key.includes('-')) {
         [p1, p2] = key.split('-');
+      } else if (key.includes(',')) {
+        [p1, p2] = key.split(',');
       } else if (key.length === 2) {
         [p1, p2] = key.split('');
       }
@@ -586,7 +632,7 @@ export function render(canvas, data) {
     const drawingTop = startY + sectionPadding;
     const infoTop = drawingTop + sailDrawingHeight + sectionGap;
     
-    const attributes = sail.attributes || {};
+    const attributes = { ...(sail.attributes || {}), ...(sail.calculated || {}) };
     const points = attributes.points || {};
     const dimensionsMap = buildDimensionsMap(attributes);
     const sourcePositions = attributes.positions || {};
@@ -722,7 +768,7 @@ export function render(canvas, data) {
     const angles = Object.fromEntries(ids.map(id => [id, Math.atan2((perimeterPoints[id] || mapped[id]).y - cy, (perimeterPoints[id] || mapped[id]).x - cx)]));
     const ordered = [...ids].sort((a, b) => angles[a] - angles[b]);
     const sailTracks = normalizeSailTracks(attributes.sailTracks);
-    const edgeCutouts = normalizeEdgeCutouts(attributes.edgeCutouts);
+    const edgeCutouts = normalizeEdgeCutoutsFromTracks(attributes.sailTracks);
     const sailTrackMap = new Map(sailTracks.map((track) => [getEdgeKey(track.from, track.to), track]));
 
     // Draw tensioners (lines from post to workpoint)
@@ -757,37 +803,6 @@ export function render(canvas, data) {
       const k = getEdgeKey(track.from, track.to);
       sailTrackEdges.add(k);
     });
-    // Also check connections for sailTrack boolean flag
-    const connsForTrack = attributes.connections;
-    if (Array.isArray(connsForTrack)) {
-      connsForTrack.forEach(c => {
-        if (c && c.sailTrack) {
-          const from = getNumericPointId(c.from);
-          const to = getNumericPointId(c.to);
-          if (from !== null && to !== null && from !== to) {
-            sailTrackEdges.add(getEdgeKey(from, to));
-          }
-        }
-      });
-    } else if (connsForTrack && typeof connsForTrack === 'object') {
-      Object.entries(connsForTrack).forEach(([key, val]) => {
-        if (!val || !val.sailTrack) return;
-
-        let from;
-        let to;
-        if (key.includes('-')) {
-          [from, to] = key.split('-');
-        } else if (key.length === 2) {
-          [from, to] = key.split('');
-        }
-
-        const numericFrom = getNumericPointId(from);
-        const numericTo = getNumericPointId(to);
-        if (numericFrom !== null && numericTo !== null && numericFrom !== numericTo) {
-          sailTrackEdges.add(getEdgeKey(numericFrom, numericTo));
-        }
-      });
-    }
 
     for (let i = 0; i < ordered.length; i++) {
       const p1 = ordered[i];

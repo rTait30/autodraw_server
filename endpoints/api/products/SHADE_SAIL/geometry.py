@@ -57,15 +57,15 @@ def _get_connection_records(connections: Any) -> List[Dict[str, Any]]:
         v = _int_or_none(value.get("to"))
         if u is None or v is None:
             try:
-                from_part, to_part = str(key).split("-", 1)
+                sep = "," if "," in str(key) else "-"
+                from_part, to_part = str(key).split(sep, 1)
                 u = int(from_part)
                 v = int(to_part)
             except (TypeError, ValueError):
                 continue
-            value.setdefault("from", u)
-            value.setdefault("to", v)
 
-        records.append(value)
+        record = {**value, "from": u, "to": v}
+        records.append(record)
 
     return records
 
@@ -317,49 +317,65 @@ def _compute_positions_for_many_sided(
     return positions
 
 
+def _build_xy_distances(connections: Any) -> Dict[str, float]:
+    """Build {"min-max": length2d} lookup from connections that have length2d."""
+    xy: Dict[str, float] = {}
+    for rec in _get_connection_records(connections):
+        u = _int_or_none(rec.get("from"))
+        v = _int_or_none(rec.get("to"))
+        val = _num(rec.get("length2d"))
+        if u is None or v is None or val is None:
+            continue
+        xy[f"{min(u, v)}-{max(u, v)}"] = val
+    return xy
+
+
 def compute_2d_connections(attributes: Dict[str, Any]) -> None:
     points = attributes.get("points") or []
-    connections = _get_connection_records(attributes.get("connections"))
+    connections = attributes.get("connections")
 
     if not isinstance(points, list):
-        attributes["xyDistances"] = {}
         return
 
     for point in points:
         if isinstance(point, dict):
             point["z"] = _num(point.get("height")) or _num(point.get("z")) or 0.0
 
-    for connection in connections:
-        u = _int_or_none(connection.get("from"))
-        v = _int_or_none(connection.get("to"))
-        length_3d = _num(connection.get("value"))
-        if u is None or v is None or u < 0 or v < 0 or u >= len(points) or v >= len(points) or length_3d is None:
-            continue
+    if not isinstance(connections, dict):
+        return
 
-        length_2d = _project_to_xy(length_3d, points[u].get("z"), points[v].get("z"))
-        connection["length2d"] = length_2d
+    for key, conn in connections.items():
+        if not isinstance(conn, dict):
+            continue
+        try:
+            sep = "," if "," in key else "-"
+            parts = key.split(sep, 1)
+            u, v = int(parts[0]), int(parts[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        length_3d = _num(conn.get("value"))
+        if u < 0 or v < 0 or u >= len(points) or v >= len(points) or length_3d is None:
+            continue
+        conn["length2d"] = _project_to_xy(length_3d, points[u].get("z"), points[v].get("z"))
 
 
 def compute_geometry(attributes: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+
     points = attributes.get("points") or []
     point_count = int(_num(attributes.get("pointCount")) or len(points))
     point_count = min(point_count, len(points)) if isinstance(points, list) else 0
-    xy_distances = attributes.get("xyDistances") or {}
 
     if not point_count or not isinstance(points, list):
         attributes["positions"] = {}
         return {}
 
-    def finalize(raw_positions: Dict[int, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-        positions = {}
-        for index in range(point_count):
-            position = raw_positions.get(index, {"x": 0.0, "y": 0.0})
-            point = points[index]
-            point["x"] = position["x"]
-            point["y"] = position["y"]
-            point["z"] = _num(point.get("height")) or _num(point.get("z")) or 0.0
-            positions[str(index)] = {"x": position["x"], "y": position["y"]}
+    xy_distances = _build_xy_distances(attributes.get("connections"))
 
+    def finalize(positions):
+        for index, point in enumerate(points):
+            pos = positions.get(index, {"x": 0.0, "y": 0.0})
+            point["x"] = pos["x"]
+            point["y"] = pos["y"]
         attributes["positions"] = positions
         return positions
 
@@ -643,7 +659,7 @@ def compute_boxes(attributes: Dict[str, Any]) -> Dict[str, Any]:
     reflex_flag = False
     reflex_angle_values: Dict[str, float] = {}
     points_list = attributes.get("points") or []
-    xy = attributes.get("xyDistances") or {}
+    xy = _build_xy_distances(attributes.get("connections"))
     dim_map = _build_dim_map(attributes.get("connections"))
     point_count = len(points_list)
 
@@ -720,6 +736,7 @@ __all__ = [
     "DEFAULT_WORKPOINT_METHOD",
     "WORKPOINT_METHODS",
     "_build_dim_map",
+    "_build_xy_distances",
     "_get_connection_records",
     "compute_boxes",
     "compute_2d_connections",

@@ -179,8 +179,9 @@ def submit_shade_sail_to_workguru(project, data, wg_client_id, wg_name):
             productIndex = sail.get("productIndex", 0)
             sail_name = f"Sail {productIndex + 1}"
         attributes = sail.get("attributes", {})
+        calculated = sail.get("calculated", {})
         
-        edgeMeter = attributes.get("edgeMeter", 0)
+        edgeMeter = calculated.get("edgeMeter", 0)
 
         fabric_type = attributes.get("fabricType", "")
 

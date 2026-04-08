@@ -153,9 +153,9 @@ export default function Discrepancy() {
       let anyProblem = false;
       let maxDisc = 0;
       (result.products || []).forEach(p => {
-        const attrs = p.attributes || {};
-        if (attrs.discrepancyProblem) anyProblem = true;
-        if ((attrs.maxDiscrepancy || 0) > maxDisc) maxDisc = attrs.maxDiscrepancy || 0;
+        const calc = p.calculated || p.attributes || {};
+        if (calc.discrepancyProblem) anyProblem = true;
+        if ((calc.maxDiscrepancy || 0) > maxDisc) maxDisc = calc.maxDiscrepancy || 0;
       });
 
       if (anyProblem) {

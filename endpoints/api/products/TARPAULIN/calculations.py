@@ -1,4 +1,5 @@
 """TARPAULIN project calculations."""
+import copy
 from typing import Dict
 
 
@@ -57,34 +58,36 @@ def calculate(data: Dict) -> Dict:
         if not isinstance(attrs, dict):
             continue
 
-        length = _num(attrs.get("length"))
-        width = _num(attrs.get("width"))
+        calculated = copy.deepcopy(attrs)
+
+        length = _num(calculated.get("length"))
+        width = _num(calculated.get("width"))
         pocket = 25  # 25mm pocket on each side
 
         if length is not None and width is not None:
             # Original dimensions
-            attrs["original_length"] = length
-            attrs["original_width"] = width
+            calculated["original_length"] = length
+            calculated["original_width"] = width
             # With pocket
             final_length = length + 2 * pocket
             final_width = width + 2 * pocket
-            attrs["final_length"] = final_length
-            attrs["final_width"] = final_width
+            calculated["final_length"] = final_length
+            calculated["final_width"] = final_width
             
             # Perimeter of final
-            attrs["perimeter"] = 2 * (final_length + final_width)
+            calculated["perimeter"] = 2 * (final_length + final_width)
             # Area
-            attrs["area"] = final_length * final_width
+            calculated["area"] = final_length * final_width
 
             # --- Calculate Eyelets ---
             calculated_eyelets = []
             sides = ["top", "bottom", "left", "right"]
             
             for side in sides:
-                enabled = attrs.get(f"eyelet_{side}_enabled")
+                enabled = calculated.get(f"eyelet_{side}_enabled")
                 if enabled:
-                    mode = attrs.get(f"eyelet_{side}_mode", "spacing")
-                    val = attrs.get(f"eyelet_{side}_val")
+                    mode = calculated.get(f"eyelet_{side}_mode", "spacing")
+                    val = calculated.get(f"eyelet_{side}_val")
                     
                     # Determine edge length for this side
                     edge_len = final_length if side in ["top", "bottom"] else final_width
@@ -110,6 +113,8 @@ def calculate(data: Dict) -> Dict:
                             
                         calculated_eyelets.append(eyelet_data)
             
-            attrs["calculated_eyelets"] = calculated_eyelets
+            calculated["calculated_eyelets"] = calculated_eyelets
+
+        product["calculated"] = calculated
 
     return data

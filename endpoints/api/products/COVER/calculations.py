@@ -1,4 +1,5 @@
 """COVER project calculations."""
+import copy
 from typing import Dict
 
 
@@ -31,42 +32,44 @@ def calculate(data: Dict) -> Dict:
         if not isinstance(attrs, dict):
             continue
 
+        calculated = copy.deepcopy(attrs)
+
             #STEP 1: FLATTEN PANELS
 
-        length = _num(attrs.get("length"))
-        width = _num(attrs.get("width"))
-        height = _num(attrs.get("height"))
-        seam = _num(attrs.get("seam")) or 0
-        hem = _num(attrs.get("hem"))
-        fabric_width = _num(attrs.get("fabricWidth")) or 1500
-        quantity = max(1, int(_num(attrs.get("quantity")) or 1))
+        length = _num(calculated.get("length"))
+        width = _num(calculated.get("width"))
+        height = _num(calculated.get("height"))
+        seam = _num(calculated.get("seam")) or 0
+        hem = _num(calculated.get("hem"))
+        fabric_width = _num(calculated.get("fabricWidth")) or 1500
+        quantity = max(1, int(_num(calculated.get("quantity")) or 1))
 
         if length is not None and width is not None:
-            attrs["perimeter"] = 2 * (length + width)
+            calculated["perimeter"] = 2 * (length + width)
         if width is not None and seam is not None:
-            attrs["flatMainHeight"] = width + 2 * seam
+            calculated["flatMainHeight"] = width + 2 * seam
         if hem is not None and height is not None and length is not None:
-            attrs["flatMainWidth"] = 2 * hem + (height * 2) + length
+            calculated["flatMainWidth"] = 2 * hem + (height * 2) + length
         if height is not None and seam is not None and hem is not None:
-            attrs["flatSideWidth"] = height + seam + hem
+            calculated["flatSideWidth"] = height + seam + hem
         if length is not None and seam is not None:
-            attrs["flatSideHeight"] = length + (seam * 2)
+            calculated["flatSideHeight"] = length + (seam * 2)
 
-        fmw = _num(attrs.get("flatMainWidth"))
-        fsw = _num(attrs.get("flatSideWidth"))
-        fsh = _num(attrs.get("flatSideHeight"))
+        fmw = _num(calculated.get("flatMainWidth"))
+        fsw = _num(calculated.get("flatSideWidth"))
+        fsh = _num(calculated.get("flatSideHeight"))
         if fmw is not None and fsw is not None and fsh is not None:
-            attrs["totalSeamLength"] = 2 * fmw + 2 * fsw + 4 * fsh
+            calculated["totalSeamLength"] = 2 * fmw + 2 * fsw + 4 * fsh
 
-        fmh = _num(attrs.get("flatMainHeight"))
+        fmh = _num(calculated.get("flatMainHeight"))
         if fmw is not None and fmh is not None:
-            attrs["areaMainM2"] = (fmw * fmh) / 1_000_000
+            calculated["areaMainM2"] = (fmw * fmh) / 1_000_000
         if fsw is not None and fsh is not None:
-            attrs["areaSideM2"] = (fsw * fsh) / 1_000_000
-        area_main = _num(attrs.get("areaMainM2"))
-        area_side = _num(attrs.get("areaSideM2"))
+            calculated["areaSideM2"] = (fsw * fsh) / 1_000_000
+        area_main = _num(calculated.get("areaMainM2"))
+        area_side = _num(calculated.get("areaSideM2"))
         if area_main is not None and area_side is not None:
-            attrs["totalFabricArea"] = area_main + 2 * area_side
+            calculated["totalFabricArea"] = area_main + 2 * area_side
 
             # STEP 2: SPLIT PANELS IF NEEDED
         
@@ -131,9 +134,9 @@ def calculate(data: Dict) -> Dict:
                     all_meta_map[label] = meta
                     product_meta_map[label] = meta
         
-        # Store this product's panels metadata in its attributes
-        attrs["panels"] = product_meta_map
-        product["attributes"] = attrs
+        # Store this product's panels metadata in calculated
+        calculated["panels"] = product_meta_map
+        product["calculated"] = calculated
 
     # Store aggregated nesting data at project level for cross-product nesting
     if not data.get("project_attributes"):
@@ -174,10 +177,10 @@ def calculate(data: Dict) -> Dict:
                 prod = products[mm["productIndex"]]
                 if not prod:
                     continue
-                attr = prod.get("attributes") or {}
-                if not attr.get("panels"):
-                    attr["panels"] = {}
-                attr["panels"][label] = {
+                calc = prod.get("calculated") or {}
+                if not calc.get("panels"):
+                    calc["panels"] = {}
+                calc["panels"][label] = {
                     "width": mm["width"],
                     "height": mm["height"],
                     "base": mm["base"],
@@ -185,7 +188,7 @@ def calculate(data: Dict) -> Dict:
                     "y": placement.get("y"),
                     "rotated": bool(placement.get("rotated", False))
                 }
-                prod["attributes"] = attr
+                prod["calculated"] = calc
             
             # Store project-level nest result
             data["project_attributes"]["nest"] = nest_result

@@ -23,10 +23,7 @@ const normalizeOrderType = (value) => (value === 'quote' ? 'quote' : 'job');
 
 const mergeGeneral = (...sources) => {
   const merged = Object.assign({}, ...sources.filter(Boolean));
-  return {
-    ...merged,
-    order_type: normalizeOrderType(merged.order_type),
-  };
+  return merged;
 };
 
 // Helper to load dynamic form components (used internally by ProjectForm now)

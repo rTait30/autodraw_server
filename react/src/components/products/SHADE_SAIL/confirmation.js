@@ -67,17 +67,18 @@ function transformAttributes(attributes) {
     });
   }
 
-  if (Array.isArray(next.connections)) {
-    next.connections = next.connections.map((entry) => mapPointRefs(entry, ['from', 'to']));
+  if (next.connections && typeof next.connections === 'object' && !Array.isArray(next.connections)) {
+    const transformed = {};
+    Object.entries(next.connections).forEach(([key, value]) => {
+      const sep = key.includes(',') ? ',' : '-';
+      const [p1, p2] = key.split(sep);
+      const label = `${getPointLabel(p1)}-${getPointLabel(p2)}`;
+      transformed[label] = value;
+    });
+    next.connections = transformed;
   }
 
-  if (Array.isArray(next.sailTracks)) {
-    next.sailTracks = next.sailTracks.map((entry) => mapPointRefs(entry, ['from', 'to']));
-  }
-
-  if (Array.isArray(next.edgeCutouts)) {
-    next.edgeCutouts = next.edgeCutouts.map((entry) => mapPointRefs(entry, ['from', 'to']));
-  }
+  // sailTracks and edgeCutouts are nested in sailTracks — no separate transform needed
 
   if (Array.isArray(next.traceCables)) {
     next.traceCables = next.traceCables.map((entry) => {

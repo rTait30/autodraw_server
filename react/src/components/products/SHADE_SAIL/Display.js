@@ -21,15 +21,6 @@ const getNumericPointId = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const normalizeMeasurement = (value, fallback = '') => {
-  if (value === '' || value === undefined || value === null) {
-    return fallback;
-  }
-
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : value;
-};
-
 const getFiniteMeasurement = (value) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
@@ -37,72 +28,33 @@ const getFiniteMeasurement = (value) => {
 
 const getEdgeKey = (from, to) => [Number(from), Number(to)].sort((a, b) => a - b).join('-');
 
-const normalizeSailTrackEntry = (entry) => {
-  let rawFrom;
-  let rawTo;
-  let rawFromSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
-  let rawToSideCutout = DEFAULT_SAIL_TRACK_CUTOUT;
-
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim();
-    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
-      [rawFrom, rawTo] = trimmed.split('-');
-    } else if (trimmed.length >= 2) {
-      rawFrom = trimmed[0];
-      rawTo = trimmed[1];
-    }
-  } else if (Array.isArray(entry)) {
-    [rawFrom, rawTo] = entry;
-  } else if (entry && typeof entry === 'object') {
-    rawFrom = entry.from;
-    rawTo = entry.to;
-    rawFromSideCutout = entry.fromSideCutout;
-    rawToSideCutout = entry.toSideCutout;
-  }
-
-  const originalFrom = getNumericPointId(rawFrom);
-  const originalTo = getNumericPointId(rawTo);
-  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
-    return null;
-  }
-
-  const from = Math.min(originalFrom, originalTo);
-  const to = Math.max(originalFrom, originalTo);
-  const isReversed = originalFrom > originalTo;
-
+const normalizeSailTrackEntry = (key, track) => {
+  const sep = key.includes(',') ? ',' : '-';
+  const [fromStr, toStr] = key.split(sep);
+  const from = getNumericPointId(fromStr);
+  const to = getNumericPointId(toStr);
+  if (from === null || to === null || from === to) return null;
+  const minPt = Math.min(from, to);
+  const maxPt = Math.max(from, to);
   return {
-    from,
-    to,
-    fromSideCutout: normalizeMeasurement(isReversed ? rawToSideCutout : rawFromSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
-    toSideCutout: normalizeMeasurement(isReversed ? rawFromSideCutout : rawToSideCutout, DEFAULT_SAIL_TRACK_CUTOUT),
+    from: minPt,
+    to: maxPt,
+    fromSideCutout: track?.fromSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
+    toSideCutout: track?.toSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
   };
 };
 
 const normalizeSailTracks = (value) => {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return Object.entries(value).map(([key, track]) => {
-      const sep = key.includes(',') ? ',' : '-';
-      const [fromStr, toStr] = key.split(sep);
-      const from = getNumericPointId(fromStr);
-      const to = getNumericPointId(toStr);
-      if (from === null || to === null || from === to) return null;
-      const minPt = Math.min(from, to);
-      const maxPt = Math.max(from, to);
-      return {
-        from: minPt,
-        to: maxPt,
-        fromSideCutout: track?.fromSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
-        toSideCutout: track?.toSideCutout ?? DEFAULT_SAIL_TRACK_CUTOUT,
-      };
-    }).filter(Boolean);
-  }
-  if (Array.isArray(value)) return value.map(normalizeSailTrackEntry).filter(Boolean);
-  return [];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value)
+    .map(([key, track]) => normalizeSailTrackEntry(key, track))
+    .filter(Boolean);
 };
 
-const normalizeEdgeCutoutsFromTracks = (sailTracksValue) => {
-  if (sailTracksValue && typeof sailTracksValue === 'object' && !Array.isArray(sailTracksValue)) {
-    return Object.entries(sailTracksValue).map(([key, track]) => {
+const normalizeEdgeCutouts = (sailTracksValue) => {
+  if (!sailTracksValue || typeof sailTracksValue !== 'object' || Array.isArray(sailTracksValue)) return [];
+  return Object.entries(sailTracksValue)
+    .map(([key, track]) => {
       if (!track?.cutout) return null;
       const sep = key.includes(',') ? ',' : '-';
       const [fromStr, toStr] = key.split(sep);
@@ -119,59 +71,9 @@ const normalizeEdgeCutoutsFromTracks = (sailTracksValue) => {
         cutoutWidth: track.cutout.cutoutWidth ?? '',
         cutoutProjection: track.cutout.cutoutProjection ?? '',
       };
-    }).filter(Boolean);
-  }
-  return [];
+    })
+    .filter(Boolean);
 };
-
-const normalizeEdgeCutoutEntry = (entry) => {
-  let rawFrom;
-  let rawTo;
-  let rawFromCutout = '';
-  let rawToCutout = '';
-  let rawCutoutWidth = '';
-  let rawCutoutProjection = '';
-
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim();
-    if (/^\d+\s*-\s*\d+$/.test(trimmed)) {
-      [rawFrom, rawTo] = trimmed.split('-');
-    } else if (trimmed.length >= 2) {
-      rawFrom = trimmed[0];
-      rawTo = trimmed[1];
-    }
-  } else if (Array.isArray(entry)) {
-    [rawFrom, rawTo] = entry;
-  } else if (entry && typeof entry === 'object') {
-    rawFrom = entry.from;
-    rawTo = entry.to;
-    rawFromCutout = entry.fromCutout;
-    rawToCutout = entry.toCutout;
-    rawCutoutWidth = entry.cutoutWidth;
-    rawCutoutProjection = entry.cutoutProjection;
-  }
-
-  const originalFrom = getNumericPointId(rawFrom);
-  const originalTo = getNumericPointId(rawTo);
-  if (originalFrom === null || originalTo === null || originalFrom === originalTo) {
-    return null;
-  }
-
-  const from = Math.min(originalFrom, originalTo);
-  const to = Math.max(originalFrom, originalTo);
-  const isReversed = originalFrom > originalTo;
-
-  return {
-    from,
-    to,
-    fromCutout: normalizeMeasurement(isReversed ? rawToCutout : rawFromCutout),
-    toCutout: normalizeMeasurement(isReversed ? rawFromCutout : rawToCutout),
-    cutoutWidth: normalizeMeasurement(rawCutoutWidth),
-    cutoutProjection: normalizeMeasurement(rawCutoutProjection),
-  };
-};
-
-const normalizeEdgeCutouts = (value) => (Array.isArray(value) ? value.map(normalizeEdgeCutoutEntry).filter(Boolean) : []);
 
 const getEdgeGeometry = (fromPos, toPos, centroidX, centroidY, edgeLength, isStraightEdge = false) => {
   const dx = toPos.x - fromPos.x;
@@ -382,51 +284,16 @@ const buildDimensionsMap = (attributes = {}) => {
   const dimensionsMap = {};
   const conns = attributes.connections;
 
-  if (Array.isArray(conns)) {
-    conns.forEach((conn) => {
-      const from = normalizePointId(conn?.from);
-      const to = normalizePointId(conn?.to);
-      if (from === '' || to === '' || conn?.value === undefined || conn?.value === null || conn.value === '') return;
-      const key = [from, to].sort((a, b) => Number(a) - Number(b)).join('-');
-      dimensionsMap[key] = conn.value;
-    });
-  } else if (conns && typeof conns === 'object') {
+  if (conns && typeof conns === 'object' && !Array.isArray(conns)) {
     Object.entries(conns).forEach(([key, value]) => {
-      let p1;
-      let p2;
-
-      if (key.includes('-')) {
-        [p1, p2] = key.split('-');
-      } else if (key.includes(',')) {
-        [p1, p2] = key.split(',');
-      } else if (key.length === 2) {
-        [p1, p2] = key.split('');
-      }
-
-      if (p1 === undefined || p2 === undefined || !value?.value) return;
+      if (!value?.value) return;
+      const sep = key.includes(',') ? ',' : '-';
+      const [p1, p2] = key.split(sep);
+      if (p1 === undefined || p2 === undefined) return;
       const normKey = [normalizePointId(p1), normalizePointId(p2)]
         .sort((a, b) => Number(a) - Number(b))
         .join('-');
       dimensionsMap[normKey] = value.value;
-    });
-  }
-
-  if (attributes.dimensions) {
-    Object.entries(attributes.dimensions).forEach(([key, value]) => {
-      let p1;
-      let p2;
-
-      if (key.length === 2) {
-        [p1, p2] = key.split('');
-      } else if (key.includes('-')) {
-        [p1, p2] = key.split('-');
-      }
-
-      if (p1 === undefined || p2 === undefined || !value) return;
-      const normKey = [normalizePointId(p1), normalizePointId(p2)]
-        .sort((a, b) => Number(a) - Number(b))
-        .join('-');
-      if (!dimensionsMap[normKey]) dimensionsMap[normKey] = value;
     });
   }
 
@@ -667,41 +534,32 @@ export function render(canvas, data) {
     }
     const positions = useQuoteFallback ? buildQuotePositions(ids, dimensionsMap) : sourcePositions;
 
-    // Build a set of problematic line keys (unordered pairs) from boxProblems
-    // For any box like ABCD or 0-1-2-3, mark AB, BC, CD, DA and diagonals AC, BD as problematic
+    // Build a set of problematic line keys (unordered pairs) from boxes
     const problematicLines = new Set();
-    if (attributes.boxProblems) {
-      Object.entries(attributes.boxProblems).forEach(([boxKey, isProblem]) => {
-        if (!isProblem || !boxKey) return;
-        
-        let corners = [];
-        if (boxKey.includes('-')) {
-            corners = boxKey.split('-');
-        } else {
-            corners = boxKey.replace(/[^A-Za-z0-9]/g, '').split('');
-        }
+    const boxesData = attributes.boxes || {};
+    Object.entries(boxesData).forEach(([boxKey, box]) => {
+      if (!box?.problem || !boxKey) return;
+      
+      const corners = boxKey.includes('-') ? boxKey.split('-') : boxKey.split('');
 
-        if (corners.length === 2) {
-          problematicLines.add(corners.sort().join('-'));
-          return;
-        }
-        
-        if (corners.length < 4) return;
-        
-        // Ensure 4 corners for a quad check
-        const [A, B, C, D] = corners;
-        const pairs = [
-          [A, B], [B, C], [C, D], [D, A], // edges
-          [A, C], [B, D],                  // diagonals
-        ];
-        
-        pairs.forEach(([p1, p2]) => {
-            // Sort to make key canonical for undirected edge
-            const key = [p1, p2].sort().join('-');
-            problematicLines.add(key);
-        });
+      if (corners.length === 2) {
+        problematicLines.add(corners.sort().join('-'));
+        return;
+      }
+      
+      if (corners.length < 4) return;
+      
+      const [A, B, C, D] = corners;
+      const pairs = [
+        [A, B], [B, C], [C, D], [D, A],
+        [A, C], [B, D],
+      ];
+      
+      pairs.forEach(([p1, p2]) => {
+          const key = [p1, p2].sort().join('-');
+          problematicLines.add(key);
       });
-    }
+    });
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const id of ids) {
@@ -768,7 +626,7 @@ export function render(canvas, data) {
     const angles = Object.fromEntries(ids.map(id => [id, Math.atan2((perimeterPoints[id] || mapped[id]).y - cy, (perimeterPoints[id] || mapped[id]).x - cx)]));
     const ordered = [...ids].sort((a, b) => angles[a] - angles[b]);
     const sailTracks = normalizeSailTracks(attributes.sailTracks);
-    const edgeCutouts = normalizeEdgeCutoutsFromTracks(attributes.sailTracks);
+    const edgeCutouts = normalizeEdgeCutouts(attributes.sailTracks);
     const sailTrackMap = new Map(sailTracks.map((track) => [getEdgeKey(track.from, track.to), track]));
 
     // Draw tensioners (lines from post to workpoint)
@@ -1155,36 +1013,39 @@ export function render(canvas, data) {
     const col2X = startX + 400; // Second column start
 
     // Prepare data first to calculate layout
-    const sortedDiscrepancies = Object.entries(attributes.discrepancies || {})
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    const sortedBoxes = Object.entries(boxesData)
+      .filter(([, box]) => box.discrepancy != null && Number.isFinite(box.discrepancy))
+      .sort((a, b) => Math.abs(b[1].discrepancy) - Math.abs(a[1].discrepancy))
       .slice(0, maxInfoRows);
 
-    const blameEntries = Object.entries(attributes.blame || {});
+    // Build blame from connections
+    const conns = attributes.connections || {};
     const blameGroups = new Map();
-    blameEntries.forEach(([key, val]) => {
-      const rounded = Math.abs(Number(val) || 0).toFixed(2);
+    Object.entries(conns).forEach(([key, conn]) => {
+      const blame = Number(conn?.blame || 0);
+      if (blame <= 1) return;
+      const rounded = Math.abs(blame).toFixed(2);
       if (!blameGroups.has(rounded)) blameGroups.set(rounded, []);
-      blameGroups.get(rounded).push(key);
+      const sep = key.includes(',') ? ',' : '-';
+      const [p1, p2] = key.split(sep);
+      const normKey = [p1, p2].sort((a, b) => Number(a) - Number(b)).join('-');
+      blameGroups.get(rounded).push(normKey);
     });
     const groupedBlame = Array.from(blameGroups.entries())
       .sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
-      .slice(0, maxInfoRows)
-      .filter(([rounded]) => parseFloat(rounded) > 1);
+      .slice(0, maxInfoRows);
 
-    const hasData = (attributes.pointCount || 0) >= 4; // Show details for Quads (4) and up
+    const hasData = (attributes.pointCount || 0) >= 4;
     const isProblem = attributes.discrepancyProblem;
 
-    // Helper to translate "0-1" -> "A-B" or "0-1-2" -> "A-B-C"
     const translateKey = (k) => {
         if (!k) return k;
-        const parts = k.includes('-') ? k.split('-') : k.split('');
-        return parts.map(p => getLabel(p)).join('-');
+        return k.split('-').map(p => getLabel(p)).join('-');
     };
 
     let suggestionText = "";
     if (isProblem && groupedBlame.length > 0) {
        const topSuspectKeys = groupedBlame[0][1];
-       // If too many dimensions share the top blame score, it's ambiguous
        if (topSuspectKeys.length > 3) {
           suggestionText = "Cannot determine specific problem dimension.";
        } else {
@@ -1223,47 +1084,32 @@ export function render(canvas, data) {
     }
 
     // Draw Tables
-    if (hasData && (sortedDiscrepancies.length > 0 || groupedBlame.length > 0)) {
+    if (hasData && (sortedBoxes.length > 0 || groupedBlame.length > 0)) {
         currentY += 28;
         const tableHeaderY = currentY;
         
         ctx.font = `bold ${Math.round(24 * fontScale)}px Arial`;
         ctx.fillStyle = "#111";
-        if (sortedDiscrepancies.length > 0) ctx.fillText("Discrepancies (Loop Errors):", col1X, tableHeaderY);
+        if (sortedBoxes.length > 0) ctx.fillText("Discrepancies (Loop Errors):", col1X, tableHeaderY);
         if (groupedBlame.length > 0) ctx.fillText("Likely Error Source:", col2X, tableHeaderY);
         
         currentY += 24;
         ctx.font = `${Math.round(22 * fontScale)}px Arial`;
         
-        // Loop for rows
-        const maxRows = Math.max(sortedDiscrepancies.length, groupedBlame.length);
+        const maxRows = Math.max(sortedBoxes.length, groupedBlame.length);
         for(let i=0; i<maxRows; i++) {
           let rowY = currentY + (i * 24);
            
-           // Col 1
-           if (i < sortedDiscrepancies.length) {
-              const [box, value] = sortedDiscrepancies[i];
-              const displayBox = translateKey(box);
-
-              // Recalc percentage context using dimensionsMap
-              let corners = [];
-              if (box.includes('-')) {
-                 corners = box.split('-'); 
-              } else {
-                 corners = box.split('');
-              }
+           if (i < sortedBoxes.length) {
+              const [boxKey, box] = sortedBoxes[i];
+              const displayBox = translateKey(boxKey);
+              const value = box.discrepancy;
+              const corners = boxKey.split('-');
 
               let longestBoxEdge = 0;
               for (let ci = 0; ci < corners.length; ci++) {
                 for (let cj = ci + 1; cj < corners.length; cj++) {
-                   const p1 = corners[ci];
-                   const p2 = corners[cj];
-                   
-                   // Ensure canonical key usage for dimensionsMap lookup
-                   // dimensionsMap uses "sorted p1-p2"
-                   // p1 and p2 should be indices (if box strings are indices)
-                   const normK = [p1, p2].sort((a,b)=>Number(a)-Number(b)).join('-');
-                   
+                   const normK = [corners[ci], corners[cj]].sort((a,b)=>Number(a)-Number(b)).join('-');
                    const l = dimensionsMap[normK];
                    if (typeof l === 'number' && l > longestBoxEdge) longestBoxEdge = l;
                 }
@@ -1274,11 +1120,10 @@ export function render(canvas, data) {
               ctx.fillText(`- ${displayBox}: ${value.toFixed(0)} mm (${pct}%)`, col1X + 5, rowY);
            }
 
-           // Col 2
            if (i < groupedBlame.length) {
               const [rounded, keys] = groupedBlame[i];
               const displayKeys = keys.map(k => translateKey(k)).join(', ');
-              ctx.fillStyle = "#ef4444"; // Red standout
+              ctx.fillStyle = "#ef4444";
               ctx.fillText(`- ${displayKeys}: ~${parseFloat(rounded).toFixed(0)} mm`, col2X + 5, rowY);
            }
         }

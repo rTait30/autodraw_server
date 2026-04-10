@@ -318,7 +318,7 @@ def _draw_plotting_specs_section(c: canvas.Canvas, x: float, top_y: float, width
     # Group sails by colour
     colour_groups = {}
     for idx, sail in enumerate(products):
-        attrs = sail.get("attributes", {})
+        attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
         colour = attrs.get("colour", "TBD")
         fabric = attrs.get("fabricType", "TBD")
         sail_name = sail.get("name", f"Sail {idx + 1}")
@@ -688,7 +688,7 @@ def _draw_sail_info_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     Draw the sail info panel on the right side (landscape layout).
     Contains all sail specifications and cable length recording area.
     """
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     
     # Draw outer box
     c.setStrokeColor(black)
@@ -1019,7 +1019,7 @@ def _get_corner_fitting_specs(fitting_id: str, sail: dict) -> list:
         List of (label, value) tuples
     """
     # Count how many corners use this fitting
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     points = attrs.get("points", {})
     
     corner_count = 0

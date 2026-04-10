@@ -71,6 +71,12 @@ def create_project(user, data):
             target_client_id = user.id
 
     # --- CREATE ---
+    # Store order_type in project_attributes
+    order_type = general.get("order_type")
+    if order_type:
+        project_attributes = dict(project_attributes or {})
+        project_attributes["order_type"] = order_type if order_type == "quote" else "job"
+
     project = Project(
         name=project_data["name"],
         status=project_data.get("status") or ProjectStatus.awaiting_deposit,
@@ -109,6 +115,10 @@ def create_project(user, data):
                 project.project_attributes = project_attributes
             if isinstance(enriched.get("products"), list):
                 products_payload = enriched["products"]
+            # Restore order_type — enrichment doesn't carry it
+            if order_type:
+                project.project_attributes = dict(project.project_attributes or {})
+                project.project_attributes["order_type"] = order_type if order_type == "quote" else "job"
             flag_modified(project, "project_attributes")
         except Exception as e:
             print(f"Enrichment failed for project {project.id}: {e}")
@@ -277,6 +287,12 @@ def update_project(user, project_id, data):
                             project.status = ProjectStatus(st)
                         except ValueError:
                             raise ValueError(f"Invalid status: {st}")
+        if "order_type" in general:
+            ot = general["order_type"]
+            pa = dict(project.project_attributes or {})
+            pa["order_type"] = ot if ot == "quote" else "job"
+            project.project_attributes = pa
+            flag_modified(project, "project_attributes")
 
     # ---------- Optional product change ----------
     if new_product_id is not None and new_product_id != project.product_id:
@@ -309,6 +325,12 @@ def update_project(user, project_id, data):
                 project.project_attributes = project_attributes
             if isinstance(enriched.get("products"), list) and products_payload is not None:
                 products_payload = enriched["products"]
+            # Restore order_type — enrichment doesn't carry it
+            ot = general.get("order_type") if general else None
+            if ot:
+                pa = dict(project.project_attributes or {})
+                pa["order_type"] = ot if ot == "quote" else "job"
+                project.project_attributes = pa
             flag_modified(project, "project_attributes")
         except Exception as e:
             print(f"Enrichment failed for project {project.id}: {e}")
@@ -330,6 +352,7 @@ def update_project(user, project_id, data):
                 raise ValueError("each product must be an object")
 
             attrs = p.get("attributes") or {}
+            calc = p.get("calculated") or {}
             autodraw_record = p.get("autodraw_record") or {}
             autodraw_meta = p.get("autodraw_meta") or {}
             status = p.get("status", "pending")
@@ -341,6 +364,7 @@ def update_project(user, project_id, data):
                 item_index=idx,
                 label=label,
                 attributes=attrs,
+                calculated=calc,
                 autodraw_record=autodraw_record,
                 autodraw_meta=autodraw_meta,
                 status=status
@@ -551,6 +575,7 @@ def _serialize_project_plain(prj):
             "client_name": client_name,
             "due_date": proj_dict.get("due_date"),
             "info": proj_dict.get("info"),
+            "order_type": (prj.project_attributes or {}).get("order_type", "job"),
             "status": prj.status.name if hasattr(prj.status, "name") else proj_dict.get("status"),
         },
         "project_attributes": prj.project_attributes or {},

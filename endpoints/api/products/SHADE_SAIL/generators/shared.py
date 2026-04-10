@@ -35,7 +35,7 @@ def extract_sail_geometry(sail: dict) -> dict:
             - point_order: list of corner labels in order (e.g., ['A', 'B', 'C', ...])
             - points_data: dict of point details (height, fitting, hardware, etc.)
     """
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     positions_raw = attrs.get("positions", {})
     if positions_raw is None:
         positions_raw = {}
@@ -44,7 +44,7 @@ def extract_sail_geometry(sail: dict) -> dict:
         points_dict = {str(i): pt for i, pt in enumerate(points_raw)}
     else:
         points_dict = points_raw
-    dimensions = attrs.get("dimensions", {})
+    connections_raw = attrs.get("connections", {})
     workpoints_raw = attrs.get("workpoints", {})
     point_count = attrs.get("pointCount") or len(positions_raw)
     
@@ -81,13 +81,28 @@ def extract_sail_geometry(sail: dict) -> dict:
         _safe_num(centroid_raw.get("z")) or 0.0,
     )
     
+    # Build dimension lookup from connections keyed object (e.g. {"0,1": {value: 5000}, ...})
+    dim_lookup = {}
+    if isinstance(connections_raw, dict):
+        for key, conn in connections_raw.items():
+            if not isinstance(conn, dict):
+                continue
+            val = _safe_num(conn.get("value"))
+            if val is None:
+                continue
+            sep = "," if "," in str(key) else "-"
+            parts = str(key).split(sep)
+            if len(parts) == 2:
+                a, b = parts[0].strip(), parts[1].strip()
+                dim_lookup[(a, b)] = val
+                dim_lookup[(b, a)] = val
+
     # Perimeter edges
     edges = []
     for i in range(point_count):
         a = point_order[i]
         b = point_order[(i + 1) % point_count]
-        edge_key = f"{a}{b}"
-        length = _safe_num(dimensions.get(edge_key))
+        length = dim_lookup.get((a, b))
         if length and a in positions and b in positions:
             edges.append(((a, b), length))
     
@@ -99,9 +114,7 @@ def extract_sail_geometry(sail: dict) -> dict:
                 continue
             a = point_order[i]
             b = point_order[j]
-            diag_key_ab = f"{a}{b}"
-            diag_key_ba = f"{b}{a}"
-            length = _safe_num(dimensions.get(diag_key_ab)) or _safe_num(dimensions.get(diag_key_ba))
+            length = dim_lookup.get((a, b))
             if length and a in positions and b in positions:
                 diagonals.append(((a, b), length))
     
@@ -302,7 +315,7 @@ def get_detail_list(sail: dict) -> list:
         List of detail dictionaries with 'type' and 'id' keys
         e.g., [{'type': 'corner_fitting', 'id': 'prorig'}, {'type': 'pocket', 'id': 'pocket_150'}]
     """
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     points = attrs.get("points", {})
     
     details = []
@@ -386,7 +399,7 @@ def get_hardware_list(sail: dict) -> list:
     Returns:
         List of unique hardware identifiers (e.g., ['prorig', 'snap_hook', ...])
     """
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     points = attrs.get("points", {})
     
     hardware_set = set()
@@ -528,8 +541,6 @@ def generate_sails_layout(project: dict) -> list:
     for idx, pp in enumerate(products_list):
         geo = extract_sail_geometry(pp)
         # geo keys: positions, workpoints, edges, diagonals, centroid, bbox, point_order, points_data, etc.
-        
-        attrs = pp.get("attributes") or {}
         
         # Unpack geometry
         positions = geo['positions']

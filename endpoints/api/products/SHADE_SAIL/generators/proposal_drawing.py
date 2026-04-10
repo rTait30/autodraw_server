@@ -51,32 +51,28 @@ except:
 def _extract_sail_tracks(attrs, point_order):
     """
     Extracts sail tracks as a set of edge keys (e.g. "AB", "BA") from attributes.
-    Handles both legacy list of strings and new list of {from: i, to: j} objects.
+    sailTracks is a keyed object like {"0,1": {...}, "1,2": {...}}.
     """
     if not attrs:
         return set()
     
-    raw = attrs.get("sailTracks", []) or []
+    raw = attrs.get("sailTracks") or {}
     sail_tracks = set()
     
-    for item in raw:
-        if isinstance(item, str):
-            sail_tracks.add(item)
-        elif isinstance(item, dict):
-            try:
-                # Handle both string and int keys/values
-                u_val, v_val = item.get("from"), item.get("to")
-                if u_val is not None and v_val is not None and point_order:
-                    u, v = int(u_val), int(v_val)
-                    if 0 <= u < len(point_order) and 0 <= v < len(point_order):
-                        label_u = charspec(u) # e.g. 0 -> 'A'
-                        label_v = charspec(v) # e.g. 1 -> 'B'
-                        # Store both directions to be safe
-                        sail_tracks.add(f"{label_u}{label_v}")
-                        sail_tracks.add(f"{label_v}{label_u}")
-            except (ValueError, IndexError, TypeError):
-                continue
-                
+    if isinstance(raw, dict):
+        for key in raw:
+            sep = "," if "," in str(key) else "-"
+            parts = str(key).split(sep)
+            if len(parts) == 2:
+                try:
+                    u, v = int(parts[0]), int(parts[1])
+                    label_u = charspec(u)
+                    label_v = charspec(v)
+                    sail_tracks.add(f"{label_u}{label_v}")
+                    sail_tracks.add(f"{label_v}{label_u}")
+                except (ValueError, TypeError):
+                    continue
+    
     return sail_tracks
 
 
@@ -95,7 +91,7 @@ SMALL_FONT = 9
 # Default colours (fallbacks)
 DEFAULT_SAIL_FILL = Color(0.75, 0.75, 0.75, alpha=0.9)  # Grey fallback
 SAIL_STROKE = Color(0.3, 0.3, 0.3)  # Dark grey outline
-SAILTRACK_COLOR = Color(1, 0.85, 0)  # Yellow for sail tracks
+SAILTRACK_COLOR = Color(1, 0, 0)  # Red for sail tracks
 STRUCTURE_COLOR = Color(0.5, 0.5, 0.5)  # Grey for structure/posts
 STRUCTURE_LIGHT = Color(0.7, 0.7, 0.7)  # Lighter grey for highlights
 GROUND_COLOR = Color(0.85, 0.82, 0.78)  # Light tan ground
@@ -127,13 +123,6 @@ def _get_texture_path(fabric_name: str, color_name: str) -> str:
     
     if os.path.exists(abs_webp_path):
         return abs_webp_path
-    
-    # Try .jpg
-    jpg_path = f"{base_path}.jpg"
-    abs_jpg_path = os.path.join(os.path.dirname(static_folder), jpg_path) if jpg_path.startswith('static/') else os.path.join(static_folder, jpg_path)
-    
-    if os.path.exists(abs_jpg_path):
-        return abs_jpg_path
     
     return None
 
@@ -326,10 +315,15 @@ def _build_proposal_pdf(tmp_path: str, project: dict):
     
     general = project.get("general", {})
     products = project.get("products", [])
+    show_directions = project.get("general", {}).get("directions", False)
     
     for idx, sail in enumerate(products):
         _draw_sail_page(c, project, general, sail, idx + 1, len(products))
         c.showPage()
+        
+        if show_directions:
+            _draw_directions_page(c, project, general, sail, idx + 1, len(products))
+            c.showPage()
     
     c.save()
 
@@ -348,7 +342,7 @@ def _draw_sail_page(c: canvas.Canvas, project: dict, general: dict, sail: dict,
     
     # Extract geometry
     geometry = extract_sail_geometry(sail)
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     
     # Layout: Left side = Top View, Right side = Isometric + Specs
     content_top = LANDSCAPE_HEIGHT - MARGIN - 20 * mm
@@ -418,6 +412,44 @@ def _draw_page_footer(c: canvas.Canvas, project: dict):
     c.drawString(MARGIN, footer_y, f"Generated: {datetime.now().strftime('%d %b %Y')}")
     c.drawRightString(LANDSCAPE_WIDTH - MARGIN, footer_y, "Subject to final site measurements")
     c.setFillColor(black)
+
+
+# =============================================================================
+# CARDINAL DIRECTIONS PAGE
+# =============================================================================
+
+def _draw_directions_page(c: canvas.Canvas, project: dict, general: dict, sail: dict,
+                           sail_num: int, total_sails: int):
+    """
+    Draw a page with the sail shown from 4 cardinal directions (N, E, S, W) in a 2x2 grid.
+    """
+    _draw_page_header(c, general, sail, sail_num, total_sails)
+
+    geometry = extract_sail_geometry(sail)
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
+
+    content_top = LANDSCAPE_HEIGHT - MARGIN - 20 * mm
+    content_bottom = MARGIN + 10 * mm
+    content_height = content_top - content_bottom
+    content_width = LANDSCAPE_WIDTH - 2 * MARGIN
+
+    gap = 8 * mm
+    cell_w = (content_width - gap) / 2
+    cell_h = (content_height - gap) / 2
+
+    # 2x2 grid: top-left=N, top-right=E, bottom-left=W, bottom-right=S
+    views = [
+        (MARGIN,              content_bottom + cell_h + gap, 0,   "NORTH"),
+        (MARGIN + cell_w + gap, content_bottom + cell_h + gap, 90,  "EAST"),
+        (MARGIN,              content_bottom,                 270, "WEST"),
+        (MARGIN + cell_w + gap, content_bottom,                 180, "SOUTH"),
+    ]
+
+    for vx, vy, az, label in views:
+        _draw_isometric_view(c, geometry, attrs, vx, vy, cell_w, cell_h,
+                             azimuth_deg=az, view_label=label)
+
+    _draw_page_footer(c, project)
 
 
 # =============================================================================
@@ -690,41 +722,28 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         
         # Draw sail outline (no need since edges are drawn with catenaries below)
     else:
-        # No texture - draw with solid color using catenary clip path
-        path = c.beginPath()
-        first = True
-        for i in range(len(point_order)):
-            label = point_order[i]
-            if label not in sail_positions:
-                continue
+        # No texture - draw with solid color using catenary edges
+        if sail_path_points:
+            path = c.beginPath()
+            first_pt = sail_path_points[0][1]
+            path.moveTo(first_pt[0], first_pt[1])
             
-            pos = sail_positions[label]
-            px, py = to_canvas(pos)
+            for i in range(len(sail_path_points)):
+                p1 = sail_path_points[i][1]
+                p2 = sail_path_points[(i + 1) % len(sail_path_points)][1]
+                
+                idx_a = i
+                idx_b = (i + 1) % len(sail_path_points)
+                edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+                
+                _add_catenary_edge_to_path(path, p1, p2, canvas_center,
+                                            catenary_ratio, sail_tracks, edge_key)
+            path.close()
             
-            if first:
-                path.moveTo(px, py)
-                first = False
-            else:
-                # Add catenary edge
-                next_label = point_order[(i + 1) % len(point_order)]
-                if next_label in sail_positions:
-                    p1 = to_canvas(sail_positions[point_order[(i - 1 + len(point_order)) % len(point_order)]])
-                    
-                    # Use index-based identifiers (A, B...) matching _extract_sail_tracks logic
-                    # This logic runs per loop, so i is current point.
-                    # The edge is from prev to i.
-                    idx_prev = (i - 1 + len(point_order)) % len(point_order)
-                    idx_curr = i
-                    edge_key = f"{charspec(idx_prev)}{charspec(idx_curr)}"
-                    
-                    _add_catenary_edge_to_path(path, p1, (px, py), canvas_center,
-                                                catenary_ratio, sail_tracks, edge_key)
-        path.close()
-        
-        c.setFillColor(sail_fill)
-        c.setStrokeColor(sail_stroke)
-        c.setLineWidth(2)
-        c.drawPath(path, stroke=1, fill=1)
+            c.setFillColor(sail_fill)
+            c.setStrokeColor(sail_stroke)
+            c.setLineWidth(2)
+            c.drawPath(path, stroke=1, fill=1)
     
     # Draw edges with labels and catenaries (curving INWARD toward center)
     for i in range(len(point_order)):
@@ -1236,15 +1255,20 @@ def _draw_merged_3d_wall(c, points_list, projector, sail_center):
 
 
 def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
-                          x: float, y: float, width: float, height: float):
+                          x: float, y: float, width: float, height: float,
+                          azimuth_deg: float = None, view_label: str = None):
     """
-    Draw an isometric view (3D perspective) of the sail from 45° southwest.
+    Draw an isometric view (3D perspective) of the sail.
     Uses workpoints_bisect_rotate (with tension allowance) for sail shape.
     Includes proper poles, catenary edges curving inward, and sail with fabric texture.
+    
+    Args:
+        azimuth_deg: Camera azimuth in degrees (default uses SE at 135°)
+        view_label: Label to display above the view (default "3D VIEW (SE)")
     """
     # Section label
     c.setFont(FONT_BOLD, MEDIUM_FONT)
-    c.drawString(x, y + height + 3 * mm, "3D VIEW (SE)")
+    c.drawString(x, y + height + 3 * mm, view_label or "3D VIEW (SE)")
     
     positions = geometry.get("positions", {})
     # Use workpoints_bisect_rotate specifically (as user requested)
@@ -1334,14 +1358,13 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # TOGGLE: Use Complex Rendering (NW, Walls, Occlusion) or Simple (SW, Sticks)
     COMPLEX_RENDER = False
 
-    if COMPLEX_RENDER:
-        # 45° Northwest isometric projection
+    if azimuth_deg is not None:
+        azimuth = math.radians(azimuth_deg)
+    elif COMPLEX_RENDER:
         azimuth = math.radians(315)  # 315° = Northwest
-        elevation = math.radians(35)  # 35° elevation
     else:
-        # South East isometric projection
-        azimuth = math.radians(135) # 135° = South East
-        elevation = math.radians(35)
+        azimuth = math.radians(135)  # 135° = South East
+    elevation = math.radians(35)
 
     cos_az = math.cos(azimuth)
     sin_az = math.sin(azimuth)
@@ -1408,12 +1431,10 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
     # For NW (315): Camera at (-X, +Y). Look (+X, -Y). Depth ~ X - Y.
     # For SW (45):  Camera at (-X, -Y). Look (+X, +Y). Depth ~ X + Y.
     # For SE (135): Camera at (+X, -Y). Look (-X, +Y). Depth ~ Y - X.
-    if COMPLEX_RENDER:
-        sort_key = lambda p: p[1] - p[2]
-    else:
-        # SE Sort (Y - X)
-        sort_key = lambda p: p[2] - p[1]
-        
+    # Generic depth sort based on camera azimuth direction
+    cam_dx = math.cos(azimuth)
+    cam_dy = math.sin(azimuth)
+    sort_key = lambda p: p[1] * cam_dx + p[2] * cam_dy
     sorted_posts = sorted(points_3d_posts, key=sort_key, reverse=True)
     
     # Prepare render items
@@ -1770,11 +1791,11 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             clip_path.moveTo(first_pt[0], first_pt[1])
             
             for i in range(len(sail_canvas_points)):
-                label_a = sail_canvas_points[i][0]
                 p1 = sail_canvas_points[i][1]
-                label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
                 p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-                edge_key = f"{label_a}{label_b}"
+                idx_a = i
+                idx_b = (i + 1) % len(sail_canvas_points)
+                edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
                 _add_catenary_edge_to_path(clip_path, p1, p2, canvas_sail_center, 
                                             catenary_ratio, sail_tracks, edge_key)
             
@@ -1806,11 +1827,11 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                  first_pt = sail_canvas_points[0][1]
                  path.moveTo(first_pt[0], first_pt[1])
                  for i in range(len(sail_canvas_points)):
-                     label_a = sail_canvas_points[i][0]
                      p1 = sail_canvas_points[i][1]
-                     label_b = sail_canvas_points[(i + 1) % len(sail_canvas_points)][0]
                      p2 = sail_canvas_points[(i + 1) % len(sail_canvas_points)][1]
-                     edge_key = f"{label_a}{label_b}"
+                     idx_a = i
+                     idx_b = (i + 1) % len(sail_canvas_points)
+                     edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
                      _add_catenary_edge_to_path(path, p1, p2, canvas_sail_center, catenary_ratio, sail_tracks, edge_key)
                  path.close()
             c.setFillColor(sail_fill)
@@ -1828,8 +1849,10 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             
             p1 = pa[1]
             p2 = pb[1]
-            edge_key = f"{a}{b}"
-            edge_key_rev = f"{b}{a}"
+            idx_a = i
+            idx_b = (i + 1) % len(point_order)
+            edge_key = f"{charspec(idx_a)}{charspec(idx_b)}"
+            edge_key_rev = f"{charspec(idx_b)}{charspec(idx_a)}"
             is_sailtrack = edge_key in sail_tracks or edge_key_rev in sail_tracks
             
             if is_sailtrack:
@@ -1951,7 +1974,7 @@ def _draw_specs_panel(c: canvas.Canvas, sail: dict, geometry: dict,
     #c.setLineWidth(0.5)
     #c.rect(x, y, width, height, stroke=1, fill=1)
     
-    attrs = sail.get("attributes", {})
+    attrs = {**(sail.get("attributes") or {}), **(sail.get("calculated") or {})}
     
     # Get fabric info directly from attrs (fresh, not from geometry cache)
     fabric_type = attrs.get("fabricType")

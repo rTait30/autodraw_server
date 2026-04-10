@@ -58,11 +58,23 @@ def save_project_config():
     
     products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=False)
 
+    pa = project.project_attributes or {}
+    create_order_type = pa.get("order_type", "job")
+
     return jsonify({
         "id": project.id,
         "client_id": project.client_id,
         "product": resp_product,
         "status": resp_status,
+        "general": {
+            "id": project.id,
+            "name": project.name,
+            "client_id": project.client_id,
+            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
+            "info": project.info,
+            "status": resp_status,
+            "order_type": create_order_type,
+        },
         "project_attributes": project.project_attributes,
         "project_calculated": project.project_calculated,
         "products": products_out,
@@ -92,6 +104,9 @@ def upsert_project_and_attributes(project_id):
 
     products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=True)
 
+    update_pa = project.project_attributes or {}
+    update_order_type = update_pa.get("order_type", "job")
+
     return jsonify({
         "ok": True,
         "project": {
@@ -100,6 +115,15 @@ def upsert_project_and_attributes(project_id):
             "client_id": project.client_id,
             "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
             "info": project.info,
+            "order_type": update_order_type,
+        },
+        "general": {
+            "id": project.id,
+            "name": project.name,
+            "client_id": project.client_id,
+            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
+            "info": project.info,
+            "order_type": update_order_type,
         },
         "project_attributes": project.project_attributes,
         "project_calculated": project.project_calculated,
@@ -174,6 +198,10 @@ def get_project_config(project_id):
         if client_user:
             client_name = client_user.username
 
+    # Recover order_type from project_attributes (where it is persisted)
+    pa = project.project_attributes or {}
+    order_type = pa.get("order_type", "job")
+
     general = {
         "id": project.id,
         "name": project.name,
@@ -182,6 +210,7 @@ def get_project_config(project_id):
         "due_date": project.due_date.isoformat() if project.due_date else None,
         "info": project.info,
         "status": project.status.name if hasattr(project.status, "name") else project.status,
+        "order_type": order_type,
     }
 
     # --- Product info ---

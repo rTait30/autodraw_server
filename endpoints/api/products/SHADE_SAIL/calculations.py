@@ -67,29 +67,27 @@ def calculate(data: Dict[str, Any]) -> Dict[str, Any]:
 
         box_data = compute_boxes(calculated)
         
-        calculated["discrepancies"] = box_data["discrepancies"]
-        calculated["blame"] = box_data["blame"]
-        calculated["boxProblems"] = box_data["boxProblems"]
+        calculated["boxes"] = box_data["boxes"]
         calculated["hasReflexAngle"] = bool(box_data["reflex"])
         calculated["reflexAngleValues"] = box_data["reflexAngleValues"]
 
         discrepancy_values = [
-            abs(value)
-            for value in calculated["discrepancies"].values()
-            if value is not None and math.isfinite(value)
+            abs(box["discrepancy"])
+            for box in calculated["boxes"].values()
+            if box.get("discrepancy") is not None and math.isfinite(box["discrepancy"])
         ]
         calculated["maxDiscrepancy"] = max(discrepancy_values) if discrepancy_values else 0.0
         calculated["discrepancyProblem"] = calculated["maxDiscrepancy"] > box_data["discrepancyThreshold"]
 
-        blame = calculated.get("blame") or {}
+        connection_blame = box_data.get("connectionBlame") or {}
         conns_obj = calculated.get("connections")
         if isinstance(conns_obj, dict):
             for conn_key, conn_val in conns_obj.items():
                 if not isinstance(conn_val, dict):
                     continue
                 blame_key = conn_key.replace(",", "-")
-                if blame_key in blame:
-                    conn_val["blame"] = blame[blame_key]
+                if blame_key in connection_blame:
+                    conn_val["blame"] = connection_blame[blame_key]
 
         total_trace_length = 0.0
         for tc in calculated.get("traceCables", []) or []:

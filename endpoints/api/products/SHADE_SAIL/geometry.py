@@ -653,9 +653,8 @@ def compute_tip_connection_discrepancies(
 
 
 def compute_boxes(attributes: Dict[str, Any]) -> Dict[str, Any]:
-    discrepancies: Dict[str, Any] = {}
-    blame: Dict[str, float] = {}
-    box_problems: Dict[str, bool] = {}
+    boxes: Dict[str, Dict[str, Any]] = {}
+    connection_blame: Dict[str, float] = {}
     reflex_flag = False
     reflex_angle_values: Dict[str, float] = {}
     points_list = attributes.get("points") or []
@@ -671,7 +670,7 @@ def compute_boxes(attributes: Dict[str, Any]) -> Dict[str, Any]:
         discrepancy_threshold = 70
 
     for key in xy:
-        blame[key] = 0.0
+        connection_blame[key] = 0.0
 
     if point_count >= 4:
         combos = get_four_point_combos_with_dims(point_count, xy)
@@ -681,7 +680,7 @@ def compute_boxes(attributes: Dict[str, Any]) -> Dict[str, Any]:
 
             res = compute_discrepancy_xy(combo_data["dims"])
             disc = res["discrepancy"]
-            discrepancies[combo_str] = disc
+            is_problem = disc is not None and math.isfinite(disc) and disc > discrepancy_threshold
 
             if any(res["reflex"].values()):
                 reflex_flag = True
@@ -700,30 +699,36 @@ def compute_boxes(attributes: Dict[str, Any]) -> Dict[str, Any]:
                     if current is None or angle > current:
                         reflex_angle_values[display_label] = angle
 
-            if disc is not None and math.isfinite(disc) and disc > discrepancy_threshold:
-                box_problems[combo_str] = True
+            boxes[combo_str] = {
+                "discrepancy": disc,
+                "problem": is_problem,
+            }
+
+            if is_problem:
                 idx_set = set(indices)
-                for blame_key in list(blame.keys()):
+                for blame_key in list(connection_blame.keys()):
                     try:
                         parts = blame_key.split("-")
                         if len(parts) == 2:
                             u, v = int(parts[0]), int(parts[1])
                             if u in idx_set and v in idx_set:
-                                blame[blame_key] += disc
+                                connection_blame[blame_key] += disc
                     except ValueError:
                         pass
 
     tip_discrepancies = compute_tip_connection_discrepancies(point_count, dim_map, points_list)
     for key, disc in tip_discrepancies.items():
-        discrepancies[key] = disc
-        if disc is not None and math.isfinite(disc) and disc > discrepancy_threshold:
-            box_problems[key] = True
-            blame[key] = (blame.get(key) or 0.0) + disc
+        is_problem = disc is not None and math.isfinite(disc) and disc > discrepancy_threshold
+        boxes[key] = {
+            "discrepancy": disc,
+            "problem": is_problem,
+        }
+        if is_problem:
+            connection_blame[key] = (connection_blame.get(key) or 0.0) + disc
 
     return {
-        "discrepancies": discrepancies,
-        "blame": blame,
-        "boxProblems": box_problems,
+        "boxes": boxes,
+        "connectionBlame": connection_blame,
         "discrepancyThreshold": discrepancy_threshold,
         "reflex": reflex_flag,
         "reflexAngleValues": reflex_angle_values,

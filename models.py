@@ -244,6 +244,8 @@ class FabricColor(db.Model):
     hex_value = db.Column(db.String(7))      # For CSS e.g. "#RRGGBB"
     texture_path = db.Column(db.String(200)) # Relative to static folder
 
+    specs = db.Column(db.JSON, default=dict)
+
 class ShadeSailMembranePriceList(db.Model):
     __tablename__ = 'shade_sail_membrane_prices'
     id = db.Column(db.Integer, primary_key=True)

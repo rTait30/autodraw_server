@@ -51,6 +51,7 @@ export const ATTRIBUTE_DEFAULTS = Object.freeze({
   color_name: "",
   color_hex: "",
   colour: "",
+  thread: "",
 });
 
 
@@ -396,6 +397,8 @@ export function ProductForm({
     const { fabric, color } = selection;
     const categoryMapping = { 'Shade': 'ShadeCloth', 'PVC': 'PVC' };
     const mappedCategory = categoryMapping[fabric.category] || fabric.category;
+    const defaultThread = color.specs?.default_thread || ""; 
+
     setAttributes(prev => ({
       ...prev,
       fabric_id: fabric.id,
@@ -407,6 +410,7 @@ export function ProductForm({
       fabricType: fabric.name,
       foldSides: mappedCategory === PVC_FABRIC_CATEGORY ? UNDERSIDE_FOLD_SIDE : prev.foldSides,
       colour: color.name,
+      thread: defaultThread,
     }));
   };
 
@@ -475,6 +479,18 @@ export function ProductForm({
                </div>
              </div>
            </div>
+
+          <SelectInput
+            label="Thread Colour"
+            mandatory={isJob}
+            value={attributes.thread}
+            onChange={setAttr("thread")}
+            options={[
+              { label: "-", value: "" },
+              { label: "Black", value: "Black" },
+              { label: "White", value: "White" },
+            ]}
+          />
            
            <FormGrid columns={2}>
               <SelectInput mandatory={true} label="Cable Size" value={attributes.cableSize} onChange={setAttr("cableSize")} options={[{ label: "-", value: "" }, ...CABLE_SIZE_OPTIONS.map(s => ({label: `${s}mm`, value: s}))]} />

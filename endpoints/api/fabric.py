@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from models import FabricType, FabricColor, db
+#from setup import data
 
 fabric_bp = Blueprint('fabric', __name__)
 
@@ -89,11 +90,13 @@ def add_fabric_color_service(fabric_id, data):
         clean_color = name.lower().replace(" ", "")
         texture_path = f"/static/textures/{clean_fabric}/{clean_color}.jpg"
 
+    specs = data.get('specs', {})
     color = FabricColor(
         fabric_type_id=fabric_id,
         name=name,
         hex_value=hex_value,
-        texture_path=texture_path
+        texture_path=texture_path,
+        specs=specs
     )
     db.session.add(color)
     db.session.commit()
@@ -187,6 +190,7 @@ def get_fabric_colors(type_id):
         'id': c.id,
         'name': c.name,
         'hex_value': c.hex_value,
-        'texture_path': c.texture_path
+        'texture_path': c.texture_path,
+        'specs': c.specs or {},
     } for c in colors])
 

@@ -57,7 +57,7 @@ function drawCover3DPreviews(ctx, products, layout) {
   let maxBottomY = offsetY;
   for (let i = 0; i < products.length; i++) {
     const product = products[i];
-    const attrs = product.attributes || {};
+    const attrs = product.calculated || product.attributes || {};
     
     const quantity = Math.max(1, Number(attrs.quantity) || 1);
     const width = Number(attrs.width) || 1;
@@ -130,7 +130,7 @@ function drawFlattenedPanels(ctx, products, layout) {
   const offsetY = layout.yPos;
   let maxBottomY = offsetY;
   for (let i = 0; i < products.length; i++) {
-    const attrs = products[i].attributes || {};
+    const attrs = products[i].calculated || products[i].attributes || {};
     const flatMainWidth = attrs.flatMainWidth || 0;
     const flatMainHeight = attrs.flatMainHeight || 0;
     const flatSideWidth = attrs.flatSideWidth || 0;
@@ -203,7 +203,7 @@ function drawSplitPanels(ctx, products, layout) {
   const colors = { MAIN: '#fecaca', SIDE_L: '#bfdbfe', SIDE_R: '#a7f3d0', DEFAULT: '#e5e7eb' };
 
   for (let i = 0; i < products.length; i++) {
-    const attrs = products[i].attributes || {};
+    const attrs = products[i].calculated || products[i].attributes || {};
     const panels = attrs.panels || {};
     const entries = Object.entries(panels);
     if (!entries.length) continue;
@@ -339,7 +339,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     for (const [label, placement] of Object.entries(nest.panels || {})) {
       let meta = null;
       for (const prod of products) {
-        const attr = prod.attributes || {};
+        const attr = prod.calculated || prod.attributes || {};
         if (attr.panels && attr.panels[label]) {
           meta = attr.panels[label];
           break;
@@ -425,7 +425,7 @@ function drawNestLayout(ctx, products, projectAttrs, layout) {
     for (const [label, placement] of Object.entries(roll.panels || {})) {
       let meta = null;
       for (const prod of products) {
-        const attr = prod.attributes || {};
+        const attr = prod.calculated || prod.attributes || {};
         if (attr.panels && attr.panels[label]) {
           meta = attr.panels[label];
           break;

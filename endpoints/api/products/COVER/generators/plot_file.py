@@ -66,6 +66,57 @@ def _dims_map_from_raw(nested_panels: dict) -> dict:
     return out
 
 
+def _draw_hem_corner_marks(msp, x, y, w, h, hem, height=0, length=0,
+                           seam_allow=20.0, leg=20.0, layer="PEN",
+                           rotated=False, is_main=False):
+    """Draw L-shaped corner marks at hem/seam intersections.
+
+    MAIN panels (is_main=True):
+        The MAIN unrolls along x (unrotated) as [hem][height][length][height][hem].
+        The width (cover's "width") runs along y.
+        Zips end at the WIDTH edges: y (bottom) and y+h (top).
+        An L is placed at each of the 4 corners of the panel rectangle:
+          seam_allow inset from the side (x) edges,
+          hem inset from the width (y) edges.
+        When rotated: width runs along x, so the width edges are x and x+w.
+
+    SIDE panels (is_main=False):
+        hem inset from the side (x) edges,
+        seam_allow inset from the bottom (y) edge.
+        Only on the bottom edge (2 Ls).
+    """
+    if hem <= 0:
+        return
+
+    def _l(cx, cy, hd, vd):
+        msp.add_line((cx, cy), (cx + hd * leg, cy), dxfattribs={"layer": layer})
+        msp.add_line((cx, cy), (cx, cy + vd * leg), dxfattribs={"layer": layer})
+
+    if is_main:
+        if not rotated:
+            # Width edges are bottom (y) and top (y+h)
+            # hem from x-edges (left/right), seam_allow from y-edges (bottom/top)
+            # Bottom edge — 2 Ls
+            _l(x + hem, y + seam_allow, +1, +1)          # bottom-left
+            _l(x + w - hem, y + seam_allow, -1, +1)      # bottom-right
+            # Top edge — 2 Ls
+            _l(x + hem, y + h - seam_allow, +1, -1)      # top-left
+            _l(x + w - hem, y + h - seam_allow, -1, -1)  # top-right
+        else:
+            # Rotated: width edges are left (x) and right (x+w)
+            # hem from y-edges (bottom/top), seam_allow from x-edges (left/right)
+            # Left edge — 2 Ls
+            _l(x + seam_allow, y + hem, +1, +1)          # left-bottom
+            _l(x + seam_allow, y + h - hem, +1, -1)      # left-top
+            # Right edge — 2 Ls
+            _l(x + w - seam_allow, y + hem, -1, +1)      # right-bottom
+            _l(x + w - seam_allow, y + h - hem, -1, -1)  # right-top
+    else:
+        # SIDE panel: seam_allow from side (x) edges, hem from bottom (y) edge.
+        _l(x + seam_allow, y + hem, +1, +1)        # bottom-left corner
+        _l(x + w - seam_allow, y + hem, -1, +1)    # bottom-right corner
+
+
 def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, seam_flag, panel_name, hem=0, rotated=False):
     """Draw stayput points on the fold line for MAIN panels.
     
@@ -197,6 +248,7 @@ def generate_dxf(project, download_name: str):
             "width": _safe_num(attrs.get("width")) or 0,
             "height": _safe_num(attrs.get("height")) or 0,
             "hem": _safe_num(attrs.get("hem")) or 0,
+            "seam": _safe_num(attrs.get("seam")) or 20.0,
             "stayputs": str(attrs.get("stayputs", "")).lower() == "true" or attrs.get("stayputs") is True,
             "zips": str(attrs.get("zips", "")).lower() == "true" or attrs.get("zips") is True,
         }
@@ -276,6 +328,7 @@ def generate_dxf(project, download_name: str):
         width = prod_dim.get("width", 0) or 0
         height = prod_dim.get("height", 0) or 0
         hem = prod_dim.get("hem", 0) or 0
+        seam = prod_dim.get("seam", 20.0) or 20.0
         has_stayputs = prod_dim.get("stayputs", False)
         has_zips = prod_dim.get("zips", False)
         
@@ -448,7 +501,30 @@ def generate_dxf(project, download_name: str):
             # Stayput points (if enabled for this product)
             if has_stayputs:
                 _draw_stayput_points(msp, x, y, w, h, height, width, seam_flag, name, hem=hem, rotated=pos.get("rotated"))
-        
+
+        # L-shaped hem/seam corner marks at the bottom of the panel.
+        if hem > 0:
+            is_main = "MAIN" in base or "main" in base.lower()
+            is_side = base.lower().startswith("side")
+            if is_main:
+                # 2 Ls at each fold line (zip end), 4 total.
+                _draw_hem_corner_marks(
+                    msp, x, y, w, h,
+                    hem=hem, height=height, length=length,
+                    seam_allow=seam, leg=20.0,
+                    rotated=bool(pos.get("rotated")),
+                    is_main=True,
+                )
+            elif is_side:
+                # seam_allow from side edges, hem from bottom edge.
+                _draw_hem_corner_marks(
+                    msp, x, y, w, h,
+                    hem=hem,
+                    seam_allow=seam, leg=20.0,
+                    rotated=False,
+                    is_main=False,
+                )
+
         # Panel rectangle edges
         add_h(y, x, x + w)             # bottom
         add_h(y + h, x, x + w)         # top

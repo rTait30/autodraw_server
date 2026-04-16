@@ -39,7 +39,7 @@ def calculate(data: Dict) -> Dict:
         length = _num(calculated.get("length"))
         width = _num(calculated.get("width"))
         height = _num(calculated.get("height"))
-        seam = _num(calculated.get("seam")) or 0
+        seam = _num(calculated.get("seam")) or 20
         hem = _num(calculated.get("hem"))
         fabric_width = _num(calculated.get("fabricWidth")) or 1500
         quantity = max(1, int(_num(calculated.get("quantity")) or 1))

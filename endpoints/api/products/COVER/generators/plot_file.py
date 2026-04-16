@@ -112,9 +112,18 @@ def _draw_hem_corner_marks(msp, x, y, w, h, hem, height=0, length=0,
             _l(x + w - seam_allow, y + hem, -1, +1)      # right-bottom
             _l(x + w - seam_allow, y + h - hem, -1, -1)  # right-top
     else:
-        # SIDE panel: seam_allow from side (x) edges, hem from bottom (y) edge.
-        _l(x + seam_allow, y + hem, +1, +1)        # bottom-left corner
-        _l(x + w - seam_allow, y + hem, -1, +1)    # bottom-right corner
+        # SIDE panel: L marks on one of the length sides (length + 2*seam).
+        # Hem at the start of the (height+seam+hem) dimension.
+        if not rotated:
+            # w = height+seam+hem (x), h = length+2*seam (y)
+            # Length sides: LEFT (x) and RIGHT (x+w). Hem at left (x).
+            _l(x + hem, y + seam_allow, +1, +1)        # left-bottom
+            _l(x + hem, y + h - seam_allow, +1, -1)    # left-top
+        else:
+            # w = length+2*seam (x), h = height+seam+hem (y)
+            # Length sides: BOTTOM (y) and TOP (y+h). Hem at bottom (y).
+            _l(x + seam_allow, y + hem, +1, +1)        # bottom-left
+            _l(x + w - seam_allow, y + hem, -1, +1)    # bottom-right
 
 
 def _draw_stayput_points(msp, x, y, panel_w, panel_h, height, original_width, seam_flag, panel_name, hem=0, rotated=False):
@@ -243,14 +252,15 @@ def generate_dxf(project, download_name: str):
     for prod in products_list:
         prod_idx = prod.get("productIndex", 0)
         attrs = prod.get("attributes") or {}
+        calc = prod.get("calculated") or attrs
         product_dims[prod_idx] = {
-            "length": _safe_num(attrs.get("length")) or 0,
-            "width": _safe_num(attrs.get("width")) or 0,
-            "height": _safe_num(attrs.get("height")) or 0,
-            "hem": _safe_num(attrs.get("hem")) or 0,
-            "seam": _safe_num(attrs.get("seam")) or 20.0,
-            "stayputs": str(attrs.get("stayputs", "")).lower() == "true" or attrs.get("stayputs") is True,
-            "zips": str(attrs.get("zips", "")).lower() == "true" or attrs.get("zips") is True,
+            "length": _safe_num(calc.get("length")) or 0,
+            "width": _safe_num(calc.get("width")) or 0,
+            "height": _safe_num(calc.get("height")) or 0,
+            "hem": _safe_num(calc.get("hem")) or 0,
+            "seam": _safe_num(calc.get("seam")) or 20.0,
+            "stayputs": str(calc.get("stayputs", "")).lower() == "true" or calc.get("stayputs") is True,
+            "zips": str(calc.get("zips", "")).lower() == "true" or calc.get("zips") is True,
         }
     
     # print("[DXF] COVER project structure:", type(project))
@@ -521,7 +531,7 @@ def generate_dxf(project, download_name: str):
                     msp, x, y, w, h,
                     hem=hem,
                     seam_allow=seam, leg=20.0,
-                    rotated=False,
+                    rotated=bool(pos.get("rotated")),
                     is_main=False,
                 )
 
@@ -540,6 +550,8 @@ def generate_dxf(project, download_name: str):
         t.dxf.valign = 3  # Top
         t.dxf.insert = (tx, ty)
         t.dxf.align_point = (tx, ty)
+        if pos.get("rotated"):
+            t.dxf.rotation = 90
 
     # --- Draw merged segments once ---
     # print("[DXF] horizontals rows:", len(horizontals), "verticals cols:", len(verticals))

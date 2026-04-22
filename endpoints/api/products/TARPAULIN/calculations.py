@@ -96,7 +96,8 @@ def calculate(data: Dict) -> Dict:
                     
                     for pos in offsets:
                         # Determine (x, y) relative to bottom-left (0,0) of the FINAL tarp
-                        eyelet_data = {"side": side, "offset": pos}
+                        is_corner = (pos == 0 or pos == edge_len)
+                        eyelet_data = {"side": side, "offset": pos, "is_corner": is_corner}
                         
                         if side == "top":
                             eyelet_data["x"] = pos
@@ -112,8 +113,18 @@ def calculate(data: Dict) -> Dict:
                             eyelet_data["y"] = pos
                             
                         calculated_eyelets.append(eyelet_data)
-            
-            calculated["calculated_eyelets"] = calculated_eyelets
+
+            # Deduplicate corner eyelets — multiple sides share the same corner point
+            seen_corners = set()
+            deduped = []
+            for e in calculated_eyelets:
+                if e.get("is_corner"):
+                    key = (e["x"], e["y"])
+                    if key in seen_corners:
+                        continue
+                    seen_corners.add(key)
+                deduped.append(e)
+            calculated["calculated_eyelets"] = deduped
 
         product["calculated"] = calculated
 

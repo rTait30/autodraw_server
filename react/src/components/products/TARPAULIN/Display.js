@@ -24,7 +24,7 @@ export function render(canvas, data) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   itemsToRender.forEach((product, index) => {
-    const attrs = product.attributes || {};
+    const attrs = product.calculated || product.attributes || {};
 
     const originalLength = attrs.original_length || attrs.length || 1000;
     const originalWidth = attrs.original_width || attrs.width || 1000;
@@ -70,103 +70,156 @@ export function render(canvas, data) {
         const cx = (centerX - scaledFinalL / 2) + (ex * scale);
         const cy = (centerY + scaledFinalW / 2) - (ey * scale);
 
-        const eps = 2.0;
-        const isLeft = Math.abs(ex) <= eps;
-        const isRight = Math.abs(ex - finalLength) <= eps;
-        const isBottom = Math.abs(ey) <= eps;
-        const isTop = Math.abs(ey - finalWidth) <= eps;
-
-        const isCorner = (isLeft || isRight) && (isBottom || isTop);
-
-        ctx.beginPath();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
+        const side = eyelet.side;
+        const isCorner = !!eyelet.is_corner;
 
         if (isCorner) {
-          const d = 50; // Increased size
-          ctx.moveTo(cx, cy);
-          if (isLeft && isTop) {
-            ctx.moveTo(cx, cy + d); ctx.lineTo(cx + d, cy);
-          } else if (isRight && isTop) {
-            ctx.moveTo(cx - d, cy); ctx.lineTo(cx, cy + d);
-          } else if (isRight && isBottom) {
-            ctx.moveTo(cx, cy - d); ctx.lineTo(cx - d, cy);
-          } else if (isLeft && isBottom) {
-            ctx.moveTo(cx + d, cy); ctx.lineTo(cx, cy - d);
+          // Corner eyelet: right-triangle notch whose hypotenuse is the visible line
+          const cut = 36;
+          // Determine which corner based on tarp-space coordinates
+          const atLeft  = Math.abs(eyelet.x) < 0.1;
+          const atRight = Math.abs(eyelet.x - finalLength) < 0.1;
+          const atBottom = Math.abs(eyelet.y) < 0.1;
+          const atTop   = Math.abs(eyelet.y - finalWidth) < 0.1;
+
+          ctx.beginPath();
+          if (atLeft && atTop) {
+            ctx.moveTo(cx + cut, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, cy + cut);
+          } else if (atRight && atTop) {
+            ctx.moveTo(cx - cut, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, cy + cut);
+          } else if (atLeft && atBottom) {
+            ctx.moveTo(cx + cut, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, cy - cut);
+          } else if (atRight && atBottom) {
+            ctx.moveTo(cx - cut, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, cy - cut);
           }
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(180, 180, 180, 0.65)';
+          ctx.fill();
+          ctx.strokeStyle = '#222';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Eyelet hole — positioned along the hypotenuse midpoint, inset toward the center
+          const holeOffset = cut * 0.38;
+          let holeX = cx;
+          let holeY = cy;
+          if (atLeft && atTop)         { holeX = cx + holeOffset; holeY = cy + holeOffset; }
+          else if (atRight && atTop)   { holeX = cx - holeOffset; holeY = cy + holeOffset; }
+          else if (atLeft && atBottom) { holeX = cx + holeOffset; holeY = cy - holeOffset; }
+          else if (atRight && atBottom){ holeX = cx - holeOffset; holeY = cy - holeOffset; }
+
+          ctx.beginPath();
+          ctx.arc(holeX, holeY, 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+          ctx.strokeStyle = '#222';
+          ctx.lineWidth = 1;
           ctx.stroke();
         } else {
-          // Triangle with long side against edge (45 degrees)
-          const size = 40; // Half-width of base on edge
-          const height = 40; // Height pointing inwards - makes it 45 degrees
+          // Regular edge eyelet: triangle pointing inward
+          const baseHalf = 24;
+          const depth = 32;
+          const circleRadius = 8;
 
           let circleX = cx;
           let circleY = cy;
-          const circleOffset = 25; 
-          const circleRadius = 8; 
+          let arrowTargetX = cx;
+          let arrowTargetY = cy;
 
-          if (isTop) {
-            ctx.moveTo(cx - size, cy);
-            ctx.lineTo(cx + size, cy);
-            ctx.lineTo(cx, cy + height);
-            ctx.lineTo(cx - size, cy);
-            circleY = cy + circleOffset;
-          } else if (isBottom) {
-            ctx.moveTo(cx - size, cy);
-            ctx.lineTo(cx + size, cy);
-            ctx.lineTo(cx, cy - height);
-            ctx.lineTo(cx - size, cy);
-            circleY = cy - circleOffset;
-          } else if (isLeft) {
-            ctx.moveTo(cx, cy - size);
-            ctx.lineTo(cx, cy + size);
-            ctx.lineTo(cx + height, cy);
-            ctx.lineTo(cx, cy - size);
-            circleX = cx + circleOffset;
-          } else if (isRight) {
-            ctx.moveTo(cx, cy - size);
-            ctx.lineTo(cx, cy + size);
-            ctx.lineTo(cx - height, cy);
-            ctx.lineTo(cx, cy - size);
-            circleX = cx - circleOffset;
+          ctx.beginPath();
+          ctx.strokeStyle = '#222';
+          ctx.lineWidth = 1;
+
+          if (side === 'top') {
+            ctx.moveTo(cx - baseHalf, cy);
+            ctx.lineTo(cx + baseHalf, cy);
+            ctx.lineTo(cx, cy + depth);
+            ctx.closePath();
+            circleY = cy + depth * 0.55;
+            arrowTargetY = cy + depth;
+          } else if (side === 'bottom') {
+            ctx.moveTo(cx - baseHalf, cy);
+            ctx.lineTo(cx + baseHalf, cy);
+            ctx.lineTo(cx, cy - depth);
+            ctx.closePath();
+            circleY = cy - depth * 0.55;
+            arrowTargetY = cy - depth;
+          } else if (side === 'left') {
+            ctx.moveTo(cx, cy - baseHalf);
+            ctx.lineTo(cx, cy + baseHalf);
+            ctx.lineTo(cx + depth, cy);
+            ctx.closePath();
+            circleX = cx + depth * 0.55;
+            arrowTargetX = cx + depth;
+          } else if (side === 'right') {
+            ctx.moveTo(cx, cy - baseHalf);
+            ctx.lineTo(cx, cy + baseHalf);
+            ctx.lineTo(cx - depth, cy);
+            ctx.closePath();
+            circleX = cx - depth * 0.55;
+            arrowTargetX = cx - depth;
           }
 
-          ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+          ctx.fillStyle = 'rgba(180, 180, 180, 0.65)';
           ctx.fill();
           ctx.stroke();
 
-          // Circle in middle
           ctx.beginPath();
           ctx.arc(circleX, circleY, circleRadius, 0, 2 * Math.PI);
-          ctx.fillStyle = '#fff'; // White interior for the hole
+          ctx.fillStyle = '#fff';
           ctx.fill();
+          ctx.strokeStyle = '#222';
           ctx.stroke();
-        }
 
-        const typeLabel = attrs[`eyelet_${eyelet.side}_size`];
-        if (typeLabel) {
-          ctx.fillStyle = 'red';
-          ctx.font = 'bold 20px Arial'; 
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
+          const typeLabel = attrs[`eyelet_${side}_size`];
+          if (typeLabel) {
+            let lx = cx;
+            let ly = cy;
+            const labelOffset = 56;
 
-          let lx = cx, ly = cy;
-          const offset = 60; // Increased 
+            if (side === 'top') ly += labelOffset;
+            else if (side === 'bottom') ly -= labelOffset;
+            else if (side === 'left') lx += labelOffset;
+            else if (side === 'right') lx -= labelOffset;
 
-          if (isTop) ly += offset;
-          else if (isBottom) ly -= offset;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(arrowTargetX, arrowTargetY);
+            ctx.strokeStyle = '#c62828';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
 
-          if (isLeft) lx += offset;
-          else if (isRight) lx -= offset;
+            const angle = Math.atan2(arrowTargetY - ly, arrowTargetX - lx);
+            const arrowSize = 6;
+            ctx.beginPath();
+            ctx.moveTo(arrowTargetX, arrowTargetY);
+            ctx.lineTo(
+              arrowTargetX - arrowSize * Math.cos(angle - Math.PI / 6),
+              arrowTargetY - arrowSize * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(arrowTargetX, arrowTargetY);
+            ctx.lineTo(
+              arrowTargetX - arrowSize * Math.cos(angle + Math.PI / 6),
+              arrowTargetY - arrowSize * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.strokeStyle = '#c62828';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
 
-          if (isCorner) {
-            if (isLeft && isTop) { lx = cx + offset * 0.6; ly = cy + offset * 0.6; }
-            else if (isRight && isTop) { lx = cx - offset * 0.6; ly = cy + offset * 0.6; }
-            else if (isLeft && isBottom) { lx = cx + offset * 0.6; ly = cy - offset * 0.6; }
-            else if (isRight && isBottom) { lx = cx - offset * 0.6; ly = cy - offset * 0.6; }
+            ctx.fillStyle = '#c62828';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(typeLabel, lx, ly);
           }
-
-          ctx.fillText(typeLabel, lx, ly);
         }
       });
     }

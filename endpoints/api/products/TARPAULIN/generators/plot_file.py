@@ -101,21 +101,21 @@ def generate_dxf(project, download_name: str):
         msp.add_line((orig_x, orig_y + width), (orig_x, orig_y), dxfattribs={"layer": "pen"})
         
         # Draw Eyelets (from calculated positions)
-        calculated_eyelets = attrs.get("calculated_eyelets", [])
+        calculated = product.get("calculated") or {}
+        calculated_eyelets = calculated.get("calculated_eyelets", [])
         for eyelet in calculated_eyelets:
-            # eyelet has x, y relative to tarp origin (0,0)
+            # eyelet x,y are relative to bottom-left of the FINAL tarp (already in final-tarp space)
             lx = eyelet.get("x", 0)
             ly = eyelet.get("y", 0)
-            ex = x_offset + gap + lx
-            ey = y_base + gap + ly
+            ex = x_offset + lx
+            ey = y_base + ly
             side = eyelet.get("side")
 
-            # Check for corners to draw diagonals (45 degrees)
-            # Use small tolerance for float comparison
+            # Check for corners using final tarp dimensions
             is_left = lx < 1.0
-            is_right = lx > length - 1.0
+            is_right = lx > final_length - 1.0
             is_bottom = ly < 1.0
-            is_top = ly > width - 1.0
+            is_top = ly > final_width - 1.0
 
             if is_left and is_bottom:
                 # Bottom-Left: Diagonal from wheel corner through pen corner, 50mm
@@ -193,14 +193,14 @@ def generate_dxf(project, download_name: str):
             for eyelet in calculated_eyelets:
                 lx = eyelet.get("x", 0)
                 ly = eyelet.get("y", 0)
-                ex = x_offset + gap + lx
-                ey = y_layout + gap + ly
+                ex = x_offset + lx
+                ey = y_layout + ly
                 side = eyelet.get("side")
 
                 is_left = lx < 1.0
-                is_right = lx > length - 1.0
+                is_right = lx > final_length - 1.0
                 is_bottom = ly < 1.0
-                is_top = ly > width - 1.0
+                is_top = ly > final_width - 1.0
 
                 if is_left and is_bottom:
                     wx, wy = x_offset, y_layout
@@ -312,14 +312,14 @@ def generate_dxf(project, download_name: str):
                 lx = eyelet.get("x", 0)
                 ly = eyelet.get("y", 0)
                 # Tarp X -> Drawn Y. Tarp Y -> Drawn X.
-                ex = x_offset + gap + ly
-                ey = y_layout + gap + lx
+                ex = x_offset + ly
+                ey = y_layout + lx
                 side = eyelet.get("side")
 
                 is_left = lx < 1.0 # Bottom (Min Y)
-                is_right = lx > length - 1.0 # Top (Max Y)
+                is_right = lx > final_length - 1.0 # Top (Max Y)
                 is_bottom = ly < 1.0 # Left (Min X)
-                is_top = ly > width - 1.0 # Right (Max X)
+                is_top = ly > final_width - 1.0 # Right (Max X)
 
                 if is_left and is_bottom: # Bottom-Left -> Wheel(0,0) -> Drawn(0,0) -> Bottom-Left Diag
                     wx, wy = x_offset, y_layout
@@ -399,14 +399,14 @@ def generate_dxf(project, download_name: str):
                 lx = eyelet.get("x", 0)
                 ly = eyelet.get("y", 0)
                 # Tarp X -> Drawn Y. Tarp Y -> Drawn X.
-                ex = x_offset + gap + ly
-                ey = y_layout + gap + lx
+                ex = x_offset + ly
+                ey = y_layout + lx
                 side = eyelet.get("side")
 
                 is_left = lx < 1.0 # Bottom (Min Y)
-                is_right = lx > length - 1.0 # Top (Max Y)
+                is_right = lx > final_length - 1.0 # Top (Max Y)
                 is_bottom = ly < 1.0 # Left (Min X)
-                is_top = ly > width - 1.0 # Right (Max X)
+                is_top = ly > final_width - 1.0 # Right (Max X)
 
                 if is_left and is_bottom: # Bottom-Left -> Wheel(0,0) -> Drawn(0,0) -> Bottom-Left Diag
                     wx, wy = x_offset, y_layout
@@ -555,21 +555,21 @@ def generate_dxf(project, download_name: str):
                 
                 # Eyelets
                 for eyelet in calculated_eyelets:
-                    lx = eyelet.get("x", 0) + gap 
-                    ly = eyelet.get("y", 0) + gap 
+                    lx = eyelet.get("x", 0)
+                    ly = eyelet.get("y", 0)
                     
                     # Check if eyelet Y is within this strip's Tarp Y range
                     # Use a small tolerance
                     if actual_strip_bottom <= ly <= strip_y_top + 1.0:
                         # Map to current piece coordinates
-                        ex = draw_x + lx # X matches Tarp X (plus draw_x offset)
+                        ex = draw_x + lx
                         ey = draw_y_start + (ly - actual_strip_bottom)
                         
                         side = eyelet.get("side")
                         raw_lx = eyelet.get("x", 0)
                         raw_ly = eyelet.get("y", 0)
-                        is_left, is_right = raw_lx < 1.0, raw_lx > length - 1.0
-                        is_bottom, is_top = raw_ly < 1.0, raw_ly > width - 1.0
+                        is_left, is_right = raw_lx < 1.0, raw_lx > final_length - 1.0
+                        is_bottom, is_top = raw_ly < 1.0, raw_ly > final_width - 1.0
                         
                         if is_left and is_bottom:
                             msp.add_line((draw_x, ey-(gap-raw_ly)), (draw_x + 50, ey - (gap-raw_ly) + 50), dxfattribs={"layer": "pen"})
@@ -684,8 +684,8 @@ def generate_dxf(project, download_name: str):
                 
                 # Draw Eyelets
                 for eyelet in calculated_eyelets:
-                    lx = eyelet.get("x", 0) + gap 
-                    ly = eyelet.get("y", 0) + gap 
+                    lx = eyelet.get("x", 0)
+                    ly = eyelet.get("y", 0)
                     
                     if strip_x_start <= lx <= strip_x_end + 1.0:
                         ex = x_offset + ly
@@ -694,8 +694,8 @@ def generate_dxf(project, download_name: str):
                         side = eyelet.get("side")
                         raw_lx, raw_ly = eyelet.get("x", 0), eyelet.get("y", 0)
                         
-                        is_left, is_right = raw_lx < 1.0, raw_lx > length - 1.0
-                        is_bottom, is_top = raw_ly < 1.0, raw_ly > width - 1.0
+                        is_left, is_right = raw_lx < 1.0, raw_lx > final_length - 1.0
+                        is_bottom, is_top = raw_ly < 1.0, raw_ly > final_width - 1.0
                         
                         def map_pt(tx, ty): 
                             return (x_offset + ty, draw_y_bottom + (tx - strip_x_start))

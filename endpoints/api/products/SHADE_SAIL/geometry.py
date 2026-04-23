@@ -6,6 +6,7 @@ import math
 
 from .shared import _get_dist_xy
 from .workpoints.workpoints_bisect import compute_workpoints_bisect
+from .workpoints.workpoints_bisect_rotate import compute_workpoints_bisect_rotate
 from .workpoints.workpoints_centroid import compute_workpoints_centroid
 
 
@@ -480,6 +481,8 @@ def compute_workpoints(
         compute_workpoints_centroid(points, cx, cy, cz)
     if methods.get("bisect"):
         compute_workpoints_bisect(points, cx, cy, cz)
+    if methods.get("bisect_rotate"):
+        compute_workpoints_bisect_rotate(points, cx_area, cy_area, cz)
 
     method_maps: Dict[str, Dict[str, Dict[str, float]]] = {}
     for method_name, enabled in methods.items():

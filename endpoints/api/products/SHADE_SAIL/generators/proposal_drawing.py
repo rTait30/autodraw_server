@@ -745,7 +745,85 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             c.setLineWidth(2)
             c.drawPath(path, stroke=1, fill=1)
     
+    # -------------------------------------------------------------------------
+    # STRUCTURE WIREFRAME: draw structural positions as dashed wireframe polygon
+    # plus diagonals, so it's clear the dimensions refer to the structure not membrane
+    # -------------------------------------------------------------------------
+    diagonals = geometry.get("diagonals", [])
+    # Build lookup: (label_a, label_b) -> length (normalised both directions)
+    diag_lookup = {}
+    for (la, lb), length in diagonals:
+        diag_lookup[(la, lb)] = length
+        diag_lookup[(lb, la)] = length
+
+    struct_canvas_pts = []
+    for label in point_order:
+        if label in positions:
+            struct_canvas_pts.append(to_canvas(positions[label]))
+
+    if struct_canvas_pts:
+        # Outline of structure (dashed)
+        c.setStrokeColor(Color(0.55, 0.55, 0.55))
+        c.setLineWidth(0.8)
+        c.setDash([4, 3])
+        path = c.beginPath()
+        path.moveTo(struct_canvas_pts[0][0], struct_canvas_pts[0][1])
+        for pt in struct_canvas_pts[1:]:
+            path.lineTo(pt[0], pt[1])
+        path.close()
+        c.drawPath(path, stroke=1, fill=0)
+        c.setDash([])
+
+        # Diagonals: connect all non-adjacent corners + dimension labels
+        n = len(struct_canvas_pts)
+        if n >= 4:
+            c.setStrokeColor(Color(0.6, 0.6, 0.6))
+            c.setLineWidth(0.6)
+            c.setDash([3, 4])
+            for i in range(n):
+                for j in range(i + 2, n):
+                    if n > 4 or (n == 4 and j - i != n - 1):  # skip adjacent and wrap edges
+                        p1d = struct_canvas_pts[i]
+                        p2d = struct_canvas_pts[j]
+                        c.line(p1d[0], p1d[1], p2d[0], p2d[1])
+            c.setDash([])
+
+            # Dimension labels for each diagonal
+            for i in range(n):
+                for j in range(i + 2, n):
+                    if n > 4 or (n == 4 and j - i != n - 1):
+                        p1d = struct_canvas_pts[i]
+                        p2d = struct_canvas_pts[j]
+
+                        # Look up the stored measured diagonal (same source as Display.js)
+                        lbl_i = point_order[i] if i < len(point_order) else None
+                        lbl_j = point_order[j] if j < len(point_order) else None
+                        diag_len = diag_lookup.get((lbl_i, lbl_j)) if lbl_i and lbl_j else None
+
+                        if diag_len:
+                            dim_text = f"{charspec(i)}-{charspec(j)}: {int(diag_len)}mm"
+                            font_sz = 7
+                            text_w = c.stringWidth(dim_text, FONT_REGULAR, font_sz)
+                            pad_x, pad_y = 3, 2
+                            box_w = text_w + pad_x * 2
+                            box_h = font_sz + pad_y * 2 + 1
+                            mid_x = (p1d[0] + p2d[0]) / 2
+                            mid_y = (p1d[1] + p2d[1]) / 2
+                            c.setFillColor(Color(1, 1, 1, alpha=0.92))
+                            c.setStrokeColor(Color(0.75, 0.75, 0.75))
+                            c.setLineWidth(0.4)
+                            c.roundRect(mid_x - box_w / 2, mid_y - box_h / 2,
+                                        box_w, box_h, 2, stroke=1, fill=1)
+                            c.setFillColor(Color(0.3, 0.3, 0.3))
+                            c.setFont(FONT_REGULAR, font_sz)
+                            c.drawCentredString(mid_x, mid_y - box_h / 2 + pad_y + 0.5, dim_text)
+        elif n == 3:
+            # Triangle: all edges are sides, no diagonals needed
+            pass
+
+    # -------------------------------------------------------------------------
     # Draw edges with labels and catenaries (curving INWARD toward center)
+    # -------------------------------------------------------------------------
     for i in range(len(point_order)):
         a = point_order[i]
         b = point_order[(i + 1) % len(point_order)]
@@ -776,7 +854,8 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             c.setLineWidth(2)
             _draw_catenary_curve_inward(c, p1, p2, canvas_center, catenary_ratio)
         
-        # Edge label at midpoint - use positions for label placement
+        # Edge label - use structural positions for dimension placement
+        # Offset the label outward from the centroid so it sits just outside the structure line
         if a in positions and b in positions:
             pos_a = to_canvas(positions[a])
             pos_b = to_canvas(positions[b])
@@ -791,15 +870,31 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                     break
             
             if edge_length:
-                # Draw dimension line with background
-                c.setFillColor(white)
                 dim_text = f"{int(edge_length)}mm"
                 text_width = c.stringWidth(dim_text, FONT_REGULAR, 8)
-                c.rect(mid_x - text_width/2 - 2, mid_y - 5, text_width + 4, 10, stroke=0, fill=1)
-                
-                c.setFillColor(black)
+                text_height = 8
+
+                # Offset label outward from centroid (away from centre of sail)
+                cx_c, cy_c = canvas_center
+                out_dx = mid_x - cx_c
+                out_dy = mid_y - cy_c
+                out_len = math.sqrt(out_dx * out_dx + out_dy * out_dy) or 1.0
+                out_ux, out_uy = out_dx / out_len, out_dy / out_len
+                offset_dist = 10  # pts outward from edge midpoint
+                lbl_x = mid_x + out_ux * offset_dist
+                lbl_y = mid_y + out_uy * offset_dist
+
+                # White pill background for readability
+                pad_x, pad_y = 3, 2
+                c.setFillColor(Color(1, 1, 1, alpha=0.92))
+                c.setStrokeColor(Color(0.75, 0.75, 0.75))
+                c.setLineWidth(0.4)
+                c.roundRect(lbl_x - text_width / 2 - pad_x, lbl_y - pad_y - 1,
+                            text_width + pad_x * 2, text_height + pad_y * 2, 2, stroke=1, fill=1)
+
+                c.setFillColor(Color(0.15, 0.15, 0.15))
                 c.setFont(FONT_REGULAR, 8)
-                c.drawCentredString(mid_x, mid_y - 2, dim_text)
+                c.drawCentredString(lbl_x, lbl_y - 1, dim_text)
     
     # Draw corner points (posts) at positions - structure in grey
     for idx, label in enumerate(point_order):
@@ -867,17 +962,12 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         c.setFont(FONT_BOLD, 10)
         c.drawCentredString(px, py - 3.5, display_label)
         
-        # Draw corner info text (like DXF work model) - positioned outward from centroid
+        # Draw corner info text - positioned outward from centroid with a readable box
         cx, cy = canvas_center
         dx = px - cx
         dy = py - cy
         dist = math.sqrt(dx * dx + dy * dy) or 1.0
         ux, uy = dx / dist, dy / dist
-        
-        # Position info text outward from sail
-        info_offset = 18  # Distance from corner circle
-        info_x = px + ux * info_offset
-        info_y = py + uy * info_offset
         
         # Build info lines
         info_lines = []
@@ -891,26 +981,44 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             info_lines.append(f"Allow: {int(allowance)}mm")
         if hardware:
             info_lines.append(f"HW: {hardware}")
-        if structure:  # Only show if not default Pole
+        if structure:
             info_lines.append(f"Struct: {structure}")
         
         if info_lines:
-            c.setFont(FONT_REGULAR, 6)
-            c.setFillColor(Color(0.3, 0.3, 0.3))
-            line_height = 7
+            font_sz = 6
+            line_ht = 7
+            box_pad_x = 3
+            box_pad_y = 2
             
-            # Adjust text alignment based on position relative to center
+            # Measure box dimensions
+            max_w = max(c.stringWidth(ln, FONT_REGULAR, font_sz) for ln in info_lines)
+            box_w = max_w + box_pad_x * 2
+            box_h = len(info_lines) * line_ht + box_pad_y * 2
+
+            # Offset outward so box edge starts at distance from circle
+            info_offset = 14
+            box_cx = px + ux * (info_offset + box_w / 2)
+            box_cy = py + uy * (info_offset + box_h / 2)
+
+            box_x = box_cx - box_w / 2
+            box_y = box_cy - box_h / 2
+
+            # Clamp box inside the view area
+            box_x = max(x + 1, min(box_x, x + width - box_w - 1))
+            box_y = max(y + 1, min(box_y, y + height - box_h - 1))
+
+            # Background + border
+            c.setFillColor(Color(1, 1, 1, alpha=0.92))
+            c.setStrokeColor(Color(0.65, 0.65, 0.65))
+            c.setLineWidth(0.4)
+            c.roundRect(box_x, box_y, box_w, box_h, 2, stroke=1, fill=1)
+
+            # Text lines (top to bottom)
+            c.setFont(FONT_REGULAR, font_sz)
+            c.setFillColor(Color(0.15, 0.15, 0.15))
+            text_start_y = box_y + box_h - box_pad_y - font_sz * 0.9
             for i, line in enumerate(info_lines):
-                text_y = info_y - i * line_height
-                if ux > 0.3:
-                    # Right side - left align
-                    c.drawString(info_x, text_y, line)
-                elif ux < -0.3:
-                    # Left side - right align
-                    c.drawRightString(info_x, text_y, line)
-                else:
-                    # Top or bottom - center
-                    c.drawCentredString(info_x, text_y, line)
+                c.drawString(box_x + box_pad_x, text_start_y - i * line_ht, line)
     
     c.setFillColor(black)  # Reset fill color
     
@@ -1762,16 +1870,24 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
              c.line(p_base_off[0] - tick_w, p_base_off[1], p_base_off[0] + tick_w, p_base_off[1])
              c.line(p_top_off[0] - tick_w, p_top_off[1], p_top_off[0] + tick_w, p_top_off[1])
              
-             # Draw Height Text
+             # Draw Height Text in a pill box (same style as top-view dimension labels)
              h_mm = int(ph)
-             h_txt = f"{h_mm}"
-             c.setFont("Helvetica", 6)
-             c.setFillColor(black)
-             
-             # Draw text to right of dimension line
-             # Check if text fits vertically? Center it.
+             h_txt = f"{h_mm}mm"
+             font_sz = 6
+             text_w = c.stringWidth(h_txt, FONT_REGULAR, font_sz)
+             pad_x, pad_y = 3, 2
+             box_w = text_w + pad_x * 2
+             box_h = font_sz + pad_y * 2 + 1
              mid_y = (p_base_off[1] + p_top_off[1]) / 2
-             c.drawString(p_base_off[0] + 4, mid_y - 2, h_txt)
+             bx = p_base_off[0] + 5
+             by = mid_y - box_h / 2
+             c.setFillColor(Color(1, 1, 1, alpha=0.92))
+             c.setStrokeColor(Color(0.75, 0.75, 0.75))
+             c.setLineWidth(0.4)
+             c.roundRect(bx, by, box_w, box_h, 2, stroke=1, fill=1)
+             c.setFillColor(Color(0.15, 0.15, 0.15))
+             c.setFont(FONT_REGULAR, font_sz)
+             c.drawString(bx + pad_x, by + pad_y + 0.5, h_txt)
              
              # Connector to workpoint (if needed)
              if use_workpoints:
@@ -1783,7 +1899,53 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                        c.line(p_top[0], p_top[1], p_sail[0], p_sail[1])
                        c.setDash([])
         
-        # 2. Draw Sail (after posts, usually floats above)
+        # 1b. Draw structure wireframe at the attachment-point height (before sail)
+        # Shows the structural polygon + diagonals so dimensions read clearly as structure dims
+        struct_pts_3d = [(lbl, px2, py2, ph2) for lbl, px2, py2, ph2 in sorted_posts]
+        struct_iso_pts = []  # (label, canvas_xy at height, canvas_xy at ground)
+        for lbl, spx, spy, sph in struct_pts_3d:
+            struct_iso_pts.append((lbl, to_canvas_iso(spx, spy, sph), to_canvas_iso(spx, spy, 0)))
+
+        if struct_iso_pts:
+            # Vertical posts (thin grey lines)
+            c.setStrokeColor(Color(0.55, 0.55, 0.55))
+            c.setLineWidth(1.2)
+            for lbl, pt_top, pt_bot in struct_iso_pts:
+                c.line(pt_bot[0], pt_bot[1], pt_top[0], pt_top[1])
+
+            # Structure outline at attachment height (dashed)
+            tops_in_order = []
+            for lbl in point_order:
+                match = next((t for t in struct_iso_pts if t[0] == lbl), None)
+                if match:
+                    tops_in_order.append(match[1])
+
+            if tops_in_order:
+                c.setStrokeColor(Color(0.5, 0.5, 0.5))
+                c.setLineWidth(0.8)
+                c.setDash([4, 3])
+                path = c.beginPath()
+                path.moveTo(tops_in_order[0][0], tops_in_order[0][1])
+                for pt in tops_in_order[1:]:
+                    path.lineTo(pt[0], pt[1])
+                path.close()
+                c.drawPath(path, stroke=1, fill=0)
+                c.setDash([])
+
+                # Diagonals at attachment height
+                n = len(tops_in_order)
+                if n >= 4:
+                    c.setStrokeColor(Color(0.6, 0.6, 0.6))
+                    c.setLineWidth(0.6)
+                    c.setDash([3, 4])
+                    for i2 in range(n):
+                        for j2 in range(i2 + 2, n):
+                            if n > 4 or (n == 4 and j2 - i2 != n - 1):
+                                c.line(tops_in_order[i2][0], tops_in_order[i2][1],
+                                       tops_in_order[j2][0], tops_in_order[j2][1])
+                    c.setDash([])
+
+        # 2. Draw Sail (after structure wireframe)
         if texture_path and sail_canvas_points:
             c.saveState()
             clip_path = c.beginPath()

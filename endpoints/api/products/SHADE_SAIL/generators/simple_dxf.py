@@ -105,45 +105,9 @@ def generate_dxf(project, download_name: str):
         msp.add_mtext("Bisect", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
         legend_y -= legend_spacing
         
-        # Color 3 = Green = Area Centroid
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_AREA", "color": 3})
-        msp.add_mtext("Area Centroid", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
-        # Color 4 = Cyan = Midpoint
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_MIDPOINT", "color": 4})
-        msp.add_mtext("Midpoint", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
-        # Color 5 = Blue = Weighted (Edge Tension)
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_WEIGHTED", "color": 5})
-        msp.add_mtext("Weighted (Edge Tension)", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
-        # Color 2 = Yellow = Minimal Surface
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_MINIMAL", "color": 2})
-        msp.add_mtext("Minimal Surface", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
         # Color 30 = Orange = Bisect-Rotate
         msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30})
         msp.add_mtext("Bisect-Rotate", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
-        # Color 50 = Yellow-Green = Bisect-Rotate Normalized
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50})
-        msp.add_mtext("Bisect-Rotate Normalized", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-        legend_y -= legend_spacing
-        
-        # Color 210 = Pink = Bisect-Rotate Planar
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210})
-        msp.add_mtext("Bisect-Rotate Planar", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
-
-        legend_y -= legend_spacing
-
-        # Color 140 = Plane-Resultant (Global plane projected)
-        msp.add_line((legend_x, legend_y), (legend_x + 400, legend_y), dxfattribs={"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140})
-        msp.add_mtext("Plane-Resultant", dxfattribs={"layer": "AD_INFO", "char_height": 150}).set_location((legend_x + 500, legend_y + 50))
 
     tmp = tempfile.NamedTemporaryFile(suffix=".dxf", delete=False)
     tmp_path = tmp.name

@@ -99,6 +99,7 @@ def compute_workpoints_bisect_rotate(points_3d: List[Dict[str, Any]], cx_area: f
         wy = curr_p["y"] + uy * ta
         wz = curr_p["z"] + uz * ta
 
-        workpoints_bisect_rotate = {"x": wx, "y": wy, "z": wz}
+        points_3d[i].setdefault("workpoint_methods", {})
+        points_3d[i]["workpoint_methods"]["bisect_rotate"] = {"x": wx, "y": wy, "z": wz}
 
-    return workpoints_bisect_rotate
+    return {str(i): points_3d[i]["workpoint_methods"]["bisect_rotate"] for i in range(count)}

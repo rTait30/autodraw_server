@@ -5,6 +5,7 @@ Provides common drawing functions that can be used by both DXF and PDF generator
 """
 
 import math
+from endpoints.api.products.SHADE_SAIL.calculations import calculate as _calculate_project
 
 
 def _safe_num(v):
@@ -532,6 +533,10 @@ def generate_sails_layout(project: dict) -> list:
     if not isinstance(project, dict) or not project.get("products"):
         return []
 
+    # Always recompute geometry and workpoints to ensure the latest algorithms
+    # are applied (frontend may send stale calculated data that is missing new
+    # workpoint methods like bisect_rotate).
+    _calculate_project(project)
     products_list = project.get("products") or []
     
     x_offset = 0.0
@@ -678,110 +683,6 @@ def generate_sails_layout(project: dict) -> list:
             if a in workpoints_bisect_transformed and b in workpoints_bisect_transformed:
                 current_entities.append({"type": "line", "start": workpoints_bisect_transformed[a], "end": workpoints_bisect_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT", "color": 6}})
 
-        # Workpoints (Area)
-        workpoints_area = geo.get('workpoints_area', {})
-        workpoints_area_transformed = {}
-        # Using Color 3 (Green) for Area lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_area.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_area_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (area)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_AREA", "color": 3}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_AREA", "color": 3}})
-            
-            # Connect corner to area workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_AREA", "color": 3}})
-
-        # Workpoints polygon (Area)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_area_transformed and b in workpoints_area_transformed:
-                current_entities.append({"type": "line", "start": workpoints_area_transformed[a], "end": workpoints_area_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_AREA", "color": 3}})
-
-        # Workpoints (Midpoint)
-        workpoints_midpoint = geo.get('workpoints_midpoint', {})
-        workpoints_midpoint_transformed = {}
-        # Using Color 4 (Cyan) for Midpoint lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_midpoint.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_midpoint_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (midpoint)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_MIDPOINT", "color": 4}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_MIDPOINT", "color": 4}})
-            
-            # Connect corner to midpoint workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_MIDPOINT", "color": 4}})
-
-        # Workpoints polygon (Midpoint)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_midpoint_transformed and b in workpoints_midpoint_transformed:
-                current_entities.append({"type": "line", "start": workpoints_midpoint_transformed[a], "end": workpoints_midpoint_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_MIDPOINT", "color": 4}})
-
-        # Workpoints (Weighted - Inverse Distance)
-        workpoints_weighted = geo.get('workpoints_weighted', {})
-        workpoints_weighted_transformed = {}
-        # Using Color 5 (Blue) for Weighted lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_weighted.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_weighted_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (weighted)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_WEIGHTED", "color": 5}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_WEIGHTED", "color": 5}})
-            
-            # Connect corner to weighted workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_WEIGHTED", "color": 5}})
-
-        # Workpoints polygon (Weighted)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_weighted_transformed and b in workpoints_weighted_transformed:
-                current_entities.append({"type": "line", "start": workpoints_weighted_transformed[a], "end": workpoints_weighted_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_WEIGHTED", "color": 5}})
-
-        # Workpoints (Minimal Surface)
-        workpoints_minimal = geo.get('workpoints_minimal', {})
-        workpoints_minimal_transformed = {}
-        # Using Color 2 (Yellow) for Minimal Surface lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_minimal.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_minimal_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (minimal)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_MINIMAL", "color": 2}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_MINIMAL", "color": 2}})
-            
-            # Connect corner to minimal workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_MINIMAL", "color": 2}})
-
-        # Workpoints polygon (Minimal)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_minimal_transformed and b in workpoints_minimal_transformed:
-                current_entities.append({"type": "line", "start": workpoints_minimal_transformed[a], "end": workpoints_minimal_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_MINIMAL", "color": 2}})
-
         # Workpoints (Bisect-Rotate)
         workpoints_bisect_rotate = geo.get('workpoints_bisect_rotate', {})
         workpoints_bisect_rotate_transformed = {}
@@ -794,7 +695,7 @@ def generate_sails_layout(project: dict) -> list:
             workpoints_bisect_rotate_transformed[label] = (wx, wy, wz)
             
             # Draw workpoint (bisect-rotate)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
+            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 40.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
             current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
             
             # Connect corner to bisect-rotate workpoint
@@ -807,82 +708,6 @@ def generate_sails_layout(project: dict) -> list:
             b = point_order[(i+1)%point_count]
             if a in workpoints_bisect_rotate_transformed and b in workpoints_bisect_rotate_transformed:
                 current_entities.append({"type": "line", "start": workpoints_bisect_rotate_transformed[a], "end": workpoints_bisect_rotate_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
-
-        # Workpoints (Bisect-Rotate Normalized)
-        workpoints_bisect_rotate_normalized = geo.get('workpoints_bisect_rotate_normalized', {})
-        workpoints_bisect_rotate_normalized_transformed = {}
-        # Using Color 50 (Yellow-Green) for Bisect-Rotate Normalized lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_bisect_rotate_normalized.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_bisect_rotate_normalized_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (bisect-rotate-normalized)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
-            
-            # Connect corner to bisect-rotate-normalized workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
-
-        # Workpoints polygon (Bisect-Rotate Normalized)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_bisect_rotate_normalized_transformed and b in workpoints_bisect_rotate_normalized_transformed:
-                current_entities.append({"type": "line", "start": workpoints_bisect_rotate_normalized_transformed[a], "end": workpoints_bisect_rotate_normalized_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_NORMALIZED", "color": 50}})
-
-        # Workpoints (Bisect-Rotate Planar)
-        workpoints_bisect_rotate_planar = geo.get('workpoints_bisect_rotate_planar', {})
-        workpoints_bisect_rotate_planar_transformed = {}
-        # Using Color 210 (Pink) for Bisect-Rotate Planar lines
-        
-        for label, (wx_local, wy_local, wz_local) in workpoints_bisect_rotate_planar.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_bisect_rotate_planar_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (bisect-rotate-planar)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
-            
-            # Connect corner to bisect-rotate-planar workpoint
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
-
-        # Workpoints polygon (Bisect-Rotate Planar)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_bisect_rotate_planar_transformed and b in workpoints_bisect_rotate_planar_transformed:
-                current_entities.append({"type": "line", "start": workpoints_bisect_rotate_planar_transformed[a], "end": workpoints_bisect_rotate_planar_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE_PLANAR", "color": 210}})
-
-        # Workpoints (Plane-Resultant)
-        workpoints_plane_resultant = geo.get('workpoints_plane_resultant', {})
-        workpoints_plane_resultant_transformed = {}
-        # Using Color 140 for Plane-Resultant
-
-        for label, (wx_local, wy_local, wz_local) in workpoints_plane_resultant.items():
-            wx = x_offset + (wx_local - min_x)
-            wy = wy_local
-            wz = wz_local
-            workpoints_plane_resultant_transformed[label] = (wx, wy, wz)
-
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
-
-            if label in post_xy:
-                current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
-
-        # Workpoints polygon (Plane-Resultant)
-        for i in range(point_count):
-            a = point_order[i]
-            b = point_order[(i+1)%point_count]
-            if a in workpoints_plane_resultant_transformed and b in workpoints_plane_resultant_transformed:
-                current_entities.append({"type": "line", "start": workpoints_plane_resultant_transformed[a], "end": workpoints_plane_resultant_transformed[b], "dxfattribs": {"layer": "AD_WORKMODEL_PLANE_RESULTANT", "color": 140}})
 
         layout_result.append({
             "entities": current_entities,

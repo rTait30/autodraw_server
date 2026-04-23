@@ -13,7 +13,18 @@ def new_doc_mm():
     doc.units = 4
     doc.header["$INSUNITS"] = 4
     msp = doc.modelspace()
-    for name, color in [("WHEEL", 3), ("PEN", 2), ("BORDER", 1), ("MARK", 4)]:
+    for name, color in [
+        ("WHEEL", 3),
+        ("PEN", 2),
+        ("BORDER", 1),
+        ("MARK", 4),
+        ("AD_INFO", 7),
+        ("AD_STRUCTURE", 7),
+        ("AD_PEN", 2),
+        ("AD_WORKMODEL_CENTROID", 1),       # Red
+        ("AD_WORKMODEL_BISECT", 6),         # Magenta
+        ("AD_WORKMODEL_BISECT_ROTATE", 30), # Orange
+    ]:
         if name not in doc.layers:
             doc.layers.add(name, color=color)
     return doc, msp

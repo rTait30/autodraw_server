@@ -129,7 +129,7 @@ def submit_cover_to_workguru(project, data, wg_client_id):
 
         stay_puts_str = "; Stay Puts" if attributes.get("stayputs", False) else ""
 
-        description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
+        description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm{stay_puts_str}\n")
 
 
     estimated_price = project.estimate_total or 0.0

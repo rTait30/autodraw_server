@@ -21,14 +21,17 @@ def cover_lead(project, data, client_id):
     description = ""
     for cover in data.get("products", []):
         attributes = cover.get("attributes", {})
+
         cover_quantity = attributes.get("quantity", 0)
         cover_length = attributes.get("length", 0)
         cover_width = attributes.get("width", 0)
         cover_height = attributes.get("height", 0)
 
+        zips_str = "; 2 Zippers on front panel" if attributes.get("stayputs", False) else ""
+
         stay_puts_str = "; Stay Puts" if attributes.get("stayputs", False) else ""
 
-        description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm {stay_puts_str}\n")
+        description += (f"{cover_quantity} x PVC Cover\n{cover_length}x{cover_width}x{cover_height}mm{zips_str}{stay_puts_str}\n")
 
     estimated_price = project.estimate_total or 0.0
 

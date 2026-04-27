@@ -21,42 +21,16 @@ def generate(project, **kwargs):
     if not download_name:
         download_name = f"{(project.get('general', {}).get('name') or 'project').strip()}_iso.pdf".replace(" ", "_")
 
-    # Get attributes from first product
-    if not project.get("products"):
-        raise ValueError(f"No products found for Project {project.get('id')}")
-    
     products = project.get("products", [])
     if not products:
-         raise ValueError(f"No products found for Project {project.get('id')}")
-
-    a = products[0].get("attributes") or {}
-    width  = _safe_float(a.get("width"),  default=1000.0, min_val=1.0)
-    length = _safe_float(a.get("length"), default=1000.0, min_val=1.0)
-    height = _safe_float(a.get("height"), default=50.0,   min_val=0.0)
-
-    quantity     = int(_safe_float(a.get("quantity"), default=1.0, min_val=1.0))
-    fabric_width = _safe_float(a.get("fabricWidth"), default=None)
-    hem          = _safe_float(a.get("hem"),         default=None)
-    seam         = _safe_float(a.get("seam"),        default=None)
+        raise ValueError(f"No products found for Project {project.get('id')}")
 
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     tmp_path = tmp.name
     tmp.close()
 
     try:
-        _build_iso_pdf(
-            tmp_path=tmp_path,
-            project=project,
-            width_mm=width,
-            length_mm=length,
-            height_mm=height,
-            attrs={
-                "quantity": quantity,
-                "fabricWidth": fabric_width,
-                "hem": hem,
-                "seam": seam,
-            }
-        )
+        _build_iso_pdf(tmp_path=tmp_path, project=project, products=products)
     except Exception as e:
         try:
             os.remove(tmp_path)
@@ -86,7 +60,7 @@ def generate(project, **kwargs):
     return resp
 
 
-def _build_iso_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
+def _build_iso_pdf(tmp_path, project, products):
     page_w, page_h = landscape(A4)
     c = canvas.Canvas(tmp_path, pagesize=(page_w, page_h))
 
@@ -103,37 +77,58 @@ def _build_iso_pdf(tmp_path, project, width_mm, length_mm, height_mm, attrs):
     right_x = margin + left_w
     right_y = margin
 
-    # Divider
-    c.setLineWidth(0.5)
-    c.line(right_x, margin, right_x, page_h - margin)
-
-    # Header
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margin, page_h - margin + 6, "Cover — Isometric Sheet")
-    c.setFont("Helvetica", 9)
     gen_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    c.drawRightString(page_w - margin, page_h - margin + 6, f"Generated: {gen_ts}")
+    total = len(products)
 
-    # Page 1 content
-    _draw_isometric_with_dimensions(
-        c,
-        viewport=(left_x + 8, left_y + 8, left_w - 16, inner_h - 16),
-        width_mm=width_mm,
-        length_mm=length_mm,
-        height_mm=height_mm,
-    )
+    for idx, product in enumerate(products):
+        a = product.get("attributes") or {}
+        item_name = product.get("name") or f"Item {idx + 1}"
 
-    _draw_info_panel(
-        c,
-        x=right_x + 16,
-        y=right_y + inner_h - 16,
-        w=right_w - 32,
-        project=project,
-        dims={"width": width_mm, "length": length_mm, "height": height_mm},
-        attrs=attrs,
-    )
+        width_mm  = _safe_float(a.get("width"),  default=1000.0, min_val=1.0)
+        length_mm = _safe_float(a.get("length"), default=1000.0, min_val=1.0)
+        height_mm = _safe_float(a.get("height"), default=50.0,   min_val=0.0)
 
-    c.showPage()
+        attrs = {
+            "quantity":    int(_safe_float(a.get("quantity"), default=1.0, min_val=1.0)),
+            "fabricWidth": _safe_float(a.get("fabricWidth"), default=None),
+            "hem":         _safe_float(a.get("hem"),         default=None),
+            "seam":        _safe_float(a.get("seam"),        default=None),
+        }
+
+        # Divider
+        c.setLineWidth(0.5)
+        c.line(right_x, margin, right_x, page_h - margin)
+
+        # Header
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin, page_h - margin + 6, f"Cover — {item_name}")
+        c.setFont("Helvetica", 9)
+        c.drawRightString(
+            page_w - margin, page_h - margin + 6,
+            f"({idx + 1}/{total})  Generated: {gen_ts}"
+        )
+
+        _draw_isometric_with_dimensions(
+            c,
+            viewport=(left_x + 8, left_y + 8, left_w - 16, inner_h - 16),
+            width_mm=width_mm,
+            length_mm=length_mm,
+            height_mm=height_mm,
+        )
+
+        _draw_info_panel(
+            c,
+            x=right_x + 16,
+            y=right_y + inner_h - 16,
+            w=right_w - 32,
+            project=project,
+            dims={"width": width_mm, "length": length_mm, "height": height_mm},
+            attrs=attrs,
+            item_name=item_name,
+        )
+
+        c.showPage()
+
     c.save()
 
 
@@ -263,7 +258,7 @@ def _arrowhead(c, tip, direction, size=6):
     c.drawPath(p, fill=1, stroke=1)
 
 
-def _draw_info_panel(c, x, y, w, project, dims, attrs):
+def _draw_info_panel(c, x, y, w, project, dims, attrs, item_name=None):
     line_h = 14
     small = 9
     big = 12
@@ -278,6 +273,8 @@ def _draw_info_panel(c, x, y, w, project, dims, attrs):
     name = project.get("general", {}).get("name") or "Untitled"
     pid = project.get("id") or ""
     line(f"Project: {name} (ID {pid})", bold=True, pad=2)
+    if item_name:
+        line(f"Item: {item_name}", bold=False, pad=0)
 
     c.setFont("Helvetica-Bold", 10)
     c.drawString(x, y, "Attributes")

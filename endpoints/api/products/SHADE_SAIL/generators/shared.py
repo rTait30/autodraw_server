@@ -59,7 +59,8 @@ def extract_sail_geometry(sail: dict) -> dict:
     
     for i in range(point_count):
         label = point_order[i]
-        pos = positions_raw.get(str(i), {})
+        # positions_raw keys may be int (from calculate()) or str (from raw attributes)
+        pos = positions_raw.get(i) or positions_raw.get(str(i)) or {}
         x = _safe_num(pos.get("x")) or 0.0
         y = _safe_num(pos.get("y")) or 0.0
         pt = points_dict.get(str(i), {})
@@ -541,7 +542,6 @@ def generate_sails_layout(project: dict) -> list:
     
     x_offset = 0.0
     spacing = 8000.0
-    circle_radius = 50.0
 
     for idx, pp in enumerate(products_list):
         geo = extract_sail_geometry(pp)
@@ -578,9 +578,6 @@ def generate_sails_layout(project: dict) -> list:
             z = rz # Height
             post_xy[label] = (x, y, z)
             
-            # Circle + Point
-            current_entities.append({"type": "circle", "center": (x, y, z), "radius": circle_radius, "dxfattribs": {"layer": "AD_STRUCTURE"}})
-            current_entities.append({"type": "point", "location": (x, y, z), "dxfattribs": {"layer": "AD_STRUCTURE"}})
             # Vertical line
             if z > 0:
                 current_entities.append({"type": "line", "start": (x, y, 0), "end": (x, y, z), "dxfattribs": {"layer": "AD_STRUCTURE"}})
@@ -611,11 +608,6 @@ def generate_sails_layout(project: dict) -> list:
             current_entities.append({"type": "mtext", "text": info, "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x, text_y, z), "attachment_point": 8})
             current_entities.append({"type": "mtext", "text": f"X:{round(rx,2)} Y:{round(ry,2)} Z:{round(z,2)}", "dxfattribs": {"layer": "AD_INFO", "char_height": 100}, "location": (text_x - 1000, text_y - 60, z)})
 
-        # Draw Center
-        if positions:
-             current_entities.append({"type": "point", "location": (cx, cy, cz), "dxfattribs": {"layer": "AD_PEN"}})
-             current_entities.append({"type": "circle", "center": (cx, cy, cz), "radius": 35.0, "dxfattribs": {"layer": "AD_PEN"}})
-
         # Edges
         for ((a, b), length) in edges:
             if a in post_xy and b in post_xy:
@@ -643,9 +635,6 @@ def generate_sails_layout(project: dict) -> list:
             wy = wy_local
             wz = wz_local
             workpoints_transformed[label] = (wx, wy, wz)
-            
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 30.0, "dxfattribs": {"layer": "AD_WORKMODEL_CENTROID", "color": 1}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_CENTROID", "color": 1}})
             if label in post_xy:
                 current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_CENTROID", "color": 1}})
                 
@@ -668,10 +657,6 @@ def generate_sails_layout(project: dict) -> list:
             wz = wz_local
             workpoints_bisect_transformed[label] = (wx, wy, wz)
             
-            # Draw workpoint (bisect)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 20.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT", "color": 6}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT", "color": 6}})
-            
             # Connect corner to bisect workpoint
             if label in post_xy:
                 current_entities.append({"type": "line", "start": post_xy[label], "end": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT", "color": 6}})
@@ -693,10 +678,6 @@ def generate_sails_layout(project: dict) -> list:
             wy = wy_local
             wz = wz_local
             workpoints_bisect_rotate_transformed[label] = (wx, wy, wz)
-            
-            # Draw workpoint (bisect-rotate)
-            current_entities.append({"type": "circle", "center": (wx, wy, wz), "radius": 40.0, "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
-            current_entities.append({"type": "point", "location": (wx, wy, wz), "dxfattribs": {"layer": "AD_WORKMODEL_BISECT_ROTATE", "color": 30}})
             
             # Connect corner to bisect-rotate workpoint
             if label in post_xy:

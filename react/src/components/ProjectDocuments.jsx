@@ -15,52 +15,6 @@ export default function ProjectDocuments({ project, showToast, isStaff }) {
   // Shade sails don't need nesting data for DXF
   const canGenerateDXF = project?.product?.name !== 'COVER' || hasNestData;
 
-  const fetchDXF = async () => {
-    if (!project?.id) return;
-    try {
-      const response = await apiFetch('/project/get_dxf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `project_${project.id}.dxf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      showToast(TOAST_TAGS.DXF_DOWNLOAD_FAILED, { args: [e.message] });
-    }
-  };
-
-  const fetchPDF = async (includeBom = false) => {
-    if (!project?.id) return;
-    try {
-      const response = await apiFetch('/project/get_pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, include_bom: includeBom }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `project_${project.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      showToast(TOAST_TAGS.PDF_DOWNLOAD_FAILED, { args: [e.message] });
-    }
-  };
-
   const fetchDocument = async (docId) => {
     if (!project?.id) return;
     try {

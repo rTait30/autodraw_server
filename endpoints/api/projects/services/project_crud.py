@@ -3,7 +3,6 @@ from dateutil.parser import parse as parse_date
 from sqlalchemy.orm.attributes import flag_modified
 from integrations.workguru.product_submissions.cover.quote import cover_quote
 from models import db, Project, ProjectProduct, User, Product, ProjectStatus
-from endpoints.api.products import dispatch_document
 
 from endpoints.api.projects.services.project_integration import enrich_wg_data, submit_cover_to_workguru, submit_shade_sail_to_workguru
 from endpoints.api.projects.services.project_calculator import calculate_project_metrics, estimate_totals, generate_record_template
@@ -510,91 +509,6 @@ def list_project_products_for_editor(project_id, order_by_item_index=False):
         }
         for pp in query.all()
     ]
-
-def _serialize_project_plain(prj):
-    # Generic SQLAlchemy row -> plain dict (columns only)
-    def _row_to_dict(row):
-        out = {}
-        for k, v in dict(row.__dict__).items():
-            if k.startswith("_"):
-                continue
-            # Convert datetimes safely
-            if hasattr(v, "isoformat"):
-                try:
-                    out[k] = v.isoformat()
-                    continue
-                except Exception:
-                    pass
-            out[k] = v
-        return out
-
-    proj_dict = _row_to_dict(prj)
-
-    # Normalize product info to simple name/id for consumers
-    product_info = {
-        "id": prj.product.id if prj.product else None,
-        "name": prj.product.name if prj.product else None,
-    }
-
-    # Serialize related products rows generically
-    items = []
-    for p in prj.products:
-        # Skip deleted products
-        if getattr(p, 'deleted', False):
-            continue
-            
-        item = _row_to_dict(p)
-        # Keep only fields commonly used on the frontend
-        item = {
-            "id": item.get("id"),
-            "name": item.get("label"),
-            "productIndex": item.get("item_index"),
-            "attributes": item.get("attributes") or {},
-            "calculated": item.get("calculated") or {},
-            "autodraw_record": item.get("autodraw_record") or {},
-            "autodraw_meta": item.get("autodraw_meta") or {},
-            "status": item.get("status", "pending"),
-        }
-        items.append(item)
-
-    # Look up client_name from database
-    client_name = None
-    if prj.client_id:
-        client_user = User.query.get(prj.client_id)
-        if client_user:
-            client_name = client_user.username
-
-    # Build final plain object; include project JSON blobs untouched
-    return {
-        "id": proj_dict.get("id"),
-        "product": product_info,
-        "general": {
-            "id": proj_dict.get("id"),
-            "name": proj_dict.get("name"),
-            "client_id": proj_dict.get("client_id"),
-            "client_name": client_name,
-            "due_date": proj_dict.get("due_date"),
-            "info": proj_dict.get("info"),
-            "order_type": (prj.project_attributes or {}).get("order_type", "job"),
-            "status": prj.status.name if hasattr(prj.status, "name") else proj_dict.get("status"),
-        },
-        "project_attributes": prj.project_attributes or {},
-        "project_calculated": prj.project_calculated or {},
-        "products": items,
-    }
-
-def generate_document_for_project(user, project_id, doc_id, **kwargs):
-    project = Project.query.filter_by(id=project_id, deleted=False).first()
-    if not project:
-        raise ValueError(f"Project {project_id} not found")
-
-    if not project.product:
-        raise ValueError("Project has no product type")
-    
-    product_type = project.product.name
-    plain_project = _serialize_project_plain(project)
-    
-    return dispatch_document(product_type, doc_id, plain_project, **kwargs)
 
 def delete_project(user, project_id):
     """Mark a project as deleted (soft delete)."""

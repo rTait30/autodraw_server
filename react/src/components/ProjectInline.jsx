@@ -731,21 +731,8 @@ const ProjectInline = ({
                 </CollapsibleCard>
               )}
 
-              {/* Documents Section - Show for staff always, show for clients if they have visible documents */}
-              {!overlayMode && (isStaff || editedProject?.product?.capabilities?.documents?.length > 0) && (
-                <CollapsibleCard 
-                    title="Downloads" 
-                    defaultOpen={true}
-                    icon={
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                    }
-                >
-                     <div className="p-5">
-                        <ProjectDocuments project={editedProject} isStaff={isStaff} />
-                     </div>
-                </CollapsibleCard>
+              {!overlayMode && (
+                <ProjectDocuments project={editedProject} showToast={setToast} />
               )}
 
               {hasCalculatedOrSaved && !overlayMode && (

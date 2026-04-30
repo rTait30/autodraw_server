@@ -277,28 +277,35 @@ def get_clients():
 
 
 
-@projects_api_bp.route("/project/generate_document", methods=["POST"])
+@projects_api_bp.route("/project/<int:project_id>/documents", methods=["GET"])
 @role_required()
-def generate_document():
-    """
-    Body: { "project_id": 123, "doc_id": "initial_drawing", ... }
-    """
-    payload = request.get_json(silent=True) or {}
-    project_id = payload.get("project_id")
-    doc_id = payload.get("doc_id")
-    
-    if not project_id or not doc_id:
-        return jsonify({"error": "project_id and doc_id are required"}), 400
-
+def list_project_documents(project_id):
     user = current_user(required=True)
-    
-    # Pass all other payload keys as kwargs
-    kwargs = {k: v for k, v in payload.items() if k not in ("project_id", "doc_id")}
-
     try:
-        return project_service.generate_document_for_project(user, project_id, doc_id, **kwargs)
+        return jsonify(project_service.list_project_documents(user, project_id)), 200
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        print(f"Document list failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@projects_api_bp.route("/project/<int:project_id>/documents/<doc_id>", methods=["POST"])
+@role_required()
+def generate_project_document(project_id, doc_id):
+    user = current_user(required=True)
+    payload = request.get_json(silent=True) or {}
+    try:
+        return project_service.generate_project_document(user, project_id, doc_id, **payload)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        status = 404 if "not found" in str(e).lower() else 400
+        return jsonify({"error": str(e)}), status
     except Exception as e:
         print(f"Document generation failed: {e}")
         import traceback

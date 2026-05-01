@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from 'react-redux';
 
 import { GeneralSection } from "./GeneralSection";
@@ -16,21 +16,6 @@ const DEFAULT_GENERAL = {
   order_type: "job",
   // Add other default fields as needed
 };
-
-// normalizeAttributes supports:
-// - productsHydrate = [ { name, id, attributes: {...} }, ... ]
-// - productsHydrate = { products: [ {...}, {...} ] }
-// - productsHydrate = { ... } (single object)
-function normalizeAttributes(productsHydrate) {
-  if (!productsHydrate) return [];
-  if (typeof productsHydrate === "object" && Array.isArray(productsHydrate.products)) {
-    return productsHydrate.products;
-  }
-  if (Array.isArray(productsHydrate)) return productsHydrate;
-  if (typeof productsHydrate === "object" && Object.keys(productsHydrate).length > 0)
-    return [productsHydrate];
-  return [];
-}
 
 /* 
   Define styles for the dynamically imported form wrapper here.
@@ -125,58 +110,9 @@ export default function ProjectForm({
       ? { ...wg }
       : { tenant: 'Copelands', project_number: '' };
   });
-
-  // WorkGuru lookup result state
   const [wgLookupResult, setWgLookupResult] = useState(null);
+  const handleWorkguruLookup = () => {};
 
-  // WorkGuru lookup stub function
-  const handleWorkguruLookup = async () => {
-    const tenantCode = wgData.tenant === 'Copelands' ? 'CP' : 'DR';
-    const projectNum = wgData.project_number;
-    console.log('[WorkGuru Lookup] Tenant:', tenantCode, 'Project Number:', projectNum);
-    
-      //TODO: Replace with actual API call
-      //Example structure - the API should return data like this:
-    const response = await apiFetch('/api/workguru/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenant: tenantCode, project_number: projectNum }),
-    });
-    const data = await response.json();
-    
-    // Stub response for testing - replace with actual API response
-    /*
-    const data = {
-      client_name: 'Example Client',
-      project_name: 'Example Project',
-      address: '123 Example St',
-      // Add other fields you want from the API
-    };
-    */
-    
-    // Extract only the fields you want to save
-    const fieldsToSave = {
-      client_name: data.client_name,
-      project_name: data.project_name,
-      address: data.address,
-      // Add more fields as needed
-    };
-    
-    // Merge into wgData (preserving tenant and project_number)
-    setWgData(prev => ({
-      ...prev,
-      ...fieldsToSave,
-    }));
-    
-    // Store result for display
-    setWgLookupResult(fieldsToSave);
-    
-    showToast(`WorkGuru lookup complete for ${tenantCode}-${projectNum}`);
-  };
-  const normalizedProducts = useMemo(
-    () => normalizeAttributes(rehydrate?.products),
-    [rehydrate]
-  );
   const [showRehydrateBox, setShowRehydrateBox] = useState(false);
   const [rehydrateText, setRehydrateText] = useState("");
   const [toast, setToast] = useState(null);
@@ -192,25 +128,24 @@ export default function ProjectForm({
   // Get devMode from Redux
   const devMode = useSelector(state => state.toggles.devMode);
 
-  const makeEntry = useCallback((attrs, productIndex) => {
-    return { productIndex, attributesHydrate: attrs ?? undefined };
+  const makeEntry = useCallback((product, productIndex) => {
+    return {
+      productIndex,
+      name: product?.name ?? `Item ${productIndex + 1}`,
+      attributes: product?.attributes ?? undefined,
+    };
   }, []);
 
   const initialRef = useRef(null);
   if (initialRef.current === null) {
     console.log("[ProjectForm] Initializing items from rehydrate:", rehydrate);
-    const base = normalizedProducts.length > 0 ? normalizedProducts : [undefined];
+    const base = Array.isArray(rehydrate?.products) && rehydrate.products.length > 0
+      ? rehydrate.products
+      : [null];
     initialRef.current = base.map((prod, idx) => {
-      console.log(`[ProjectForm] Processing item ${idx}:`, prod);
-      if (prod && typeof prod === "object" && prod.attributes) {
-          const entry = { ...makeEntry(prod.attributes, idx), name: prod.name ?? `Item ${idx + 1}` };
-          console.log(`[ProjectForm] Created entry (with attributes):`, entry);
-          return entry;
-      } else {
-          const entry = { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
-           console.log(`[ProjectForm] Created entry (direct/default):`, entry);
-           return entry;
-      }
+      const entry = makeEntry(prod, prod?.productIndex ?? idx);
+      console.log(`[ProjectForm] Created entry:`, entry);
+      return entry;
     });
   }
 
@@ -225,7 +160,7 @@ export default function ProjectForm({
 
   const addItem = useCallback(() => {
     const newIndex = items.length;
-    const newItem = { ...makeEntry(undefined, newIndex), name: `Item ${newIndex + 1}` };
+    const newItem = makeEntry(null, newIndex);
     setItems((prev) => [...prev, newItem]);
     setActiveIndex(newIndex);
   }, [makeEntry, items.length]);
@@ -336,9 +271,6 @@ export default function ProjectForm({
     setItems((prev) => prev.map((it) => it.productIndex === productIndex ? { ...it, name: value } : it));
   };
 
-  // Do not overwrite blank tab names; just show default visually
-  const handleTabNameBlur = () => {};
-
   let role = localStorage.getItem("role");
 
   
@@ -378,7 +310,7 @@ export default function ProjectForm({
       )}
 
       {/* WorkGuru Data Section */}
-      {(role === "admin" || role === "estimator" || role === "designer") && false && (
+      {role === "__disabled_workguru_lookup__" && (
         <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4 dark:bg-gray-800 dark:border-gray-700">
           <h3 className="mb-4 text-base font-semibold dark:text-white">
             WorkGuru Data
@@ -527,12 +459,12 @@ export default function ProjectForm({
                     
                     <div className={PRODUCT_FORM_WRAPPER_CLASSES}>
                       {ProductForm && (
-                          <ProductForm
-                            formRef={ref}
-                            hydrate={it.attributesHydrate}
-                            {...productProps}
-                            currentOrderType={currentOrderType}
-                          />
+                        <ProductForm
+                          formRef={ref}
+                          hydrate={it.attributes}
+                          {...productProps}
+                          currentOrderType={currentOrderType}
+                        />
                       )}
                     </div>
                   </div>
@@ -582,17 +514,10 @@ export default function ProjectForm({
                           } else {
                             setProjectData({});
                           }
-                          // Items
-                          const base = normalizeAttributes(obj.products);
-                          const newItems = base.length > 0
-                            ? base.map((prod, idx) => {
-                                if (prod && typeof prod === "object" && prod.attributes) {
-                                  return { ...makeEntry(prod.attributes, idx), name: prod.name ?? `Item ${idx + 1}` };
-                                } else {
-                                  return { ...makeEntry(prod, idx), name: `Item ${idx + 1}` };
-                                }
-                              })
-                            : [undefined];
+                          const base = Array.isArray(obj.products) && obj.products.length > 0
+                            ? obj.products
+                            : [null];
+                          const newItems = base.map((prod, idx) => makeEntry(prod, prod?.productIndex ?? idx));
                           setItems(newItems);
                           setActiveIndex(newItems?.[0]?.productIndex ?? 0);
                         }

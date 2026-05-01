@@ -174,6 +174,7 @@ export function ProductForm({ formRef }) {
       getValues: () => ({
         attributes: {},
       }),
+      validate: () => ({ valid: true, errors: [] }),
     }),
     []
   );

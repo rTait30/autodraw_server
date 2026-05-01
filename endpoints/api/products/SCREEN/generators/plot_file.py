@@ -147,10 +147,6 @@ def generate_dxf(project: dict, download_name: str):
     doc, msp = new_doc_mm()
     
     products = project.get('products', [])
-    
-    # Fallback for legacy/testing structure
-    if not products and 'width' in project:
-        products = [{'attributes': project, 'calculated': {}, 'name': 'Screen'}]
 
     offset_x = 0
     GAP = 500.0  # mm between items

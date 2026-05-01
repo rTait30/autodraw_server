@@ -16,7 +16,18 @@ def _row_to_dict(row):
     return out
 
 
-def serialize_project_plain(project):
+def _status_value(project):
+    return project.status.name if hasattr(project.status, "name") else project.status
+
+
+def _client_name(client_id):
+    if not client_id:
+        return None
+    client_user = User.query.get(client_id)
+    return client_user.username if client_user else None
+
+
+def serialize_project(project, *, include_schema=False):
     project_dict = _row_to_dict(project)
 
     product_info = {
@@ -25,7 +36,7 @@ def serialize_project_plain(project):
     }
 
     items = []
-    for product in project.products:
+    for product in sorted(project.products, key=lambda row: row.item_index if row.item_index is not None else 0):
         if getattr(product, "deleted", False):
             continue
 
@@ -41,26 +52,45 @@ def serialize_project_plain(project):
             "status": item.get("status", "pending"),
         })
 
-    client_name = None
-    if project.client_id:
-        client_user = User.query.get(project.client_id)
-        if client_user:
-            client_name = client_user.username
-
-    return {
+    data = {
         "id": project_dict.get("id"),
         "product": product_info,
         "general": {
             "id": project_dict.get("id"),
             "name": project_dict.get("name"),
             "client_id": project_dict.get("client_id"),
-            "client_name": client_name,
+            "client_name": _client_name(project.client_id),
             "due_date": project_dict.get("due_date"),
             "info": project_dict.get("info"),
             "order_type": (project.project_attributes or {}).get("order_type", "job"),
-            "status": project.status.name if hasattr(project.status, "name") else project_dict.get("status"),
+            "status": _status_value(project),
         },
         "project_attributes": project.project_attributes or {},
-        "project_calculated": project.project_calculated or {},
         "products": items,
+    }
+
+    if include_schema:
+        data["estimate_schema"] = project.estimate_schema or {}
+        data["estimate_schema_evaluated"] = project.estimate_schema_evaluated or {}
+
+    return data
+
+
+def serialize_project_summary(project):
+    return {
+        "id": project.id,
+        "product": {
+            "id": project.product.id if project.product else None,
+            "name": project.product.name if project.product else None,
+        },
+        "general": {
+            "id": project.id,
+            "name": project.name,
+            "client_id": project.client_id,
+            "client_name": _client_name(project.client_id),
+            "due_date": project.due_date.isoformat() if project.due_date else None,
+            "info": project.info,
+            "order_type": (project.project_attributes or {}).get("order_type", "job"),
+            "status": _status_value(project),
+        },
     }

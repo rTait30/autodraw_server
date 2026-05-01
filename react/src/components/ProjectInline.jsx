@@ -8,16 +8,12 @@ import SimpleEstimateTable from './SimpleEstimateTable';
 import ProjectDocuments from './ProjectDocuments';
 import Toast from './Toast';
 import { apiFetch } from '../services/auth';
-import { TOAST_TAGS } from "../config/toastRegistry";
 import { Button } from './UI';
 import { useNavigate } from 'react-router-dom';
 import CollapsibleCard from './CollapsibleCard';
 import PageHeader from './PageHeader';
-import ConfirmOverlay from './ConfirmOverlay';
 import OverlayShell from './OverlayShell';
 import ProductSelector from './ProductSelector';
-
-import { discardDraftAndCloseInline } from '../utils/draft';
 
 const normalizeOrderType = (value) => (value === 'quote' ? 'quote' : 'job');
 
@@ -25,9 +21,6 @@ const mergeGeneral = (...sources) => {
   const merged = Object.assign({}, ...sources.filter(Boolean));
   return merged;
 };
-
-// Helper to load dynamic form components (used internally by ProjectForm now)
-// async function loadTypeResources(type) { ... } REMOVED
 
 const ProjectInline = ({
   project = null,
@@ -48,7 +41,6 @@ const ProjectInline = ({
   // Local state for the "working copy"
   const [editedProject, setEditedProject] = useState(project);
   const [hasCalculatedOrSaved, setHasCalculatedOrSaved] = useState(!isNew);
-  // const [Form, setForm] = useState(null); // REMOVED
   const [toggleData, setToggleData] = useState(false);
   const [overlayMode, setOverlayMode] = useState(null); // 'preview' | 'confirm' | 'success' | null
   const [isCalculating, setIsCalculating] = useState(false);
@@ -56,17 +48,13 @@ const ProjectInline = ({
   // Estimate / Schema State
   const [schema, setSchema] = useState(null);
   const [editedSchema, setEditedSchema] = useState(null);
-  const [estimateVersion, setEstimateVersion] = useState(0);
   const [currentEstimateTotal, setCurrentEstimateTotal] = useState(0);
-  const [toggleSchemaEditor, setToggleSchemaEditor] = useState(false);
 
   // Autosave status state
   const [lastAutoSaved, setLastAutoSaved] = useState(null);
   const [savedIndicatorVisible, setSavedIndicatorVisible] = useState(false);
   // With the editor kept mounted in-memory, we can write to localStorage less frequently.
   const [saveInterval, setSaveInterval] = useState(30000);
-
-  const [replaceConfirm, setReplaceConfirm] = useState({ show: false });
 
   // Reduce autosave frequency after 1 minute
   useEffect(() => {
@@ -98,13 +86,35 @@ const ProjectInline = ({
   const isAdminOrEstimator = ['estimator', 'admin'].includes(role);
   const isStaff = ['estimator', 'admin', 'designer'].includes(role);
 
+  const renderPreview = useCallback(async (proj) => {
+    const canvas = overlayMode === 'preview' ? dialogCanvasRef.current : inlineCanvasRef.current;
+    if (!canvas || !proj) return;
+    const productName = (proj.product?.name || '').toUpperCase();
+
+    try {
+      const module = await import(`./products/${productName}/Display.js`);
+      if (typeof module.render === 'function') {
+        module.render(canvas, {
+          general: mergeGeneral(proj.general),
+          products: proj.products || [],
+          project_attributes: proj.project_attributes || {},
+        });
+      }
+    } catch (e) {
+      console.warn('No display module found or render failed', e);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, 800, 300);
+      ctx.fillStyle = '#666';
+      ctx.fillText('Preview not available', 20, 30);
+    }
+  }, [overlayMode]);
+
   // Load type-specific form & schema when project changes
   useEffect(() => {
     setEditedProject(project);
     setHasCalculatedOrSaved(!isNew);
     if (!project) return;
-    // loadFormForProject(project); // Legacy loader removed
-    
     // Load schema
     // Use the source of truth (formulas) for editing
     // The evaluated schema is passed separately for display
@@ -114,7 +124,7 @@ const ProjectInline = ({
 
     // Reset overlay mode when project prop changes (e.g. switching projects)
     setOverlayMode(null);
-  }, [project]);
+  }, [project, isNew]);
 
   // Ensure visualization updates when project data or visibility changes
   useEffect(() => {
@@ -126,23 +136,8 @@ const ProjectInline = ({
     if (!isCalculating && hasCalculatedOrSaved && editedProject && activeCanvas && shouldRender) {
         renderPreview(editedProject);
     }
-  }, [hasCalculatedOrSaved, editedProject, overlayMode, isCalculating]);
+  }, [hasCalculatedOrSaved, editedProject, overlayMode, isCalculating, renderPreview]);
 
-  // Helper to load form - REMOVED (Handled by ProjectForm)
-  /*
-  const loadFormForProject = (proj) => {
-    const productName = proj?.product?.name || proj?.type?.name;
-    if (productName) {
-      loadTypeResources(productName).then(({ Form }) => setForm(() => Form));
-    } else {
-      setForm(null);
-    }
-  };
-  */
-
-  // Select Product Handler (for New Projects)
-  // const handleSelectProduct = (product) => { ... } // MOVED TO PARENT
-    
   // Reset canvas when project changes
   useEffect(() => {
     const canvases = [inlineCanvasRef.current, dialogCanvasRef.current].filter(Boolean);
@@ -211,7 +206,7 @@ const ProjectInline = ({
     if (!currentData) return;
 
     // Basic validity check - don't save empty shells if not useful
-    if (!currentData.product && !currentData.type) return;
+    if (!currentData.product?.id) return;
 
     try {
       const draft = {
@@ -263,7 +258,7 @@ const ProjectInline = ({
       const payload = {
         // If updating, include ID so backend can find existing schema
         ...(isNew ? {} : { id: base.id }),
-        product_id: base.product_id || base.product?.id,
+        product: base.product,
         general: mergeGeneral(base.general),
         project_attributes: base.project_attributes || {},
         products: base.products || [],
@@ -280,15 +275,13 @@ const ProjectInline = ({
       
       const result = await res.json();
       
-      // Merge result but preserve product/type objects if backend returns incomplete data
       setHasCalculatedOrSaved(true);
       const updated = { 
           ...base,
           ...result,
           general: mergeGeneral(base.general, result.general),
           products: result.products || base.products,
-          product: result.product || base.product, // Preserve product object
-          type: result.type || base.type           // Preserve type object
+          product: result.product,
       };
       
       setEditedProject(updated);
@@ -385,7 +378,7 @@ const ProjectInline = ({
       const payload = {
         // If updating, include ID
         ...(isCreating ? {} : { id: effectiveId }),
-        product_id: base.product_id || base.product?.id,
+        product: base.product,
         general: mergeGeneral(base.general),
         project_attributes: base.project_attributes || {},
         products: base.products || [],
@@ -416,18 +409,13 @@ const ProjectInline = ({
         return;
       }
 
-      // If new, json is the full object. If edit, json might have { project: ... } or just be the project
-      // Standardize response handling
-      // Ensure we preserve the product/type info from existing state if missing in response (to prevent unmount)
-      const serverData = json?.project || json || {};
+      const serverData = json || {};
       setHasCalculatedOrSaved(true);
       const updatedProject = { 
            ...base, 
            ...serverData,
          general: mergeGeneral(base.general, serverData.general),
-           // Preserve nested objects if missing in server response but present in base
-           product: serverData.product || base.product || editedProject?.product,
-           type: serverData.type || base.type || editedProject?.type,
+           product: serverData.product,
       };
 
       console.log('Updated project:', updatedProject);
@@ -486,31 +474,6 @@ const ProjectInline = ({
     }
   };
 
-  const renderPreview = useCallback(async (proj) => {
-    const canvas = overlayMode === 'preview' ? dialogCanvasRef.current : inlineCanvasRef.current;
-    if (!canvas || !proj) return;
-    const productName = (proj.product?.name || proj.type?.name || '').toUpperCase();
-    
-    try {
-      const module = await import(`./products/${productName}/Display.js`);
-      if (typeof module.render === 'function') {
-        module.render(canvas, {
-          general: mergeGeneral(proj.general),
-          products: proj.products || [],
-          project_attributes: proj.project_attributes || {},
-        });
-      }
-    } catch (e) {
-      console.warn('No display module found or render failed', e);
-      // Fallback text
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#f3f4f6';
-      ctx.fillRect(0,0,800,300);
-      ctx.fillStyle = '#666';
-      ctx.fillText('Preview not available', 20, 30);
-    }
-  }, [overlayMode]);
-
   const handlePreviewReady = useCallback(() => {
     if (!editedProject || isCalculating) return;
     renderPreview(editedProject);
@@ -527,44 +490,10 @@ const ProjectInline = ({
 
   // Schema Handlers
   const handleSchemaCheck = (next) => setEditedSchema(next);
-  const handleSchemaReturn = () => setEditedSchema(schema);
-  const handleSchemaSubmit = (next) => {
-    console.log('[Schema submit] (stub):', next);
-    //showToast(TOAST_TAGS.SCHEMA_SUBMIT_NOT_IMPLEMENTED);
-    setToast({
-        message: 'Schema submit not implemented yet; preview uses the edited schema.',
-        type: "error",
-        duration: 4000,
-      });
-  };
-  
-  // Bump version on schema change
-  useEffect(() => {
-    setEstimateVersion(v => v + 1);
-  }, [editedSchema]);
-
   const closeOverlay = () => setOverlayMode(null);
   
   const handleReturnToProjects = () => {
       navigate('/copelands/projects');
-  };
-
-  const handleStartNewProject = () => {
-    setReplaceConfirm({ show: true });
-  };
-
-  const cancelReplaceConfirm = () => setReplaceConfirm({ show: false });
-  const confirmReplaceConfirm = () => {
-    setReplaceConfirm({ show: false });
-
-    // Ensure draft is discarded and any bottom-bar inline editor is shut down.
-    discardDraftAndCloseInline();
-
-    // Close this editor (GeneralBottomBar portal or Projects page inline).
-    onClose({ discardDraft: true });
-
-    // Use the existing Projects new flow.
-    navigate('/copelands/projects?new=true');
   };
 
   // Fetch products if missing when needing to select one
@@ -584,7 +513,7 @@ const ProjectInline = ({
     : overlayMode === 'success'
       ? 'Success'
       : 'View Preview';
-  const productName = editedProject?.product?.name || editedProject?.type?.name;
+  const productName = editedProject?.product?.name;
   const primaryActionLabel = editedProject?.id ? 'View / Edit' : 'View / Submit';
 
   const onCloseSelect = () => {
@@ -604,7 +533,8 @@ const ProjectInline = ({
       setEditedProject({
         product,
         general: { name: "New Project" },
-        status: "New",
+        products: [],
+        project_attributes: {},
       });
     };
 
@@ -631,16 +561,6 @@ const ProjectInline = ({
 
 
     <div className="fixed top-0 left-0 right-0 z-[40] flex flex-col bg-white dark:bg-gray-900 transition-opacity overflow-hidden pb-4" style={{ bottom: 'var(--bottom-nav-height, 85px)' }}>
-
-      <ConfirmOverlay
-        show={replaceConfirm.show}
-        title="Start New Project?"
-        message="Start a new project? This will discard any unsaved changes and replace your saved draft."
-        confirmLabel="Start New"
-        confirmVariant="danger"
-        onCancel={cancelReplaceConfirm}
-        onConfirm={confirmReplaceConfirm}
-      />
 
       {/* Header Bar - includeNav={false} because parent layout already has Nav */}
       <PageHeader
@@ -722,8 +642,7 @@ const ProjectInline = ({
                         onTotalChange={setCurrentEstimateTotal} 
                         onChange={handleSchemaCheck}
                         onRecost={handleCheck}
-                        projectId={editedProject?.id}
-                        productId={editedProject?.product?.id || editedProject?.product_id || editedProject?.type?.id}
+                        product={editedProject?.product}
                         canSaveTemplate={isAdminOrEstimator}
                         devMode={devMode}
                       />
@@ -732,13 +651,18 @@ const ProjectInline = ({
               )}
 
               {!overlayMode && (
-                <ProjectDocuments project={editedProject} showToast={setToast} />
+                <ProjectDocuments
+                  project={editedProject}
+                  showToast={setToast}
+                  getProjectSnapshot={syncEditedFromForm}
+                />
               )}
 
               {hasCalculatedOrSaved && !overlayMode && (
                 <div className="bg-white dark:bg-gray-800 rounded-sm shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <ProjectOverlay
                     canvasRef={inlineCanvasRef}
+                    onPreviewReady={handlePreviewReady}
                     project={editedProject}
                     productName={productName}
                     devMode={devMode}

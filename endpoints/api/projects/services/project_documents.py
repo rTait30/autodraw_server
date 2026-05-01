@@ -1,6 +1,6 @@
 from models import Project
 from endpoints.api.products import dispatch_document, get_product_documents
-from endpoints.api.projects.services.project_serialization import serialize_project_plain
+from endpoints.api.projects.services.project_serialization import serialize_project
 
 
 STAFF_ROLES = {"admin", "estimator", "designer"}
@@ -77,5 +77,21 @@ def generate_project_document(user, project_id, doc_id, **kwargs):
     if document.get("disabled"):
         raise ValueError(document.get("reason") or "Document is not ready")
 
-    plain_project = serialize_project_plain(project)
+    payload_project = kwargs.pop("project", None)
+    if isinstance(payload_project, dict):
+        plain_project = {
+            **payload_project,
+            "id": project.id,
+            "product": {
+                "id": project.product.id,
+                "name": project.product.name,
+            },
+            "general": {
+                **(payload_project.get("general") or {}),
+                "id": project.id,
+            },
+        }
+    else:
+        plain_project = serialize_project(project)
+
     return dispatch_document(project.product.name, doc_id, plain_project, **kwargs)

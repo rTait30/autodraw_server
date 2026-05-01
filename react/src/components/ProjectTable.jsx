@@ -29,16 +29,19 @@ export default function ProjectTable({ projects = [], onOpen, renderActions }) {
     ...(!isClient ? [{ 
         header: 'Client', 
         accessor: 'client',
+        render: (project) => project.general?.client_name || '',
         headerClassName: 'w-1/4 min-w-[150px]' 
     }] : []),
     { 
         header: 'Name', 
         accessor: 'name',
+        render: (project) => project.general?.name || 'Untitled',
         headerClassName: 'w-auto' 
     },
     { 
         header: 'Type', 
-        accessor: 'type',
+        accessor: 'product',
+        render: (project) => project.product?.name || '',
         headerClassName: 'w-32'
     },
     { 
@@ -46,8 +49,8 @@ export default function ProjectTable({ projects = [], onOpen, renderActions }) {
       accessor: 'status',
       headerClassName: 'w-32',
       render: (project) => (
-        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(project.status)}`}>
-          {project.status}
+        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(project.general?.status)}`}>
+          {project.general?.status}
         </span>
       )
     },
@@ -73,13 +76,13 @@ export default function ProjectTable({ projects = [], onOpen, renderActions }) {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">ID: {project.id}</span>
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">{project.name || "Untitled"}</h3>
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">{project.general?.name || "Untitled"}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                    getStatusColor(project.status)
+                    getStatusColor(project.general?.status)
                   }`}>
-                    {project.status}
+                    {project.general?.status}
                   </span>
                   {(renderActions) && (
                     <div className="flex items-center gap-1">
@@ -93,12 +96,12 @@ export default function ProjectTable({ projects = [], onOpen, renderActions }) {
                 {!isClient && (
                   <div>
                     <span className="text-gray-500 text-xs block">Client</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{project.client}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{project.general?.client_name}</span>
                   </div>
                 )}
                 <div className={isClient ? "col-span-2" : ""}>
                   <span className="text-gray-500 text-xs block">Type</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-200">{project.type}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">{project.product?.name}</span>
                 </div>
               </div>
             </div>

@@ -615,7 +615,7 @@ def generate_sails_layout(project: dict) -> list:
                 mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
                 mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
                 mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
-                edge_label = f"{a}{b}\n{int(round(length))}mm"
+                edge_label = f"{chr(65 + int(a))}{chr(65 + int(b))}\n{int(round(length))}mm"
                 current_entities.append({"type": "mtext", "text": edge_label, "dxfattribs": {"layer": "AD_PEN", "char_height": 80, "color": 3, "bg_fill": 1, "bg_fill_color": 7}, "location": (mid_x, mid_y, mid_z), "attachment_point": 5})
 
         # Diagonals
@@ -625,7 +625,7 @@ def generate_sails_layout(project: dict) -> list:
                 mid_x = (post_xy[a][0] + post_xy[b][0]) / 2
                 mid_y = (post_xy[a][1] + post_xy[b][1]) / 2
                 mid_z = (post_xy[a][2] + post_xy[b][2]) / 2
-                diag_label = f"{a}{b}\n{int(round(length))}mm"
+                diag_label = f"{chr(65 + int(a))}{chr(65 + int(b))}\n{int(round(length))}mm"
                 current_entities.append({"type": "mtext", "text": diag_label, "dxfattribs": {"layer": "AD_PEN", "char_height": 60, "color": 8, "bg_fill": 1, "bg_fill_color": 7}, "location": (mid_x, mid_y, mid_z), "attachment_point": 5})
 
         # Workpoints (Centroid)

@@ -437,11 +437,9 @@ export default function ProjectConfirmation({ project, productName }) {
       generalSection: nextGeneralSection,
       projectAttributes: nextProjectAttributes,
       products: nextProducts,
-      summaryName: nextGeneralSection.name || hiddenProject.general?.name || hiddenProject.name || '-',
+      summaryName: nextGeneralSection.name || hiddenProject.general?.name || '-',
       summaryProduct:
-        hiddenProject.general?.product_name ||
-        hiddenProject.general?.product ||
-        hiddenProject.product_name ||
+        hiddenProject.product?.name ||
         productName ||
         '-',
     };

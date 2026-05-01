@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from endpoints.api.auth.utils import current_user, role_required
 from endpoints.api.products import get_product_capabilities
 from endpoints.api.projects.services import project_service
+from endpoints.api.projects.services.project_serialization import serialize_project
 
 
 projects_api_bp = Blueprint("projects_api", __name__)
@@ -50,35 +51,7 @@ def save_project_config():
         traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
 
-    resp_product = (
-        {"id": project.product.id, "name": project.product.name}
-        if project.product else None
-    )
-    resp_status = project.status.name if hasattr(project.status, "name") else project.status
-    
-    products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=False)
-
-    pa = project.project_attributes or {}
-    create_order_type = pa.get("order_type", "job")
-
-    return jsonify({
-        "id": project.id,
-        "client_id": project.client_id,
-        "product": resp_product,
-        "status": resp_status,
-        "general": {
-            "id": project.id,
-            "name": project.name,
-            "client_id": project.client_id,
-            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
-            "info": project.info,
-            "status": resp_status,
-            "order_type": create_order_type,
-        },
-        "project_attributes": project.project_attributes,
-        "project_calculated": project.project_calculated,
-        "products": products_out,
-    }), 200
+    return jsonify(serialize_project(project, include_schema=user.role in ("admin", "estimator"))), 200
 
 
 @projects_api_bp.route("/products/edit/<int:project_id>", methods=["PUT", "PATCH", "POST"])
@@ -102,33 +75,7 @@ def upsert_project_and_attributes(project_id):
         traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
 
-    products_out = project_service.list_project_products_for_editor(project.id, order_by_item_index=True)
-
-    update_pa = project.project_attributes or {}
-    update_order_type = update_pa.get("order_type", "job")
-
-    return jsonify({
-        "ok": True,
-        "project": {
-            "id": project.id,
-            "name": project.name,
-            "client_id": project.client_id,
-            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
-            "info": project.info,
-            "order_type": update_order_type,
-        },
-        "general": {
-            "id": project.id,
-            "name": project.name,
-            "client_id": project.client_id,
-            "due_date": project.due_date.isoformat() if hasattr(project.due_date, "isoformat") else project.due_date,
-            "info": project.info,
-            "order_type": update_order_type,
-        },
-        "project_attributes": project.project_attributes,
-        "project_calculated": project.project_calculated,
-        "products": products_out,
-    }), 200
+    return jsonify(serialize_project(project, include_schema=user.role in ("admin", "estimator"))), 200
 
 
 # -------------------------------
@@ -189,68 +136,7 @@ def get_project_config(project_id):
         print(f"Error getting project: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-    # --- Basic project info (general) ---
-    # Look up client_name from database
-    client_name = None
-    if project.client_id:
-        from models import User
-        client_user = User.query.get(project.client_id)
-        if client_user:
-            client_name = client_user.username
-
-    # Recover order_type from project_attributes (where it is persisted)
-    pa = project.project_attributes or {}
-    order_type = pa.get("order_type", "job")
-
-    general = {
-        "id": project.id,
-        "name": project.name,
-        "client_id": project.client_id,
-        "client_name": client_name,
-        "due_date": project.due_date.isoformat() if project.due_date else None,
-        "info": project.info,
-        "status": project.status.name if hasattr(project.status, "name") else project.status,
-        "order_type": order_type,
-    }
-
-    # --- Product info ---
-    # Staff (admin, estimator, designer) can see all documents; clients only see client_visible ones
-    is_staff = user.role in ("admin", "estimator", "designer")
-    product_info = {
-        "id": project.product.id if project.product else None,
-        "name": project.product.name if project.product else None,
-        "capabilities": get_product_capabilities(project.product.name, include_staff_only=is_staff) if project.product else {},
-    }
-
-    # --- Items (covers, sails, etc.) ---
-    items = []
-    for p in project.products:
-        if not p.deleted:  # Only include non-deleted products
-            items.append({
-                "id": p.id,
-                "name": p.label,
-                "productIndex": p.item_index,
-                "attributes": p.attributes or {},
-                "calculated": p.calculated or {},
-            })
-
-    # --- Response payload ---
-    data = {
-        "id": project.id,
-        "product": product_info,
-        "general": general,
-        "project_attributes": project.project_attributes or {},
-        "project_calculated": project.project_calculated or {},
-        "products": items,
-    }
-
-    # --- Include schema for privileged roles ---
-    if user.role in ("admin", "estimator"):
-        data["estimate_schema"] = project.estimate_schema or {}
-        # Also send the evaluated schema (with resolved numbers)
-        data["estimate_schema_evaluated"] = project.estimate_schema_evaluated or {}
-
-    return jsonify(data), 200
+    return jsonify(serialize_project(project, include_schema=user.role in ("admin", "estimator"))), 200
 
 
 
@@ -337,13 +223,13 @@ def delete_project(project_id):
 # -------------------------------
 # Delete project product (soft delete - mark as deleted)
 # -------------------------------
-@projects_api_bp.route("/project/product/<int:product_id>", methods=["DELETE"])
+@projects_api_bp.route("/project/product/<int:project_product_id>", methods=["DELETE"])
 @role_required()
-def delete_project_product(product_id):
+def delete_project_product(project_product_id):
     user = current_user(required=True)
     
     try:
-        project_service.delete_project_product(user, product_id)
+        project_service.delete_project_product(user, project_product_id)
     except ValueError as e:
         if str(e) in ["Project product not found", "Project not found"]:
             return jsonify({"error": str(e)}), 404

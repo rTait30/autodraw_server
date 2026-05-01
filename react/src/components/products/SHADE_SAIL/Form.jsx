@@ -571,7 +571,7 @@ export function ProductForm({
                         </FormGrid>
                         <div className="mt-3">
                           <CheckboxInput
-                            label="Cutout"
+                            label="Obstacle Cutout"
                             checked={Boolean(edgeCutout)}
                             onChange={(checked) => toggleEdgeCutout(u, v, checked)}
                           />
@@ -579,13 +579,13 @@ export function ProductForm({
                         {edgeCutout && (
                           <div className="mt-3 rounded-lg border border-gray-300 p-3">
                             <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Cutout Dimensions
+                              Obstacle Cutout Dimensions
                             </div>
                             <FormGrid columns={2}>
                               <NumberInput
                                 nav={nav}
                                 name={`edge-cutout-${u}-${v}-${u}`}
-                                label={`Distance to Cutout Edge from ${getLabel(u)}`}
+                                label={`Distance to Obstacle Cutout Edge from ${getLabel(u)}`}
                                 mandatory={true}
                                 min={0}
                                 value={toDisplay(getEdgeCutoutDistance(u, v, u))}
@@ -595,7 +595,7 @@ export function ProductForm({
                               <NumberInput
                                 nav={nav}
                                 name={`edge-cutout-${u}-${v}-${v}`}
-                                label={`Distance to Cutout Edge from ${getLabel(v)}`}
+                                label={`Distance to Obstacle Cutout Edge from ${getLabel(v)}`}
                                 mandatory={true}
                                 min={0}
                                 value={toDisplay(getEdgeCutoutDistance(u, v, v))}

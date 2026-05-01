@@ -1,17 +1,10 @@
-# services/automation_service.py
-
-import json
 from datetime import datetime, timezone
-from pydantic import ValidationError
-# Import your Pydantic models (adjust path as needed)
-# from schemas.automation import ProductRecord 
-from models import db, Project, Product
+from models import db, Project
 from sqlalchemy.orm.attributes import flag_modified
 
 import importlib
-import re
 
-def generate_record_template(product_id: str, product_type: str, config: dict) -> dict:
+def generate_record_template(config: dict) -> dict:
     """
     Internal Helper: Generates the blank 'autodraw_record' dictionary.
     """
@@ -87,9 +80,7 @@ def initialize_automation(project_id: int):
     # 3. Generate the Template
     try:
         new_record = generate_record_template(
-            product_id=product.id,
-            product_type=product.name, # Adjust attribute name as needed
-            config=product.autodraw_config
+            product.autodraw_config
         )
     except Exception as e:
         return None, f"Failed to generate record template: {str(e)}"

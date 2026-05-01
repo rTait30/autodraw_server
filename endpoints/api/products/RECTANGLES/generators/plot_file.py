@@ -16,6 +16,8 @@ def generate(project, **kwargs):
     """
     Generates a DXF plot file for the RECTANGLES product.
     """
+    from endpoints.api.products.RECTANGLES.calculations import calculate as _calculate
+    _calculate(project)
     filename = f"PLOT_{project.get('id', 'project')}.dxf"
     return generate_dxf(project, filename)
 
@@ -112,7 +114,6 @@ def generate_dxf(project, download_name: str):
     nested_panels = project_attrs.get("nested_panels") or {}
     rolls = nest.get("rolls") or []
     bin_h = float(nest.get("bin_height") or nest.get("fabric_height") or 0)
-    rectangles_raw = project_attrs.get("rectangles") or []
 
     if not rolls:
         msp.add_text(
@@ -121,23 +122,13 @@ def generate_dxf(project, download_name: str):
         ).set_placement((100, 100))
         return _save_and_send(doc, download_name)
 
-    # Build a cornerRadius lookup from the original rectangles array (by index)
-    # as a fallback for older projects calculated before cornerRadius was added
-    cr_by_index = {}
-    for i, rect in enumerate(rectangles_raw):
-        cr_by_index[i] = float(rect.get("cornerRadius") or 0)
-
     # Build dims map from nested_panels meta (width, height, cornerRadius)
     dims = {}
     for name, rec in nested_panels.items():
         try:
             w = float(rec.get("width") or 0)
             h = float(rec.get("height") or 0)
-            # Try nested_panels first, fall back to original rectangles array
             cr = float(rec.get("cornerRadius") or 0)
-            if cr <= 0:
-                rect_idx = rec.get("rectIndex", -1)
-                cr = cr_by_index.get(rect_idx, 0)
         except (TypeError, ValueError):
             continue
         if w > 0 and h > 0:

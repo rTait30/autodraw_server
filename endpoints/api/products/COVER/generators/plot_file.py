@@ -218,12 +218,11 @@ def generate_dxf(project, download_name: str):
       project = {
         "general": { "name": str, ... },
         "products": [ { "name": str, "productIndex": int, "attributes": { ... }, "calculated": { ... } }, ... ],
-        "project_attributes": { "nest": {...}, "nested_panels": {...}, ... },
-        "project_calculated": { ... }
+        "project_attributes": { "nest": {...}, "nested_panels": {...}, ... }
       }
     
     Args:
-        project: Full project dict with general, products, project_attributes, project_calculated
+        project: Full project dict with general, products, project_attributes
         download_name: Filename for the DXF download
     
     Returns:

@@ -177,7 +177,7 @@ def estimate_payload(product_id, payload_data, schema=None):
         
         evaluated_items.append({
             "id": pp.get("id") or f"temp_{i}",
-            "name": pp.get("label") or f"Item {i+1}",
+            "name": pp.get("name") or f"Item {i+1}",
             "contingencyPercent": contingency_pct,
             "marginPercent": margin_pct,
             "sections": evaluated_struct.get("sections", {}),

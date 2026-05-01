@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../services/auth';
 
-export default function SchemaSelector({ productId, onSelect, onClose }) {
+export default function SchemaSelector({ product, onSelect, onClose }) {
     const [schemas, setSchemas] = useState([]);
     const [loading, setLoading] = useState(true);
+    const productId = product?.id;
 
     useEffect(() => {
         if (!productId) return;
@@ -12,7 +13,7 @@ export default function SchemaSelector({ productId, onSelect, onClose }) {
         apiFetch('/est_schemas/get_by_product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product_id: productId })
+            body: JSON.stringify({ product })
         })
         .then(res => res.json())
         .then(data => {
@@ -23,7 +24,7 @@ export default function SchemaSelector({ productId, onSelect, onClose }) {
             }
         })
         .finally(() => setLoading(false));
-    }, [productId]);
+    }, [product, productId]);
 
     if (!productId) return null;
 

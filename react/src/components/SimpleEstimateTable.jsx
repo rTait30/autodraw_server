@@ -12,49 +12,22 @@ export default function SimpleEstimateTable({
     onTotalChange, 
     onChange, 
     onRecost,
-    projectId, 
-    productId, 
+    product,
     canSaveTemplate = false,
     devMode = false
 }) {
-  // Normalize schema to ensure it has 'items' array or sections
+  const productId = product?.id;
+
+  // API schema format is flat: { "Section Name": [...rows], "_constants": {...} }.
   const normalize = (data) => {
     if (!data) return { sections: {}, _constants: { contingencyPercent: 3, marginPercent: 45 } };
-    
-    let processed = data;
 
-    // 1. Handle Wrapper (Evaluated Schema format where sections are inside items[0])
-    // If we receive the *entire* evaluated object as 'schema' (which happens sometimes),
-    // we just want to extract the structure from the first item to use as our editing base.
-    if (processed.items && Array.isArray(processed.items)) {
-        processed = processed.items.length > 0 ? processed.items[0] : {};
-    }
+    const { _constants: constants = {}, ...rest } = data;
+    const sections = {};
+    Object.entries(rest).forEach(([key, value]) => {
+        if (Array.isArray(value)) sections[key] = value;
+    });
 
-    // 2. Identify Sections & Constants
-    let sections = {};
-    let constants = {};
-
-    if (processed.sections) {
-        // Standard Format
-        sections = processed.sections;
-        constants = processed._constants || {};
-        
-        // Sometimes constants are at root in this format
-        if (processed.contingencyPercent !== undefined) constants.contingencyPercent = processed.contingencyPercent;
-        if (processed.marginPercent !== undefined) constants.marginPercent = processed.marginPercent;
-    } else {
-        // Legacy / Flat Format
-        const { _constants, ...rest } = processed;
-        constants = _constants || {};
-        
-        Object.entries(rest).forEach(([k, v]) => {
-            if (Array.isArray(v)) {
-                sections[k] = v;
-            }
-        });
-    }
-
-    // 3. Ensure defaults
     return {
         sections: sections,
         _constants: { 
@@ -88,28 +61,14 @@ export default function SimpleEstimateTable({
 
   // Resolve the actual evaluated data object for the currently selected item
   const targetEvaluated = useMemo(() => {
-      if (!evaluatedSchema) return null;
-      if (evaluatedSchema.items && Array.isArray(evaluatedSchema.items)) {
-         return evaluatedSchema.items[activeItemIdx] || null;
-      }
-      return evaluatedSchema; // Fallback for single-object structures
+      return evaluatedSchema?.items?.[activeItemIdx] || null;
   }, [evaluatedSchema, activeItemIdx]);
 
   const evaluatedItems = useMemo(() => {
       if (evaluatedSchema?.items && Array.isArray(evaluatedSchema.items)) {
           return evaluatedSchema.items;
       }
-      // If we have a single object with 'sections', wrap it in an item structure
-      if (evaluatedSchema?.sections) {
-          return [{
-             id: 'single',
-             name: 'Estimate',
-             sections: evaluatedSchema.sections,
-             contingencyPercent: evaluatedSchema._constants?.contingencyPercent,
-             marginPercent: evaluatedSchema._constants?.marginPercent
-          }];
-      }
-      return evaluatedSchema ? [evaluatedSchema] : [];
+      return [];
   }, [evaluatedSchema]);
 
   const emitChange = useCallback((newData) => {
@@ -210,7 +169,7 @@ export default function SimpleEstimateTable({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                product_id: productId,
+                product,
                 name: name,
                 data: flatData,
                 is_default: false
@@ -283,7 +242,7 @@ export default function SimpleEstimateTable({
             </button>
             {showSchemaSelector && (
                 <SchemaSelector 
-                    productId={productId} 
+                    product={product}
                     onSelect={handleSelectTemplate} 
                     onClose={() => setShowSchemaSelector(false)} 
                 />
@@ -532,7 +491,7 @@ export default function SimpleEstimateTable({
 
         {showSchemaSelector && (
             <SchemaSelector 
-                productId={productId} 
+                product={product}
                 onSelect={handleSelectTemplate} 
                 onClose={() => setShowSchemaSelector(false)} 
             />

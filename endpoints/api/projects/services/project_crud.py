@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
 from dateutil.parser import parse as parse_date
 from sqlalchemy.orm.attributes import flag_modified
 from integrations.workguru.product_submissions.cover.quote import cover_quote
 from models import db, Project, ProjectProduct, User, Product, ProjectStatus
 
 from endpoints.api.projects.services.project_integration import enrich_wg_data, submit_cover_to_workguru, submit_shade_sail_to_workguru
-from endpoints.api.projects.services.project_calculator import calculate_project_metrics, estimate_totals, generate_record_template
+from endpoints.api.projects.services.project_calculator import calculate_project_metrics, estimate_totals
+from endpoints.api.projects.services.project_serialization import serialize_project_summary
 
 from integrations.workguru.product_submissions.cover.lead import cover_lead
 
@@ -15,10 +15,17 @@ def _as_int(v):
     except (TypeError, ValueError):
         return None
 
+
+def _payload_product_id(data, *, required=False):
+    product = data.get("product")
+    product_id = _as_int(product.get("id")) if isinstance(product, dict) else None
+    if (required or "product" in data) and product_id is None:
+        raise ValueError("product.id is required")
+    return product_id
+
 def create_project(user, data):
     general = data.get("general") or {}
     project_attributes = data.get("project_attributes") or {}
-    project_calculated = data.get("project_calculated") or {}
     products_payload = data.get("products") or []
 
     # Only allow these fields from "general" to map directly to Project
@@ -53,11 +60,10 @@ def create_project(user, data):
                 except Exception:
                     raise ValueError(f"Invalid status: {st}")
 
-    # ---- unified product id (required on create) ----
-    product_id = _as_int(data.get("product_id"))
-    if product_id is None:
-        raise ValueError("product_id is required")
-    if not db.session.get(Product, product_id):
+    # ---- canonical product id (required on create) ----
+    product_id = _payload_product_id(data, required=True)
+    product = db.session.get(Product, product_id)
+    if not product:
         raise ValueError(f"Product id {product_id} not found")
 
     # ---- determine client_id ----
@@ -84,13 +90,11 @@ def create_project(user, data):
         client_id=target_client_id,
         product_id=product_id,
         project_attributes=project_attributes,
-        project_calculated=project_calculated,
     )
     db.session.add(project)
     db.session.flush()  # get project.id for products
 
     # After we know product_id, copy default schema into project.estimate_schema
-    product = db.session.get(Product, product_id) if product_id is not None else None
     if product and product.default_schema:
         project.schema_id = product.default_schema.id       # optional "came from" pointer
         project.estimate_schema = product.default_schema.data
@@ -100,9 +104,7 @@ def create_project(user, data):
     if project.product:
         try:
             calc_input = {
-                "product_id": project.product_id,
-                "product_type": project.product.name,
-                "type": project.product.name,
+                "product": {"id": project.product.id, "name": project.product.name},
                 "general": general,
                 "project_attributes": project_attributes,
                 "products": products_payload,
@@ -133,18 +135,15 @@ def create_project(user, data):
             project.project_attributes["wg_data"] = enriched_wg_data
             flag_modified(project, "project_attributes")
     
-    # ---------- Check for discrepancy problems in shade_sail (product_id == 2) on create ----------
-    if product_id == 2:  # Only on create for shade_sail
+    # ---------- Check for discrepancy problems in shade_sail on create ----------
+    if project.product and project.product.name == "SHADE_SAIL":
         discrepancy_sails = []
         for idx, p in enumerate(products_payload):
             if p.get("attributes", {}).get("discrepancyProblem") == True:
-                label = p.get("name") or p.get("attributes", {}).get("label") or f"Item {idx + 1}"
+                label = p.get("name") or f"Item {idx + 1}"
                 discrepancy_sails.append(label)
         if discrepancy_sails:
             raise ValueError(f"Discrepancy problems in sails: {', '.join(discrepancy_sails)}")
-    
-    # Deprecated: keep project_calculated for backward compat but consider empty
-    project.project_calculated = project_calculated or {}
 
     # ---------- Replace products from payload ----------
     # Mark existing products as deleted instead of hard deleting
@@ -183,7 +182,7 @@ def create_project(user, data):
     db.session.commit()
 
     # WorkGuru submission
-    if (data.get("product_id") == 1 and data.get("submitToWG") == True):
+    if (project.product and project.product.name == "COVER" and data.get("submitToWG") == True):
         # Resolve WorkGuru Client ID
 
         print ("\n\n------------------------------\n\n")
@@ -208,7 +207,7 @@ def create_project(user, data):
         submit_cover_to_workguru(project, data, wg_client_id)
         '''
 
-    if (data.get("product_id") == 2 and data.get("submitToWG") == True):
+    if (project.product and project.product.name == "SHADE_SAIL" and data.get("submitToWG") == True):
         # Resolve WorkGuru Client ID
         wg_client_id = "194156" # Default for CP
         wg_name = None
@@ -226,16 +225,9 @@ def update_project(user, project_id, data):
     #print(f"[DEBUG] update_project: user_id={user.id if user else 'None'}, project_id={project_id}")
     general = data.get("general") or {}
     project_attributes = data.get("project_attributes")
-    project_calculated = data.get("project_calculated")
     products_payload = data.get("products")
-    new_product_id = data.get("product_id")
+    new_product_id = _payload_product_id(data)
     estimate_total = data.get("estimate_total")
-    
-    if new_product_id is not None:
-        try:
-            new_product_id = int(new_product_id)
-        except (TypeError, ValueError):
-            raise ValueError("product_id must be an integer")
 
     # Ensure project exists
     project = Project.query.filter_by(id=project_id, deleted=False).first()
@@ -248,56 +240,56 @@ def update_project(user, project_id, data):
             raise ValueError("Unauthorized")
 
     # ---------- Update general (Project) fields ----------
-    if general.get("enabled", True):
-        if "name" in general:
-            project.name = (general["name"] or "").strip()
-        if "client_id" in general:
-            cid = general["client_id"]
-            if cid in (None, "", "null"):
-                project.client_id = None
-            else:
+    if "name" in general:
+        project.name = (general["name"] or "").strip()
+    if "client_id" in general:
+        cid = general["client_id"]
+        if cid in (None, "", "null"):
+            project.client_id = None
+        else:
+            try:
+                project.client_id = int(cid)
+            except (TypeError, ValueError):
+                raise ValueError("client_id must be an integer or empty")
+    if "due_date" in general:
+        dd = general["due_date"]
+        if dd in (None, "", "null"):
+            project.due_date = None
+        elif isinstance(dd, str):
+            try:
+                project.due_date = parse_date(dd)
+            except Exception:
+                raise ValueError(f"Invalid due_date format: {dd}")
+        else:
+            project.due_date = dd
+    if "info" in general:
+        project.info = general["info"]
+    if "status" in general:
+        st = general["status"]
+        if st is not None:
+            if isinstance(st, ProjectStatus):
+                project.status = st
+            elif isinstance(st, str):
                 try:
-                    project.client_id = int(cid)
-                except (TypeError, ValueError):
-                    raise ValueError("client_id must be an integer or empty")
-        if "due_date" in general:
-            dd = general["due_date"]
-            if dd in (None, "", "null"):
-                project.due_date = None
-            elif isinstance(dd, str):
-                try:
-                    project.due_date = parse_date(dd)
-                except Exception:
-                    raise ValueError(f"Invalid due_date format: {dd}")
-            else:
-                project.due_date = dd
-        if "info" in general:
-            project.info = general["info"]
-        if "status" in general:
-            st = general["status"]
-            if st is not None:
-                if isinstance(st, ProjectStatus):
-                    project.status = st
-                elif isinstance(st, str):
+                    project.status = ProjectStatus[st]
+                except KeyError:
                     try:
-                        project.status = ProjectStatus[st]
-                    except KeyError:
-                        try:
-                            project.status = ProjectStatus(st)
-                        except ValueError:
-                            raise ValueError(f"Invalid status: {st}")
-        if "order_type" in general:
-            ot = general["order_type"]
-            pa = dict(project.project_attributes or {})
-            pa["order_type"] = ot if ot == "quote" else "job"
-            project.project_attributes = pa
-            flag_modified(project, "project_attributes")
+                        project.status = ProjectStatus(st)
+                    except ValueError:
+                        raise ValueError(f"Invalid status: {st}")
+    if "order_type" in general:
+        ot = general["order_type"]
+        pa = dict(project.project_attributes or {})
+        pa["order_type"] = ot if ot == "quote" else "job"
+        project.project_attributes = pa
+        flag_modified(project, "project_attributes")
 
     # ---------- Optional product change ----------
     if new_product_id is not None and new_product_id != project.product_id:
-        if not db.session.get(Product, new_product_id):
+        product = db.session.get(Product, new_product_id)
+        if not product:
             raise ValueError(f"Product id {new_product_id} not found")
-        project.product_id = new_product_id
+        project.product = product
 
     # ---------- Update estimate total if provided ----------
     if estimate_total is not None:
@@ -310,9 +302,7 @@ def update_project(user, project_id, data):
     if project_attributes is not None and project.product:
         try:
             calc_input = {
-                "product_id": project.product_id,
-                "product_type": project.product.name,
-                "type": project.product.name,
+                "product": {"id": project.product.id, "name": project.product.name},
                 "general": general,
                 "project_attributes": project_attributes,
                 "products": products_payload if products_payload is not None else [],
@@ -337,10 +327,6 @@ def update_project(user, project_id, data):
     elif project_attributes is not None:
         project.project_attributes = project_attributes
 
-    # Deprecated: project_calculated kept for backward compat
-    if project_calculated is not None:
-        project.project_calculated = project_calculated
-
     # ---------- Update products if provided ----------
     if products_payload is not None:
         # Simple semantics: replace all products with the new list
@@ -351,16 +337,19 @@ def update_project(user, project_id, data):
                 raise ValueError("each product must be an object")
 
             attrs = p.get("attributes") or {}
+            if not isinstance(attrs, dict):
+                raise ValueError("product.attributes must be an object")
             calc = p.get("calculated") or {}
             autodraw_record = p.get("autodraw_record") or {}
             autodraw_meta = p.get("autodraw_meta") or {}
             status = p.get("status", "pending")
 
             label = p.get("name") or f"Item {idx + 1}"
+            item_index = p.get("productIndex", idx)
 
             pp = ProjectProduct(
                 project_id=project.id,
-                item_index=idx,
+                item_index=item_index,
                 label=label,
                 attributes=attrs,
                 calculated=calc,
@@ -404,22 +393,7 @@ def list_projects(user, client_id=None):
             except ValueError:
                 raise ValueError("client_id must be an integer")
 
-    projects = query.all()
-    result = []
-
-    for project in projects:
-        client_user = User.query.get(project.client_id)
-
-        result.append({
-            "id": project.id,
-            "name": project.name,
-            "type": project.product.name if project.product else None,
-            "status": project.status.name if hasattr(project.status, "name") else project.status,
-            "due_date": project.due_date.isoformat() if project.due_date else None,
-            "info": project.info,
-            "client": client_user.username if client_user else None,
-        })
-    return result
+    return [serialize_project_summary(project) for project in query.all()]
 
 def list_deleted_projects(user, client_id=None):
     """List soft deleted projects (same authorization as list_projects)."""
@@ -433,23 +407,7 @@ def list_deleted_projects(user, client_id=None):
             except ValueError:
                 raise ValueError("client_id must be an integer")
 
-    projects = query.all()
-    result = []
-
-    for project in projects:
-        client_user = User.query.get(project.client_id)
-
-        result.append({
-            "id": project.id,
-            "name": project.name,
-            "type": project.product.name if project.product else None,
-            "status": project.status.name if hasattr(project.status, "name") else project.status,
-            "due_date": project.due_date.isoformat() if project.due_date else None,
-            "info": project.info,
-            "client": client_user.username if client_user else None,
-        })
-
-    return result
+    return [serialize_project_summary(project) for project in query.all()]
 
 def get_project(user, project_id):
     project = Project.query.filter_by(id=project_id, deleted=False).first()
@@ -489,26 +447,6 @@ def list_client_users():
     """Return all client User rows."""
     return User.query.filter_by(role="client").all()
 
-
-def list_project_products_for_editor(project_id, order_by_item_index=False):
-    """Return ProjectProduct rows formatted for save/edit responses."""
-    query = ProjectProduct.query.filter_by(project_id=project_id, deleted=False)
-    if order_by_item_index:
-        query = query.order_by(ProjectProduct.item_index)
-
-    return [
-        {
-            "id": pp.id,
-            "itemIndex": pp.item_index,
-            "label": pp.label,
-            "attributes": pp.attributes,
-            "calculated": pp.calculated,
-            "autodraw_record": pp.autodraw_record or {},
-            "autodraw_meta": pp.autodraw_meta or {},
-            "status": pp.status or "pending",
-        }
-        for pp in query.all()
-    ]
 
 def delete_project(user, project_id):
     """Mark a project as deleted (soft delete)."""

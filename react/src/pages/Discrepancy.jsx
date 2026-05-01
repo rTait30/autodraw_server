@@ -20,6 +20,7 @@ export default function Discrepancy() {
   const overlayCanvasRef = useRef(null);
   
   const [editedProject, setEditedProject] = useState({});
+  const [shadeSailProduct, setShadeSailProduct] = useState(null);
   const [overlayMode, setOverlayMode] = useState(null); // 'preview' | null
   const [toggleData, setToggleData] = useState(false);
   
@@ -32,6 +33,15 @@ export default function Discrepancy() {
 
   // Simple check for active account (token/user existence)
   const isLoggedIn = !!localStorage.getItem('username');
+
+  useEffect(() => {
+    apiFetch('/products')
+      .then((response) => response.json())
+      .then((products) => {
+        setShadeSailProduct((products || []).find((product) => product.name === 'SHADE_SAIL') || null);
+      })
+      .catch((error) => console.error('Failed to load products', error));
+  }, []);
 
   // Check for saved draft on mount
   useEffect(() => {
@@ -113,6 +123,10 @@ export default function Discrepancy() {
       showToast("Please add at least one sail", "error");
       return;
     }
+    if (!shadeSailProduct?.id) {
+      showToast("SHADE_SAIL product is not available", "error");
+      return;
+    }
 
     // Clear canvas first
     const embeddedCtx = embeddedCanvasRef.current?.getContext("2d");
@@ -127,7 +141,7 @@ export default function Discrepancy() {
 
     try {
       const payload = {
-        product_id: 2, // SHADE_SAIL
+        product: shadeSailProduct,
         general: currentData.general || {},
         project_attributes: currentData.project_attributes || {},
         products: products,
@@ -144,6 +158,7 @@ export default function Discrepancy() {
       // Update state with result
       const updated = {
         ...currentData,
+        product: result.product || shadeSailProduct,
         products: result.products || [], // Server returns products with analyzed attributes
         project_attributes: result.project_attributes || {},
       };
@@ -183,6 +198,10 @@ export default function Discrepancy() {
       showToast("Please add at least one sail before saving", "error");
       return;
     }
+    if (!shadeSailProduct?.id) {
+      showToast("SHADE_SAIL product is not available", "error");
+      return;
+    }
 
     const now = new Date();
     const dateStr = now.toISOString().replace('T', ' ').split('.')[0];
@@ -205,7 +224,7 @@ export default function Discrepancy() {
         from: 'discrepancy',
         project: {
           general: { ...(currentData.general || {}), name: finalName },
-          product_id: 2,
+          product: shadeSailProduct,
           project_attributes: currentData.project_attributes || {},
           products: products,
         }
@@ -220,7 +239,7 @@ export default function Discrepancy() {
         ...(currentData.general || {}),
         name: finalName,
       },
-      product_id: 2, // SHADE_SAIL
+      product: shadeSailProduct,
       project_attributes: currentData.project_attributes || {},
       products: products,
     };
@@ -308,7 +327,7 @@ export default function Discrepancy() {
                     <div className="p-4 space-y-4">
                         <ProjectConfirmation 
                             project={savedProject} 
-                            productName="SHADE_SAIL" 
+                            productName={savedProject.product?.name}
                         />
                         <div className="flex flex-col gap-3 pt-2">
                              <Button 

@@ -23,7 +23,8 @@ export default function ProjectOverlay({
   const submitLabel = `${isExistingProject ? 'Edit' : 'Submit'} ${currentOrderType === 'job' ? 'Job' : 'Quote'}`;
 
   useEffect(() => {
-    if (mode !== 'preview' || isCalculating) return;
+    if (isCalculating) return;
+    if (mode === 'confirm' || mode === 'success') return;
     if (!canvasRef?.current) return;
     onPreviewReady?.(canvasRef.current);
   }, [mode, isCalculating, canvasRef, onPreviewReady, project]);

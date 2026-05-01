@@ -1,5 +1,5 @@
 # api/estimating_schemas_api.py
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify
 from models import db, EstimatingSchema, Product
 from endpoints.api.auth.utils import role_required, current_user
 
@@ -8,9 +8,14 @@ est_schemas_bp = Blueprint(
     __name__,
 )
 
-@est_schemas_bp.route("/est_schemas/test", methods=["GET"])
-def test():
-    return jsonify({'message': 'Estimating Schemas API working'})
+
+def _product_id_from_payload(payload):
+    product = payload.get("product")
+    try:
+        product_id = int(product.get("id")) if isinstance(product, dict) and product.get("id") is not None else None
+    except (TypeError, ValueError):
+        return None
+    return product_id
 
 @est_schemas_bp.route("/est_schemas/create", methods=["POST"])
 @role_required("estimator", "admin")
@@ -24,12 +29,12 @@ def create_schema():
             return jsonify({"error": "Unauthorized"}), 401
 
         payload = request.get_json(silent=True) or {}
-        product_id = payload.get("product_id")
+        product_id = _product_id_from_payload(payload)
         data = payload.get("data")
         name = (payload.get("name") or "Untitled Schema").strip()
 
         if not product_id:
-            return jsonify({"error": "product_id is required"}), 400
+            return jsonify({"error": "product.id is required"}), 400
         if data is None:
             return jsonify({"error": "data (schema JSON) is required"}), 400
 
@@ -46,7 +51,6 @@ def create_schema():
         )
         db.session.add(schema)
         db.session.commit()
-        print(f"DEBUG: Schema created with ID {schema.id}")
 
         return jsonify({"id": schema.id}), 201
     except Exception as e:
@@ -61,20 +65,16 @@ def get_schemas_by_product():
     Get all estimating schemas for a specific product.
     """
     try:
-        print("DEBUG: get_schemas_by_product called")
         payload = request.get_json(silent=True) or {}
-        product_id = payload.get("product_id")
+        product_id = _product_id_from_payload(payload)
 
         if not product_id:
-            return jsonify({"error": "product_id is required"}), 400
-        
-        print(f"DEBUG: Fetching schemas for product_id={product_id}")
+            return jsonify({"error": "product.id is required"}), 400
 
         schemas = EstimatingSchema.query.filter_by(product_id=product_id).all()
         # Sort by default first, then name
         schemas.sort(key=lambda x: (not x.is_default, x.name))
         
-        print(f"DEBUG: Found {len(schemas)} schemas")
         return jsonify([{
             "id": s.id, 
             "name": s.name, 
@@ -90,10 +90,8 @@ def get_schemas_by_product():
 @role_required("estimator", "admin", "designer")
 def get_schema(schema_id):
     try:
-        print(f"DEBUG: get_schema called for schema_id={schema_id}")
         schema = EstimatingSchema.query.get(schema_id)
         if not schema:
-            print(f"DEBUG: Schema {schema_id} not found")
             return jsonify({"error": "Schema not found"}), 404
         return jsonify({
             "id": schema.id, 

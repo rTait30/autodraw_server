@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, Suspense, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { apiFetch } from '../services/auth';
 import { Button } from '../components/UI';
 import PageHeader from '../components/PageHeader';
@@ -15,12 +14,20 @@ const RectanglesForm = React.lazy(() =>
 );
 
 export default function Rectangles() {
-  const navigate = useNavigate();
-
   const formRef = useRef(null);
   const canvasRef = useRef(null);
   const [nestStatus, setNestStatus] = useState({ text: "", ok: null });
   const [projectData, setProjectData] = useState(null);
+  const [rectanglesProduct, setRectanglesProduct] = useState(null);
+
+  useEffect(() => {
+    apiFetch('/products')
+      .then((response) => response.json())
+      .then((products) => {
+        setRectanglesProduct((products || []).find((product) => product.name === 'RECTANGLES') || null);
+      })
+      .catch((error) => console.error('Failed to load products', error));
+  }, []);
 
   // Render canvas using Display module when project data changes
   useEffect(() => {
@@ -52,6 +59,10 @@ export default function Rectangles() {
       setNestStatus({ text: "No form data available", ok: false });
       return;
     }
+    if (!rectanglesProduct?.id) {
+      setNestStatus({ text: "RECTANGLES product is not available", ok: false });
+      return;
+    }
 
     // Clear canvas first
     const ctx = canvasRef.current?.getContext("2d");
@@ -62,7 +73,7 @@ export default function Rectangles() {
     try {
       // Call server-side API to calculate rectangles nesting
       const payload = {
-        product_id: 3, // RECTANGLES product ID (from productsConfig.js)
+        product: rectanglesProduct,
         general: {},
         project_attributes: all.project,
         products: []
@@ -79,6 +90,7 @@ export default function Rectangles() {
 
       // Update project data for canvas rendering
       setProjectData({
+        product: result.product || rectanglesProduct,
         products: result.products || [],
         project_attributes: result.project_attributes || {},
       });

@@ -166,7 +166,7 @@ export default function GeneralBottomBar({ className = '', onProjectsClick, onTo
   const confirmReplaceConfirm = () => {
     setReplaceConfirm({ show: false });
     handleCloseProjectWithOptions({ discardDraft: true });
-    setDraftProject({ status: 'New', general: { name: 'New Project' } });
+    setDraftProject({ general: { name: 'New Project' } });
     setActivePage('project');
     setIsProjectMounted(true);
     setIsProjectVisible(true);

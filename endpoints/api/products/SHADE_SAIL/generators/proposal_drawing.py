@@ -24,6 +24,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.utils import ImageReader
 
 from .shared import extract_sail_geometry, get_transform_params, transform_point_to_canvas
+from endpoints.api.products.SHADE_SAIL.calculations import calculate as _calculate_project
 
 # Register Cabin fonts (Google Font - same as frontend)
 # Look for fonts in static/fonts folder first, then fallback to Helvetica
@@ -312,7 +313,9 @@ def _build_proposal_pdf(tmp_path: str, project: dict):
         project: Project dictionary
     """
     c = canvas.Canvas(tmp_path, pagesize=LANDSCAPE_SIZE)
-    
+
+    _calculate_project(project)
+
     general = project.get("general", {})
     products = project.get("products", [])
     show_directions = project.get("general", {}).get("directions", False)
@@ -870,7 +873,7 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
                     break
             
             if edge_length:
-                dim_text = f"{int(edge_length)}mm"
+                dim_text = f"{charspec(i)}-{charspec((i + 1) % len(point_order))}: {int(edge_length)}mm"
                 text_width = c.stringWidth(dim_text, FONT_REGULAR, 8)
                 text_height = 8
 
@@ -909,8 +912,6 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         # Get corner info
         point_info = points_data.get(label, {})
 
-        #print (f"[DEBUG] Point {label} info: {point_info}")  # Debug print
-
         height_val = point_info.get("height", 0)
         fitting = point_info.get("cornerFitting", "")
         hardware = point_info.get("tensionHardware", "")
@@ -918,12 +919,17 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         structure = point_info.get("Structure", "Pole")
         
         # Check for special points
+        exit_point_raw = geometry.get("exit_point")
+        logo_point_raw = geometry.get("logo_point")
+        exit_label = _to_label(exit_point_raw)
+        logo_label = _to_label(logo_point_raw)
+
         extra_tags = []
-        if label == geometry.get("exit_point"):
-            extra_tags.append("Exit")
-        if label == geometry.get("logo_point"):
-            extra_tags.append("Logo")
-        
+        if exit_label and display_label == exit_label:
+            extra_tags.append("EXIT")
+        if logo_label and display_label == logo_label:
+            extra_tags.append("LOGO")
+
         # Draw line from structure (fitting point) to workpoint first (behind circle)
         if label in workpoints:
             wp = workpoints[label]
@@ -969,10 +975,9 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         dist = math.sqrt(dx * dx + dy * dy) or 1.0
         ux, uy = dx / dist, dy / dist
         
-        # Build info lines
+        # Build info lines (tag_lines drawn in red caps, info_lines in normal dark text)
+        tag_lines = extra_tags  # Already uppercase: "EXIT", "LOGO"
         info_lines = []
-        if extra_tags:
-            info_lines.append(f"({', '.join(extra_tags)})")
         if height_val:
             info_lines.append(f"H: {int(round(height_val))}mm")
         if fitting:
@@ -983,17 +988,22 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             info_lines.append(f"HW: {hardware}")
         if structure:
             info_lines.append(f"Struct: {structure}")
-        
-        if info_lines:
+
+        all_lines = tag_lines + info_lines
+
+        if all_lines:
             font_sz = 6
+            tag_font_sz = 7
             line_ht = 7
             box_pad_x = 3
             box_pad_y = 2
-            
-            # Measure box dimensions
-            max_w = max(c.stringWidth(ln, FONT_REGULAR, font_sz) for ln in info_lines)
+
+            # Measure box dimensions (consider both tag and info line widths)
+            widths = [c.stringWidth(ln, FONT_BOLD, tag_font_sz) for ln in tag_lines] + \
+                     [c.stringWidth(ln, FONT_REGULAR, font_sz) for ln in info_lines]
+            max_w = max(widths) if widths else 20
             box_w = max_w + box_pad_x * 2
-            box_h = len(info_lines) * line_ht + box_pad_y * 2
+            box_h = len(all_lines) * line_ht + box_pad_y * 2
 
             # Offset outward so box edge starts at distance from circle
             info_offset = 14
@@ -1013,12 +1023,22 @@ def _draw_top_view(c: canvas.Canvas, geometry: dict, attrs: dict,
             c.setLineWidth(0.4)
             c.roundRect(box_x, box_y, box_w, box_h, 2, stroke=1, fill=1)
 
-            # Text lines (top to bottom)
+            text_start_y = box_y + box_h - box_pad_y - font_sz * 0.9
+            line_idx = 0
+
+            # Draw info lines in dark grey first (top)
             c.setFont(FONT_REGULAR, font_sz)
             c.setFillColor(Color(0.15, 0.15, 0.15))
-            text_start_y = box_y + box_h - box_pad_y - font_sz * 0.9
-            for i, line in enumerate(info_lines):
-                c.drawString(box_x + box_pad_x, text_start_y - i * line_ht, line)
+            for ln in info_lines:
+                c.drawString(box_x + box_pad_x, text_start_y - line_idx * line_ht, ln)
+                line_idx += 1
+
+            # Draw EXIT/LOGO tags in red bold capitals at the bottom
+            c.setFont(FONT_BOLD, tag_font_sz)
+            c.setFillColor(Color(0.85, 0, 0))
+            for ln in tag_lines:
+                c.drawString(box_x + box_pad_x, text_start_y - line_idx * line_ht, ln)
+                line_idx += 1
     
     c.setFillColor(black)  # Reset fill color
     
@@ -2055,12 +2075,17 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         allowance = point_info.get("tensionAllowance", 0)
         structure = point_info.get("Structure", "Pole")
         
-        # Check for special points
+        # Check for special points - normalise raw value to letter
+        exit_point_raw = geometry.get("exit_point")
+        logo_point_raw = geometry.get("logo_point")
+        exit_label = _to_label(exit_point_raw)
+        logo_label = _to_label(logo_point_raw)
+
         extra_tags = []
-        if label == geometry.get("exit_point"):
-            extra_tags.append("Exit")
-        if label == geometry.get("logo_point"):
-            extra_tags.append("Logo")
+        if exit_label and display_label == exit_label:
+            extra_tags.append("EXIT")
+        if logo_label and display_label == logo_label:
+            extra_tags.append("LOGO")
         
         # Pole cap / fitting - grey
         c.setStrokeColor(Color(0.35, 0.35, 0.35))
@@ -2083,8 +2108,6 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         c.setFillColor(Color(0.3, 0.3, 0.3))
         
         info_lines = []
-        if extra_tags:
-            info_lines.append(f"({', '.join(extra_tags)})")
         if height_val > 0 and has_any_height and COMPLEX_RENDER:
             height_text = f"H: {int(height_val)}mm" if height_val < 10000 else f"H: {height_val/1000:.1f}m"
             info_lines.append(height_text)
@@ -2095,8 +2118,19 @@ def _draw_isometric_view(c: canvas.Canvas, geometry: dict, attrs: dict,
         if hardware:
             info_lines.append(f"HW: {hardware}")
         
+        # Draw info lines in dark grey
+        c.setFont(FONT_REGULAR, 6)
+        c.setFillColor(Color(0.3, 0.3, 0.3))
         for i, line in enumerate(info_lines):
             c.drawCentredString(top_pt[0], info_y + i * 7, line)
+        
+        # Draw EXIT/LOGO tags in red bold at the bottom
+        if extra_tags:
+            c.setFont(FONT_BOLD, 7)
+            c.setFillColor(Color(0.85, 0, 0))
+            tag_y = info_y + len(info_lines) * 7
+            for j, tag in enumerate(extra_tags):
+                c.drawCentredString(top_pt[0], tag_y + j * 7, tag)
         
         c.setFillColor(black)
         
@@ -2314,3 +2348,15 @@ def charspec(idx):
     #if char == "G":
     #    char = "A"  # Wrap around to A after F
     return char
+
+
+def _to_label(val):
+    """Convert a raw exit/logo point value (int, numeric string, or letter) to a letter label."""
+    if val is None or val == "":
+        return None
+    if isinstance(val, int):
+        return charspec(val)
+    try:
+        return charspec(int(val))
+    except (ValueError, TypeError):
+        return str(val)  # already a letter like "A"

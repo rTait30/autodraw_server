@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 
 import { apiFetch } from '../services/auth';
 import CollapsibleCard from '../components/CollapsibleCard';
@@ -17,15 +16,12 @@ function Projects() {
   const [deletedProjects, setDeletedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingDeleted, setLoadingDeleted] = useState(false);
-  const productsList = useSelector(state => state.products.list);
   
   // Inline expansion state
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedProject, setExpandedProject] = useState(null);
   const expandedProjectRef = useRef(expandedProject);
   
-  const navigate = useNavigate();
-
   // Draft State -- null if no draft, else object { isNew, id, name }
   const [draftInfo, setDraftInfo] = useState(null);
 
@@ -73,47 +69,6 @@ function Projects() {
     const interval = setInterval(checkDraft, 3000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleContinueDraft = () => {
-      try {
-          const draftStr = localStorage.getItem('autodraw_draft');
-          if (!draftStr) return;
-          const draft = JSON.parse(draftStr);
-          
-          if (draft && draft.project) {
-              // Set draft flag to prevent useEffect overwrite
-              draft.project._isDraft = true;
-              setExpandedProject(draft.project);
-              
-              if (draft.isNew) {
-                  setSearchParams({ new: 'true' });
-              } else if (draft.project.id) {
-                  setSearchParams({ open: draft.project.id });
-              }
-          }
-      } catch (e) {
-          console.error("Failed to restore draft", e);
-      }
-  };
-
-  const startNewProjectNow = () => {
-    discardDraftAndCloseInline();
-    setDraftInfo(null);
-    setExpandedProject(null);
-    setSearchParams({ new: 'true' });
-  };
-
-  const handleStartNewProject = () => {
-    const hasDraftLocal = !!localStorage.getItem('autodraw_draft');
-    const hasOpenEditor = !!expandedProject;
-
-    if (hasDraftLocal || hasOpenEditor) {
-      setReplaceConfirm({ show: true, type: 'new', targetId: null, targetName: null });
-      return;
-    }
-
-    startNewProjectNow();
-  };
 
   // 1. Load the list
   const fetchProjects = async () => {
@@ -174,7 +129,7 @@ function Projects() {
     } else if (isNew) {
       // New mode. ensure we have a project stub so ProjectInline can render (and handle draft check)
       if (!current) {
-          setExpandedProject({ status: 'New', general: { name: 'New Project' } });
+          setExpandedProject({ general: { name: 'New Project' }, products: [], project_attributes: {} });
       }
     } else {
       // Only clear if NOT a draft we just loaded (prevents race condition where state updates before params)
@@ -207,7 +162,7 @@ function Projects() {
         show: true,
         type: 'open',
         targetId: id,
-        targetName: target?.name || `Project ${id}`
+        targetName: target?.general?.name || `Project ${id}`
       });
       return;
     }
@@ -220,11 +175,6 @@ function Projects() {
     const next = replaceConfirm;
     cancelReplaceConfirm();
 
-    if (next.type === 'new') {
-      startNewProjectNow();
-      return;
-    }
-
     if (next.type === 'open' && next.targetId) {
       proceedOpenProject(next.targetId);
     }
@@ -233,7 +183,7 @@ function Projects() {
   // Notify bottom bar when a project is opened/closed on this page
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('autodraw:project-editor', { detail: { open: !!expandedProject } }));
-  }, [!!expandedProject]);
+  }, [expandedProject]);
 
   const handleCloseProject = () => {
     setSearchParams((params) => {
@@ -242,17 +192,6 @@ function Projects() {
       return params;
     });
     setExpandedProject(null);
-  };
-
-  const handleProductSelect = (product) => {
-    setExpandedProject({
-        status: 'New',
-        general: { name: 'New Project' },
-        product: product,
-        product_id: product.id,
-        products: [],
-        project_attributes: {}
-    });
   };
 
   // Handle delete confirmation
@@ -327,7 +266,7 @@ function Projects() {
       <Button
         onClick={(e) => {
           e.stopPropagation();
-          handleDeleteProject(project.id, project.name);
+          handleDeleteProject(project.id, project.general?.name || `Project ${project.id}`);
         }}
         variant="ghost"
         className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
@@ -342,7 +281,7 @@ function Projects() {
         <Button
           onClick={(e) => {
             e.stopPropagation();
-            handleHardDeleteProject(project.id, project.name);
+            handleHardDeleteProject(project.id, project.general?.name || `Project ${project.id}`);
           }}
           variant="ghost"
           className="p-1.5 text-red-800 hover:text-red-900 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded transition-colors"
@@ -361,7 +300,7 @@ function Projects() {
       <Button
         onClick={(e) => {
           e.stopPropagation();
-          handleRecoverProject(project.id, project.name);
+          handleRecoverProject(project.id, project.general?.name || `Project ${project.id}`);
         }}
         variant="ghost"
         className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
@@ -376,7 +315,7 @@ function Projects() {
         <Button
           onClick={(e) => {
             e.stopPropagation();
-            handleHardDeleteProject(project.id, project.name);
+            handleHardDeleteProject(project.id, project.general?.name || `Project ${project.id}`);
           }}
           variant="ghost"
           className="p-1.5 text-red-800 hover:text-red-900 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/40 rounded transition-colors"
@@ -390,35 +329,14 @@ function Projects() {
     </div>
   );
 
-  // Format Helper
-  const formatName = (name) => name ? name.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase()) : '';
-
   if (loading) return <div className="p-8 text-center text-gray-500">Loading projects...</div>;
 
   const isNewMode = searchParams.get('new') === 'true';
-  // Don't show selector if we have a draft loaded, even if product object might be momentarily checking
-  // Also if we have a draft in storage, let ProjectInline handle the draft recovery UI
-  const hasDraft = !!localStorage.getItem('autodraw_draft');
-  const showSelector = isNewMode && !hasDraft && (!expandedProject || (!expandedProject.product && !expandedProject._isDraft));
-
   // Split projects
-  const activeProjects = projects.filter(p => !p.status?.toLowerCase().includes("completed"));
-  const completedProjects = projects.filter(p => p.status?.toLowerCase().includes("completed"));
+  const activeProjects = projects.filter(p => !p.general?.status?.toLowerCase().includes("completed"));
+  const completedProjects = projects.filter(p => p.general?.status?.toLowerCase().includes("completed"));
 
-  const isInlineOpen = expandedProject && !showSelector;
-
-  /*
-<Button
-              variant="primary"
-              onClick={handleStartNewProject}
-              className="flex items-center gap-3 text-sm font-bold"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Project
-            </Button>
-  */
+  const isInlineOpen = !!expandedProject;
 
   return (
     
@@ -580,7 +498,7 @@ function Projects() {
       />
 
       {/* Render Inline Editor if a project is expanded OR new mode */}
-      {(expandedProject && !showSelector) && (
+      {expandedProject && (
         <ProjectInline 
           key={isNewMode ? 'new' : (expandedProject?.id || 'open')}
           project={expandedProject} 

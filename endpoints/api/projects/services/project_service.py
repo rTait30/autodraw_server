@@ -7,7 +7,6 @@ from endpoints.api.projects.services.project_crud import (
     list_all_products,
     list_pricelist_items,
     list_client_users,
-    list_project_products_for_editor,
     delete_project,
     delete_project_product,
     recover_project,
@@ -17,8 +16,4 @@ from endpoints.api.projects.services.project_crud import (
 from endpoints.api.projects.services.project_documents import (
     list_project_documents,
     generate_project_document,
-)
-
-from endpoints.api.projects.services.project_calculator import (
-    generate_record_template
 )

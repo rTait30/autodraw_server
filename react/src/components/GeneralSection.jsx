@@ -116,7 +116,7 @@ export function GeneralSection({ data, setData = () => {}, onlyName = false, hid
             label="Status"
             value={safe.status}
             onChange={updateField("status")}
-            options={[{ value: "", label: "Select status" }, ...STATUS_OPTIONS]}
+            options={STATUS_OPTIONS}
           />
         </> // End of staffFields block
       )}

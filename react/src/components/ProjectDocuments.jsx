@@ -30,20 +30,7 @@ function filenameFromResponse(response, projectId, doc) {
   return filename;
 }
 
-function showDownloadError(showToast, message) {
-  if (showToast) {
-    showToast({
-      message,
-      type: 'error',
-      duration: 4000,
-    });
-    return;
-  }
-
-  alert(message);
-}
-
-export default function ProjectDocuments({ project, showToast }) {
+export default function ProjectDocuments({ project, showToast, getProjectSnapshot }) {
   const projectId = project?.id;
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -89,10 +76,11 @@ export default function ProjectDocuments({ project, showToast }) {
 
     setDownloadingId(doc.id);
     try {
+      const snapshot = getProjectSnapshot?.();
       const response = await apiFetch(`/project/${projectId}/documents/${encodeURIComponent(doc.id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(snapshot ? { project: snapshot } : {}),
       });
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -105,7 +93,11 @@ export default function ProjectDocuments({ project, showToast }) {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
-      showDownloadError(showToast, `Failed to download document: ${error.message}`);
+      showToast?.({
+        message: `Failed to download document: ${error.message}`,
+        type: 'error',
+        duration: 4000,
+      });
     } finally {
       setDownloadingId(null);
     }
